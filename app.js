@@ -17,7 +17,7 @@ try {
     filer.prepareDirectories(REQUIRED_DIRS);
 
     logger.success("Required Directories Ready");
-    //await generateDBTables();
+    await generateDBTables();
     logger.success("Database Ready (Tables Verified)");
     allowTraffic();
 } catch (e) {

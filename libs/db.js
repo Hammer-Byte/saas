@@ -7,6 +7,7 @@ export const dbConnection = new SQL({
     database: Bun.env.MYSQL_DB,
     username: Bun.env.MYSQL_USERNAME,
     password: Bun.env.MYSQL_PASSWORD,
+    tls: false,
 });
 
 export async function generateDBTables() {
