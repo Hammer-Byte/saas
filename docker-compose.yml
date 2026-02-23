@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+    hammerbyte_saas:
+        container_name: hammerbyte_saas
+        build: .
+        restart: always
+        ports:
+            - "13001:3000"
+        environment:
+            - NODE_ENV=production
+            - PORT=3000
+        env_file:
+            - .env
+        networks:
+            - global-network
+
+networks:
+    global-network:
+        external: true
