@@ -5,13 +5,11 @@ services:
         container_name: hammerbyte_saas
         build: .
         restart: always
-        ports:
-            - "13001:3000"
+        expose:
+            - "3000"
         environment:
-            - NODE_ENV=production
-            - PORT=3000
-        env_file:
-            - .env
+            NODE_ENV: production
+            PORT: 3000
         networks:
             - global-network
 
