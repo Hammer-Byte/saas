@@ -6,7 +6,7 @@
       "name": "hammerbyte_api",
       "dependencies": {
         "@elysiajs/static": "^1.4.7",
-        "@hammerbyte/utils": "^0.0.9",
+        "@hammerbyte/utils": "^0.0.10",
         "ejs": "^3.1.10",
         "elysia": "^1.4.21",
       },
@@ -17,7 +17,7 @@
 
     "@elysiajs/static": ["@elysiajs/static@1.4.7", "", { "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-Go4kIXZ0G3iWfkAld07HmLglqIDMVXdyRKBQK/sVEjtpDdjHNb+rUIje73aDTWpZYg4PEVHUpi9v4AlNEwrQug=="],
 
-    "@hammerbyte/utils": ["@hammerbyte/utils@0.0.9", "", { "dependencies": { "chalk": "^4.1.2" } }, "sha512-ylb1BEPLFu1CY35iuhB3oZXOu41JGwZWLdnmDBmBeWowS7+kxEy9muORt8hePLak+L8+mRdUpjRibbq/3w7dIw=="],
+    "@hammerbyte/utils": ["@hammerbyte/utils@0.0.10", "", { "dependencies": { "chalk": "^4.1.2" } }, "sha512-RmKzMPonA8iYIl5NLDh9nrvFfa5ePymU81/6sEGbE+OBeqC5AWP+XzWktgS6TX1RGBYpEI2Q91aJavhrWiZGRA=="],
 
     "@sinclair/typebox": ["@sinclair/typebox@0.34.47", "", {}, "sha512-ZGIBQ+XDvO5JQku9wmwtabcVTHJsgSWAHYtVuM9pBNNR5E88v6Jcj/llpmsjivig5X8A8HHOb4/mbEKPS5EvAw=="],
 

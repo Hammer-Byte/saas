@@ -2,18 +2,20 @@ import { Elysia } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
 import ejs from "ejs";
 import { join } from "node:path";
-import { logger } from "@hammerbyte/utils";
+import { logger, middlewares } from "@hammerbyte/utils";
 import { uiRoutes } from "./routes/ui";
 import { apiRoutes } from "./routes/api";
 
 const app = new Elysia();
+
+app.onRequest(middlewares.bun.requestLogger);
 
 // 1. Setup Static Files (This allows the browser to access your /public folder)
 app.use(
     staticPlugin({
         assets: "public",
         prefix: "/public",
-    })
+    }),
 );
 // 1. Static Files
 app.use(staticPlugin({ assets: "public", prefix: "/public" }));

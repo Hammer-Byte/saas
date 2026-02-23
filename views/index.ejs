@@ -1,26 +1,535 @@
 <!DOCTYPE html>
 <html lang="en">
-    <%- include('partials/head') %>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Hammer Byte</title>
+        <link rel="stylesheet" href="public/style.css" />
+    </head>
 
     <body>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
-            <div class="container">
-                <a class="navbar-brand" href="#">BunJS App</a>
+        <header class="header-logo">
+            <img src="public/images/hammerbyte-logo.avif" alt="hammerbyte logo" />
+        </header>
+        <section class="hero-section">
+            <div class="slider">
+                <video class="slide active" autoplay muted loop playsinline>
+                    <source src="public/images/banner-gif.mp4" type="video/mp4" />
+                </video>
             </div>
-        </nav>
-
-        <main class="container">
-            <div class="bg-light p-5 rounded-lg m-3">
-                <h1 class="display-4"><%= message %></h1>
-                <p class="lead">
-                    This is a simple hero unit, a simple jumbotron-style component for calling extra attention to featured content or information.
+            <div class="overlay"></div>
+            <div class="container hero-content">
+                <h1>
+                    From Startups to Enterprises,<br />
+                    We Power Digital Growth
+                </h1>
+                <p>
+                    With over a decade of expertise, our IT firm delivers innovative, reliable, and secure software solutions tailored to diverse industries
+                    including <strong> EdTech, Healthcare, Retail, E-commerce, Transport, and Security.</strong>
                 </p>
-                <hr class="my-4" />
-                <p>It uses utility classes for typography and spacing to space content out within the larger container.</p>
-                <button class="btn btn-primary btn-lg">Learn more</button>
+                <button>Let's Work Together</button>
             </div>
-        </main>
-
-        <%- include('partials/footer') %>
+        </section>
+        <section class="about-section container">
+            <!-- <div class="container"> -->
+            <!-- Left Content -->
+            <div class="about-left">
+                <h1>About HammerByte</h1>
+                <div class="stats">
+                    <div class="stat">
+                        <h2>70+</h2>
+                        <p>Projects Delivered</p>
+                    </div>
+                    <div class="stat">
+                        <h2>11+</h2>
+                        <p>Years of Experience</p>
+                    </div>
+                    <div class="stat">
+                        <h2>32+</h2>
+                        <p>Happy Clients</p>
+                    </div>
+                </div>
+                <p class="about-text">
+                    We are proud to have partnered with <b>32+ clients across diverse industries</b>, delivering end-to-end
+                    <b>custom software development services</b>. From mobile apps, websites, and desktop applications to IoT systems and enterprise-grade
+                    solutions, we craft technology that helps businesses innovate, scale, and succeed.
+                </p>
+                <button class="export-btn">Explore Portfolio</button>
+            </div>
+            <!-- Right Image -->
+            <div class="about-right">
+                <img src="public/images/about-hammerbyte.avif" alt="HammerByte Office" />
+            </div>
+            <!-- </div> -->
+        </section>
+        <section class="services">
+            <div class="container">
+                <h1 class="title">Our Services</h1>
+                <p class="subtitle">Delivering innovative solutions across various domains for over a decade.</p>
+                <div class="services-content">
+                    <!-- Left Image -->
+                    <div class="services-image">
+                        <img src="public/images/service-bg.avif" />
+                    </div>
+                    <!-- Right Text -->
+                    <div class="services-text">
+                        <div class="service-item">
+                            <h3>1.Mobile Application Development - Android,IOS</h3>
+                            <ul>
+                                <li>
+                                    We build <b>high-quality, performance-optimized mobile apps</b>
+                                    for Android and iOS using Flutter, React Native, Android Studio, and Java.
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="service-item">
+                            <h3>2.Data Driven Web Application Development</h3>
+                            <ul>
+                                <li>
+                                    We build <b>responsive, secure, and scalable websites</b>
+                                    using React, Node.js, PHP Laravel, Java, and Spring Boot to deliver modern design and seamless functionality.
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="service-item">
+                            <h3>3.Games, Desktop Software & IoT Systems</h3>
+                            <ul>
+                                <li>
+                                    We deliver <b>secure and scalable desktop applications , IoT solutions and Games </b> using
+                                    <b> Unity, C#, Electron.js, Raspberry Pi, Arduino, C, and Python </b> to enable automation, connectivity, and real-time
+                                    insights.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="projects">
+            <div class="container">
+                <h1 class="project-title">Our Projects & Clients</h1>
+                <p class="project-subtitle">Explore our diverse projects across multiple domains.</p>
+                <div class="btn-center">
+                    <button class="brochure-btn">Download Brochure</button>
+                </div>
+                <div class="project-grid">
+                    <div class="project-column">
+                        <h2>EdTech Solutions</h2>
+                        <p class="column-subtitle">Innovative learning platforms for education leaders</p>
+                        <div class="logo-row">
+                            <div class="logo-card">
+                                <div class="project-logo-img">
+                                    <img src="public/images/sahas.avif" />
+                                </div>
+                                <h6>Sahas Smart Studies</h6>
+                                <p>
+                                    Sahas Learning Programs give students a holistic learning experience, connecting them with top teachers and bringing
+                                    concepts to life.
+                                </p>
+                            </div>
+                            <div class="logo-card">
+                                <div class="project-logo-img">
+                                    <img src="public/images/IIET.avif" />
+                                </div>
+                                <h6>I.I.E.T. Dharmaj</h6>
+                                <p>
+                                    Android application for Ipcowala Insitute of Engineering & Technology Dharmaj to Manage & Distribute Study Material Across
+                                    All Engineering Department.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="project-column">
+                        <h2>Security Solutions</h2>
+                        <p class="column-subtitle">Accurate security scanning solutions for data driven resources</p>
+                        <div class="logo-row">
+                            <div class="logo-card">
+                                <div class="project-logo-img">
+                                    <img src="public/images/sequel-eye.avif" />
+                                </div>
+                                <h6>Sequel Eye</h6>
+                                <p>
+                                    Sequel Eye is a mobile tool for automated SQL injection testing with URL and Google Dork modes, offering powerful payloads
+                                    and full control.
+                                </p>
+                            </div>
+                            <div class="logo-card">
+                                <div class="project-logo-img">
+                                    <img src="public/images/mpt.avif" />
+                                </div>
+                                <h6>Master Pentest Tool</h6>
+                                <p>
+                                    MPT is a free, beginner friendly penetration testing tool for websites, networks, and PCs, with Python included and features
+                                    like Wi-Fi testing.
+                                </p>
+                            </div>
+                            <div class="logo-card">
+                                <div class="project-logo-img">
+                                    <img src="public/images/vulneye.avif" />
+                                </div>
+                                <h6>VulenEye</h6>
+                                <p>
+                                    VulnEye is a lightweight Android tool for quick and easy web app security testing, including SQL Injection, admin panel
+                                    lookup, and port scanning.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="games-section">
+                    <h2>Games Solutions</h2>
+                    <p class="column-subtitle">Innovative gaming platforms for players and creators</p>
+                    <div class="game-logo-row">
+                        <div class="logo-card">
+                            <div class="project-logo-img">
+                                <img src="public/images/digi-lotto.avif" />
+                            </div>
+                            <h6>Digiloto</h6>
+                            <p>
+                                Digital Lotto is an online platform where users can play games like Spot the Ball and Trivia, compete with others, and win real
+                                money prizes on their scores.
+                            </p>
+                        </div>
+                        <div class="logo-card">
+                            <div class="project-logo-img">
+                                <img src="public/images/warlock.avif" />
+                            </div>
+                            <h6>Warlock PL</h6>
+                            <p>
+                                Warlock PL is a fast FPS where you play as Warlock, fighting robots to save humanity. Unlock weapons, battle bosses, and earn
+                                bonus health.
+                            </p>
+                        </div>
+                        <div class="logo-card">
+                            <div class="project-logo-img">
+                                <img src="public/images/quizzer.avif" />
+                            </div>
+                            <h6>Quizzer</h6>
+                            <p>
+                                Quizzer lets you earn money by answering questions anytime, anywhere. Sign up, answer on time, and get rewards in your wallet,
+                                withdrawable via Paytm.
+                            </p>
+                        </div>
+                        <div class="logo-card">
+                            <div class="project-logo-img">
+                                <img src="public/images/CEC.avif" />
+                            </div>
+                            <h6>CEC</h6>
+                            <p>
+                                Checkmate the enemy Pharaoh to win the game. If in check, he must escape before play continues. The game ends with checkmate or
+                                a draw.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mid-section">
+                    <div class="project-column">
+                        <h2>Social Solutions</h2>
+                        <p class="column-subtitle">Innovative social platforms for connection and engagement</p>
+                        <div class="logo-row">
+                            <div class="logo-card">
+                                <div class="project-logo-img">
+                                    <img src="public/images/ritanya-sanstha.avif" />
+                                </div>
+                                <h6>Ritanya Sanstha</h6>
+                                <p>
+                                    Stay connected with your institute vibrant community using Ritanya Sanstha, the ultimate alumni app and your gateway to all
+                                    important institute updates.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="project-column">
+                        <h2>Utility Solutions</h2>
+                        <p class="column-subtitle">Smart tools and services designed to simplify tasks and improve everyday efficiency.</p>
+                        <div class="logo-row">
+                            <div class="logo-card">
+                                <div class="project-logo-img">
+                                    <img src="public/images/food-geek.avif" />
+                                </div>
+                                <h6>Ritanya Sanstha</h6>
+                                <p>
+                                    Food Geek is a smart app that helps you discover recipes using ingredients you already have at home. Simply enter what’s
+                                    available, and get creative meal ideas with instructions.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="project-column project-third-column">
+                        <h2>HealthCare Solutions</h2>
+                        <p class="column-subtitle">Innovative digital platforms for healthcare leaders</p>
+                        <div class="logo-row">
+                            <div class="logo-card">
+                                <div class="project-logo-img">
+                                    <img src="public/images/starlight.avif" />
+                                </div>
+                                <h6>Starlight Care Partnership</h6>
+                                <p>
+                                    At Starlight Care Partnership, we provide reliable home care—from a few hours to 24/7 live-in support—tailored to your
+                                    needs.
+                                </p>
+                            </div>
+                            <div class="logo-card">
+                                <div class="project-logo-img">
+                                    <img src="public/images/mental-athlete.avif" />
+                                </div>
+                                <h6>Mental Athlete</h6>
+                                <p>
+                                    Mental Athlete is a premium chewable brain booster that enhances focus, clarity, and mental energy all day.Shop now to
+                                    elevate your mind and perform at your peak.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="quick-section">
+                    <h2>Quick Commerce Solutions</h2>
+                    <p class="column-subtitle">Innovative digital platforms for ecommerce business leaders</p>
+                    <div class="logo-row">
+                        <div class="logo-card">
+                            <div class="project-logo-img">
+                                <img src="public/images/food-hunt.avif" />
+                            </div>
+                            <h6>Food Hunt 24*7</h6>
+                            <p>
+                                Food Hunt is an online food-ordering platform that connects users with nearby restaurants, allowing them to explore menus, place
+                                customized orders, and track deliveries seamlessly.
+                            </p>
+                        </div>
+                        <div class="logo-card">
+                            <div class="project-logo-img">
+                                <img src="public/images/mataji-fashion.avif" />
+                            </div>
+                            <h6>Mataji Fashion</h6>
+                            <p>
+                                Mataji Fashion is an e-commerce platform for fabric sellers to showcase products, manage inventory, and provide a smooth
+                                shopping experience.
+                            </p>
+                        </div>
+                        <div class="logo-card">
+                            <div class="project-logo-img">
+                                <img src="public/images/rehals.avif" />
+                            </div>
+                            <h6>Rehal's Divine</h6>
+                            <p>
+                                Rehal's Divine Indian restaurant in Australia, offering authentic cuisine. It showcases their menu, services, catering options,
+                                and allows users to conveniently order food online.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="technology">
+            <div class="container">
+                <h1 class="tech-title">Technologies & Platforms</h1>
+                <p class="tech-text">
+                    At Hammerbyte, we leverage a diverse range of modern technologies and platforms to deliver scalable, secure, and high-performing solutions.
+                    Our carefully chosen tech stack ensures we stay ahead of industry trends while meeting the unique needs of our clients.
+                </p>
+                <div class="tech-category">
+                    <h2>Mobile Technologies</h2>
+                    <div class="tech-grid">
+                        <div class="tech-item">
+                            <img src="public/images/android.avif" />
+                            <p>Android</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/apple-img.avif" />
+                            <p>iOS</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/flutter.avif" />
+                            <p>Flutter</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/React.png" />
+                            <p>React Native</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/ionic.avif" />
+                            <p>Ionic</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/kotlin.avif" />
+                            <p>Kotlin</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Frontend Technologies -->
+                <div class="tech-category">
+                    <h2>Frontend Technologies</h2>
+                    <div class="tech-grid">
+                        <div class="tech-item">
+                            <img src="public/images/React.png" />
+                            <p>React Js</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/angular.avif" />
+                            <p>Angular</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/vuejs.avif" />
+                            <p>Vue Js</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/html5.avif" />
+                            <p>HTML 5</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/css3.avif" />
+                            <p>CSS 3</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-category">
+                    <h2>Backend Technologies</h2>
+                    <div class="tech-grid">
+                        <div class="tech-item">
+                            <img src="public/images/nodejs-img.avif" />
+                            <p>Node Js</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/php.avif" />
+                            <p>PHP</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/dotnet.avif" />
+                            <p>.NET</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/java.avif" />
+                            <p>Java</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/python.avif" />
+                            <p>Python</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/rais.avif" />
+                            <p>Rails</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-category">
+                    <h2>Database</h2>
+                    <div class="tech-grid">
+                        <div class="tech-item">
+                            <img src="public/images/mysql.avif" />
+                            <p>My Sql</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/mongodb-img.avif" />
+                            <p>Mongo Db</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/mysql-img.avif" />
+                            <p>MsSQL</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/oracle.avif" />
+                            <p>Oracle</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/firebase.avif" />
+                            <p>FireBase</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-category">
+                    <h2>Infra and DevOps</h2>
+                    <div class="tech-grid">
+                        <div class="tech-item">
+                            <img src="public/images/aws.avif" />
+                            <p>AWS</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/google-cloud.avif" />
+                            <p>Google Cloud</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/jenkins.avif" />
+                            <p>Jenkins</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/gradle.avif" />
+                            <p>Gradle</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/azure.avif" />
+                            <p>Azure</p>
+                        </div>
+                        <div class="tech-item">
+                            <img src="public/images/selenium.avif" />
+                            <p>Selenium</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="footer-section">
+            <div class="container footer-content">
+                <div class="footer-left">
+                    <h2>Careers & Technology Partners</h2>
+                    <p>Potential Candidates who are looking for internships or full time opportunities can apply for following roles at HammerByte</p>
+                    <ul>
+                        <li>MERN Stack Developer - 0 to 2 Years</li>
+                        <li>Business Development Specialist - 2 to 4 Years</li>
+                    </ul>
+                    <p>
+                        Candidates can apply at
+                        <a href="#">priya.rajesh@hammerbyte.co.in</a>
+                        or can connect over
+                        <a href="https://www.linkedin.com/in/priya-rajesh-46b148382/" rel="nofollow" target="_blank">LinkedIn</a>
+                    </p>
+                    <div class="partner-logos">
+                        <img src="public/images/aws.avif" />
+                        <img src="public/images/debian.avif" />
+                        <img src="public/images/microsoft.avif" />
+                        <img src="public/images/hostinger.avif" />
+                    </div>
+                </div>
+                <div class="divider"></div>
+                <div class="footer-right">
+                    <h2>Let's Collobrate and Grow Togather</h2>
+                    <div class="contact-row">
+                        <span>support@hammerbyte.co.in</span>
+                        <span>+91 97258-37442</span>
+                    </div>
+                    <p class="address">206, Beverly Arcade, Near By Woodland Restaurant, Maha Gujarat Hospital Road, Nadiad, Gujarat 387001</p>
+                    <p>Feel free to connect with us, you can add your email here and team will respond within 48 hours</p>
+                    <div class="email-desc">
+                        <label>Your Email Address</label>
+                        <input type="text" placeholder="Enter your email here" />
+                    </div>
+                    <div class="submit-section">
+                        <button class="submit-btn">Submit Your Inquiry</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Bottom -->
+            <div class="footer-bottom">
+                <div class="social">
+                    <a href="https://youtube.com/" rel="noopener" target="_blank">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M23.4985 6.20286C23.2225 5.16356 22.4092 4.34503 21.3766 4.06726C19.505 3.5625 12 3.5625 12 3.5625C12 3.5625 4.49503 3.5625 2.62336 4.06726C1.59077 4.34508 0.777523 5.16356 0.501503 6.20286C0 8.08666 0 12.017 0 12.017C0 12.017 0 15.9474 0.501503 17.8312C0.777523 18.8705 1.59077 19.6549 2.62336 19.9327C4.49503 20.4375 12 20.4375 12 20.4375C12 20.4375 19.505 20.4375 21.3766 19.9327C22.4092 19.6549 23.2225 18.8705 23.4985 17.8312C24 15.9474 24 12.017 24 12.017C24 12.017 24 8.08666 23.4985 6.20286ZM9.54544 15.5855V8.44855L15.8181 12.0171L9.54544 15.5855Z"
+                                fill="#fff"
+                            ></path>
+                        </svg>
+                    </a>
+                    <a href="https://www.linkedin.com/company/hammerbyte/" rel="noopener" target="_blank">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M6.20156 21H1.84688V6.97969H6.20156V21ZM4.02187 5.06719C2.62969 5.06719 1.5 3.91406 1.5 2.52187C1.5 1.85303 1.7657 1.21158 2.23864 0.73864C2.71158 0.265697 3.35303 0 4.02187 0C4.69072 0 5.33217 0.265697 5.80511 0.73864C6.27805 1.21158 6.54375 1.85303 6.54375 2.52187C6.54375 3.91406 5.41406 5.06719 4.02187 5.06719ZM22.4953 21H18.15V14.175C18.15 12.5484 18.1172 10.4625 15.8859 10.4625C13.6219 10.4625 13.275 12.2297 13.275 14.0578V21H8.925V6.97969H13.1016V8.89219H13.1625C13.7438 7.79062 15.1641 6.62812 17.2828 6.62812C21.6891 6.62812 22.5 9.52969 22.5 13.2984V21H22.4953Z"
+                                fill="#fff"
+                            ></path>
+                        </svg>
+                    </a>
+                </div>
+                <p>HammerByte © 2025. All rights reserved.</p>
+            </div>
+        </section>
     </body>
+    <script></script>
 </html>
