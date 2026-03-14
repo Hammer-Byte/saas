@@ -1,4 +1,4 @@
-import { generateDBTables } from "./libs/db.js";
+import { executeSQLQuery, generateDBTables } from "./libs/db.js";
 import { allowTraffic } from "./server.js";
 
 const { filer, logger } = require("@hammerbyte/utils");
@@ -15,7 +15,6 @@ logger.init({
 
 try {
     filer.prepareDirectories(REQUIRED_DIRS);
-
     logger.success("Required Directories Ready");
     await generateDBTables();
     logger.success("Database Ready (Tables Verified)");

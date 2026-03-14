@@ -21,6 +21,13 @@ body {
     height: 78px;
 }
 
+.saas_login{
+    position: absolute;
+    right: 0;
+    top: 0;
+    margin: 1rem;
+}
+
 .container {
     max-width: 1200px;
     margin: auto;
