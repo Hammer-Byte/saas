@@ -1,18 +1,19 @@
 version: "3.9"
 
 services:
-    hammerbyte_saas:
-        container_name: hammerbyte_saas
-        build: .
-        restart: always
-        expose:
-            - "3000"
-        environment:
-            NODE_ENV: production
-            PORT: 3000
-        networks:
-            - global-network
+  hammerbyte_saas:
+    container_name: hammerbyte_saas
+    build: .
+    restart: always
+    # Change 'expose' to 'ports' for external access
+    ports:
+      - "8012:3000"  # External:Internal
+    environment:
+      NODE_ENV: production
+      PORT: 3000   # This tells your code to listen on 3000
+    networks:
+      - global-network
 
 networks:
-    global-network:
-        external: true
+  global-network:
+    external: true
