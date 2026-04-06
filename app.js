@@ -14,6 +14,8 @@ logger.init({
 });
 
 logger.info(Bun.env.MYSQL_HOST);
+logger.info(process.env.MYSQL_HOST);
+
 logger.info(Bun.env.MYSQL_PORT);
 logger.info(Bun.env.MYSQL_DB);
 logger.info(Bun.env.MYSQL_USERNAME);
