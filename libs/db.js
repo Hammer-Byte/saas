@@ -28,6 +28,12 @@ export async function executeSQLQuery(queryFunction) {
 
 export async function generateDBTables() {
     const requiredTables = [
+        `CREATE TABLE IF NOT EXISTS APPLICATIONS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(56) NOT NULL UNIQUE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          )`,
         `CREATE TABLE IF NOT EXISTS USERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             application_id INT NOT NULL,
@@ -41,12 +47,6 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS APPLICATIONS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(56) NOT NULL UNIQUE,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-          )`,
         `CREATE TABLE IF NOT EXISTS USER_APPLICATIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,
