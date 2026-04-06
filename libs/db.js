@@ -28,12 +28,6 @@ export async function executeSQLQuery(queryFunction) {
 
 export async function generateDBTables() {
     const requiredTables = [
-        `CREATE TABLE IF NOT EXISTS APPLICATIONS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(56) NOT NULL UNIQUE,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-          )`,
         `CREATE TABLE IF NOT EXISTS USERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             application_id INT NOT NULL,
@@ -47,20 +41,35 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS AUTHENTICATION_TOKENS (
+        `CREATE TABLE IF NOT EXISTS APPLICATIONS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(56) NOT NULL UNIQUE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          )`,
+        `CREATE TABLE IF NOT EXISTS USER_APPLICATIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,
-            otp VARCHAR(4) NOT NULL,
-            token VARCHAR(36) NOT NULL UNIQUE,
-            active BOOLEAN NOT NULL DEFAULT FALSE,
-            validity DATETIME NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL 24 HOUR),
+            application_id INT NOT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            CONSTRAINT fk_user
-                FOREIGN KEY (user_id) 
-                REFERENCES USERS(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
+            UNIQUE KEY unique_user_application (user_id,application_id)
+        )`,
+        `CREATE TABLE IF NOT EXISTS SERVICES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(56) NOT NULL UNIQUE,
+            description VARCHAR(128) NOT NULL UNIQUE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          )`,
+        `CREATE TABLE IF NOT EXISTS APPLICATION_SERVICES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            application_id INT NOT NULL,
+            service_id INT NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_user_application (application_id,service_id)
           )`,
     ];
 
