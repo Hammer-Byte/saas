@@ -1,12 +1,35 @@
 import { Elysia } from "elysia";
+import { cors } from "@elysiajs/cors";
+import { swagger } from "@elysiajs/swagger";
 import { staticPlugin } from "@elysiajs/static";
 import ejs from "ejs";
 import { join } from "node:path";
+import hammerbyteUtils from "@hammerbyte/utils";
 import { logger, middlewares } from "@hammerbyte/utils";
-import { uiRoutes } from "./routes/ui";
-import { apiRoutes } from "./routes/api";
+import { uiRoutes } from "./routes/ui.js";
+import { apiRoutes } from "./routes/api.js";
+import { SWAGGER } from "./constants.js";
 
-const app = new Elysia();
+const { HEADERS } = hammerbyteUtils.SAAS;
+
+const app = new Elysia().use(
+    cors({
+        origin: true,
+        credentials: false,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", HEADERS.APPLICATION_ID, HEADERS.APPLICATION_TOKEN],
+    }),
+).use(
+    swagger({
+        documentation: {
+            info: {
+                title: SWAGGER.APPLICATION,
+                version: "2.0.0",
+            },
+        },
+    }),
+);
+
 
 app.onRequest(middlewares.bun.requestLogger);
 
@@ -30,6 +53,7 @@ app.decorate("render", async (template, data = {}) => {
 // 3. Plugin the separated routes
 app.use(uiRoutes);
 app.use(apiRoutes);
+
 
 export async function allowTraffic() {
     app.listen(Bun.env.PORT);

@@ -1,4 +1,5 @@
 import { generateDBTables } from "./libs/db.js";
+import transporter from "./libs/transporter.js";
 import { allowTraffic } from "./server.js";
 
 const { filer, logger } = require("@hammerbyte/utils");
@@ -13,15 +14,10 @@ logger.init({
     logsDirectory: "logs", // This folder will be created automatically
 });
 
-logger.info(Bun.env.MYSQL_HOST);
-logger.info(process.env.MYSQL_HOST);
-
-logger.info(Bun.env.MYSQL_PORT);
-logger.info(Bun.env.MYSQL_DB);
-logger.info(Bun.env.MYSQL_USERNAME);
-logger.info(Bun.env.MYSQL_PASSWORD);
 
 try {
+    await transporter.init();
+    logger.success("Email Transporter Ready");
     filer.prepareDirectories(REQUIRED_DIRS);
     logger.success("Required Directories Ready");
     await generateDBTables();
@@ -30,3 +26,8 @@ try {
 } catch (e) {
     logger.error(`Application Exited - ${e.message}`);
 }
+
+
+
+process.on("uncaughtException", (error) => logger.error(error));
+process.on("unhandledRejection", (error) => logger.error(error));

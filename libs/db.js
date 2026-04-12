@@ -1,5 +1,6 @@
 import { SQL } from "bun";
 const { logger } = require("@hammerbyte/utils");
+const { SAAS } = require("@hammerbyte/utils");
 
 export const dbConnection = new SQL({
     adapter: Bun.env.MYSQL_DIALECT,
@@ -31,6 +32,8 @@ export async function generateDBTables() {
         `CREATE TABLE IF NOT EXISTS APPLICATIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(56) NOT NULL UNIQUE,
+            token CHAR(16) NOT NULL DEFAULT (HEX(RANDOM_BYTES(8))),
+            active BOOLEAN NOT NULL DEFAULT TRUE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
           )`,
@@ -67,10 +70,21 @@ export async function generateDBTables() {
             application_id INT NOT NULL,
             service_id INT NOT NULL,
             active BOOLEAN NOT NULL DEFAULT TRUE,
+            unit_cost FLOAT NOT NULL DEFAULT 0,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY unique_user_application (application_id,service_id)
           )`,
+        `CREATE TABLE IF NOT EXISTS MAILER_MESSAGES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            recipient VARCHAR(255) NOT NULL,
+            subject VARCHAR(512) NOT NULL,
+            body TEXT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`,
+
+        `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${SAAS.SERVICES.MAILER}', 'allows to send emails');`,
+        `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${SAAS.SERVICES.BUCKETIZER}', 'object storage uploads');`
     ];
 
     for (const table of requiredTables) {
