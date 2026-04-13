@@ -10,7 +10,7 @@ import { uiRoutes } from "./routes/ui.js";
 import { apiRoutes } from "./routes/api.js";
 import { SWAGGER } from "./constants.js";
 
-const { HEADERS } = hammerbyteUtils.SAAS;
+const { HEADERS } = hammerbyteUtils.CONSTANTS.SAAS;
 
 const app = new Elysia().use(
     cors({

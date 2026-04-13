@@ -1,6 +1,5 @@
 import { SQL } from "bun";
-const { logger } = require("@hammerbyte/utils");
-const { SAAS } = require("@hammerbyte/utils");
+const { logger, CONSTANTS } = require("@hammerbyte/utils");
 
 export const dbConnection = new SQL({
     adapter: Bun.env.MYSQL_DIALECT,
@@ -70,21 +69,33 @@ export async function generateDBTables() {
             application_id INT NOT NULL,
             service_id INT NOT NULL,
             active BOOLEAN NOT NULL DEFAULT TRUE,
-            unit_cost FLOAT NOT NULL DEFAULT 0,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY unique_user_application (application_id,service_id)
           )`,
-        `CREATE TABLE IF NOT EXISTS MAILER_MESSAGES (
+        `CREATE TABLE IF NOT EXISTS MAILS (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            application_service_id INT NOT NULL,
             recipient VARCHAR(255) NOT NULL,
             subject VARCHAR(512) NOT NULL,
             body TEXT NOT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP
         )`,
+        
+        `CREATE TABLE IF NOT EXISTS FILES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            application_service_id INT NOT NULL,
+            filename VARCHAR(512) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_files_application_service
+                FOREIGN KEY (application_service_id)
+                REFERENCES APPLICATION_SERVICES(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
 
-        `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${SAAS.SERVICES.MAILER}', 'allows to send emails');`,
-        `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${SAAS.SERVICES.BUCKETIZER}', 'object storage uploads');`
+        `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails');`,
+        `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads');`
     ];
 
     for (const table of requiredTables) {

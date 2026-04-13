@@ -1,5 +1,6 @@
 import { generateDBTables } from "./libs/db.js";
 import transporter from "./libs/transporter.js";
+import bucketizer from "./libs/bucketizer.js";
 import { allowTraffic } from "./server.js";
 
 const { filer, logger } = require("@hammerbyte/utils");
@@ -18,6 +19,8 @@ logger.init({
 try {
     await transporter.init();
     logger.success("Email Transporter Ready");
+    await bucketizer.init();
+    logger.success("Bucketizer Ready");
     filer.prepareDirectories(REQUIRED_DIRS);
     logger.success("Required Directories Ready");
     await generateDBTables();

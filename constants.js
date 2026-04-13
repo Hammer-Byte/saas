@@ -1,7 +1,7 @@
 
 export const ERRORS = {
     UNAUTHORIZED: "Unauthorized",
-    TO_REQUIRED: "To is required or invalid",
+    RECIPIENT_REQUIRED: "Recipient is required or invalid",
     SUBJECT_REQUIRED: "Subject is required",
     BODY_REQUIRED: "Body is required",
     HTML_ENABLED_REQUIRED: "HTML enabled is required",

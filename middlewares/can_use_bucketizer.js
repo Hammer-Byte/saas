@@ -1,23 +1,28 @@
 import { ERRORS } from "../constants.js";
 import { canApplicationUseService } from "../db/application_services.js";
-const { SAAS, logger } = require("@hammerbyte/utils");
+const { CONSTANTS, logger } = require("@hammerbyte/utils");
 
 export default async function canUseBucketizer({ application, set }) {
     const BUCKETIZER_SERVICE_ID = 2;
 
+    const applicationService = await canApplicationUseService({ application_id: application?.id, service_id: BUCKETIZER_SERVICE_ID });
+
+
     if (
         !application ||
-        !(await canApplicationUseService({
-            application_id: application?.id,
-            service_id: BUCKETIZER_SERVICE_ID,
-        }))
-    ) {
-        logger.error(`${SAAS.SERVICES.BUCKETIZER} Service Request Rejected`);
+        !applicationService)
+     {
+        logger.error(`${CONSTANTS.SAAS.SERVICES.BUCKETIZER} Service Request Rejected`);
         set.status = 401;
         return { error: ERRORS.UNAUTHORIZED };
     }
 
+    application.service = applicationService;
+
+
     logger.info(
-        `${SAAS.SERVICES.BUCKETIZER} Service Requested verified For ${application.id}-${application.title} `,
+        `${CONSTANTS.SAAS.SERVICES.BUCKETIZER} Service Requested verified For ${application.title} `,
     );
 }
+
+

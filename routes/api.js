@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import {SAAS} from "@hammerbyte/utils";
+import { CONSTANTS } from "@hammerbyte/utils";
 import parseApplication from "../middlewares/parse_application.js";
 import mailer from "./apps/mailer.js";
 import bucketizer from "./apps/bucketizer.js";
@@ -16,9 +16,9 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
         app
             .derive(parseApplication)
             .guard({ beforeHandle: [canUseMailer] }, (protectedApp) =>
-                protectedApp.group(`/${SAAS.SERVICES.MAILER}`, mailer),
+                protectedApp.group(`/${CONSTANTS.SAAS.SERVICES.MAILER}`, mailer),
             )
             .guard({ beforeHandle: [canUseBucketizer] }, (protectedApp) =>
-                protectedApp.group(`/${SAAS.SERVICES.BUCKETIZER}`, bucketizer),
+                protectedApp.group(`/${CONSTANTS.SAAS.SERVICES.BUCKETIZER}`, bucketizer),
             ),
     );
