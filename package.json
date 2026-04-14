@@ -7,7 +7,7 @@
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/static": "^1.4.7",
         "@elysiajs/swagger": "^1.3.1",
-        "@hammerbyte/utils": "^0.0.22",
+        "@hammerbyte/utils": "^0.0.23",
         "ejs": "^3.1.10",
         "elysia": "^1.4.28",
         "nodemailer": "^8.0.5"
