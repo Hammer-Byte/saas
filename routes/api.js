@@ -7,6 +7,7 @@ import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 
 
+
 export const apiRoutes = new Elysia({ prefix: "/api" })
     .get("/status", () => ({
         status: "online",
@@ -15,10 +16,11 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
     .group("/services", (app) =>
         app
             .derive(parseApplication)
+            .guard({ beforeHandle: [canUseBucketizer] }, (protectedApp) =>
+                protectedApp.group(`/${CONSTANTS.SAAS.SERVICES.BUCKETIZER}`, bucketizer),
+            )
             .guard({ beforeHandle: [canUseMailer] }, (protectedApp) =>
                 protectedApp.group(`/${CONSTANTS.SAAS.SERVICES.MAILER}`, mailer),
             )
-            .guard({ beforeHandle: [canUseBucketizer] }, (protectedApp) =>
-                protectedApp.group(`/${CONSTANTS.SAAS.SERVICES.BUCKETIZER}`, bucketizer),
-            ),
+           
     );

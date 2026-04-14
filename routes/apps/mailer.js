@@ -1,6 +1,6 @@
 import { t } from "elysia";
 import hammerbyteUtils from "@hammerbyte/utils";
-import {  sendMail } from "../../services/mailer.js";
+import { sendMail } from "../../services/mailer.js";
 import { ERRORS } from "../../constants.js";
 
 const { SERVICES } = hammerbyteUtils.CONSTANTS.SAAS;
@@ -28,4 +28,5 @@ export default function (app) {
         },
     });
 }
+
 
