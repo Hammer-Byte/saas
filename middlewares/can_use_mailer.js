@@ -5,8 +5,6 @@ const { CONSTANTS, logger } = require("@hammerbyte/utils");
 export default async function canUseMailer({ application, set }) {
     const MAILER_SERVICE_ID = 1;
 
-    console.log(application);
-
     const applicationService = await canApplicationUseService({ application_id: application?.id, service_id: MAILER_SERVICE_ID });
 
     //check if such application does exist and is active
