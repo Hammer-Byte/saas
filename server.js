@@ -56,6 +56,7 @@ app.use(apiRoutes);
 
 
 export async function allowTraffic() {
-    app.listen(Bun.env.PORT);
-    logger.success(`App started at http://127.0.0.1:${Bun.env.PORT || 3000}`);
+    app.listen();
+    const { server } = app;
+    logger.success(`App started at ${server.url}`);
 }
