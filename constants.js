@@ -1,6 +1,8 @@
 
 export const ERRORS = {
     UNAUTHORIZED: "Unauthorized",
+    FILE_REQUIRED: "File name is required",
+    ACCUMULATOR_REQUIRED: "Accumulator is required",
     RECIPIENT_REQUIRED: "Recipient is required or invalid",
     SUBJECT_REQUIRED: "Subject is required",
     BODY_REQUIRED: "Body is required",

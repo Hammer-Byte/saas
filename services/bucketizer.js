@@ -18,3 +18,11 @@ export async function bucketize({ body, set }) {
 
     };
 }
+
+export async function getBucketized({ params, query }) {
+    const get = bucketizer.get({
+        file: params.file,
+        accumulator: query.accumulator,
+    });
+    return { get };
+}
