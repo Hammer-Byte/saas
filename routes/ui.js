@@ -15,7 +15,7 @@ export const uiRoutes = new Elysia()
     .get("/verification", ({ render, query }) =>
         render("verification", {
             title: "Verify OTP",
-            email: query.email ?? "",
+            mobile: query.mobile ?? "",
         })
     )
     .get("/about", ({ render }) =>
