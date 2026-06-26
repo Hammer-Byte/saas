@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login — HammerByte ERP</title>
+    <link rel="stylesheet" href="/public/style.css" />
+</head>
+
+<body class="auth-page">
+    <header class="header-logo auth-header">
+        <a href="/">
+            <img src="/public/images/hammerbyte-logo.avif" alt="hammerbyte logo" />
+        </a>
+    </header>
+
+    <main class="auth-main">
+        <div class="auth-card">
+            <div class="auth-card-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M12 2C9.243 2 7 4.243 7 7V9H6C4.895 9 4 9.895 4 11V20C4 21.105 4.895 22 6 22H18C19.105 22 20 21.105 20 20V11C20 9.895 19.105 9 18 9H17V7C17 4.243 14.757 2 12 2ZM9 7C9 5.346 10.346 4 12 4C13.654 4 15 5.346 15 7V9H9V7Z"
+                        fill="#5c8aa5" />
+                </svg>
+            </div>
+            <h1 class="auth-card-title">Login to HammerByte ERP</h1>
+            <p class="auth-card-subtitle">Enter your work email to receive a one-time password.</p>
+
+            <form class="auth-form" id="loginForm" action="/verification" method="get">
+                <label class="auth-label" for="email">Email address</label>
+                <input
+                    class="auth-input"
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="you@company.com"
+                    required
+                    autocomplete="email"
+                />
+                <button class="auth-btn" type="submit">Get OTP</button>
+            </form>
+
+            <p class="auth-footer-text">
+                <a href="/" class="auth-link">← Back to home</a>
+            </p>
+        </div>
+    </main>
+</body>
+
+</html>

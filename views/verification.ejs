@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify OTP — HammerByte ERP</title>
+    <link rel="stylesheet" href="/public/style.css" />
+</head>
+
+<body class="auth-page">
+    <header class="header-logo auth-header">
+        <a href="/">
+            <img src="/public/images/hammerbyte-logo.avif" alt="hammerbyte logo" />
+        </a>
+    </header>
+
+    <main class="auth-main">
+        <div class="auth-card">
+            <div class="auth-card-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 8L12 13L4 8V6L12 11L20 6V8Z"
+                        fill="#5c8aa5" />
+                </svg>
+            </div>
+            <h1 class="auth-card-title">Verify your email</h1>
+            <p class="auth-card-subtitle">
+                We sent a 6-digit code to
+                <strong class="auth-email-highlight"><%= email || "your email" %></strong>
+            </p>
+
+            <form class="auth-form" id="verificationForm">
+                <label class="auth-label" for="otp">One-time password</label>
+                <input
+                    class="auth-input auth-input-otp"
+                    type="text"
+                    id="otp"
+                    name="otp"
+                    placeholder="Enter 6-digit OTP"
+                    inputmode="numeric"
+                    maxlength="6"
+                    required
+                    autocomplete="one-time-code"
+                />
+                <p class="auth-error" id="otpError" hidden>Invalid OTP</p>
+                <button class="auth-btn" type="submit">Login</button>
+            </form>
+
+            <p class="auth-footer-text">
+                <a href="/login" class="auth-link">← Use a different email</a>
+            </p>
+        </div>
+    </main>
+
+    <script>
+        document.getElementById("verificationForm").addEventListener("submit", (event) => {
+            event.preventDefault();
+            const errorEl = document.getElementById("otpError");
+            errorEl.hidden = false;
+            document.getElementById("otp").classList.add("auth-input-error");
+        });
+
+        document.getElementById("otp").addEventListener("input", () => {
+            document.getElementById("otpError").hidden = true;
+            document.getElementById("otp").classList.remove("auth-input-error");
+        });
+    </script>
+</body>
+
+</html>
