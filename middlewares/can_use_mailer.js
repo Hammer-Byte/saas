@@ -1,6 +1,6 @@
+import { CONSTANTS, logger } from "@hammerbyte/utils";
 import { ERRORS } from "../constants.js";
 import { canApplicationUseService } from "../db/application_services.js";
-const { CONSTANTS, logger } = require("@hammerbyte/utils");
 
 export default async function canUseMailer({ application, set }) {
     const MAILER_SERVICE_ID = 1;

@@ -33,14 +33,6 @@ const app = new Elysia().use(
 
 app.onRequest(middlewares.bun.requestLogger);
 
-// 1. Setup Static Files (This allows the browser to access your /public folder)
-app.use(
-    staticPlugin({
-        assets: "public",
-        prefix: "/public",
-    }),
-);
-// 1. Static Files
 app.use(staticPlugin({ assets: "public", prefix: "/public" }));
 
 // 2. The Render Decorator

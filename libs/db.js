@@ -1,5 +1,5 @@
 import { SQL } from "bun";
-const { logger, CONSTANTS } = require("@hammerbyte/utils");
+import { logger, CONSTANTS } from "@hammerbyte/utils";
 
 export const dbConnection = new SQL({
     adapter: Bun.env.MYSQL_DIALECT,
@@ -80,18 +80,6 @@ export async function generateDBTables() {
             subject VARCHAR(512) NOT NULL,
             body TEXT NOT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`,
-        
-        `CREATE TABLE IF NOT EXISTS FILES (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            application_service_id INT NOT NULL,
-            filename VARCHAR(512) NOT NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT fk_files_application_service
-                FOREIGN KEY (application_service_id)
-                REFERENCES APPLICATION_SERVICES(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
         )`,
 
         `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails');`,

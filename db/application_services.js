@@ -1,6 +1,5 @@
+import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db";
-
-const { logger } = require("@hammerbyte/utils");
 
 export async function canApplicationUseService({ application_id, service_id }) {
     logger.info(`Verifying Application Service - Application : ${application_id} , Service : ${service_id}`);

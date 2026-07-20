@@ -8,11 +8,11 @@ class Bucketizer {
         }
 
         this.contaboConnector = ({
-            accessKeyId: process.env.CONTABO_STORAGE_ACCESS_KEY,
-            secretAccessKey: process.env.CONTABO_STORAGE_SECRET_KEY,
-            tenant: process.env.CONTABO_TENANT,
-            bucket: process.env.CONTABO_BUCKET_NAME,
-            endpoint: process.env.CONTABO_BUCKET_REGION_URL,
+            accessKeyId: Bun.env.CONTABO_STORAGE_ACCESS_KEY,
+            secretAccessKey: Bun.env.CONTABO_STORAGE_SECRET_KEY,
+            tenant: Bun.env.CONTABO_TENANT,
+            bucket: Bun.env.CONTABO_BUCKET_NAME,
+            endpoint: Bun.env.CONTABO_BUCKET_REGION_URL,
         });
 
         Bucketizer.instance = this;
@@ -43,7 +43,7 @@ class Bucketizer {
     get({ file, accumulator = CONSTANTS.SAAS.ACCUMULATORS.PRIVATE }) {
         return accumulator === CONSTANTS.SAAS.ACCUMULATORS.PRIVATE
             ? this.bucketizer.file(file).presign({ expiresIn: 3600 })
-            : `${process.env.CONTABO_BUCKET_REGION_URL}/${process.env.CONTABO_TENANT}:${process.env.CONTABO_BUCKET_NAME}/${file}`;
+            : `${Bun.env.CONTABO_BUCKET_REGION_URL}/${Bun.env.CONTABO_TENANT}:${Bun.env.CONTABO_BUCKET_NAME}/${file}`;
     }
 
 

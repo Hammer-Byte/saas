@@ -7,17 +7,6 @@ export const uiRoutes = new Elysia()
             message: "Welcome to the separated UI Route!",
         })
     )
-    .get("/login", ({ render }) =>
-        render("login", {
-            title: "Login",
-        })
-    )
-    .get("/verification", ({ render, query }) =>
-        render("verification", {
-            title: "Verify OTP",
-            mobile: query.mobile ?? "",
-        })
-    )
     .get("/about", ({ render }) =>
         render("index", {
             title: "About Us",

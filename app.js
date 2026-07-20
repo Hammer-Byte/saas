@@ -1,9 +1,8 @@
+import { filer, logger } from "@hammerbyte/utils";
 import { generateDBTables } from "./libs/db.js";
 import transporter from "./libs/transporter.js";
 import bucketizer from "./libs/bucketizer.js";
 import { allowTraffic } from "./server.js";
-
-const { filer, logger } = require("@hammerbyte/utils");
 
 const DIRECTORY_CONFIGS = Bun.env.DIRECTORY_CONFIGS || "configs";
 const DIRECTORY_LOGS = Bun.env.DIRECTORY_LOGS || "logs";
