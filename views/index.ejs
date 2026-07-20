@@ -29,7 +29,7 @@
                 solutions tailored to diverse industries
                 including <strong> EdTech, Healthcare, Retail, E-commerce, Transport, and Security.</strong>
             </p>
-            <button>Let's Work Together</button>
+            <a class="hero-cta" href="#contact">Let's Work Together</a>
         </div>
     </section>
     <section class="about-section container">
@@ -57,7 +57,7 @@
                 systems and enterprise-grade
                 solutions, we craft technology that helps businesses innovate, scale, and succeed.
             </p>
-            <button class="export-btn">Explore Portfolio</button>
+            <a class="export-btn" href="#projects">Explore Portfolio</a>
         </div>
         <!-- Right Image -->
         <div class="about-right">
@@ -111,7 +111,7 @@
             </div>
         </div>
     </section>
-    <section class="projects">
+    <section id="projects" class="projects">
         <div class="container">
             <h1 class="project-title">Our Projects & Clients</h1>
             <p class="project-subtitle">Explore our diverse projects across multiple domains.</p>
@@ -635,7 +635,7 @@
                 </div>
             </div>
             <div class="divider"></div>
-            <div class="footer-right">
+            <div id="contact" class="footer-right">
                 <h2>Let's Collobrate and Grow Togather</h2>
                 <div class="contact-row">
                     <span>support@hammerbyte.co.in</span>
@@ -644,13 +644,23 @@
                 <p class="address">206, Beverly Arcade, Near By Woodland Restaurant, Maha Gujarat Hospital Road, Nadiad,
                     Gujarat 387001</p>
                 <p>Feel free to connect with us, you can add your email here and team will respond within 48 hours</p>
-                <div class="email-desc">
-                    <label>Your Email Address</label>
-                    <input type="text" placeholder="Enter your email here" />
-                </div>
-                <div class="submit-section">
-                    <button class="submit-btn">Submit Your Inquiry</button>
-                </div>
+                <form id="inquiry-form" class="inquiry-form" novalidate>
+                    <div class="email-desc">
+                        <label for="inquiry-name">Your Name</label>
+                        <input id="inquiry-name" type="text" name="name" placeholder="Enter your name here" required autocomplete="name" />
+                    </div>
+                    <div class="email-desc">
+                        <label for="inquiry-phone">Your Phone</label>
+                        <input id="inquiry-phone" type="tel" name="phone" placeholder="Enter your phone here" required autocomplete="tel" />
+                    </div>
+                    <div class="email-desc">
+                        <label for="inquiry-email">Your Email Address</label>
+                        <input id="inquiry-email" type="email" name="email" placeholder="Enter your email here (optional)" autocomplete="email" />
+                    </div>
+                    <div class="submit-section">
+                        <button id="inquiry-submit" class="submit-btn" type="submit" disabled>Submit Your Inquiry</button>
+                    </div>
+                </form>
             </div>
         </div>
         <!-- Bottom -->
@@ -675,6 +685,6 @@
         </div>
     </section>
 </body>
-<script></script>
+<script src="public/main.js" defer></script>
 
 </html>
