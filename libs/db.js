@@ -81,6 +81,13 @@ export async function generateDBTables() {
             body TEXT NOT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP
         )`,
+        `CREATE TABLE IF NOT EXISTS INQUIRIES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            full_name VARCHAR(128) NOT NULL,
+            phone VARCHAR(32) NOT NULL,
+            email VARCHAR(255) NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`,
 
         `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails');`,
         `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads');`

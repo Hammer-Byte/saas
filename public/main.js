@@ -1,5 +1,4 @@
-// Replace with the real inquiry API when ready.
-const INQUIRY_API_URL = "https://httpbin.org/post";
+const INQUIRY_API_URL = "/api/inquiry";
 
 const form = document.getElementById("inquiry-form");
 const nameInput = document.getElementById("inquiry-name");
@@ -21,11 +20,11 @@ if (form && nameInput && phoneInput && emailInput && submitBtn) {
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
-        const name = nameInput.value.trim();
+        const full_name = nameInput.value.trim();
         const phone = phoneInput.value.trim();
         const email = emailInput.value.trim();
 
-        if (!name || !phone) {
+        if (!full_name || !phone) {
             syncSubmitState();
             return;
         }
@@ -41,7 +40,7 @@ if (form && nameInput && phoneInput && emailInput && submitBtn) {
                     Accept: "application/json",
                 },
                 body: JSON.stringify({
-                    name,
+                    full_name,
                     phone,
                     email: email || null,
                 }),

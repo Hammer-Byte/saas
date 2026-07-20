@@ -3,6 +3,7 @@ import { CONSTANTS } from "@hammerbyte/utils";
 import parseApplication from "../middlewares/parse_application.js";
 import mailer from "./apps/mailer.js";
 import bucketizer from "./apps/bucketizer.js";
+import inquiry from "./apps/inquiry.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 
@@ -13,6 +14,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
         status: "online",
         runtime: "Bun",
     }))
+    .group("/inquiry", inquiry)
     .group("/services", (app) =>
         app
             .derive(parseApplication)
