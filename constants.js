@@ -12,6 +12,9 @@ export const ERRORS = {
     FULL_NAME_REQUIRED: "Full name is required",
     PHONE_REQUIRED: "Phone is required",
     EMAIL_INVALID: "Email is invalid",
+    USERNAME_REQUIRED: "Username is required",
+    PASSWORD_REQUIRED: "Password is required",
+    INVALID_CREDENTIALS: "Invalid username or password",
 };
 
 
