@@ -8,4 +8,5 @@ export async function addInquiry({ body, set }) {
     });
 
     set.status = 201;
+    return { message: "Inquiry submitted" };
 }

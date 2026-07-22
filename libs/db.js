@@ -84,7 +84,7 @@ export async function generateDBTables() {
         `CREATE TABLE IF NOT EXISTS INQUIRIES (
             id INT AUTO_INCREMENT PRIMARY KEY,
             full_name VARCHAR(128) NOT NULL,
-            phone VARCHAR(32) NOT NULL,
+            phone VARCHAR(13) NOT NULL,
             email VARCHAR(255) NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP
         )`,

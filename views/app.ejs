@@ -1,0 +1,67 @@
+<%- include('common/header') %>
+
+<main class="min-vh-100 d-flex align-items-center bg-light">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-12 col-sm-10 col-md-6 col-lg-4">
+                <div class="text-center mb-4">
+                    <a href="/">
+                        <img
+                            src="/public/images/hammerbyte-logo.avif"
+                            alt="HammerByte"
+                            class="img-fluid"
+                            style="max-height: 64px;"
+                        />
+                    </a>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4 p-md-5">
+                        <h1 class="h4 text-center mb-2">Login</h1>
+                        <p class="text-secondary text-center small mb-4">
+                            Sign in to continue to HammerByte.
+                        </p>
+
+                        <form id="login-form" novalidate>
+                            <div class="mb-3">
+                                <label for="login-email" class="form-label">Email</label>
+                                <input
+                                    type="email"
+                                    class="form-control"
+                                    id="login-email"
+                                    name="email"
+                                    placeholder="you@example.com"
+                                    autocomplete="email"
+                                    required
+                                />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="login-password" class="form-label">Password</label>
+                                <input
+                                    type="password"
+                                    class="form-control"
+                                    id="login-password"
+                                    name="password"
+                                    placeholder="Enter your password"
+                                    autocomplete="current-password"
+                                    required
+                                />
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100" id="login-submit">
+                                Sign in
+                            </button>
+                        </form>
+
+                        <p class="text-center small mt-4 mb-0">
+                            <a href="/" class="text-decoration-none">← Back to home</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<%- include('common/footer') %>

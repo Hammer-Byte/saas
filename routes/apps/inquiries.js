@@ -12,7 +12,7 @@ export default function (app) {
             }),
             phone: t.String({
                 minLength: 1,
-                maxLength: 32,
+                maxLength: 13,
                 error: ERRORS.PHONE_REQUIRED,
             }),
             email: t.Optional(
@@ -28,7 +28,7 @@ export default function (app) {
             ),
         }),
         detail: {
-            tags: ["Inquiry"],
+            tags: ["Inquiries"],
             summary: "Submit a contact inquiry",
             description: "Stores a website inquiry. Email is optional; full_name and phone are required.",
         },

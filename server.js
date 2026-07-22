@@ -37,10 +37,14 @@ app.use(staticPlugin({ assets: "public", prefix: "/public" }));
 
 // 2. The Render Decorator
 app.decorate("render", async (template, data = {}) => {
-    const path = join(import.meta.dir, "views", `${template}.ejs`);
-    const html = await ejs.renderFile(path, data);
+    const viewsDir = join(import.meta.dir, "views");
+    const path = join(viewsDir, `${template}.ejs`);
+    const html = await ejs.renderFile(path, data, { views: [viewsDir] });
     return new Response(html, { headers: { "Content-Type": "text/html" } });
 });
+
+
+
 
 // 3. Plugin the separated routes
 app.use(uiRoutes);

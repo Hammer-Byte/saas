@@ -12,4 +12,9 @@ export const uiRoutes = new Elysia()
             title: "About Us",
             message: "This is the About page.",
         })
+    )
+    .get("/app", ({ render }) =>
+        render("app", {
+            title: "Login — HammerByte",
+        })
     );

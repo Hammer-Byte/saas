@@ -30,6 +30,26 @@ html {
     height: 78px;
 }
 
+.app-entry-btn {
+    position: absolute;
+    right: 0;
+    top: 0;
+    margin: 1rem;
+    background: #5c8aa5;
+    color: #fff;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 40px;
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.app-entry-btn:hover {
+    background: #4a758c;
+}
+
 .container {
     max-width: 1200px;
     margin: auto;
@@ -538,6 +558,21 @@ html {
 
 .submit-section {
     text-align: center;
+}
+
+.inquiry-status {
+    margin: 14px 0 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.inquiry-status-success {
+    color: #c8e6c9;
+}
+
+.inquiry-status-error {
+    color: #ffcdd2;
 }
 
 .submit-btn {
