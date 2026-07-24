@@ -1,11 +1,9 @@
 import { getSession, SESSION_COOKIE } from "../libs/session.js";
 
-export default function requireSession({ cookie, set }) {
-    const sessionId = cookie[SESSION_COOKIE]?.value;
-    const session = getSession(sessionId);
+export default function requireSession({ cookie, redirect }) {
+    const session = getSession(cookie[SESSION_COOKIE]?.value);
 
     if (!session) {
-        set.redirect = "/login";
-        return "Unauthorized";
+        return redirect("/login");
     }
 }

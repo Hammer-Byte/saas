@@ -16,10 +16,9 @@ export const uiRoutes = new Elysia()
             message: "This is the About page.",
         })
     )
-    .get("/login", ({ render, cookie, set }) => {
+    .get("/login", ({ render, cookie, redirect }) => {
         if (getCurrentSession({ cookie })) {
-            set.redirect = "/app";
-            return;
+            return redirect("/app");
         }
 
         return render("login", {
