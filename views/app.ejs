@@ -1,37 +1,98 @@
 <%- include('common/header') %>
 
-<main class="min-vh-100 d-flex align-items-center bg-light">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= typeof username !== "undefined" && username ? username : "user" %></strong>
+            </span>
+            <a href="/" class="btn btn-sm btn-outline-light">Website</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
     <div class="container py-5">
-        <div class="row justify-content-center">
-            <div class="col-12 col-md-8 col-lg-6">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body p-4 p-md-5 text-center">
-                        <h1 class="h4 mb-2">Welcome<%= typeof username !== "undefined" && username ? `, ${username}` : "" %></h1>
-                        <p class="text-secondary mb-4">You are signed in to HammerByte App.</p>
-                        <div class="d-flex gap-2 justify-content-center flex-wrap">
-                            <a href="/" class="btn btn-outline-secondary">Home</a>
-                            <button type="button" id="logout-btn" class="btn btn-primary">Logout</button>
+        <div class="mb-4">
+            <h1 class="h3 mb-1">Welcome<%= typeof username !== "undefined" && username ? `, ${username}` : "" %></h1>
+            <p class="text-secondary mb-0">Choose a section to manage your SaaS platform.</p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="/app/applications" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">A</div>
+                            <h2 class="h5 text-dark mb-2">Applications</h2>
+                            <p class="text-secondary small mb-0">Manage registered client applications, tokens, and access.</p>
                         </div>
                     </div>
-                </div>
+                </a>
+            </div>
+
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="/app/services" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">S</div>
+                            <h2 class="h5 text-dark mb-2">Services</h2>
+                            <p class="text-secondary small mb-0">Configure mailer, bucketizer, and other platform services.</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="/app/usages" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">U</div>
+                            <h2 class="h5 text-dark mb-2">Usages</h2>
+                            <p class="text-secondary small mb-0">Review usage, inquiries, and activity across applications.</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="/app/configuration" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">C</div>
+                            <h2 class="h5 text-dark mb-2">Configuration</h2>
+                            <p class="text-secondary small mb-0">Update platform settings and environment preferences.</p>
+                        </div>
+                    </div>
+                </a>
             </div>
         </div>
     </div>
 </main>
 
-<script>
-    document.getElementById("logout-btn")?.addEventListener("click", async () => {
-        try {
-            const response = await fetch("/api/auth/logout", {
-                method: "POST",
-                credentials: "same-origin",
-            });
-            const data = await response.json().catch(() => ({}));
-            window.location.href = data.redirect || "/login";
-        } catch (error) {
-            console.error(error);
-            window.location.href = "/login";
-        }
-    });
-</script>
+<style>
+    .app-section-card {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .app-section-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.12) !important;
+    }
+    .app-section-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #5c8aa5;
+        color: #fff;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+</style>
+
+<script src="/public/app.js" defer></script>
 <%- include('common/footer') %>

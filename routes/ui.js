@@ -3,6 +3,25 @@ import requireSession from "../middlewares/require_session.js";
 import { getCurrentSession } from "../services/auth.js";
 import { getSession, SESSION_COOKIE } from "../libs/session.js";
 
+const APP_SECTIONS = {
+    applications: {
+        title: "Applications",
+        description: "Manage registered client applications, tokens, and access.",
+    },
+    services: {
+        title: "Services",
+        description: "Configure mailer, bucketizer, and other platform services.",
+    },
+    usages: {
+        title: "Usages",
+        description: "Review usage, inquiries, and activity across applications.",
+    },
+    configuration: {
+        title: "Configuration",
+        description: "Update platform settings and environment preferences.",
+    },
+};
+
 export const uiRoutes = new Elysia()
     .get("/", ({ render }) =>
         render("index", {
@@ -35,5 +54,18 @@ export const uiRoutes = new Elysia()
                     title: "App — HammerByte",
                     username: session?.username,
                 }),
-            ),
+            )
+            .get("/app/:section", ({ render, session, params, redirect }) => {
+                const section = APP_SECTIONS[params.section];
+                if (!section) {
+                    return redirect("/app");
+                }
+
+                return render("app-section", {
+                    title: `${section.title} — HammerByte`,
+                    username: session?.username,
+                    sectionTitle: section.title,
+                    sectionDescription: section.description,
+                });
+            }),
     );
