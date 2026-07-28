@@ -1,0 +1,78 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= typeof username !== "undefined" && username ? username : "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> / Applications
+            </p>
+            <h1 class="h3 mb-1">Applications</h1>
+            <p class="text-secondary mb-0">Registered client applications from the APPLICATIONS table.</p>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <% if (!applications || applications.length === 0) { %>
+                    <div class="p-4 p-md-5 text-center text-secondary">
+                        No applications found.
+                    </div>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Title</th>
+                                    <th scope="col">Token</th>
+                                    <th scope="col">Active</th>
+                                    <th scope="col">Created On</th>
+                                    <th scope="col">Updated At</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% applications.forEach(function (application) { %>
+                                    <tr>
+                                        <td><%= application.id %></td>
+                                        <td><%= application.title %></td>
+                                        <td><code><%= application.token %></code></td>
+                                        <td>
+                                            <% if (application.active) { %>
+                                                <span class="badge text-bg-success">Active</span>
+                                            <% } else { %>
+                                                <span class="badge text-bg-secondary">Inactive</span>
+                                            <% } %>
+                                        </td>
+                                        <td><%= application.created_on ? new Date(application.created_on).toLocaleString() : "-" %></td>
+                                        <td><%= application.updated_at ? new Date(application.updated_at).toLocaleString() : "-" %></td>
+                                        <td>
+                                            <a href="/app/applications/<%= application.id %>/services" class="btn btn-sm btn-outline-primary">
+                                                Manage Services
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<%- include('common/footer') %>

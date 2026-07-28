@@ -2,25 +2,10 @@ import { Elysia } from "elysia";
 import requireSession from "../middlewares/require_session.js";
 import { getCurrentSession } from "../services/auth.js";
 import { getSession, SESSION_COOKIE } from "../libs/session.js";
-
-const APP_SECTIONS = {
-    applications: {
-        title: "Applications",
-        description: "Manage registered client applications, tokens, and access.",
-    },
-    services: {
-        title: "Services",
-        description: "Configure mailer, bucketizer, and other platform services.",
-    },
-    usages: {
-        title: "Usages",
-        description: "Review usage, inquiries, and activity across applications.",
-    },
-    configuration: {
-        title: "Configuration",
-        description: "Update platform settings and environment preferences.",
-    },
-};
+import { getAllApplications, getApplicationById } from "../db/applications.js";
+import { getAllServices } from "../db/services.js";
+import { getServicesByApplicationId } from "../db/application_services.js";
+import { getAllInquiries } from "../db/inquiries.js";
 
 export const uiRoutes = new Elysia()
     .get("/", ({ render }) =>
@@ -55,17 +40,38 @@ export const uiRoutes = new Elysia()
                     username: session?.username,
                 }),
             )
-            .get("/app/:section", ({ render, session, params, redirect }) => {
-                const section = APP_SECTIONS[params.section];
-                if (!section) {
-                    return redirect("/app");
+            .get("/app/applications", async ({ render, session }) =>
+                render("applications", {
+                    title: "Applications — HammerByte",
+                    username: session?.username,
+                    applications: await getAllApplications(),
+                }),
+            )
+            .get("/app/applications/:id/services", async ({ render, session, params, redirect }) => {
+                const application = await getApplicationById({ id: Number(params.id) });
+                if (!application) {
+                    return redirect("/app/applications");
                 }
 
-                return render("app-section", {
-                    title: `${section.title} — HammerByte`,
+                return render("application-services", {
+                    title: `Services — ${application.title}`,
                     username: session?.username,
-                    sectionTitle: section.title,
-                    sectionDescription: section.description,
+                    application,
+                    services: await getServicesByApplicationId({ application_id: application.id }),
                 });
-            }),
+            })
+            .get("/app/services", async ({ render, session }) =>
+                render("services", {
+                    title: "Services — HammerByte",
+                    username: session?.username,
+                    services: await getAllServices(),
+                }),
+            )
+            .get("/app/inquiries", async ({ render, session }) =>
+                render("inquiries", {
+                    title: "Inquiries — HammerByte",
+                    username: session?.username,
+                    inquiries: await getAllInquiries(),
+                }),
+            ),
     );
