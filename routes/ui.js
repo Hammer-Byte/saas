@@ -1,11 +1,15 @@
 import { Elysia } from "elysia";
+import { CONSTANTS } from "@hammerbyte/utils";
 import requireSession from "../middlewares/require_session.js";
 import { getCurrentSession } from "../services/auth.js";
 import { getSession, SESSION_COOKIE } from "../libs/session.js";
 import { getAllApplications, getApplicationById } from "../db/applications.js";
 import { getAllServices } from "../db/services.js";
-import { getServicesByApplicationId } from "../db/application_services.js";
+import { getServicesByApplicationId, getApplicationServiceById } from "../db/application_services.js";
 import { getAllInquiries } from "../db/inquiries.js";
+import { getMailsByApplicationServiceId } from "../db/mails.js";
+
+const { SERVICES } = CONSTANTS.SAAS;
 
 export const uiRoutes = new Elysia()
     .get("/", ({ render }) =>
@@ -29,6 +33,11 @@ export const uiRoutes = new Elysia()
             title: "Login — HammerByte",
         });
     })
+    .get("/not-found", ({ render }) =>
+        render("not_found", {
+            title: "Not Found — HammerByte",
+        })
+    )
     .guard({ beforeHandle: [requireSession] }, (app) =>
         app
             .derive(({ cookie }) => ({
@@ -50,7 +59,7 @@ export const uiRoutes = new Elysia()
             .get("/app/applications/:id/services", async ({ render, session, params, redirect }) => {
                 const application = await getApplicationById({ id: Number(params.id) });
                 if (!application) {
-                    return redirect("/app/applications");
+                    return redirect("/not-found");
                 }
 
                 return render("application-services", {
@@ -58,6 +67,34 @@ export const uiRoutes = new Elysia()
                     username: session?.username,
                     application,
                     services: await getServicesByApplicationId({ application_id: application.id }),
+                });
+            })
+            .get("/app/applications/:application_id/application-services/:id", async ({ render, session, params, redirect }) => {
+                const application = await getApplicationById({ id: Number(params.application_id) });
+                const applicationService = await getApplicationServiceById({ id: Number(params.id) });
+
+                if (
+                    !application ||
+                    !applicationService ||
+                    applicationService.application_id !== application.id
+                ) {
+                    return redirect("/not-found");
+                }
+
+                let usage = [];
+
+                if (applicationService.title === SERVICES.MAILER) {
+                    usage = await getMailsByApplicationServiceId({
+                        application_service_id: applicationService.id,
+                    });
+                }
+
+                return render("application-service", {
+                    title: `Usage — ${applicationService.title}`,
+                    username: session?.username,
+                    application,
+                    applicationService,
+                    usage,
                 });
             })
             .get("/app/services", async ({ render, session }) =>

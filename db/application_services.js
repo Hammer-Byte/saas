@@ -37,3 +37,29 @@ export async function getServicesByApplicationId({ application_id }) {
             return [];
         });
 }
+
+export async function getApplicationServiceById({ id }) {
+    logger.info(`Getting Application Service By Id : ${id}`);
+
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                APPLICATION_SERVICES.id,
+                APPLICATION_SERVICES.application_id,
+                APPLICATION_SERVICES.service_id,
+                APPLICATION_SERVICES.active,
+                APPLICATION_SERVICES.created_on,
+                APPLICATION_SERVICES.updated_at,
+                SERVICES.title,
+                SERVICES.description
+            FROM APPLICATION_SERVICES
+            INNER JOIN SERVICES ON SERVICES.id = APPLICATION_SERVICES.service_id
+            WHERE APPLICATION_SERVICES.id = ${id}
+        `,
+    )
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getApplicationServiceById: ${error}`);
+            return null;
+        });
+}

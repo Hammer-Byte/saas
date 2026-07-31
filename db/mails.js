@@ -9,3 +9,21 @@ export async function createMail(email) {
 
     )
 }
+
+export async function getMailsByApplicationServiceId({ application_service_id }) {
+    logger.info(`Getting Mails By Application Service Id : ${application_service_id}`);
+
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT id, application_service_id, recipient, subject, body, created_on
+            FROM MAILS
+            WHERE application_service_id = ${application_service_id}
+            ORDER BY created_on DESC
+        `,
+    )
+        .then((result) => result ?? [])
+        .catch((error) => {
+            logger.error(`getMailsByApplicationServiceId: ${error}`);
+            return [];
+        });
+}
