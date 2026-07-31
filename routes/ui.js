@@ -69,9 +69,11 @@ export const uiRoutes = new Elysia()
                     services: await getServicesByApplicationId({ application_id: application.id }),
                 });
             })
-            .get("/app/applications/:application_id/application-services/:id", async ({ render, session, params, redirect }) => {
-                const application = await getApplicationById({ id: Number(params.application_id) });
-                const applicationService = await getApplicationServiceById({ id: Number(params.id) });
+            .get("/app/applications/:id/application-services/:application_service_id", async ({ render, session, params, redirect }) => {
+                const application = await getApplicationById({ id: Number(params.id) });
+                const applicationService = await getApplicationServiceById({
+                    id: Number(params.application_service_id),
+                });
 
                 if (
                     !application ||
