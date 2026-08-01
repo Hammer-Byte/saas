@@ -59,9 +59,17 @@
                                         <td><%= application.created_on ? new Date(application.created_on).toLocaleString() : "-" %></td>
                                         <td><%= application.updated_at ? new Date(application.updated_at).toLocaleString() : "-" %></td>
                                         <td>
-                                            <a href="/app/applications/<%= application.id %>/services" class="btn btn-sm btn-outline-primary">
-                                                Manage Services
-                                            </a>
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                <a href="/app/applications/<%= application.id %>/services" class="btn btn-sm btn-outline-primary">
+                                                    Manage Services
+                                                </a>
+                                                <a href="/app/applications/<%= application.id %>/customer" class="btn btn-sm btn-outline-dark">
+                                                    Manage Customer
+                                                </a>
+                                                <a href="/app/applications/<%= application.id %>/invoices" class="btn btn-sm btn-outline-secondary">
+                                                    Invoices
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
                                 <% }) %>

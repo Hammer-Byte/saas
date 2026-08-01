@@ -5,10 +5,10 @@ import mailer from "./apps/mailer.js";
 import bucketizer from "./apps/bucketizer.js";
 import inquiries from "./apps/inquiries.js";
 import auth from "./apps/auth.js";
+import customers from "./apps/customers.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
-
-
+import requireApiSession from "../middlewares/require_api_session.js";
 
 export const apiRoutes = new Elysia({ prefix: "/api" })
     .get("/status", () => ({
@@ -17,6 +17,9 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
     }))
     .group("/auth", auth)
     .group("/inquiries", inquiries)
+    .guard({ beforeHandle: [requireApiSession] }, (app) =>
+        app.group("/applications", customers),
+    )
     .group("/services", (app) =>
         app
             .derive(parseApplication)
@@ -26,5 +29,4 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .guard({ beforeHandle: [canUseMailer] }, (protectedApp) =>
                 protectedApp.group(`/${CONSTANTS.SAAS.SERVICES.MAILER}`, mailer),
             )
-           
     );
