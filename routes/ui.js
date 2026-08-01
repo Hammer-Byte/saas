@@ -69,7 +69,7 @@ export const uiRoutes = new Elysia()
                     services: await getServicesByApplicationId({ application_id: application.id }),
                 });
             })
-            .get("/app/applications/:id/application-services/:application_service_id", async ({ render, session, params, redirect }) => {
+            .get("/app/applications/:id/application-services/:application_service_id", async ({ render, session, params, query, redirect }) => {
                 const application = await getApplicationById({ id: Number(params.id) });
                 const applicationService = await getApplicationServiceById({
                     id: Number(params.application_service_id),
@@ -83,11 +83,25 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
+                const now = new Date();
+                const parsedMonth = Number(query.month);
+                const parsedYear = Number(query.year);
+                const month =
+                    Number.isInteger(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12
+                        ? parsedMonth
+                        : now.getMonth() + 1;
+                const year =
+                    Number.isInteger(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100
+                        ? parsedYear
+                        : now.getFullYear();
+
                 let usage = [];
 
                 if (applicationService.title === SERVICES.MAILER) {
                     usage = await getMailsByApplicationServiceId({
                         application_service_id: applicationService.id,
+                        month,
+                        year,
                     });
                 }
 
@@ -97,6 +111,8 @@ export const uiRoutes = new Elysia()
                     application,
                     applicationService,
                     usage,
+                    month,
+                    year,
                 });
             })
             .get("/app/services", async ({ render, session }) =>
