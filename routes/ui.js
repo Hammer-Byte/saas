@@ -8,7 +8,11 @@ import { getAllServices } from "../db/services.js";
 import { getServicesByApplicationId, getApplicationServiceById } from "../db/application_services.js";
 import { getAllInquiries } from "../db/inquiries.js";
 import { getMailsByApplicationServiceId } from "../db/mails.js";
-import { getCustomerByApplicationId } from "../db/application_customers.js";
+import {
+    getCustomerByApplicationId,
+    getCustomerEmailsByApplicationCustomerId,
+    getCustomerPhonesByApplicationCustomerId,
+} from "../db/application_customers.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
 
@@ -88,11 +92,21 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
+                const customer = await getCustomerByApplicationId({ application_id: application.id });
+                const emails = customer
+                    ? await getCustomerEmailsByApplicationCustomerId({ application_customer_id: customer.id })
+                    : [];
+                const phones = customer
+                    ? await getCustomerPhonesByApplicationCustomerId({ application_customer_id: customer.id })
+                    : [];
+
                 return render("application-customer", {
                     title: `Customer — ${application.title}`,
                     username: session?.username,
                     application,
-                    customer: await getCustomerByApplicationId({ application_id: application.id }),
+                    customer,
+                    emails,
+                    phones,
                 });
             })
             .get("/app/applications/:id/application-services/:application_service_id", async ({ render, session, params, query, redirect }) => {

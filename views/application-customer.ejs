@@ -109,6 +109,52 @@
                                 required
                             ><%= customer?.address || '' %></textarea>
                         </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Emails</label>
+                            <div id="emails-chips" class="d-flex flex-wrap gap-2 mb-2">
+                                <% (emails || []).forEach(function (email) { %>
+                                    <span class="badge rounded-pill text-bg-secondary d-inline-flex align-items-center gap-1 py-2 px-3" data-value="<%= email %>">
+                                        <span><%= email %></span>
+                                        <button type="button" class="btn-close btn-close-white chip-remove d-none" aria-label="Remove" style="font-size: 0.55rem;"></button>
+                                    </span>
+                                <% }) %>
+                            </div>
+                            <div class="input-group">
+                                <input
+                                    type="email"
+                                    class="form-control"
+                                    id="email-input"
+                                    placeholder="Type email and press Enter"
+                                    maxlength="255"
+                                    disabled
+                                />
+                                <button type="button" class="btn btn-outline-secondary" id="add-email-btn" disabled>Add</button>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Phones</label>
+                            <div id="phones-chips" class="d-flex flex-wrap gap-2 mb-2">
+                                <% (phones || []).forEach(function (phone) { %>
+                                    <span class="badge rounded-pill text-bg-secondary d-inline-flex align-items-center gap-1 py-2 px-3" data-value="<%= phone %>">
+                                        <span><%= phone %></span>
+                                        <button type="button" class="btn-close btn-close-white chip-remove d-none" aria-label="Remove" style="font-size: 0.55rem;"></button>
+                                    </span>
+                                <% }) %>
+                            </div>
+                            <div class="input-group">
+                                <input
+                                    type="tel"
+                                    class="form-control"
+                                    id="phone-input"
+                                    placeholder="Type phone and press Enter"
+                                    maxlength="13"
+                                    disabled
+                                />
+                                <button type="button" class="btn btn-outline-secondary" id="add-phone-btn" disabled>Add</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="customer-actions" class="d-flex gap-2 mt-4 d-none">
