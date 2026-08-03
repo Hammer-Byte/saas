@@ -1,0 +1,121 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= typeof username !== "undefined" && username ? username : "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> / Projects
+            </p>
+            <h1 class="h3 mb-1">Projects</h1>
+            <p class="text-secondary mb-0">Project tags from the PROJECT_TAGS table.</p>
+        </div>
+
+        <div id="projects-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <h2 class="h5 mb-3">Add project</h2>
+                <form id="add-project-form" class="row g-2 align-items-end" novalidate>
+                    <div class="col-md-8">
+                        <label for="new-project-title" class="form-label">Title</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="new-project-title"
+                            name="title"
+                            maxlength="56"
+                            required
+                        />
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-primary w-100">Add</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <% if (!projectTags || projectTags.length === 0) { %>
+                    <div id="projects-empty" class="p-4 p-md-5 text-center text-secondary">
+                        No projects found.
+                    </div>
+                    <div class="table-responsive d-none" id="projects-table-wrap">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Title</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="projects-tbody"></tbody>
+                        </table>
+                    </div>
+                <% } else { %>
+                    <div id="projects-empty" class="p-4 p-md-5 text-center text-secondary d-none">
+                        No projects found.
+                    </div>
+                    <div class="table-responsive" id="projects-table-wrap">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Title</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="projects-tbody">
+                                <% projectTags.forEach(function (tag) { %>
+                                    <tr data-id="<%= tag.id %>">
+                                        <td><%= tag.id %></td>
+                                        <td>
+                                            <span class="project-title-text"><%= tag.title %></span>
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-sm project-title-input d-none"
+                                                maxlength="56"
+                                                value="<%= tag.title %>"
+                                            />
+                                        </td>
+                                        <td>
+                                            <div class="d-flex gap-2 flex-wrap project-view-actions">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary project-edit-btn" title="Edit">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>
+                                                    </svg>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger project-delete-btn">Delete</button>
+                                            </div>
+                                            <div class="d-flex gap-2 flex-wrap project-edit-actions d-none">
+                                                <button type="button" class="btn btn-sm btn-primary project-save-btn">Save</button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary project-cancel-btn">Cancel</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/projects.js" defer></script>
+<%- include('common/footer') %>

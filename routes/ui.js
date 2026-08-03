@@ -13,6 +13,7 @@ import {
     getCustomerEmailsByApplicationCustomerId,
     getCustomerPhonesByApplicationCustomerId,
 } from "../db/application_customers.js";
+import { getAllProjectTags } from "../db/project_tags.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
 
@@ -61,17 +62,37 @@ export const uiRoutes = new Elysia()
                     applications: await getAllApplications(),
                 }),
             )
+            .get("/app/applications/:id/edit", async ({ render, session, params, redirect }) => {
+                const application = await getApplicationById({ id: Number(params.id) });
+                if (!application) {
+                    return redirect("/not-found");
+                }
+
+                return render("application-edit", {
+                    title: `Edit — ${application.title}`,
+                    username: session?.username,
+                    application,
+                    projectTags: await getAllProjectTags(),
+                });
+            })
             .get("/app/applications/:id/services", async ({ render, session, params, redirect }) => {
                 const application = await getApplicationById({ id: Number(params.id) });
                 if (!application) {
                     return redirect("/not-found");
                 }
 
+                const linkedServices = await getServicesByApplicationId({ application_id: application.id });
+                const linkedServiceIds = new Set(linkedServices.map((service) => Number(service.service_id)));
+                const availableServices = (await getAllServices()).filter(
+                    (service) => !linkedServiceIds.has(Number(service.id)),
+                );
+
                 return render("application-services", {
                     title: `Services — ${application.title}`,
                     username: session?.username,
                     application,
-                    services: await getServicesByApplicationId({ application_id: application.id }),
+                    services: linkedServices,
+                    availableServices,
                 });
             })
             .get("/app/applications/:id/invoices", async ({ render, session, params, redirect }) => {
@@ -160,6 +181,13 @@ export const uiRoutes = new Elysia()
                     title: "Services — HammerByte",
                     username: session?.username,
                     services: await getAllServices(),
+                }),
+            )
+            .get("/app/projects", async ({ render, session }) =>
+                render("projects", {
+                    title: "Projects — HammerByte",
+                    username: session?.username,
+                    projectTags: await getAllProjectTags(),
                 }),
             )
             .get("/app/inquiries", async ({ render, session }) =>

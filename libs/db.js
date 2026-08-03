@@ -28,13 +28,25 @@ export async function executeSQLQuery(queryFunction) {
 
 export async function generateDBTables() {
     const requiredTables = [
+        `CREATE TABLE IF NOT EXISTS PROJECT_TAGS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(56) NOT NULL UNIQUE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )`,
         `CREATE TABLE IF NOT EXISTS APPLICATIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(56) NOT NULL UNIQUE,
             token CHAR(16) NOT NULL DEFAULT (HEX(RANDOM_BYTES(8))),
             active BOOLEAN NOT NULL DEFAULT TRUE,
+            project_tag_id INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_applications_project_tag
+                FOREIGN KEY (project_tag_id)
+                REFERENCES PROJECT_TAGS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
           )`,
         `CREATE TABLE IF NOT EXISTS USERS (
             id INT AUTO_INCREMENT PRIMARY KEY,

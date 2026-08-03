@@ -1,5 +1,5 @@
 import { logger } from "@hammerbyte/utils";
-import { executeSQLQuery } from "../libs/db";
+import { executeSQLQuery } from "../libs/db.js";
 
 export async function getActiveApplicationByIdAndToken({ id, token }) {
     logger.info(`Getting Application : ${id}  By Token : ${token}`);
@@ -10,7 +10,16 @@ export async function getActiveApplicationByIdAndToken({ id, token }) {
 
 export async function getAllApplications() {
     logger.info("Getting All Applications");
-    return await executeSQLQuery((sql) => sql`SELECT * FROM APPLICATIONS ORDER BY created_on DESC`)
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                APPLICATIONS.*,
+                PROJECT_TAGS.title AS project_tag_title
+            FROM APPLICATIONS
+            LEFT JOIN PROJECT_TAGS ON PROJECT_TAGS.id = APPLICATIONS.project_tag_id
+            ORDER BY APPLICATIONS.created_on DESC
+        `,
+    )
         .then((result) => result ?? [])
         .catch((error) => {
             logger.error(`getAllApplications: ${error}`);
@@ -26,4 +35,21 @@ export async function getApplicationById({ id }) {
             logger.error(`getApplicationById: ${error}`);
             return null;
         });
+}
+
+export async function updateApplicationById({ id, title, token, active, project_tag_id }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE APPLICATIONS
+            SET
+                title = ${title},
+                token = ${token},
+                active = ${active},
+                project_tag_id = ${project_tag_id}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateApplicationById: ${error}`);
+        throw error;
+    });
 }

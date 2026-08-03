@@ -1,5 +1,45 @@
 import { logger } from "@hammerbyte/utils";
-import { executeSQLQuery } from "../libs/db";
+import { executeSQLQuery } from "../libs/db.js";
+
+export async function createApplicationService({ application_id, service_id }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            INSERT INTO APPLICATION_SERVICES ${sql(
+                { application_id, service_id },
+                "application_id",
+                "service_id",
+            )}
+        `,
+    )
+        .then((result) => result.lastInsertRowid)
+        .catch((error) => {
+            logger.error(`createApplicationService: ${error}`);
+            throw error;
+        });
+}
+
+export async function updateApplicationServiceActiveById({ id, active }) {
+    await executeSQLQuery(
+        (sql) => sql`UPDATE APPLICATION_SERVICES SET active = ${active} WHERE id = ${id}`,
+    ).catch((error) => {
+        logger.error(`updateApplicationServiceActiveById: ${error}`);
+        throw error;
+    });
+}
+
+export async function getApplicationServiceByApplicationIdAndServiceId({ application_id, service_id }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT * FROM APPLICATION_SERVICES
+            WHERE application_id = ${application_id} AND service_id = ${service_id}
+        `,
+    )
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getApplicationServiceByApplicationIdAndServiceId: ${error}`);
+            return null;
+        });
+}
 
 export async function canApplicationUseService({ application_id, service_id }) {
     logger.info(`Verifying Application Service - Application : ${application_id} , Service : ${service_id}`);
