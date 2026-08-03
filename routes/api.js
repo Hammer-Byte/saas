@@ -8,6 +8,7 @@ import auth from "./apps/auth.js";
 import customers from "./apps/customers.js";
 import applications from "./apps/applications.js";
 import projectTags from "./apps/project_tags.js";
+import expenses from "./apps/expenses.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 import requireApiSession from "../middlewares/require_api_session.js";
@@ -22,7 +23,8 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
     .guard({ beforeHandle: [requireApiSession] }, (app) =>
         app
             .group("/applications", (group) => applications(customers(group)))
-            .group("/project-tags", projectTags),
+            .group("/project-tags", projectTags)
+            .group("/expenses", expenses),
     )
     .group("/services", (app) =>
         app

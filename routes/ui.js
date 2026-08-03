@@ -14,8 +14,16 @@ import {
     getCustomerPhonesByApplicationCustomerId,
 } from "../db/application_customers.js";
 import { getAllProjectTags } from "../db/project_tags.js";
+import { getExpensesByDateRange } from "../db/expenses.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
+
+function toDateInputValue(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
 
 export const uiRoutes = new Elysia()
     .get("/", ({ render }) =>
@@ -191,6 +199,35 @@ export const uiRoutes = new Elysia()
                     projectTags: await getAllProjectTags(),
                 }),
             )
+            .get("/app/expenses", async ({ render, session, query }) => {
+                const now = new Date();
+                const defaultStart = toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
+                const defaultEnd = toDateInputValue(now);
+
+                const start =
+                    typeof query.start === "string" && /^\d{4}-\d{2}-\d{2}$/.test(query.start)
+                        ? query.start
+                        : defaultStart;
+                const end =
+                    typeof query.end === "string" && /^\d{4}-\d{2}-\d{2}$/.test(query.end)
+                        ? query.end
+                        : defaultEnd;
+
+                const rangeStart = start <= end ? start : end;
+                const rangeEnd = start <= end ? end : start;
+                const expenses = await getExpensesByDateRange({ start: rangeStart, end: rangeEnd });
+                const totalAmount = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+                return render("expenses", {
+                    title: "Expenses — HammerByte",
+                    username: session?.username,
+                    expenses,
+                    start: rangeStart,
+                    end: rangeEnd,
+                    totalAmount,
+                    itemCount: expenses.length,
+                });
+            })
             .get("/app/inquiries", async ({ render, session }) =>
                 render("inquiries", {
                     title: "Inquiries — HammerByte",
