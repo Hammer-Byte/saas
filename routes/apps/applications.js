@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { updateApplication } from "../../services/applications.js";
+import { addApplication, updateApplication } from "../../services/applications.js";
 import {
     addApplicationService,
     updateApplicationService,
@@ -7,6 +7,21 @@ import {
 
 export default function (app) {
     return app
+        .post("/", addApplication, {
+            body: t.Object({
+                title: t.String({
+                    minLength: 1,
+                    maxLength: 56,
+                    error: "Title is required",
+                }),
+                active: t.Optional(t.Boolean()),
+                project_tag_id: t.Optional(t.Union([t.Numeric(), t.Null()])),
+            }),
+            detail: {
+                tags: ["Applications"],
+                summary: "Create application",
+            },
+        })
         .patch("/:id", updateApplication, {
             params: t.Object({
                 id: t.Numeric(),

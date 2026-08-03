@@ -60,6 +60,7 @@ export const uiRoutes = new Elysia()
                     title: "Applications — HammerByte",
                     username: session?.username,
                     applications: await getAllApplications(),
+                    projectTags: await getAllProjectTags(),
                 }),
             )
             .get("/app/applications/:id/edit", async ({ render, session, params, redirect }) => {

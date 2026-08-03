@@ -13,14 +13,20 @@ export async function getAllApplications() {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT
-                APPLICATIONS.*,
+                APPLICATIONS.id,
+                APPLICATIONS.title,
+                APPLICATIONS.token,
+                APPLICATIONS.active,
+                APPLICATIONS.created_on,
+                APPLICATIONS.updated_at,
+                APPLICATIONS.project_tag_id,
                 PROJECT_TAGS.title AS project_tag_title
             FROM APPLICATIONS
             LEFT JOIN PROJECT_TAGS ON PROJECT_TAGS.id = APPLICATIONS.project_tag_id
             ORDER BY APPLICATIONS.created_on DESC
         `,
     )
-        .then((result) => result ?? [])
+        .then((result) => Array.from(result ?? []))
         .catch((error) => {
             logger.error(`getAllApplications: ${error}`);
             return [];
@@ -34,6 +40,24 @@ export async function getApplicationById({ id }) {
         .catch((error) => {
             logger.error(`getApplicationById: ${error}`);
             return null;
+        });
+}
+
+export async function createApplication({ title, active = true, project_tag_id = null }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            INSERT INTO APPLICATIONS ${sql(
+                { title, active, project_tag_id },
+                "title",
+                "active",
+                "project_tag_id",
+            )}
+        `,
+    )
+        .then((result) => result.lastInsertRowid)
+        .catch((error) => {
+            logger.error(`createApplication: ${error}`);
+            throw error;
         });
 }
 
