@@ -8,12 +8,9 @@ import { getAllServices } from "../db/services.js";
 import { getServicesByApplicationId, getApplicationServiceById } from "../db/application_services.js";
 import { getAllInquiries } from "../db/inquiries.js";
 import { getMailsByApplicationServiceId } from "../db/mails.js";
-import {
-    getCustomerByApplicationId,
-    getCustomerEmailsByApplicationCustomerId,
-    getCustomerPhonesByApplicationCustomerId,
-} from "../db/application_customers.js";
-import { getAllProjectTags } from "../db/project_tags.js";
+import { getAllCustomers, getCustomerById } from "../db/customers.js";
+import { getCustomerProjectsByCustomerId } from "../db/customer_projects.js";
+import { getAllProjects, getProjectById } from "../db/projects.js";
 import { getExpensesByDateRange } from "../db/expenses.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
@@ -68,7 +65,6 @@ export const uiRoutes = new Elysia()
                     title: "Applications — HammerByte",
                     username: session?.username,
                     applications: await getAllApplications(),
-                    projectTags: await getAllProjectTags(),
                 }),
             )
             .get("/app/applications/:id/edit", async ({ render, session, params, redirect }) => {
@@ -81,7 +77,6 @@ export const uiRoutes = new Elysia()
                     title: `Edit — ${application.title}`,
                     username: session?.username,
                     application,
-                    projectTags: await getAllProjectTags(),
                 });
             })
             .get("/app/applications/:id/services", async ({ render, session, params, redirect }) => {
@@ -114,29 +109,6 @@ export const uiRoutes = new Elysia()
                     title: `Invoices — ${application.title}`,
                     username: session?.username,
                     application,
-                });
-            })
-            .get("/app/applications/:id/customer", async ({ render, session, params, redirect }) => {
-                const application = await getApplicationById({ id: Number(params.id) });
-                if (!application) {
-                    return redirect("/not-found");
-                }
-
-                const customer = await getCustomerByApplicationId({ application_id: application.id });
-                const emails = customer
-                    ? await getCustomerEmailsByApplicationCustomerId({ application_customer_id: customer.id })
-                    : [];
-                const phones = customer
-                    ? await getCustomerPhonesByApplicationCustomerId({ application_customer_id: customer.id })
-                    : [];
-
-                return render("application-customer", {
-                    title: `Customer — ${application.title}`,
-                    username: session?.username,
-                    application,
-                    customer,
-                    emails,
-                    phones,
                 });
             })
             .get("/app/applications/:id/application-services/:application_service_id", async ({ render, session, params, query, redirect }) => {
@@ -196,9 +168,21 @@ export const uiRoutes = new Elysia()
                 render("projects", {
                     title: "Projects — HammerByte",
                     username: session?.username,
-                    projectTags: await getAllProjectTags(),
+                    projects: await getAllProjects(),
                 }),
             )
+            .get("/app/projects/:id", async ({ render, session, params, redirect }) => {
+                const project = await getProjectById({ id: Number(params.id) });
+                if (!project) {
+                    return redirect("/not-found");
+                }
+
+                return render("project", {
+                    title: `Project — ${project.title}`,
+                    username: session?.username,
+                    project,
+                });
+            })
             .get("/app/expenses", async ({ render, session, query }) => {
                 const now = new Date();
                 const defaultStart = toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
@@ -226,6 +210,29 @@ export const uiRoutes = new Elysia()
                     end: rangeEnd,
                     totalAmount,
                     itemCount: expenses.length,
+                });
+            })
+            .get("/app/customers", async ({ render, session }) =>
+                render("customers", {
+                    title: "Customers — HammerByte",
+                    username: session?.username,
+                    customers: await getAllCustomers(),
+                }),
+            )
+            .get("/app/customers/:id", async ({ render, session, params, redirect }) => {
+                const customer = await getCustomerById({ id: Number(params.id) });
+                if (!customer) {
+                    return redirect("/not-found");
+                }
+
+                return render("customer", {
+                    title: `Customer — ${customer.full_name}`,
+                    username: session?.username,
+                    customer,
+                    customerProjects: await getCustomerProjectsByCustomerId({
+                        customer_id: customer.id,
+                    }),
+                    projects: await getAllProjects(),
                 });
             })
             .get("/app/inquiries", async ({ render, session }) =>

@@ -1,44 +1,129 @@
 import { t } from "elysia";
-import { addCustomer } from "../../services/customers.js";
+import { addCustomer, deleteCustomer, updateCustomer } from "../../services/customers.js";
+import {
+    addCustomerProject,
+    deleteCustomerProject,
+    updateCustomerProject,
+} from "../../services/customer_projects.js";
 import { ERRORS } from "../../constants.js";
 
 export default function (app) {
-    return app.post("/:id/customer", addCustomer, {
-        params: t.Object({
-            id: t.Numeric(),
-        }),
-        body: t.Object({
-            full_name: t.String({
-                minLength: 1,
-                maxLength: 128,
-                error: ERRORS.FULL_NAME_REQUIRED,
+    return app
+        .post("/", addCustomer, {
+            body: t.Object({
+                full_name: t.String({
+                    minLength: 1,
+                    maxLength: 128,
+                    error: ERRORS.FULL_NAME_REQUIRED,
+                }),
+                company: t.String({
+                    minLength: 1,
+                    maxLength: 128,
+                    error: "Company is required",
+                }),
+                pan_gst: t.String({
+                    minLength: 1,
+                    maxLength: 32,
+                    error: "PAN/GST is required",
+                }),
+                hsn: t.String({
+                    minLength: 1,
+                    maxLength: 16,
+                    error: "HSN is required",
+                }),
+                address: t.String({
+                    minLength: 1,
+                    maxLength: 512,
+                    error: "Address is required",
+                }),
             }),
-            company: t.String({
-                minLength: 1,
-                maxLength: 128,
-                error: "Company is required",
+            detail: {
+                tags: ["Customers"],
+                summary: "Create customer",
+            },
+        })
+        .patch("/", updateCustomer, {
+            body: t.Object({
+                id: t.Numeric({ minimum: 1 }),
+                full_name: t.String({
+                    minLength: 1,
+                    maxLength: 128,
+                    error: ERRORS.FULL_NAME_REQUIRED,
+                }),
+                company: t.String({
+                    minLength: 1,
+                    maxLength: 128,
+                    error: "Company is required",
+                }),
+                pan_gst: t.String({
+                    minLength: 1,
+                    maxLength: 32,
+                    error: "PAN/GST is required",
+                }),
+                hsn: t.String({
+                    minLength: 1,
+                    maxLength: 16,
+                    error: "HSN is required",
+                }),
+                address: t.String({
+                    minLength: 1,
+                    maxLength: 512,
+                    error: "Address is required",
+                }),
             }),
-            pan_gst: t.String({
-                minLength: 1,
-                maxLength: 32,
-                error: "PAN/GST is required",
+            detail: {
+                tags: ["Customers"],
+                summary: "Update customer",
+            },
+        })
+        .delete("/:id", deleteCustomer, {
+            params: t.Object({
+                id: t.Numeric(),
             }),
-            hsn: t.String({
-                minLength: 1,
-                maxLength: 16,
-                error: "HSN is required",
+            detail: {
+                tags: ["Customers"],
+                summary: "Delete customer",
+            },
+        })
+        .post("/:id/projects", addCustomerProject, {
+            params: t.Object({
+                id: t.Numeric(),
             }),
-            address: t.String({
-                minLength: 1,
-                maxLength: 512,
-                error: "Address is required",
+            body: t.Object({
+                project_id: t.Numeric({ minimum: 1 }),
+                description: t.Optional(
+                    t.Union([t.String({ maxLength: 512 }), t.Literal(""), t.Null()]),
+                ),
             }),
-            emails: t.Array(t.String({ maxLength: 255 })),
-            phones: t.Array(t.String({ maxLength: 13 })),
-        }),
-        detail: {
-            tags: ["Customers"],
-            summary: "Create or update application customer",
-        },
-    });
+            detail: {
+                tags: ["Customer Projects"],
+                summary: "Link a project to a customer",
+            },
+        })
+        .patch("/:id/projects", updateCustomerProject, {
+            params: t.Object({
+                id: t.Numeric(),
+            }),
+            body: t.Object({
+                id: t.Numeric({ minimum: 1 }),
+                project_id: t.Numeric({ minimum: 1 }),
+                description: t.Optional(
+                    t.Union([t.String({ maxLength: 512 }), t.Literal(""), t.Null()]),
+                ),
+            }),
+            detail: {
+                tags: ["Customer Projects"],
+                summary: "Update customer project link",
+            },
+        })
+        .delete("/:id/projects/:customer_project_id", deleteCustomerProject, {
+            params: t.Object({
+                id: t.Numeric(),
+                customer_project_id: t.Numeric(),
+            }),
+            detail: {
+                tags: ["Customer Projects"],
+                summary: "Remove customer project link",
+            },
+        });
 }

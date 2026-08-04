@@ -28,9 +28,10 @@ export async function executeSQLQuery(queryFunction) {
 
 export async function generateDBTables() {
     const requiredTables = [
-        `CREATE TABLE IF NOT EXISTS PROJECT_TAGS (
+        `CREATE TABLE IF NOT EXISTS PROJECTS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(56) NOT NULL UNIQUE,
+            description VARCHAR(512) NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )`,
@@ -39,15 +40,9 @@ export async function generateDBTables() {
             title VARCHAR(56) NOT NULL UNIQUE,
             token CHAR(16) NOT NULL DEFAULT (HEX(RANDOM_BYTES(8))),
             active BOOLEAN NOT NULL DEFAULT TRUE,
-            project_tag_id INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            CONSTRAINT fk_applications_project_tag
-                FOREIGN KEY (project_tag_id)
-                REFERENCES PROJECT_TAGS(id)
-                ON DELETE SET NULL
-                ON UPDATE CASCADE
-          )`,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )`,
         `CREATE TABLE IF NOT EXISTS USERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             application_id INT NOT NULL,
@@ -142,49 +137,6 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS APPLICATION_CUSTOMER (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            application_id INT NOT NULL,
-            full_name VARCHAR(128) NOT NULL,
-            company VARCHAR(128) NOT NULL,
-            pan_gst VARCHAR(32) NOT NULL,
-            hsn VARCHAR(16) NOT NULL,
-            address VARCHAR(512) NOT NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_application_customer (application_id),
-            CONSTRAINT fk_application_customer_application
-                FOREIGN KEY (application_id)
-                REFERENCES APPLICATIONS(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS CUSTOMER_EMAILS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            application_customer_id INT NOT NULL,
-            email VARCHAR(255) NOT NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_customer_email (application_customer_id, email),
-            CONSTRAINT fk_customer_emails_customer
-                FOREIGN KEY (application_customer_id)
-                REFERENCES APPLICATION_CUSTOMER(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS CUSTOMER_PHONES (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            application_customer_id INT NOT NULL,
-            phone VARCHAR(13) NOT NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_customer_phone (application_customer_id, phone),
-            CONSTRAINT fk_customer_phones_customer
-                FOREIGN KEY (application_customer_id)
-                REFERENCES APPLICATION_CUSTOMER(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        )`,
         `CREATE TABLE IF NOT EXISTS EXPENSES (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(128) NOT NULL,
@@ -193,6 +145,61 @@ export async function generateDBTables() {
             expense_date DATE NOT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS CUSTOMERS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            full_name VARCHAR(128) NOT NULL,
+            company VARCHAR(128) NOT NULL,
+            pan_gst VARCHAR(32) NOT NULL,
+            hsn VARCHAR(16) NOT NULL,
+            address VARCHAR(512) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS CUSTOMER_EMAILS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            customer_id INT NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_customer_email (customer_id, email),
+            CONSTRAINT fk_customer_emails_customer
+                FOREIGN KEY (customer_id)
+                REFERENCES CUSTOMERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS CUSTOMER_PHONES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            customer_id INT NOT NULL,
+            phone VARCHAR(13) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_customer_phone (customer_id, phone),
+            CONSTRAINT fk_customer_phones_customer
+                FOREIGN KEY (customer_id)
+                REFERENCES CUSTOMERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS CUSTOMER_PROJECTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            customer_id INT NOT NULL,
+            project_id INT NOT NULL,
+            description VARCHAR(512) NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_customer_project (customer_id, project_id),
+            CONSTRAINT fk_customer_projects_customer
+                FOREIGN KEY (customer_id)
+                REFERENCES CUSTOMERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_customer_projects_project
+                FOREIGN KEY (project_id)
+                REFERENCES PROJECTS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
         )`,
 
         `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails');`,

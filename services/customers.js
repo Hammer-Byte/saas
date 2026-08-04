@@ -1,69 +1,59 @@
-import { getApplicationById } from "../db/applications.js";
 import {
     createCustomer,
-    createCustomerEmail,
-    createCustomerPhone,
-    deleteCustomerEmailsByApplicationCustomerId,
-    deleteCustomerPhonesByApplicationCustomerId,
-    getCustomerByApplicationId,
-    updateCustomerByApplicationId,
-} from "../db/application_customers.js";
+    deleteCustomerById,
+    getAllCustomers,
+    getCustomerById,
+    updateCustomerById,
+} from "../db/customers.js";
 
-export async function addCustomer({ params, body, set }) {
-    const application = await getApplicationById({ id: Number(params.id) });
-    if (!application) {
+export async function addCustomer({ body, set }) {
+    const id = await createCustomer({
+        full_name: body.full_name.trim(),
+        company: body.company.trim(),
+        pan_gst: body.pan_gst.trim(),
+        hsn: body.hsn.trim(),
+        address: body.address.trim(),
+    });
+
+    const customer = await getCustomerById({ id });
+
+    set.status = 201;
+    return { message: "Customer created", customer };
+}
+
+export async function updateCustomer({ body, set }) {
+    const existing = await getCustomerById({ id: body.id });
+    if (!existing) {
         set.status = 404;
-        return { error: "Application not found" };
+        return { error: "Customer not found" };
     }
 
-    const full_name = body.full_name.trim();
-    const company = body.company.trim();
-    const pan_gst = body.pan_gst.trim();
-    const hsn = body.hsn.trim();
-    const address = body.address.trim();
-    const emails = body.emails.map((email) => email.trim()).filter(Boolean);
-    const phones = body.phones.map((phone) => phone.trim()).filter(Boolean);
+    await updateCustomerById({
+        id: body.id,
+        full_name: body.full_name.trim(),
+        company: body.company.trim(),
+        pan_gst: body.pan_gst.trim(),
+        hsn: body.hsn.trim(),
+        address: body.address.trim(),
+    });
 
-    let customer = await getCustomerByApplicationId({ application_id: application.id });
-
-    if (customer) {
-        await updateCustomerByApplicationId({
-            application_id: application.id,
-            full_name,
-            company,
-            pan_gst,
-            hsn,
-            address,
-        });
-    } else {
-        await createCustomer({
-            application_id: application.id,
-            full_name,
-            company,
-            pan_gst,
-            hsn,
-            address,
-        });
-        customer = await getCustomerByApplicationId({ application_id: application.id });
-    }
-
-    await deleteCustomerEmailsByApplicationCustomerId({ application_customer_id: customer.id });
-    for (const email of emails) {
-        await createCustomerEmail({ application_customer_id: customer.id, email });
-    }
-
-    await deleteCustomerPhonesByApplicationCustomerId({ application_customer_id: customer.id });
-    for (const phone of phones) {
-        await createCustomerPhone({ application_customer_id: customer.id, phone });
-    }
-
-    customer = await getCustomerByApplicationId({ application_id: application.id });
+    const customer = await getCustomerById({ id: body.id });
 
     set.status = 200;
-    return {
-        message: "Customer saved",
-        customer,
-        emails,
-        phones,
-    };
+    return { message: "Customer updated", customer };
+}
+
+export async function deleteCustomer({ params, set }) {
+    const existing = await getCustomerById({ id: Number(params.id) });
+    if (!existing) {
+        set.status = 404;
+        return { error: "Customer not found" };
+    }
+
+    await deleteCustomerById({ id: Number(params.id) });
+    set.status = 204;
+}
+
+export async function getCustomers() {
+    return await getAllCustomers();
 }

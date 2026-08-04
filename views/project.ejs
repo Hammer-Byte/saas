@@ -18,18 +18,18 @@
         <div class="mb-4">
             <p class="text-secondary small mb-1">
                 <a href="/app" class="text-decoration-none">App</a> /
-                <a href="/app/applications" class="text-decoration-none">Applications</a> /
-                Edit
+                <a href="/app/projects" class="text-decoration-none">Projects</a> /
+                <%= project.title %>
             </p>
-            <h1 class="h3 mb-1">Edit <%= application.title %></h1>
-            <p class="text-secondary mb-0">Update application title, token, and status.</p>
+            <h1 class="h3 mb-1"><%= project.title %></h1>
+            <p class="text-secondary mb-0">Project details.</p>
         </div>
 
-        <div class="card border-0 shadow-sm">
-            <div class="card-body p-4">
-                <div id="application-alert" class="alert d-none" role="alert"></div>
+        <div id="project-alert" class="alert d-none" role="alert"></div>
 
-                <form id="application-edit-form" data-application-id="<%= application.id %>" novalidate>
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <form id="project-form" data-project-id="<%= project.id %>" novalidate>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="title" class="form-label">Title</label>
@@ -39,34 +39,25 @@
                                 id="title"
                                 name="title"
                                 maxlength="56"
-                                value="<%= application.title %>"
+                                value="<%= project.title %>"
                                 required
                             />
                         </div>
-                        <div class="col-md-6">
-                            <label for="token" class="form-label">Token</label>
-                            <input
-                                type="text"
+                        <div class="col-12">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea
                                 class="form-control"
-                                id="token"
-                                name="token"
-                                maxlength="16"
-                                value="<%= application.token %>"
-                                required
-                            />
-                        </div>
-                        <div class="col-md-6">
-                            <label for="active" class="form-label">Status</label>
-                            <select class="form-select" id="active" name="active">
-                                <option value="true" <%= application.active ? "selected" : "" %>>Active</option>
-                                <option value="false" <%= !application.active ? "selected" : "" %>>Inactive</option>
-                            </select>
+                                id="description"
+                                name="description"
+                                rows="4"
+                                maxlength="512"
+                            ><%= project.description || '' %></textarea>
                         </div>
                     </div>
-
-                    <div class="d-flex gap-2 mt-4">
+                    <div class="d-flex gap-2 mt-4 flex-wrap">
                         <button type="submit" class="btn btn-primary">Save</button>
-                        <a href="/app/applications" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="button" id="delete-project-btn" class="btn btn-outline-danger">Delete</button>
+                        <a href="/app/projects" class="btn btn-outline-secondary">Back</a>
                     </div>
                 </form>
             </div>
@@ -75,5 +66,5 @@
 </main>
 
 <script src="/public/app.js" defer></script>
-<script src="/public/application-edit.js" defer></script>
+<script src="/public/project.js" defer></script>
 <%- include('common/footer') %>

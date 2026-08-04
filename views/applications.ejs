@@ -48,7 +48,6 @@
                                 <tr>
                                     <th scope="col">ID</th>
                                     <th scope="col">Title</th>
-                                    <th scope="col">Project</th>
                                     <th scope="col">Token</th>
                                     <th scope="col">Active</th>
                                     <th scope="col">Created On</th>
@@ -75,7 +74,6 @@
                                                 </a>
                                             </div>
                                         </td>
-                                        <td><%= application.project_tag_title || "-" %></td>
                                         <td><code><%= application.token %></code></td>
                                         <td>
                                             <% if (application.active) { %>
@@ -90,9 +88,6 @@
                                             <div class="d-flex gap-2 flex-wrap">
                                                 <a href="/app/applications/<%= application.id %>/services" class="btn btn-sm btn-outline-primary">
                                                     Manage Services
-                                                </a>
-                                                <a href="/app/applications/<%= application.id %>/customer" class="btn btn-sm btn-outline-dark">
-                                                    Manage Customer
                                                 </a>
                                                 <a href="/app/applications/<%= application.id %>/invoices" class="btn btn-sm btn-outline-secondary">
                                                     Invoices
@@ -130,15 +125,6 @@
                             maxlength="56"
                             required
                         />
-                    </div>
-                    <div class="mb-3">
-                        <label for="application-project-tag" class="form-label">Project</label>
-                        <select class="form-select" id="application-project-tag" name="project_tag_id">
-                            <option value="">No project</option>
-                            <% (projectTags || []).forEach(function (tag) { %>
-                                <option value="<%= tag.id %>"><%= tag.title %></option>
-                            <% }) %>
-                        </select>
                     </div>
                     <div class="mb-0">
                         <label for="application-active" class="form-label">Status</label>

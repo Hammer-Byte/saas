@@ -19,7 +19,6 @@
         alertBox.classList.add("d-none");
 
         const title = form.elements.namedItem("title")?.value?.trim() || "";
-        const projectTagValue = form.elements.namedItem("project_tag_id")?.value || "";
         const active = form.elements.namedItem("active")?.value === "true";
 
         if (!title) {
@@ -42,7 +41,6 @@
                 body: JSON.stringify({
                     title,
                     active,
-                    project_tag_id: projectTagValue ? Number(projectTagValue) : null,
                 }),
             });
 

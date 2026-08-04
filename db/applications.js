@@ -18,11 +18,8 @@ export async function getAllApplications() {
                 APPLICATIONS.token,
                 APPLICATIONS.active,
                 APPLICATIONS.created_on,
-                APPLICATIONS.updated_at,
-                APPLICATIONS.project_tag_id,
-                PROJECT_TAGS.title AS project_tag_title
+                APPLICATIONS.updated_at
             FROM APPLICATIONS
-            LEFT JOIN PROJECT_TAGS ON PROJECT_TAGS.id = APPLICATIONS.project_tag_id
             ORDER BY APPLICATIONS.created_on DESC
         `,
     )
@@ -43,14 +40,13 @@ export async function getApplicationById({ id }) {
         });
 }
 
-export async function createApplication({ title, active = true, project_tag_id = null }) {
+export async function createApplication({ title, active = true }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO APPLICATIONS ${sql(
-                { title, active, project_tag_id },
+                { title, active },
                 "title",
                 "active",
-                "project_tag_id",
             )}
         `,
     )
@@ -61,15 +57,14 @@ export async function createApplication({ title, active = true, project_tag_id =
         });
 }
 
-export async function updateApplicationById({ id, title, token, active, project_tag_id }) {
+export async function updateApplicationById({ id, title, token, active }) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE APPLICATIONS
             SET
                 title = ${title},
                 token = ${token},
-                active = ${active},
-                project_tag_id = ${project_tag_id}
+                active = ${active}
             WHERE id = ${id}
         `,
     ).catch((error) => {

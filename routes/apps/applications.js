@@ -15,7 +15,6 @@ export default function (app) {
                     error: "Title is required",
                 }),
                 active: t.Optional(t.Boolean()),
-                project_tag_id: t.Optional(t.Union([t.Numeric(), t.Null()])),
             }),
             detail: {
                 tags: ["Applications"],
@@ -38,7 +37,6 @@ export default function (app) {
                     error: "Token is required",
                 }),
                 active: t.Boolean(),
-                project_tag_id: t.Union([t.Numeric(), t.Null()]),
             }),
             detail: {
                 tags: ["Applications"],

@@ -19,7 +19,6 @@
 
         const title = form.elements.namedItem("title")?.value?.trim() || "";
         const token = form.elements.namedItem("token")?.value?.trim() || "";
-        const projectTagValue = form.elements.namedItem("project_tag_id")?.value || "";
         const active = form.elements.namedItem("active")?.value === "true";
 
         if (!title || !token) {
@@ -43,7 +42,6 @@
                     title,
                     token,
                     active,
-                    project_tag_id: projectTagValue ? Number(projectTagValue) : null,
                 }),
             });
 
@@ -59,7 +57,6 @@
                 form.elements.namedItem("title").value = data.application.title;
                 form.elements.namedItem("token").value = data.application.token;
                 form.elements.namedItem("active").value = data.application.active ? "true" : "false";
-                form.elements.namedItem("project_tag_id").value = data.application.project_tag_id || "";
             }
         } catch (error) {
             console.error(error);
