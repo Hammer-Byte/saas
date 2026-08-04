@@ -43,12 +43,12 @@
                             <input type="text" class="form-control" id="company" name="company" maxlength="128" value="<%= customer.company %>" required />
                         </div>
                         <div class="col-md-6">
-                            <label for="pan_gst" class="form-label">PAN / GST</label>
-                            <input type="text" class="form-control" id="pan_gst" name="pan_gst" maxlength="32" value="<%= customer.pan_gst %>" required />
+                            <label for="pan_gst" class="form-label">PAN / GST <span class="text-secondary fw-normal">(optional)</span></label>
+                            <input type="text" class="form-control" id="pan_gst" name="pan_gst" maxlength="32" value="<%= customer.pan_gst || '' %>" />
                         </div>
                         <div class="col-md-6">
-                            <label for="hsn" class="form-label">HSN</label>
-                            <input type="text" class="form-control" id="hsn" name="hsn" maxlength="16" value="<%= customer.hsn %>" required />
+                            <label for="hsn" class="form-label">HSN <span class="text-secondary fw-normal">(optional)</span></label>
+                            <input type="text" class="form-control" id="hsn" name="hsn" maxlength="16" value="<%= customer.hsn || '' %>" />
                         </div>
                         <div class="col-12">
                             <label for="address" class="form-label">Address</label>

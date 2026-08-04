@@ -21,16 +21,12 @@ export default function (app) {
                     maxLength: 128,
                     error: "Company is required",
                 }),
-                pan_gst: t.String({
-                    minLength: 1,
-                    maxLength: 32,
-                    error: "PAN/GST is required",
-                }),
-                hsn: t.String({
-                    minLength: 1,
-                    maxLength: 16,
-                    error: "HSN is required",
-                }),
+                pan_gst: t.Optional(
+                    t.Union([t.String({ maxLength: 32 }), t.Literal(""), t.Null()]),
+                ),
+                hsn: t.Optional(
+                    t.Union([t.String({ maxLength: 16 }), t.Literal(""), t.Null()]),
+                ),
                 address: t.String({
                     minLength: 1,
                     maxLength: 512,
@@ -55,16 +51,12 @@ export default function (app) {
                     maxLength: 128,
                     error: "Company is required",
                 }),
-                pan_gst: t.String({
-                    minLength: 1,
-                    maxLength: 32,
-                    error: "PAN/GST is required",
-                }),
-                hsn: t.String({
-                    minLength: 1,
-                    maxLength: 16,
-                    error: "HSN is required",
-                }),
+                pan_gst: t.Optional(
+                    t.Union([t.String({ maxLength: 32 }), t.Literal(""), t.Null()]),
+                ),
+                hsn: t.Optional(
+                    t.Union([t.String({ maxLength: 16 }), t.Literal(""), t.Null()]),
+                ),
                 address: t.String({
                     minLength: 1,
                     maxLength: 512,

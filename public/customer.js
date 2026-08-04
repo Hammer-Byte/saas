@@ -41,8 +41,8 @@
             address: customerForm.elements.namedItem("address")?.value?.trim() || "",
         };
 
-        if (Object.values(payload).some((value, index) => index > 0 && !value)) {
-            showAlert(customerAlert, "Please fill in all fields.", "danger");
+        if (!payload.full_name || !payload.company || !payload.address) {
+            showAlert(customerAlert, "Please fill in full name, company, and address.", "danger");
             return;
         }
 

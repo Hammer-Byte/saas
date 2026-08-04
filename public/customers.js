@@ -26,8 +26,8 @@
             address: form.elements.namedItem("address")?.value?.trim() || "",
         };
 
-        if (Object.values(payload).some((value) => !value)) {
-            showAlert(formAlert, "Please fill in all fields.", "danger");
+        if (!payload.full_name || !payload.company || !payload.address) {
+            showAlert(formAlert, "Please fill in full name, company, and address.", "danger");
             return;
         }
 

@@ -10,8 +10,8 @@ export async function addCustomer({ body, set }) {
     const id = await createCustomer({
         full_name: body.full_name.trim(),
         company: body.company.trim(),
-        pan_gst: body.pan_gst.trim(),
-        hsn: body.hsn.trim(),
+        pan_gst: body.pan_gst?.trim() || null,
+        hsn: body.hsn?.trim() || null,
         address: body.address.trim(),
     });
 
@@ -32,8 +32,8 @@ export async function updateCustomer({ body, set }) {
         id: body.id,
         full_name: body.full_name.trim(),
         company: body.company.trim(),
-        pan_gst: body.pan_gst.trim(),
-        hsn: body.hsn.trim(),
+        pan_gst: body.pan_gst?.trim() || null,
+        hsn: body.hsn?.trim() || null,
         address: body.address.trim(),
     });
 

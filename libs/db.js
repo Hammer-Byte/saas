@@ -150,8 +150,8 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             full_name VARCHAR(128) NOT NULL,
             company VARCHAR(128) NOT NULL,
-            pan_gst VARCHAR(32) NOT NULL,
-            hsn VARCHAR(16) NOT NULL,
+            pan_gst VARCHAR(32) NULL,
+            hsn VARCHAR(16) NULL,
             address VARCHAR(512) NOT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
