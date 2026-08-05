@@ -36,10 +36,12 @@
             id: Number(customerId),
             full_name: customerForm.elements.namedItem("full_name")?.value?.trim() || "",
             company: customerForm.elements.namedItem("company")?.value?.trim() || "",
-            pan_gst: customerForm.elements.namedItem("pan_gst")?.value?.trim() || "",
-            hsn: customerForm.elements.namedItem("hsn")?.value?.trim() || "",
             address: customerForm.elements.namedItem("address")?.value?.trim() || "",
         };
+        const pan_gst = customerForm.elements.namedItem("pan_gst")?.value?.trim() || "";
+        const hsn = customerForm.elements.namedItem("hsn")?.value?.trim() || "";
+        if (pan_gst) payload.pan_gst = pan_gst;
+        if (hsn) payload.hsn = hsn;
 
         if (!payload.full_name || !payload.company || !payload.address) {
             showAlert(customerAlert, "Please fill in full name, company, and address.", "danger");

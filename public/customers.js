@@ -1,7 +1,6 @@
 (() => {
     const form = document.getElementById("customer-form");
     const formAlert = document.getElementById("customer-form-alert");
-    const pageAlert = document.getElementById("customers-alert");
 
     if (!form) {
         return;
@@ -18,18 +17,24 @@
         event.preventDefault();
         formAlert?.classList.add("d-none");
 
-        const payload = {
-            full_name: form.elements.namedItem("full_name")?.value?.trim() || "",
-            company: form.elements.namedItem("company")?.value?.trim() || "",
-            pan_gst: form.elements.namedItem("pan_gst")?.value?.trim() || "",
-            hsn: form.elements.namedItem("hsn")?.value?.trim() || "",
-            address: form.elements.namedItem("address")?.value?.trim() || "",
-        };
+        const full_name = document.getElementById("customer-full-name")?.value?.trim() || "";
+        const company = document.getElementById("customer-company")?.value?.trim() || "";
+        const pan_gst = document.getElementById("customer-pan-gst")?.value?.trim() || "";
+        const hsn = document.getElementById("customer-hsn")?.value?.trim() || "";
+        const address = document.getElementById("customer-address")?.value?.trim() || "";
 
-        if (!payload.full_name || !payload.company || !payload.address) {
+        if (!full_name || !company || !address) {
             showAlert(formAlert, "Please fill in full name, company, and address.", "danger");
             return;
         }
+
+        const payload = {
+            full_name,
+            company,
+            address,
+        };
+        if (pan_gst) payload.pan_gst = pan_gst;
+        if (hsn) payload.hsn = hsn;
 
         const submitBtn = form.querySelector('button[type="submit"]');
         if (submitBtn) submitBtn.disabled = true;
