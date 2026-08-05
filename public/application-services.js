@@ -31,7 +31,7 @@
             }
 
             try {
-                const response = await fetch(`/api/applications/${applicationId}/services`, {
+                const response = await fetch(`/api/project-applications/${applicationId}/services`, {
                     method: "POST",
                     credentials: "same-origin",
                     headers: {
@@ -74,7 +74,7 @@
 
             try {
                 const response = await fetch(
-                    `/api/applications/${applicationId}/application-services/${applicationServiceId}`,
+                    `/api/project-applications/${applicationId}/application-services/${applicationServiceId}`,
                     {
                         method: "PATCH",
                         credentials: "same-origin",

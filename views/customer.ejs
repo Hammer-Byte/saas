@@ -28,47 +28,37 @@
         <div id="customer-alert" class="alert d-none" role="alert"></div>
 
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 px-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
                 <h2 class="h5 mb-0">Customer details</h2>
-                <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary p-1"
-                    id="edit-customer-btn"
-                    aria-label="Edit customer"
-                    title="Edit"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>
-                    </svg>
-                </button>
             </div>
             <div class="card-body p-4">
                 <form id="customer-detail-form" data-customer-id="<%= customer.id %>" novalidate>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="full_name" class="form-label">Full name</label>
-                            <input type="text" class="form-control" id="full_name" name="full_name" maxlength="128" value="<%= customer.full_name %>" required readonly />
+                            <input type="text" class="form-control" id="full_name" name="full_name" maxlength="128" value="<%= customer.full_name %>" required disabled />
                         </div>
                         <div class="col-md-6">
                             <label for="company" class="form-label">Company</label>
-                            <input type="text" class="form-control" id="company" name="company" maxlength="128" value="<%= customer.company %>" required readonly />
+                            <input type="text" class="form-control" id="company" name="company" maxlength="128" value="<%= customer.company %>" required disabled />
                         </div>
                         <div class="col-md-6">
                             <label for="pan_gst" class="form-label">PAN / GST <span class="text-secondary fw-normal">(optional)</span></label>
-                            <input type="text" class="form-control" id="pan_gst" name="pan_gst" maxlength="32" value="<%= customer.pan_gst || '' %>" readonly />
+                            <input type="text" class="form-control" id="pan_gst" name="pan_gst" maxlength="32" value="<%= customer.pan_gst || '' %>" disabled />
                         </div>
                         <div class="col-md-6">
                             <label for="hsn" class="form-label">HSN <span class="text-secondary fw-normal">(optional)</span></label>
-                            <input type="text" class="form-control" id="hsn" name="hsn" maxlength="16" value="<%= customer.hsn || '' %>" readonly />
+                            <input type="text" class="form-control" id="hsn" name="hsn" maxlength="16" value="<%= customer.hsn || '' %>" disabled />
                         </div>
                         <div class="col-12">
                             <label for="address" class="form-label">Address</label>
-                            <textarea class="form-control" id="address" name="address" rows="3" maxlength="512" required readonly><%= customer.address %></textarea>
+                            <textarea class="form-control" id="address" name="address" rows="3" maxlength="512" required disabled><%= customer.address %></textarea>
                         </div>
                     </div>
                     <div class="d-flex gap-2 mt-4 flex-wrap">
                         <button type="submit" id="save-customer-btn" class="btn btn-primary d-none">Save</button>
                         <button type="button" id="cancel-edit-customer-btn" class="btn btn-outline-secondary d-none">Cancel</button>
+                        <button type="button" id="edit-customer-btn" class="btn btn-outline-primary">Edit</button>
                         <button type="button" id="delete-customer-btn" class="btn btn-outline-danger">Delete</button>
                         <a href="/app/customers" class="btn btn-outline-secondary">Back</a>
                     </div>
@@ -91,49 +81,29 @@
             </div>
             <div class="card-body p-0">
                 <% if (!customerProjects || customerProjects.length === 0) { %>
-                    <div class="p-4 text-center text-secondary" id="customer-projects-empty">
+                    <div class="p-4 text-center text-secondary">
                         No projects for this customer.
-                    </div>
-                    <div class="table-responsive d-none" id="customer-projects-table-wrap">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th scope="col">Title</th>
-                                    <th scope="col">Description</th>
-                                    <th scope="col">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="customer-projects-tbody"></tbody>
-                        </table>
                     </div>
                 <% } else { %>
-                    <div class="p-4 text-center text-secondary d-none" id="customer-projects-empty">
-                        No projects for this customer.
-                    </div>
-                    <div class="table-responsive" id="customer-projects-table-wrap">
+                    <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
                                     <th scope="col">Title</th>
                                     <th scope="col">Description</th>
-                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="customer-projects-tbody">
+                            <tbody>
                                 <% customerProjects.forEach(function (row) { %>
                                     <tr
-                                        data-id="<%= row.id %>"
-                                        data-title="<%= row.title %>"
-                                        data-description="<%= row.description || '' %>"
+                                        class="customer-project-row"
+                                        role="link"
+                                        tabindex="0"
+                                        data-href="/app/customers/<%= customer.id %>/projects/<%= row.id %>"
+                                        style="cursor: pointer"
                                     >
                                         <td><%= row.title %></td>
                                         <td><%= row.description || "-" %></td>
-                                        <td>
-                                            <div class="d-flex gap-2 flex-wrap">
-                                                <button type="button" class="btn btn-sm btn-outline-secondary customer-project-edit-btn">Edit</button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger customer-project-delete-btn">Delete</button>
-                                            </div>
-                                        </td>
                                     </tr>
                                 <% }) %>
                             </tbody>
@@ -155,7 +125,6 @@
                 </div>
                 <div class="modal-body">
                     <div id="customer-project-form-alert" class="alert d-none" role="alert"></div>
-                    <input type="hidden" name="id" id="customer-project-id" value="" />
                     <div class="mb-3">
                         <label for="customer-project-title" class="form-label">Title</label>
                         <input type="text" class="form-control" id="customer-project-title" name="title" maxlength="128" required />

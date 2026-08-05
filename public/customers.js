@@ -2,6 +2,18 @@
     const form = document.getElementById("customer-form");
     const formAlert = document.getElementById("customer-form-alert");
 
+    document.querySelectorAll(".customer-row[data-href]").forEach((row) => {
+        row.addEventListener("click", () => {
+            window.location.href = row.dataset.href;
+        });
+        row.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                window.location.href = row.dataset.href;
+            }
+        });
+    });
+
     if (!form) {
         return;
     }

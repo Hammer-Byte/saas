@@ -22,7 +22,7 @@
                 Edit
             </p>
             <h1 class="h3 mb-1">Edit <%= application.title %></h1>
-            <p class="text-secondary mb-0">Update application title, token, and status.</p>
+            <p class="text-secondary mb-0">Update application title, token, project, and status.</p>
         </div>
 
         <div class="card border-0 shadow-sm">
@@ -54,6 +54,20 @@
                                 value="<%= application.token %>"
                                 required
                             />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="project_id" class="form-label">Customer project</label>
+                            <select class="form-select" id="project_id" name="project_id" required>
+                                <option value="">Select a project</option>
+                                <% (customerProjects || []).forEach(function (project) { %>
+                                    <option
+                                        value="<%= project.id %>"
+                                        <%= Number(application.project_id) === Number(project.id) ? "selected" : "" %>
+                                    >
+                                        <%= project.customer_name %> — <%= project.title %>
+                                    </option>
+                                <% }) %>
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label for="active" class="form-label">Status</label>

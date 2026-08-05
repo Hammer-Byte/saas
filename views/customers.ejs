@@ -53,27 +53,23 @@
                                     <th scope="col">PAN / GST</th>
                                     <th scope="col">HSN</th>
                                     <th scope="col">Address</th>
-                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <% customers.forEach(function (customer) { %>
-                                    <tr>
+                                    <tr
+                                        class="customer-row"
+                                        role="link"
+                                        tabindex="0"
+                                        data-href="/app/customers/<%= customer.id %>"
+                                        style="cursor: pointer"
+                                    >
                                         <td><%= customer.id %></td>
-                                        <td>
-                                            <a href="/app/customers/<%= customer.id %>" class="text-decoration-none">
-                                                <%= customer.full_name %>
-                                            </a>
-                                        </td>
+                                        <td><%= customer.full_name %></td>
                                         <td><%= customer.company %></td>
-                                        <td><%= customer.pan_gst %></td>
-                                        <td><%= customer.hsn %></td>
+                                        <td><%= customer.pan_gst || "-" %></td>
+                                        <td><%= customer.hsn || "-" %></td>
                                         <td><%= customer.address %></td>
-                                        <td>
-                                            <a href="/app/customers/<%= customer.id %>" class="btn btn-sm btn-outline-primary">
-                                                Open
-                                            </a>
-                                        </td>
                                     </tr>
                                 <% }) %>
                             </tbody>
@@ -126,5 +122,5 @@
 </div>
 
 <script src="/public/app.js" defer></script>
-<script src="/public/customers.js?v=3" defer></script>
+<script src="/public/customers.js?v=4" defer></script>
 <%- include('common/footer') %>

@@ -7,10 +7,19 @@
     const cancelEditCustomerBtn = document.getElementById("cancel-edit-customer-btn");
     const projectForm = document.getElementById("customer-project-form");
     const projectFormAlert = document.getElementById("customer-project-form-alert");
-    const projectModalEl = document.getElementById("customer-project-modal");
-    const projectModalLabel = document.getElementById("customer-project-modal-label");
     const openAddProjectBtn = document.getElementById("open-add-customer-project-btn");
-    const projectsTbody = document.getElementById("customer-projects-tbody");
+
+    document.querySelectorAll(".customer-project-row[data-href]").forEach((row) => {
+        row.addEventListener("click", () => {
+            window.location.href = row.dataset.href;
+        });
+        row.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                window.location.href = row.dataset.href;
+            }
+        });
+    });
 
     if (!customerForm) {
         return;
@@ -55,7 +64,7 @@
     function setEditing(enabled) {
         for (const name of editableFields) {
             const field = getField(name);
-            if (field) field.readOnly = !enabled;
+            if (field) field.disabled = !enabled;
         }
 
         editCustomerBtn?.classList.toggle("d-none", enabled);
@@ -150,75 +159,22 @@
         }
     });
 
-    if (!projectForm || !projectsTbody) {
+    if (!projectForm) {
         return;
     }
 
-    const projectIdInput = projectForm.elements.namedItem("id");
     const projectTitleInput = projectForm.elements.namedItem("title");
     const projectDescriptionInput = projectForm.elements.namedItem("description");
 
-    function openAddProjectModal() {
+    openAddProjectBtn?.addEventListener("click", () => {
         hideAlert(projectFormAlert);
-        projectModalLabel.textContent = "Add project";
-        projectIdInput.value = "";
         projectForm.reset();
-    }
-
-    function openEditProjectModal(row) {
-        hideAlert(projectFormAlert);
-        projectModalLabel.textContent = "Edit project";
-        projectIdInput.value = row.dataset.id || "";
-        projectTitleInput.value = row.dataset.title || "";
-        projectDescriptionInput.value = row.dataset.description || "";
-    }
-
-    openAddProjectBtn?.addEventListener("click", openAddProjectModal);
-
-    projectsTbody.addEventListener("click", async (event) => {
-        const row = event.target.closest("tr[data-id]");
-        if (!row) return;
-
-        if (event.target.closest(".customer-project-edit-btn")) {
-            openEditProjectModal(row);
-            const modal = window.bootstrap?.Modal?.getOrCreateInstance(projectModalEl);
-            modal?.show();
-            return;
-        }
-
-        if (event.target.closest(".customer-project-delete-btn")) {
-            if (!window.confirm("Delete this project?")) {
-                return;
-            }
-
-            try {
-                const response = await fetch(
-                    `/api/customers/${customerId}/projects/${row.dataset.id}`,
-                    {
-                        method: "DELETE",
-                        credentials: "same-origin",
-                    },
-                );
-
-                if (!response.ok && response.status !== 204) {
-                    const data = await response.json().catch(() => ({}));
-                    showAlert(customerAlert, data.error || "Failed to delete project.", "danger");
-                    return;
-                }
-
-                window.location.reload();
-            } catch (error) {
-                console.error(error);
-                showAlert(customerAlert, "Failed to delete project.", "danger");
-            }
-        }
     });
 
     projectForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         hideAlert(projectFormAlert);
 
-        const id = projectIdInput.value ? Number(projectIdInput.value) : null;
         const title = projectTitleInput.value.trim();
         const description = projectDescriptionInput.value.trim();
 
@@ -235,10 +191,10 @@
 
         try {
             const response = await fetch(`/api/customers/${customerId}/projects`, {
-                method: id ? "PATCH" : "POST",
+                method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(id ? { id, ...payload } : payload),
+                body: JSON.stringify(payload),
             });
             const data = await response.json().catch(() => ({}));
 

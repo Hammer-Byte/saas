@@ -1,5 +1,8 @@
 import { t } from "elysia";
-import { addApplication, updateApplication } from "../../services/applications.js";
+import {
+    addProjectApplication,
+    updateProjectApplication,
+} from "../../services/project_applications.js";
 import {
     addApplicationService,
     updateApplicationService,
@@ -7,7 +10,7 @@ import {
 
 export default function (app) {
     return app
-        .post("/", addApplication, {
+        .post("/", addProjectApplication, {
             body: t.Object({
                 title: t.String({
                     minLength: 1,
@@ -15,13 +18,14 @@ export default function (app) {
                     error: "Title is required",
                 }),
                 active: t.Optional(t.Boolean()),
+                project_id: t.Numeric({ minimum: 1 }),
             }),
             detail: {
-                tags: ["Applications"],
-                summary: "Create application",
+                tags: ["Project Applications"],
+                summary: "Create project application",
             },
         })
-        .patch("/:id", updateApplication, {
+        .patch("/:id", updateProjectApplication, {
             params: t.Object({
                 id: t.Numeric(),
             }),
@@ -37,10 +41,11 @@ export default function (app) {
                     error: "Token is required",
                 }),
                 active: t.Boolean(),
+                project_id: t.Numeric({ minimum: 1 }),
             }),
             detail: {
-                tags: ["Applications"],
-                summary: "Update application",
+                tags: ["Project Applications"],
+                summary: "Update project application",
             },
         })
         .post("/:id/services", addApplicationService, {
@@ -52,8 +57,8 @@ export default function (app) {
                 service_configs: t.Optional(t.String()),
             }),
             detail: {
-                tags: ["Applications"],
-                summary: "Link a service to an application",
+                tags: ["Project Applications"],
+                summary: "Link a service to a project application",
             },
         })
         .patch("/:id/application-services/:application_service_id", updateApplicationService, {
@@ -65,7 +70,7 @@ export default function (app) {
                 active: t.Boolean(),
             }),
             detail: {
-                tags: ["Applications"],
+                tags: ["Project Applications"],
                 summary: "Update application service active status",
             },
         });

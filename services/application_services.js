@@ -1,4 +1,4 @@
-import { getApplicationById } from "../db/applications.js";
+import { getProjectApplicationById } from "../db/project_applications.js";
 import { getAllServices } from "../db/services.js";
 import {
     createApplicationService,
@@ -8,7 +8,7 @@ import {
 } from "../db/application_services.js";
 
 export async function addApplicationService({ params, body, set }) {
-    const application = await getApplicationById({ id: Number(params.id) });
+    const application = await getProjectApplicationById({ id: Number(params.id) });
     if (!application) {
         set.status = 404;
         return { error: "Application not found" };
@@ -31,7 +31,6 @@ export async function addApplicationService({ params, body, set }) {
         return { error: "Service is already linked to this application" };
     }
 
-    // body.service_configs is accepted but unused for now
     const id = await createApplicationService({
         application_id: application.id,
         service_id,
@@ -47,7 +46,7 @@ export async function addApplicationService({ params, body, set }) {
 }
 
 export async function updateApplicationService({ params, body, set }) {
-    const application = await getApplicationById({ id: Number(params.id) });
+    const application = await getProjectApplicationById({ id: Number(params.id) });
     if (!application) {
         set.status = 404;
         return { error: "Application not found" };

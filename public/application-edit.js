@@ -19,10 +19,11 @@
 
         const title = form.elements.namedItem("title")?.value?.trim() || "";
         const token = form.elements.namedItem("token")?.value?.trim() || "";
+        const project_id = Number(form.elements.namedItem("project_id")?.value || 0);
         const active = form.elements.namedItem("active")?.value === "true";
 
-        if (!title || !token) {
-            showAlert("Title and token are required.", "danger");
+        if (!title || !token || !project_id) {
+            showAlert("Title, token, and customer project are required.", "danger");
             return;
         }
 
@@ -32,7 +33,7 @@
         }
 
         try {
-            const response = await fetch(`/api/applications/${applicationId}`, {
+            const response = await fetch(`/api/project-applications/${applicationId}`, {
                 method: "PATCH",
                 credentials: "same-origin",
                 headers: {
@@ -42,6 +43,7 @@
                     title,
                     token,
                     active,
+                    project_id,
                 }),
             });
 
@@ -57,6 +59,7 @@
                 form.elements.namedItem("title").value = data.application.title;
                 form.elements.namedItem("token").value = data.application.token;
                 form.elements.namedItem("active").value = data.application.active ? "true" : "false";
+                form.elements.namedItem("project_id").value = data.application.project_id || "";
             }
         } catch (error) {
             console.error(error);

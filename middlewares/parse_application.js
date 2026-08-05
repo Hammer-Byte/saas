@@ -1,6 +1,5 @@
 import { CONSTANTS, logger } from "@hammerbyte/utils";
-import { getActiveApplicationByIdAndToken } from "../db/applications.js";
-
+import { getActiveProjectApplicationByIdAndToken } from "../db/project_applications.js";
 
 export default async function parseApplication({ headers }) {
     const id = headers[CONSTANTS.SAAS.HEADERS.APPLICATION_ID];
@@ -12,6 +11,6 @@ export default async function parseApplication({ headers }) {
     }
 
     return {
-        application: await getActiveApplicationByIdAndToken({ id,token }),
+        application: await getActiveProjectApplicationByIdAndToken({ id, token }),
     };
 }

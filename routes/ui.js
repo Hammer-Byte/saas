@@ -3,15 +3,24 @@ import { CONSTANTS } from "@hammerbyte/utils";
 import requireSession from "../middlewares/require_session.js";
 import { getCurrentSession } from "../services/auth.js";
 import { getSession, SESSION_COOKIE } from "../libs/session.js";
-import { getAllApplications, getApplicationById } from "../db/applications.js";
+import {
+    getAllProjectApplications,
+    getProjectApplicationById,
+    getProjectApplicationsByProjectId,
+} from "../db/project_applications.js";
 import { getAllServices } from "../db/services.js";
 import { getServicesByApplicationId, getApplicationServiceById } from "../db/application_services.js";
 import { getAllInquiries } from "../db/inquiries.js";
 import { getMailsByApplicationServiceId } from "../db/mails.js";
 import { getAllCustomers, getCustomerById } from "../db/customers.js";
-import { getCustomerProjectsByCustomerId } from "../db/customer_projects.js";
+import {
+    getCustomerProjectById,
+    getCustomerProjectsByCustomerId,
+    getAllCustomerProjects,
+} from "../db/customer_projects.js";
 import { getAllProjects, getProjectById } from "../db/projects.js";
 import { getExpensesByDateRange } from "../db/expenses.js";
+import { getAllCustomerInvoices } from "../db/customer_invoices.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
 
@@ -27,13 +36,13 @@ export const uiRoutes = new Elysia()
         render("index", {
             title: "Home",
             message: "Welcome to the separated UI Route!",
-        })
+        }),
     )
     .get("/about", ({ render }) =>
         render("index", {
             title: "About Us",
             message: "This is the About page.",
-        })
+        }),
     )
     .get("/login", ({ render, cookie, redirect }) => {
         if (getCurrentSession({ cookie })) {
@@ -47,7 +56,7 @@ export const uiRoutes = new Elysia()
     .get("/not-found", ({ render }) =>
         render("not_found", {
             title: "Not Found — HammerByte",
-        })
+        }),
     )
     .guard({ beforeHandle: [requireSession] }, (app) =>
         app
@@ -64,11 +73,11 @@ export const uiRoutes = new Elysia()
                 render("applications", {
                     title: "Applications — HammerByte",
                     username: session?.username,
-                    applications: await getAllApplications(),
+                    applications: await getAllProjectApplications(),
                 }),
             )
             .get("/app/applications/:id/edit", async ({ render, session, params, redirect }) => {
-                const application = await getApplicationById({ id: Number(params.id) });
+                const application = await getProjectApplicationById({ id: Number(params.id) });
                 if (!application) {
                     return redirect("/not-found");
                 }
@@ -77,16 +86,21 @@ export const uiRoutes = new Elysia()
                     title: `Edit — ${application.title}`,
                     username: session?.username,
                     application,
+                    customerProjects: await getAllCustomerProjects(),
                 });
             })
             .get("/app/applications/:id/services", async ({ render, session, params, redirect }) => {
-                const application = await getApplicationById({ id: Number(params.id) });
+                const application = await getProjectApplicationById({ id: Number(params.id) });
                 if (!application) {
                     return redirect("/not-found");
                 }
 
-                const linkedServices = await getServicesByApplicationId({ application_id: application.id });
-                const linkedServiceIds = new Set(linkedServices.map((service) => Number(service.service_id)));
+                const linkedServices = await getServicesByApplicationId({
+                    application_id: application.id,
+                });
+                const linkedServiceIds = new Set(
+                    linkedServices.map((service) => Number(service.service_id)),
+                );
                 const availableServices = (await getAllServices()).filter(
                     (service) => !linkedServiceIds.has(Number(service.id)),
                 );
@@ -99,64 +113,57 @@ export const uiRoutes = new Elysia()
                     availableServices,
                 });
             })
-            .get("/app/applications/:id/invoices", async ({ render, session, params, redirect }) => {
-                const application = await getApplicationById({ id: Number(params.id) });
-                if (!application) {
-                    return redirect("/not-found");
-                }
+            .get(
+                "/app/applications/:id/application-services/:application_service_id",
+                async ({ render, session, params, query, redirect }) => {
+                    const application = await getProjectApplicationById({
+                        id: Number(params.id),
+                    });
+                    const applicationService = await getApplicationServiceById({
+                        id: Number(params.application_service_id),
+                    });
 
-                return render("application-invoices", {
-                    title: `Invoices — ${application.title}`,
-                    username: session?.username,
-                    application,
-                });
-            })
-            .get("/app/applications/:id/application-services/:application_service_id", async ({ render, session, params, query, redirect }) => {
-                const application = await getApplicationById({ id: Number(params.id) });
-                const applicationService = await getApplicationServiceById({
-                    id: Number(params.application_service_id),
-                });
+                    if (
+                        !application ||
+                        !applicationService ||
+                        applicationService.application_id !== application.id
+                    ) {
+                        return redirect("/not-found");
+                    }
 
-                if (
-                    !application ||
-                    !applicationService ||
-                    applicationService.application_id !== application.id
-                ) {
-                    return redirect("/not-found");
-                }
+                    const now = new Date();
+                    const parsedMonth = Number(query.month);
+                    const parsedYear = Number(query.year);
+                    const month =
+                        Number.isInteger(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12
+                            ? parsedMonth
+                            : now.getMonth() + 1;
+                    const year =
+                        Number.isInteger(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100
+                            ? parsedYear
+                            : now.getFullYear();
 
-                const now = new Date();
-                const parsedMonth = Number(query.month);
-                const parsedYear = Number(query.year);
-                const month =
-                    Number.isInteger(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12
-                        ? parsedMonth
-                        : now.getMonth() + 1;
-                const year =
-                    Number.isInteger(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100
-                        ? parsedYear
-                        : now.getFullYear();
+                    let usage = [];
 
-                let usage = [];
+                    if (applicationService.title === SERVICES.MAILER) {
+                        usage = await getMailsByApplicationServiceId({
+                            application_service_id: applicationService.id,
+                            month,
+                            year,
+                        });
+                    }
 
-                if (applicationService.title === SERVICES.MAILER) {
-                    usage = await getMailsByApplicationServiceId({
-                        application_service_id: applicationService.id,
+                    return render("application-service", {
+                        title: `Usage — ${applicationService.title}`,
+                        username: session?.username,
+                        application,
+                        applicationService,
+                        usage,
                         month,
                         year,
                     });
-                }
-
-                return render("application-service", {
-                    title: `Usage — ${applicationService.title}`,
-                    username: session?.username,
-                    application,
-                    applicationService,
-                    usage,
-                    month,
-                    year,
-                });
-            })
+                },
+            )
             .get("/app/services", async ({ render, session }) =>
                 render("services", {
                     title: "Services — HammerByte",
@@ -185,7 +192,9 @@ export const uiRoutes = new Elysia()
             })
             .get("/app/expenses", async ({ render, session, query }) => {
                 const now = new Date();
-                const defaultStart = toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
+                const defaultStart = toDateInputValue(
+                    new Date(now.getFullYear(), now.getMonth(), 1),
+                );
                 const defaultEnd = toDateInputValue(now);
 
                 const start =
@@ -199,8 +208,14 @@ export const uiRoutes = new Elysia()
 
                 const rangeStart = start <= end ? start : end;
                 const rangeEnd = start <= end ? end : start;
-                const expenses = await getExpensesByDateRange({ start: rangeStart, end: rangeEnd });
-                const totalAmount = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+                const expenses = await getExpensesByDateRange({
+                    start: rangeStart,
+                    end: rangeEnd,
+                });
+                const totalAmount = expenses.reduce(
+                    (sum, expense) => sum + Number(expense.amount || 0),
+                    0,
+                );
 
                 return render("expenses", {
                     title: "Expenses — HammerByte",
@@ -234,6 +249,41 @@ export const uiRoutes = new Elysia()
                     }),
                 });
             })
+            .get(
+                "/app/customers/:id/projects/:projectId",
+                async ({ render, session, params, redirect }) => {
+                    const customer = await getCustomerById({ id: Number(params.id) });
+                    const customerProject = await getCustomerProjectById({
+                        id: Number(params.projectId),
+                    });
+
+                    if (
+                        !customer ||
+                        !customerProject ||
+                        Number(customerProject.customer_id) !== Number(customer.id)
+                    ) {
+                        return redirect("/not-found");
+                    }
+
+                    return render("customer-project", {
+                        title: `Project — ${customerProject.title}`,
+                        username: session?.username,
+                        customer,
+                        customerProject,
+                        applications: await getProjectApplicationsByProjectId({
+                            project_id: customerProject.id,
+                        }),
+                    });
+                },
+            )
+            .get("/app/invoices", async ({ render, session }) =>
+                render("invoices", {
+                    title: "Invoices — HammerByte",
+                    username: session?.username,
+                    invoices: await getAllCustomerInvoices(),
+                    customers: await getAllCustomers(),
+                }),
+            )
             .get("/app/inquiries", async ({ render, session }) =>
                 render("inquiries", {
                     title: "Inquiries — HammerByte",

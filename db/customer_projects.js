@@ -69,3 +69,21 @@ export async function getCustomerProjectsByCustomerId({ customer_id }) {
             return [];
         });
 }
+
+export async function getAllCustomerProjects() {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                CUSTOMER_PROJECTS.*,
+                CUSTOMERS.full_name AS customer_name
+            FROM CUSTOMER_PROJECTS
+            INNER JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_PROJECTS.customer_id
+            ORDER BY CUSTOMERS.full_name ASC, CUSTOMER_PROJECTS.title ASC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getAllCustomerProjects: ${error}`);
+            return [];
+        });
+}
