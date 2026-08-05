@@ -154,6 +154,7 @@ export async function generateDBTables() {
         `CREATE TABLE IF NOT EXISTS CUSTOMER_INVOICES (
             id INT AUTO_INCREMENT PRIMARY KEY,
             customer_id INT NOT NULL,
+            project_id INT NOT NULL,
             due_date DATE NOT NULL DEFAULT ((CURRENT_DATE + INTERVAL 7 DAY)),
             total DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
             gst DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
@@ -162,6 +163,11 @@ export async function generateDBTables() {
             CONSTRAINT fk_customer_invoices_customer
                 FOREIGN KEY (customer_id)
                 REFERENCES CUSTOMERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_customer_invoices_customer_project
+                FOREIGN KEY (project_id)
+                REFERENCES CUSTOMER_PROJECTS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,

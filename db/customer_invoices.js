@@ -1,12 +1,19 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createCustomerInvoice({ customer_id, due_date, total = 0, gst = 0 }) {
+export async function createCustomerInvoice({
+    customer_id,
+    project_id,
+    due_date,
+    total = 0,
+    gst = 0,
+}) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO CUSTOMER_INVOICES ${sql(
-                { customer_id, due_date, total, gst },
+                { customer_id, project_id, due_date, total, gst },
                 "customer_id",
+                "project_id",
                 "due_date",
                 "total",
                 "gst",
@@ -20,12 +27,20 @@ export async function createCustomerInvoice({ customer_id, due_date, total = 0, 
         });
 }
 
-export async function updateCustomerInvoiceById({ id, customer_id, due_date, total, gst }) {
+export async function updateCustomerInvoiceById({
+    id,
+    customer_id,
+    project_id,
+    due_date,
+    total,
+    gst,
+}) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE CUSTOMER_INVOICES
             SET
                 customer_id = ${customer_id},
+                project_id = ${project_id},
                 due_date = ${due_date},
                 total = ${total},
                 gst = ${gst}
@@ -52,9 +67,11 @@ export async function getCustomerInvoiceById({ id }) {
             SELECT
                 CUSTOMER_INVOICES.*,
                 CUSTOMERS.full_name AS customer_name,
-                CUSTOMERS.company AS customer_company
+                CUSTOMERS.company AS customer_company,
+                CUSTOMER_PROJECTS.title AS project_title
             FROM CUSTOMER_INVOICES
             INNER JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_INVOICES.customer_id
+            INNER JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = CUSTOMER_INVOICES.project_id
             WHERE CUSTOMER_INVOICES.id = ${id}
         `,
     )
@@ -71,15 +88,39 @@ export async function getAllCustomerInvoices() {
             SELECT
                 CUSTOMER_INVOICES.*,
                 CUSTOMERS.full_name AS customer_name,
-                CUSTOMERS.company AS customer_company
+                CUSTOMERS.company AS customer_company,
+                CUSTOMER_PROJECTS.title AS project_title
             FROM CUSTOMER_INVOICES
             INNER JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_INVOICES.customer_id
+            INNER JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = CUSTOMER_INVOICES.project_id
             ORDER BY CUSTOMER_INVOICES.created_on DESC
         `,
     )
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
             logger.error(`getAllCustomerInvoices: ${error}`);
+            return [];
+        });
+}
+
+export async function getCustomerInvoicesByProjectId({ project_id }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                CUSTOMER_INVOICES.*,
+                CUSTOMERS.full_name AS customer_name,
+                CUSTOMERS.company AS customer_company,
+                CUSTOMER_PROJECTS.title AS project_title
+            FROM CUSTOMER_INVOICES
+            INNER JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_INVOICES.customer_id
+            INNER JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = CUSTOMER_INVOICES.project_id
+            WHERE CUSTOMER_INVOICES.project_id = ${project_id}
+            ORDER BY CUSTOMER_INVOICES.created_on DESC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getCustomerInvoicesByProjectId: ${error}`);
             return [];
         });
 }

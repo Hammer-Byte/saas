@@ -1,4 +1,5 @@
 import { getCustomerById } from "../db/customers.js";
+import { getCustomerProjectById } from "../db/customer_projects.js";
 import {
     createCustomerInvoice,
     deleteCustomerInvoiceById,
@@ -6,15 +7,40 @@ import {
     updateCustomerInvoiceById,
 } from "../db/customer_invoices.js";
 
-export async function addCustomerInvoice({ body, set }) {
-    const customer = await getCustomerById({ id: Number(body.customer_id) });
+async function resolveCustomerAndProject({ customer_id, project_id, set }) {
+    const customer = await getCustomerById({ id: Number(customer_id) });
     if (!customer) {
         set.status = 400;
         return { error: "Customer not found" };
     }
 
+    const project = await getCustomerProjectById({ id: Number(project_id) });
+    if (!project) {
+        set.status = 400;
+        return { error: "Customer project not found" };
+    }
+
+    if (Number(project.customer_id) !== Number(customer.id)) {
+        set.status = 400;
+        return { error: "Project does not belong to this customer" };
+    }
+
+    return { customer, project };
+}
+
+export async function addCustomerInvoice({ body, set }) {
+    const resolved = await resolveCustomerAndProject({
+        customer_id: body.customer_id,
+        project_id: body.project_id,
+        set,
+    });
+    if (resolved.error) {
+        return { error: resolved.error };
+    }
+
     const id = await createCustomerInvoice({
-        customer_id: customer.id,
+        customer_id: resolved.customer.id,
+        project_id: resolved.project.id,
         due_date: body.due_date,
         total: Number(body.total ?? 0),
         gst: Number(body.gst ?? 0),
@@ -33,15 +59,19 @@ export async function updateCustomerInvoice({ body, set }) {
         return { error: "Invoice not found" };
     }
 
-    const customer = await getCustomerById({ id: Number(body.customer_id) });
-    if (!customer) {
-        set.status = 400;
-        return { error: "Customer not found" };
+    const resolved = await resolveCustomerAndProject({
+        customer_id: body.customer_id,
+        project_id: body.project_id,
+        set,
+    });
+    if (resolved.error) {
+        return { error: resolved.error };
     }
 
     await updateCustomerInvoiceById({
         id: body.id,
-        customer_id: customer.id,
+        customer_id: resolved.customer.id,
+        project_id: resolved.project.id,
         due_date: body.due_date,
         total: Number(body.total ?? 0),
         gst: Number(body.gst ?? 0),

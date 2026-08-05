@@ -14,13 +14,15 @@ import { getAllInquiries } from "../db/inquiries.js";
 import { getMailsByApplicationServiceId } from "../db/mails.js";
 import { getAllCustomers, getCustomerById } from "../db/customers.js";
 import {
+    getAllCustomerProjects,
     getCustomerProjectById,
     getCustomerProjectsByCustomerId,
-    getAllCustomerProjects,
 } from "../db/customer_projects.js";
-import { getAllProjects, getProjectById } from "../db/projects.js";
 import { getExpensesByDateRange } from "../db/expenses.js";
-import { getAllCustomerInvoices } from "../db/customer_invoices.js";
+import {
+    getAllCustomerInvoices,
+    getCustomerInvoicesByProjectId,
+} from "../db/customer_invoices.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
 
@@ -175,21 +177,9 @@ export const uiRoutes = new Elysia()
                 render("projects", {
                     title: "Projects — HammerByte",
                     username: session?.username,
-                    projects: await getAllProjects(),
+                    projects: await getAllCustomerProjects(),
                 }),
             )
-            .get("/app/projects/:id", async ({ render, session, params, redirect }) => {
-                const project = await getProjectById({ id: Number(params.id) });
-                if (!project) {
-                    return redirect("/not-found");
-                }
-
-                return render("project", {
-                    title: `Project — ${project.title}`,
-                    username: session?.username,
-                    project,
-                });
-            })
             .get("/app/expenses", async ({ render, session, query }) => {
                 const now = new Date();
                 const defaultStart = toDateInputValue(
@@ -276,12 +266,40 @@ export const uiRoutes = new Elysia()
                     });
                 },
             )
+            .get(
+                "/app/customers/:id/projects/:projectId/invoices",
+                async ({ render, session, params, redirect }) => {
+                    const customer = await getCustomerById({ id: Number(params.id) });
+                    const customerProject = await getCustomerProjectById({
+                        id: Number(params.projectId),
+                    });
+
+                    if (
+                        !customer ||
+                        !customerProject ||
+                        Number(customerProject.customer_id) !== Number(customer.id)
+                    ) {
+                        return redirect("/not-found");
+                    }
+
+                    return render("customer-project-invoices", {
+                        title: `Invoices — ${customerProject.title}`,
+                        username: session?.username,
+                        customer,
+                        customerProject,
+                        invoices: await getCustomerInvoicesByProjectId({
+                            project_id: customerProject.id,
+                        }),
+                    });
+                },
+            )
             .get("/app/invoices", async ({ render, session }) =>
                 render("invoices", {
                     title: "Invoices — HammerByte",
                     username: session?.username,
                     invoices: await getAllCustomerInvoices(),
                     customers: await getAllCustomers(),
+                    customerProjects: await getAllCustomerProjects(),
                 }),
             )
             .get("/app/inquiries", async ({ render, session }) =>

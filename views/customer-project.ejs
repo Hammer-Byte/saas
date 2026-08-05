@@ -54,6 +54,12 @@
                         <button type="button" id="cancel-edit-project-btn" class="btn btn-outline-secondary d-none">Cancel</button>
                         <button type="button" id="edit-project-btn" class="btn btn-outline-primary">Edit</button>
                         <button type="button" id="delete-project-btn" class="btn btn-outline-danger">Delete</button>
+                        <a
+                            href="/app/customers/<%= customer.id %>/projects/<%= customerProject.id %>/invoices"
+                            class="btn btn-outline-secondary"
+                        >
+                            Invoices
+                        </a>
                         <a href="/app/customers/<%= customer.id %>" class="btn btn-outline-secondary">Back</a>
                     </div>
                 </form>

@@ -2,8 +2,6 @@
     const form = document.getElementById("invoice-form");
     const formAlert = document.getElementById("invoice-form-alert");
     const pageAlert = document.getElementById("invoices-alert");
-    const customerSelect = document.getElementById("customer_id");
-    const projectSelect = document.getElementById("project_id");
 
     function showAlert(target, message, type) {
         if (!target) return;
@@ -11,32 +9,6 @@
         target.className = `alert alert-${type}`;
         target.classList.remove("d-none");
     }
-
-    function filterProjectsByCustomer() {
-        if (!customerSelect || !projectSelect) return;
-        const customerId = customerSelect.value;
-        let firstVisible = "";
-
-        Array.from(projectSelect.options).forEach((option, index) => {
-            if (index === 0) {
-                option.hidden = false;
-                return;
-            }
-            const matches = !customerId || option.dataset.customerId === customerId;
-            option.hidden = !matches;
-            if (matches && !firstVisible) {
-                firstVisible = option.value;
-            }
-        });
-
-        const selected = projectSelect.selectedOptions[0];
-        if (selected?.hidden) {
-            projectSelect.value = "";
-        }
-    }
-
-    customerSelect?.addEventListener("change", filterProjectsByCustomer);
-    filterProjectsByCustomer();
 
     document.querySelectorAll(".invoice-delete-btn").forEach((btn) => {
         btn.addEventListener("click", async () => {
@@ -72,14 +44,14 @@
         event.preventDefault();
         formAlert?.classList.add("d-none");
 
-        const customer_id = Number(form.elements.namedItem("customer_id")?.value || 0);
-        const project_id = Number(form.elements.namedItem("project_id")?.value || 0);
+        const customer_id = Number(form.dataset.customerId);
+        const project_id = Number(form.dataset.projectId);
         const due_date = form.elements.namedItem("due_date")?.value || "";
         const total = Number(form.elements.namedItem("total")?.value || 0);
         const gst = Number(form.elements.namedItem("gst")?.value || 0);
 
-        if (!customer_id || !project_id || !due_date) {
-            showAlert(formAlert, "Customer, project, and due date are required.", "danger");
+        if (!due_date) {
+            showAlert(formAlert, "Due date is required.", "danger");
             return;
         }
 
