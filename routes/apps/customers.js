@@ -74,14 +74,16 @@ export default function (app) {
                 id: t.Numeric(),
             }),
             body: t.Object({
-                project_id: t.Numeric({ minimum: 1 }),
-                description: t.Optional(
-                    t.Union([t.String({ maxLength: 512 }), t.Literal(""), t.Null()]),
-                ),
+                title: t.String({
+                    minLength: 1,
+                    maxLength: 128,
+                    error: "Title is required",
+                }),
+                description: t.Optional(t.String({ maxLength: 512 })),
             }),
             detail: {
                 tags: ["Customer Projects"],
-                summary: "Link a project to a customer",
+                summary: "Add a customer project",
             },
         })
         .patch("/:id/projects", updateCustomerProject, {
@@ -90,14 +92,16 @@ export default function (app) {
             }),
             body: t.Object({
                 id: t.Numeric({ minimum: 1 }),
-                project_id: t.Numeric({ minimum: 1 }),
-                description: t.Optional(
-                    t.Union([t.String({ maxLength: 512 }), t.Literal(""), t.Null()]),
-                ),
+                title: t.String({
+                    minLength: 1,
+                    maxLength: 128,
+                    error: "Title is required",
+                }),
+                description: t.Optional(t.String({ maxLength: 512 })),
             }),
             detail: {
                 tags: ["Customer Projects"],
-                summary: "Update customer project link",
+                summary: "Update customer project",
             },
         })
         .delete("/:id/projects/:customer_project_id", deleteCustomerProject, {
@@ -107,7 +111,7 @@ export default function (app) {
             }),
             detail: {
                 tags: ["Customer Projects"],
-                summary: "Remove customer project link",
+                summary: "Delete customer project",
             },
         });
 }

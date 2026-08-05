@@ -232,7 +232,6 @@ export const uiRoutes = new Elysia()
                     customerProjects: await getCustomerProjectsByCustomerId({
                         customer_id: customer.id,
                     }),
-                    projects: await getAllProjects(),
                 });
             })
             .get("/app/inquiries", async ({ render, session }) =>

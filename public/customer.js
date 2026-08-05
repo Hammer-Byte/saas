@@ -2,6 +2,9 @@
     const customerForm = document.getElementById("customer-detail-form");
     const customerAlert = document.getElementById("customer-alert");
     const deleteCustomerBtn = document.getElementById("delete-customer-btn");
+    const editCustomerBtn = document.getElementById("edit-customer-btn");
+    const saveCustomerBtn = document.getElementById("save-customer-btn");
+    const cancelEditCustomerBtn = document.getElementById("cancel-edit-customer-btn");
     const projectForm = document.getElementById("customer-project-form");
     const projectFormAlert = document.getElementById("customer-project-form-alert");
     const projectModalEl = document.getElementById("customer-project-modal");
@@ -14,6 +17,8 @@
     }
 
     const customerId = customerForm.dataset.customerId;
+    const editableFields = ["full_name", "company", "pan_gst", "hsn", "address"];
+    let snapshot = null;
 
     function showAlert(target, message, type) {
         if (!target) return;
@@ -28,18 +33,64 @@
         target.textContent = "";
     }
 
+    function getField(name) {
+        return customerForm.elements.namedItem(name);
+    }
+
+    function readSnapshot() {
+        const values = {};
+        for (const name of editableFields) {
+            values[name] = getField(name)?.value ?? "";
+        }
+        return values;
+    }
+
+    function applySnapshot(values) {
+        for (const name of editableFields) {
+            const field = getField(name);
+            if (field) field.value = values[name] ?? "";
+        }
+    }
+
+    function setEditing(enabled) {
+        for (const name of editableFields) {
+            const field = getField(name);
+            if (field) field.readOnly = !enabled;
+        }
+
+        editCustomerBtn?.classList.toggle("d-none", enabled);
+        saveCustomerBtn?.classList.toggle("d-none", !enabled);
+        cancelEditCustomerBtn?.classList.toggle("d-none", !enabled);
+
+        if (enabled) {
+            getField("full_name")?.focus();
+        }
+    }
+
+    editCustomerBtn?.addEventListener("click", () => {
+        hideAlert(customerAlert);
+        snapshot = readSnapshot();
+        setEditing(true);
+    });
+
+    cancelEditCustomerBtn?.addEventListener("click", () => {
+        hideAlert(customerAlert);
+        if (snapshot) applySnapshot(snapshot);
+        setEditing(false);
+    });
+
     customerForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         hideAlert(customerAlert);
 
         const payload = {
             id: Number(customerId),
-            full_name: customerForm.elements.namedItem("full_name")?.value?.trim() || "",
-            company: customerForm.elements.namedItem("company")?.value?.trim() || "",
-            address: customerForm.elements.namedItem("address")?.value?.trim() || "",
+            full_name: getField("full_name")?.value?.trim() || "",
+            company: getField("company")?.value?.trim() || "",
+            address: getField("address")?.value?.trim() || "",
         };
-        const pan_gst = customerForm.elements.namedItem("pan_gst")?.value?.trim() || "";
-        const hsn = customerForm.elements.namedItem("hsn")?.value?.trim() || "";
+        const pan_gst = getField("pan_gst")?.value?.trim() || "";
+        const hsn = getField("hsn")?.value?.trim() || "";
         if (pan_gst) payload.pan_gst = pan_gst;
         if (hsn) payload.hsn = hsn;
 
@@ -48,8 +99,7 @@
             return;
         }
 
-        const submitBtn = customerForm.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
+        if (saveCustomerBtn) saveCustomerBtn.disabled = true;
 
         try {
             const response = await fetch("/api/customers", {
@@ -65,12 +115,14 @@
                 return;
             }
 
+            snapshot = readSnapshot();
+            setEditing(false);
             showAlert(customerAlert, "Customer updated.", "success");
         } catch (error) {
             console.error(error);
             showAlert(customerAlert, "Failed to update customer.", "danger");
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            if (saveCustomerBtn) saveCustomerBtn.disabled = false;
         }
     });
 
@@ -103,7 +155,7 @@
     }
 
     const projectIdInput = projectForm.elements.namedItem("id");
-    const projectSelect = projectForm.elements.namedItem("project_id");
+    const projectTitleInput = projectForm.elements.namedItem("title");
     const projectDescriptionInput = projectForm.elements.namedItem("description");
 
     function openAddProjectModal() {
@@ -117,7 +169,7 @@
         hideAlert(projectFormAlert);
         projectModalLabel.textContent = "Edit project";
         projectIdInput.value = row.dataset.id || "";
-        projectSelect.value = row.dataset.projectId || "";
+        projectTitleInput.value = row.dataset.title || "";
         projectDescriptionInput.value = row.dataset.description || "";
     }
 
@@ -135,7 +187,7 @@
         }
 
         if (event.target.closest(".customer-project-delete-btn")) {
-            if (!window.confirm("Remove this project from the customer?")) {
+            if (!window.confirm("Delete this project?")) {
                 return;
             }
 
@@ -150,14 +202,14 @@
 
                 if (!response.ok && response.status !== 204) {
                     const data = await response.json().catch(() => ({}));
-                    showAlert(customerAlert, data.error || "Failed to remove project.", "danger");
+                    showAlert(customerAlert, data.error || "Failed to delete project.", "danger");
                     return;
                 }
 
                 window.location.reload();
             } catch (error) {
                 console.error(error);
-                showAlert(customerAlert, "Failed to remove project.", "danger");
+                showAlert(customerAlert, "Failed to delete project.", "danger");
             }
         }
     });
@@ -167,15 +219,16 @@
         hideAlert(projectFormAlert);
 
         const id = projectIdInput.value ? Number(projectIdInput.value) : null;
-        const payload = {
-            project_id: Number(projectSelect.value),
-            description: projectDescriptionInput.value.trim(),
-        };
+        const title = projectTitleInput.value.trim();
+        const description = projectDescriptionInput.value.trim();
 
-        if (!payload.project_id) {
-            showAlert(projectFormAlert, "Please select a project.", "danger");
+        if (!title) {
+            showAlert(projectFormAlert, "Title is required.", "danger");
             return;
         }
+
+        const payload = { title };
+        if (description) payload.description = description;
 
         const submitBtn = projectForm.querySelector('button[type="submit"]');
         if (submitBtn) submitBtn.disabled = true;
@@ -190,14 +243,14 @@
             const data = await response.json().catch(() => ({}));
 
             if (!response.ok) {
-                showAlert(projectFormAlert, data.error || "Failed to save project link.", "danger");
+                showAlert(projectFormAlert, data.error || "Failed to save project.", "danger");
                 return;
             }
 
             window.location.reload();
         } catch (error) {
             console.error(error);
-            showAlert(projectFormAlert, "Failed to save project link.", "danger");
+            showAlert(projectFormAlert, "Failed to save project.", "danger");
         } finally {
             if (submitBtn) submitBtn.disabled = false;
         }

@@ -185,19 +185,13 @@ export async function generateDBTables() {
         `CREATE TABLE IF NOT EXISTS CUSTOMER_PROJECTS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             customer_id INT NOT NULL,
-            project_id INT NOT NULL,
+            title VARCHAR(128) NOT NULL,
             description VARCHAR(512) NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_customer_project (customer_id, project_id),
             CONSTRAINT fk_customer_projects_customer
                 FOREIGN KEY (customer_id)
                 REFERENCES CUSTOMERS(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE,
-            CONSTRAINT fk_customer_projects_project
-                FOREIGN KEY (project_id)
-                REFERENCES PROJECTS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,

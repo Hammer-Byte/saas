@@ -1,13 +1,13 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createCustomerProject({ customer_id, project_id, description }) {
+export async function createCustomerProject({ customer_id, title, description }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO CUSTOMER_PROJECTS ${sql(
-                { customer_id, project_id, description },
+                { customer_id, title, description },
                 "customer_id",
-                "project_id",
+                "title",
                 "description",
             )}
         `,
@@ -19,12 +19,12 @@ export async function createCustomerProject({ customer_id, project_id, descripti
         });
 }
 
-export async function updateCustomerProjectById({ id, project_id, description }) {
+export async function updateCustomerProjectById({ id, title, description }) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE CUSTOMER_PROJECTS
             SET
-                project_id = ${project_id},
+                title = ${title},
                 description = ${description}
             WHERE id = ${id}
         `,
@@ -45,14 +45,7 @@ export async function deleteCustomerProjectById({ id }) {
 
 export async function getCustomerProjectById({ id }) {
     return await executeSQLQuery(
-        (sql) => sql`
-            SELECT
-                CUSTOMER_PROJECTS.*,
-                PROJECTS.title AS project_title
-            FROM CUSTOMER_PROJECTS
-            INNER JOIN PROJECTS ON PROJECTS.id = CUSTOMER_PROJECTS.project_id
-            WHERE CUSTOMER_PROJECTS.id = ${id}
-        `,
+        (sql) => sql`SELECT * FROM CUSTOMER_PROJECTS WHERE id = ${id}`,
     )
         .then((result) => (result.length ? result[0] : null))
         .catch((error) => {
@@ -64,18 +57,10 @@ export async function getCustomerProjectById({ id }) {
 export async function getCustomerProjectsByCustomerId({ customer_id }) {
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT
-                CUSTOMER_PROJECTS.id,
-                CUSTOMER_PROJECTS.customer_id,
-                CUSTOMER_PROJECTS.project_id,
-                CUSTOMER_PROJECTS.description,
-                CUSTOMER_PROJECTS.created_on,
-                CUSTOMER_PROJECTS.updated_at,
-                PROJECTS.title AS project_title
+            SELECT *
             FROM CUSTOMER_PROJECTS
-            INNER JOIN PROJECTS ON PROJECTS.id = CUSTOMER_PROJECTS.project_id
-            WHERE CUSTOMER_PROJECTS.customer_id = ${customer_id}
-            ORDER BY PROJECTS.title ASC
+            WHERE customer_id = ${customer_id}
+            ORDER BY title ASC
         `,
     )
         .then((result) => Array.from(result ?? []))

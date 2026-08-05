@@ -1,10 +1,8 @@
 import { getCustomerById } from "../db/customers.js";
-import { getProjectById } from "../db/projects.js";
 import {
     createCustomerProject,
     deleteCustomerProjectById,
     getCustomerProjectById,
-    getCustomerProjectsByCustomerId,
     updateCustomerProjectById,
 } from "../db/customer_projects.js";
 
@@ -15,21 +13,9 @@ export async function addCustomerProject({ params, body, set }) {
         return { error: "Customer not found" };
     }
 
-    const project = await getProjectById({ id: Number(body.project_id) });
-    if (!project) {
-        set.status = 400;
-        return { error: "Project not found" };
-    }
-
-    const existing = await getCustomerProjectsByCustomerId({ customer_id: customer.id });
-    if (existing.some((row) => Number(row.project_id) === Number(body.project_id))) {
-        set.status = 400;
-        return { error: "Project is already linked to this customer" };
-    }
-
     const id = await createCustomerProject({
         customer_id: customer.id,
-        project_id: Number(body.project_id),
+        title: body.title.trim(),
         description: body.description?.trim() || null,
     });
 
@@ -52,27 +38,9 @@ export async function updateCustomerProject({ params, body, set }) {
         return { error: "Customer project not found" };
     }
 
-    const project = await getProjectById({ id: Number(body.project_id) });
-    if (!project) {
-        set.status = 400;
-        return { error: "Project not found" };
-    }
-
-    const siblings = await getCustomerProjectsByCustomerId({ customer_id: customer.id });
-    if (
-        siblings.some(
-            (row) =>
-                Number(row.project_id) === Number(body.project_id) &&
-                Number(row.id) !== Number(body.id),
-        )
-    ) {
-        set.status = 400;
-        return { error: "Project is already linked to this customer" };
-    }
-
     await updateCustomerProjectById({
         id: body.id,
-        project_id: Number(body.project_id),
+        title: body.title.trim(),
         description: body.description?.trim() || null,
     });
 
