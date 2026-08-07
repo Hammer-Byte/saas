@@ -52,6 +52,21 @@ export async function updateCustomerInvoiceById({
     });
 }
 
+export async function updateCustomerInvoiceTotalById({ id, total, gst }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE CUSTOMER_INVOICES
+            SET
+                total = ${total},
+                gst = ${gst}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateCustomerInvoiceTotalById: ${error}`);
+        throw error;
+    });
+}
+
 export async function deleteCustomerInvoiceById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM CUSTOMER_INVOICES WHERE id = ${id}`).catch(
         (error) => {

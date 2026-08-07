@@ -16,12 +16,22 @@ export default function (app) {
                     maxLength: 10,
                     error: "Due date is required",
                 }),
-                total: t.Optional(t.Numeric({ minimum: 0 })),
-                gst: t.Optional(t.Numeric({ minimum: 0 })),
+                items: t.Array(
+                    t.Object({
+                        item: t.String({
+                            minLength: 1,
+                            maxLength: 128,
+                            error: "Item is required",
+                        }),
+                        cost: t.Numeric({ minimum: 0 }),
+                        quantity: t.Numeric({ exclusiveMinimum: 0 }),
+                    }),
+                    { minItems: 1 },
+                ),
             }),
             detail: {
                 tags: ["Customer Invoices"],
-                summary: "Create customer invoice",
+                summary: "Create customer invoice with items",
             },
         })
         .patch("/", updateCustomerInvoice, {

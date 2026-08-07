@@ -4,6 +4,8 @@
     const pageAlert = document.getElementById("invoices-alert");
     const customerSelect = document.getElementById("customer_id");
     const projectSelect = document.getElementById("project_id");
+    const itemsContainer = document.getElementById("invoice-items");
+    const addItemBtn = document.getElementById("add-invoice-item-btn");
 
     function showAlert(target, message, type) {
         if (!target) return;
@@ -12,21 +14,54 @@
         target.classList.remove("d-none");
     }
 
+    function createItemRow() {
+        const row = document.createElement("div");
+        row.className = "invoice-item-row border rounded p-3";
+        row.innerHTML = `
+            <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label">Item</label>
+                    <input type="text" class="form-control item-name" maxlength="128" required />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Cost</label>
+                    <input type="number" class="form-control item-cost" min="0" step="0.01" value="0" required />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Qty</label>
+                    <input type="number" class="form-control item-quantity" min="0.01" step="0.01" value="1" required />
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-outline-danger w-100 remove-invoice-item-btn">Remove</button>
+                </div>
+            </div>
+        `;
+        row.querySelector(".remove-invoice-item-btn")?.addEventListener("click", () => {
+            if (itemsContainer.children.length <= 1) {
+                showAlert(formAlert, "At least one item is required.", "danger");
+                return;
+            }
+            row.remove();
+        });
+        return row;
+    }
+
+    function resetItems() {
+        if (!itemsContainer) return;
+        itemsContainer.innerHTML = "";
+        itemsContainer.appendChild(createItemRow());
+    }
+
     function filterProjectsByCustomer() {
         if (!customerSelect || !projectSelect) return;
         const customerId = customerSelect.value;
-        let firstVisible = "";
 
         Array.from(projectSelect.options).forEach((option, index) => {
             if (index === 0) {
                 option.hidden = false;
                 return;
             }
-            const matches = !customerId || option.dataset.customerId === customerId;
-            option.hidden = !matches;
-            if (matches && !firstVisible) {
-                firstVisible = option.value;
-            }
+            option.hidden = !customerId || option.dataset.customerId !== customerId;
         });
 
         const selected = projectSelect.selectedOptions[0];
@@ -37,6 +72,20 @@
 
     customerSelect?.addEventListener("change", filterProjectsByCustomer);
     filterProjectsByCustomer();
+
+    addItemBtn?.addEventListener("click", () => {
+        formAlert?.classList.add("d-none");
+        itemsContainer?.appendChild(createItemRow());
+    });
+
+    document.getElementById("invoice-modal")?.addEventListener("show.bs.modal", () => {
+        formAlert?.classList.add("d-none");
+        if (form) {
+            form.reset();
+            filterProjectsByCustomer();
+        }
+        resetItems();
+    });
 
     document.querySelectorAll(".invoice-delete-btn").forEach((btn) => {
         btn.addEventListener("click", async () => {
@@ -68,6 +117,8 @@
         return;
     }
 
+    resetItems();
+
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
         formAlert?.classList.add("d-none");
@@ -75,11 +126,26 @@
         const customer_id = Number(form.elements.namedItem("customer_id")?.value || 0);
         const project_id = Number(form.elements.namedItem("project_id")?.value || 0);
         const due_date = form.elements.namedItem("due_date")?.value || "";
-        const total = Number(form.elements.namedItem("total")?.value || 0);
-        const gst = Number(form.elements.namedItem("gst")?.value || 0);
+        const items = Array.from(itemsContainer?.querySelectorAll(".invoice-item-row") || [])
+            .map((row) => ({
+                item: row.querySelector(".item-name")?.value?.trim() || "",
+                cost: Number(row.querySelector(".item-cost")?.value || 0),
+                quantity: Number(row.querySelector(".item-quantity")?.value || 0),
+            }))
+            .filter((row) => row.item);
 
         if (!customer_id || !project_id || !due_date) {
             showAlert(formAlert, "Customer, project, and due date are required.", "danger");
+            return;
+        }
+
+        if (items.length === 0) {
+            showAlert(formAlert, "Add at least one item with a name.", "danger");
+            return;
+        }
+
+        if (items.some((row) => row.quantity <= 0)) {
+            showAlert(formAlert, "Each item quantity must be greater than 0.", "danger");
             return;
         }
 
@@ -91,7 +157,7 @@
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ customer_id, project_id, due_date, total, gst }),
+                body: JSON.stringify({ customer_id, project_id, due_date, items }),
             });
             const data = await response.json().catch(() => ({}));
 

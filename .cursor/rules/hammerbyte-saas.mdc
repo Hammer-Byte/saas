@@ -20,6 +20,9 @@ alwaysApply: true
 - DB helpers take a single object: `getX({ id })`, not positional args.
 - Keep layers: `db/` (SQL only), `services/` (business logic / handlers), `routes/` (schema + wire handler only), `middlewares/`, `views/` + `public/`.
 - Do **not** put business logic or SQL in route files — match `inquiries` / `mailer` (`route` → `service` → `db`).
+- Keep Elysia body/params schemas **inline** in the route config — do not extract shared `const …Body = t.Object(…)` unless the exact schema is reused in multiple route handlers.
+- Do **not** extract a helper function for logic used in only one place — inline it. Extract only when the same logic is shared.
+- Route schema already validates request shape (`minItems`, `minLength`, types, etc.). Do **not** re-check those in `services/` — services do existence/ownership/business rules only.
 - Function names follow **ums_api** (`route` → `service` → `db`). Paired names so service/db never collide:
 
   | Intent | `services/` | `db/` |
