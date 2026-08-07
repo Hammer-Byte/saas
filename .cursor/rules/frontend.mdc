@@ -1,0 +1,38 @@
+---
+description: HammerByte SaaS frontend conventions (views, public JS/CSS)
+globs: "{views,public}/**/*"
+alwaysApply: false
+---
+
+# Frontend
+
+## Stack
+
+- Templates: **EJS** under `views/` · Client JS/CSS under `public/`
+- Bootstrap **5.3.8** CDN · no React/PrimeReact in this app
+- Commit / push only when explicitly requested.
+
+## Page structure
+
+- App pages use `<%- include('common/header') %>` and `<%- include('common/footer') %>`.
+- Pass `title` and `username` from guarded UI routes; wire logout via `/public/app.js`.
+- Page-specific script: `/public/<page>.js` with `defer`, after `/public/app.js`.
+- Prefer schema-first on the backend; implement UI only when asked.
+
+## UI patterns
+
+- Match existing siblings: list page + Bootstrap modal for add; table row click for navigation when that pattern already exists.
+- Alerts: `#…-alert` / `#…-form-alert` with `alert` + `d-none`; show via toggling classes / text — match `showAlert` style used in sibling pages.
+- Forms: `novalidate` on dialog forms; client checks for UX, then `fetch` JSON to `/api/…` with `credentials: "same-origin"`.
+- On successful create/update/delete, reload the page (`window.location.reload()`) unless a sibling does otherwise.
+- Missing entities from UI routes → `/not-found`.
+
+## Helpers
+
+- Do **not** extract a helper for logic used in only one place — inline it. Extract only when the same block is used in two or more places in that file (e.g. shared `showAlert` / row builders reused by add + modal reset).
+
+## Naming
+
+- Page script file name mirrors the view: `views/customers.ejs` → `public/customers.js`.
+- DOM ids use kebab-case (`customer-form`, `invoice-items`).
+- API JSON bodies use snake_case field names matching the backend (`customer_id`, `due_date`, `full_name`).

@@ -1,0 +1,63 @@
+---
+description: HammerByte SaaS backend conventions (db, services, routes, libs)
+globs: "{db,services,routes,middlewares,libs}/**/*.js,app.js,server.js,constants.js"
+alwaysApply: false
+---
+
+# Backend
+
+## Stack
+
+- Runtime: **Bun** · Framework: **Elysia** · DB: **MySQL** (Bun SQL)
+- Use `Bun.env` (not `process.env`). Use ESM `import` only (no `require`).
+- Commit / push only when explicitly requested.
+
+## Layers
+
+| Layer | Path | Role |
+|-------|------|------|
+| Routes | `routes/` | Elysia schema + wire handler only |
+| Services | `services/` | Business logic / handlers |
+| DB | `db/` | SQL only |
+| Libs | `libs/` | Infra (DB pool, mailer, S3) |
+| Middleware | `middlewares/` | Session / API auth |
+
+- Do **not** put business logic or SQL in route files — `route` → `service` → `db`.
+- Prefer schema-first when building features; implement UI only when asked.
+
+## Database
+
+- Schema lives only in `libs/db.js` → `generateDBTables()` (`CREATE TABLE IF NOT EXISTS`).
+- **Do not** write migrations, `ALTER TABLE`, or backfill scripts for schema changes.
+- After commit/push, the DB is dropped and recreated from scratch — assume a clean schema on next boot.
+- Prefer generated columns when a value is always derived (e.g. `amount = cost * quantity`).
+- Seed reference rows with `INSERT IGNORE` (e.g. `SERVICES`).
+- DB helpers take a single object: `getX({ id })`, not positional args.
+- When a table column is nullable, default that db param to `null` in the signature (e.g. `createThing({ col1, col2 = null })`). Do not add redundant `?? null` in the service when the db default already covers omission.
+
+## Naming (ums_api style)
+
+Paired names so service/db never collide:
+
+| Intent | `services/` | `db/` |
+|--------|-------------|-------|
+| add | `addX` | `createX` |
+| edit | `updateX` | `updateXById` / `updateXBy…` |
+| delete | `deleteX` | `deleteXById` / `deleteXBy…` |
+| read one | `getX` | `getXById` / `getXBy…` |
+| read many | `getXs` | `getAllXs` |
+
+Only **add** uses a different verb (`add` / `create`). Update / delete / get keep the same verb; db adds a qualifier (`ById`, `ByApplicationId`, `getAll…`).
+
+## Validation & helpers
+
+- Keep Elysia body/params schemas **inline** in the route config — do not extract `const …Body = t.Object(…)` unless the exact schema is reused in multiple route handlers.
+- Validate request shape **only** at the route (`minItems`, `minLength`, types, etc.). Do **not** re-check those in `services/` — services do existence/ownership/business rules only.
+- Do **not** extract a helper for logic used in only one place — inline it. Extract only when the same logic is shared (two or more call sites). Exported route/service/db entry points and shared utils are fine even if a given file calls them once.
+
+## Routes & auth
+
+- Admin UI under `/app/*` is session-guarded with `requireSession` — use `return redirect("/login")` (Elysia 1.4).
+- Admin JSON APIs use `requireApiSession` and return `401` JSON (not redirect).
+- Under `/app/applications/`, the application id param must stay named `:id` (Memoirist rejects mixing `:id` / `:application_id` at the same slot).
+- Missing entities → redirect `/not-found` (UI) or `404` JSON (API).
