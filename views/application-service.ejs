@@ -19,7 +19,7 @@
             <p class="text-secondary small mb-1">
                 <a href="/app" class="text-decoration-none">App</a> /
                 <a href="/app/applications" class="text-decoration-none">Applications</a> /
-                <a href="/app/applications/<%= application.id %>/services" class="text-decoration-none">Services</a> /
+                <a href="/app/applications/<%= application.id %>" class="text-decoration-none"><%= application.title %></a> /
                 Usage
             </p>
             <h1 class="h3 mb-1">
@@ -102,8 +102,8 @@
         </div>
 
         <div class="mt-3">
-            <a href="/app/applications/<%= application.id %>/services" class="btn btn-outline-secondary btn-sm">
-                ← Back to Services
+            <a href="/app/applications/<%= application.id %>" class="btn btn-outline-secondary btn-sm">
+                ← Back to application
             </a>
         </div>
     </div>

@@ -1,15 +1,23 @@
-const LOGIN_API_URL = "/api/auth/login";
+(() => {
+    const form = document.getElementById("login-form");
+    const emailStep = document.getElementById("email-step");
+    const otpStep = document.getElementById("otp-step");
+    const emailInput = document.getElementById("login-email");
+    const otpInput = document.getElementById("login-otp");
+    const getOtpBtn = document.getElementById("get-otp-btn");
+    const cancelOtpBtn = document.getElementById("cancel-otp-btn");
+    const verifyOtpBtn = document.getElementById("verify-otp-btn");
+    const statusEl = document.getElementById("login-status");
+    let authenticationToken = "";
 
-const form = document.getElementById("login-form");
-const usernameInput = document.getElementById("login-username");
-const passwordInput = document.getElementById("login-password");
-const submitBtn = document.getElementById("login-submit");
-const statusEl = document.getElementById("login-status");
+    if (!form || !emailInput || !otpInput || !getOtpBtn) {
+        return;
+    }
 
-if (form && usernameInput && passwordInput && submitBtn) {
     function showError(message) {
         if (!statusEl) return;
         statusEl.hidden = false;
+        statusEl.className = "small text-danger mb-0 mt-3";
         statusEl.textContent = message;
     }
 
@@ -19,47 +27,115 @@ if (form && usernameInput && passwordInput && submitBtn) {
         statusEl.textContent = "";
     }
 
-    usernameInput.addEventListener("input", clearError);
-    passwordInput.addEventListener("input", clearError);
+    function showEmailStep() {
+        authenticationToken = "";
+        otpInput.value = "";
+        emailStep?.classList.remove("d-none");
+        otpStep?.classList.add("d-none");
+        emailInput.focus();
+    }
 
-    form.addEventListener("submit", async (event) => {
-        event.preventDefault();
+    function showOtpStep() {
+        emailStep?.classList.add("d-none");
+        otpStep?.classList.remove("d-none");
+        otpInput.focus();
+    }
+
+    emailInput.addEventListener("input", clearError);
+    otpInput.addEventListener("input", clearError);
+
+    cancelOtpBtn?.addEventListener("click", () => {
+        clearError();
+        showEmailStep();
+    });
+
+    getOtpBtn.addEventListener("click", async () => {
         clearError();
 
-        const username = usernameInput.value.trim();
-        const password = passwordInput.value;
-
-        if (!username || !password) {
-            showError("Username and password are required.");
+        const email = emailInput.value.trim();
+        if (!email) {
+            showError("Email is required.");
             return;
         }
 
-        submitBtn.disabled = true;
+        getOtpBtn.disabled = true;
 
         try {
-            const response = await fetch(LOGIN_API_URL, {
+            const response = await fetch("/api/authentication-tokens", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",
                 },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({ email }),
             });
+            const data = await response.json().catch(() => ({}));
 
+            if (response.status !== 201) {
+                showError(data.error || "Unable to send OTP.");
+                return;
+            }
+
+            authenticationToken = data.authentication_token || "";
+            if (!authenticationToken) {
+                showError("Authentication token missing from response.");
+                return;
+            }
+
+            showOtpStep();
+        } catch (error) {
+            console.error(error);
+            showError("Unable to send OTP. Please try again.");
+        } finally {
+            getOtpBtn.disabled = false;
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        clearError();
+
+        const otp = otpInput.value.trim();
+        if (!authenticationToken) {
+            showError("Request an OTP first.");
+            showEmailStep();
+            return;
+        }
+
+        if (!/^\d{4}$/.test(otp)) {
+            showError("Enter the 4-digit OTP.");
+            return;
+        }
+
+        if (verifyOtpBtn) verifyOtpBtn.disabled = true;
+
+        try {
+            const response = await fetch("/api/authentication-tokens", {
+                method: "PATCH",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                body: JSON.stringify({
+                    authentication_token: authenticationToken,
+                    otp,
+                }),
+            });
             const data = await response.json().catch(() => ({}));
 
             if (!response.ok) {
-                showError(data.error || "Invalid username or password.");
+                showError(data.error || "Invalid OTP.");
                 return;
             }
 
             window.location.href = data.redirect || "/app";
         } catch (error) {
             console.error(error);
-            showError("Unable to sign in. Please try again.");
+            showError("Unable to verify OTP. Please try again.");
         } finally {
-            submitBtn.disabled = false;
+            if (verifyOtpBtn) verifyOtpBtn.disabled = false;
         }
     });
-}
+})();

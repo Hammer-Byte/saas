@@ -190,11 +190,14 @@
         if (submitBtn) submitBtn.disabled = true;
 
         try {
-            const response = await fetch(`/api/customers/${customerId}/projects`, {
+            const response = await fetch("/api/customer-projects", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
+                body: JSON.stringify({
+                    customer_id: Number(customerId),
+                    ...payload,
+                }),
             });
             const data = await response.json().catch(() => ({}));
 

@@ -7,8 +7,8 @@ import {
     updateApplicationServiceActiveById,
 } from "../db/application_services.js";
 
-export async function addApplicationService({ params, body, set }) {
-    const application = await getProjectApplicationById({ id: Number(params.id) });
+export async function addApplicationService({ body, set }) {
+    const application = await getProjectApplicationById({ id: Number(body.application_id) });
     if (!application) {
         set.status = 404;
         return { error: "Application not found" };
@@ -46,17 +46,11 @@ export async function addApplicationService({ params, body, set }) {
 }
 
 export async function updateApplicationService({ params, body, set }) {
-    const application = await getProjectApplicationById({ id: Number(params.id) });
-    if (!application) {
-        set.status = 404;
-        return { error: "Application not found" };
-    }
-
     const applicationService = await getApplicationServiceById({
-        id: Number(params.application_service_id),
+        id: Number(params.id),
     });
 
-    if (!applicationService || applicationService.application_id !== application.id) {
+    if (!applicationService) {
         set.status = 404;
         return { error: "Application service not found" };
     }

@@ -9,8 +9,11 @@ import {
 } from "../db/customer_invoices.js";
 import {
     createInvoiceItem,
+    deleteInvoiceItemById,
+    getInvoiceItemById,
     getInvoiceItemsByCustomerInvoiceId,
     getInvoiceItemsTotalByCustomerInvoiceId,
+    updateInvoiceItemById,
 } from "../db/invoice_items.js";
 
 async function resolveCustomerAndProject({ customer_id, project_id, set }) {
@@ -34,6 +37,12 @@ async function resolveCustomerAndProject({ customer_id, project_id, set }) {
     return { customer, project };
 }
 
+async function recalcCustomerInvoiceTotal({ id }) {
+    const total = await getInvoiceItemsTotalByCustomerInvoiceId({ customer_invoice_id: id });
+    const gst = Math.round(total * 0.18 * 100) / 100;
+    await updateCustomerInvoiceTotalById({ id, total, gst });
+}
+
 export async function addCustomerInvoice({ body, set }) {
     const resolved = await resolveCustomerAndProject({
         customer_id: body.customer_id,
@@ -47,7 +56,6 @@ export async function addCustomerInvoice({ body, set }) {
     const id = await createCustomerInvoice({
         customer_id: resolved.customer.id,
         project_id: resolved.project.id,
-        due_date: body.due_date,
         total: 0,
         gst: 0,
     });
@@ -61,9 +69,7 @@ export async function addCustomerInvoice({ body, set }) {
         });
     }
 
-    const total = await getInvoiceItemsTotalByCustomerInvoiceId({ customer_invoice_id: id });
-    const gst = Math.round(total * 0.18 * 100) / 100;
-    await updateCustomerInvoiceTotalById({ id, total, gst });
+    await recalcCustomerInvoiceTotal({ id });
 
     const invoice = await getCustomerInvoiceById({ id });
     const invoiceItems = await getInvoiceItemsByCustomerInvoiceId({ customer_invoice_id: id });
@@ -79,22 +85,13 @@ export async function updateCustomerInvoice({ body, set }) {
         return { error: "Invoice not found" };
     }
 
-    const resolved = await resolveCustomerAndProject({
-        customer_id: body.customer_id,
-        project_id: body.project_id,
-        set,
-    });
-    if (resolved.error) {
-        return { error: resolved.error };
-    }
-
     await updateCustomerInvoiceById({
         id: body.id,
-        customer_id: resolved.customer.id,
-        project_id: resolved.project.id,
+        customer_id: existing.customer_id,
+        project_id: existing.project_id,
         due_date: body.due_date,
-        total: Number(body.total ?? existing.total ?? 0),
-        gst: Number(body.gst ?? existing.gst ?? 0),
+        total: Number(existing.total ?? 0),
+        gst: Number(existing.gst ?? 0),
     });
 
     const invoice = await getCustomerInvoiceById({ id: body.id });
@@ -112,4 +109,66 @@ export async function deleteCustomerInvoice({ params, set }) {
 
     await deleteCustomerInvoiceById({ id: existing.id });
     set.status = 204;
+}
+
+export async function addInvoiceItem({ body, set }) {
+    const invoice = await getCustomerInvoiceById({ id: Number(body.customer_invoice_id) });
+    if (!invoice) {
+        set.status = 404;
+        return { error: "Invoice not found" };
+    }
+
+    const itemId = await createInvoiceItem({
+        customer_invoice_id: invoice.id,
+        item: String(body.item).trim(),
+        cost: Number(body.cost),
+        quantity: Number(body.quantity),
+    });
+
+    await recalcCustomerInvoiceTotal({ id: invoice.id });
+
+    const item = await getInvoiceItemById({ id: itemId });
+    const updatedInvoice = await getCustomerInvoiceById({ id: invoice.id });
+
+    set.status = 201;
+    return { message: "Invoice item created", item, invoice: updatedInvoice };
+}
+
+export async function updateInvoiceItem({ params, body, set }) {
+    const existing = await getInvoiceItemById({ id: Number(params.id) });
+    if (!existing) {
+        set.status = 404;
+        return { error: "Invoice item not found" };
+    }
+
+    await updateInvoiceItemById({
+        id: existing.id,
+        item: String(body.item).trim(),
+        cost: Number(body.cost),
+        quantity: Number(body.quantity),
+    });
+
+    await recalcCustomerInvoiceTotal({ id: existing.customer_invoice_id });
+
+    const item = await getInvoiceItemById({ id: existing.id });
+    const updatedInvoice = await getCustomerInvoiceById({ id: existing.customer_invoice_id });
+
+    set.status = 200;
+    return { message: "Invoice item updated", item, invoice: updatedInvoice };
+}
+
+export async function deleteInvoiceItem({ params, set }) {
+    const existing = await getInvoiceItemById({ id: Number(params.id) });
+    if (!existing) {
+        set.status = 404;
+        return { error: "Invoice item not found" };
+    }
+
+    await deleteInvoiceItemById({ id: existing.id });
+    await recalcCustomerInvoiceTotal({ id: existing.customer_invoice_id });
+
+    const updatedInvoice = await getCustomerInvoiceById({ id: existing.customer_invoice_id });
+
+    set.status = 200;
+    return { message: "Invoice item deleted", invoice: updatedInvoice };
 }

@@ -1,8 +1,7 @@
 import { Elysia } from "elysia";
 import { CONSTANTS } from "@hammerbyte/utils";
 import requireSession from "../middlewares/require_session.js";
-import { getCurrentSession } from "../services/auth.js";
-import { getSession, SESSION_COOKIE } from "../libs/session.js";
+import { getCurrentUser } from "../services/auth.js";
 import {
     getAllProjectApplications,
     getProjectApplicationById,
@@ -21,12 +20,18 @@ import {
 import { getExpensesByDateRange } from "../db/expenses.js";
 import {
     getAllCustomerInvoices,
+    getCustomerInvoiceById,
     getCustomerInvoicesByProjectId,
 } from "../db/customer_invoices.js";
+import { getInvoiceItemsByCustomerInvoiceId } from "../db/invoice_items.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
 
-function toDateInputValue(date) {
+function toDateInputValue(value) {
+    if (!value) return "";
+    if (typeof value === "string") return value.slice(0, 10);
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
@@ -46,8 +51,8 @@ export const uiRoutes = new Elysia()
             message: "This is the About page.",
         }),
     )
-    .get("/login", ({ render, cookie, redirect }) => {
-        if (getCurrentSession({ cookie })) {
+    .get("/login", async ({ render, cookie, redirect }) => {
+        if (await getCurrentUser({ cookie })) {
             return redirect("/app");
         }
 
@@ -62,8 +67,8 @@ export const uiRoutes = new Elysia()
     )
     .guard({ beforeHandle: [requireSession] }, (app) =>
         app
-            .derive(({ cookie }) => ({
-                session: getSession(cookie[SESSION_COOKIE]?.value),
+            .derive(async ({ cookie }) => ({
+                session: await getCurrentUser({ cookie }),
             }))
             .get("/app", ({ render, session }) =>
                 render("app", {
@@ -78,20 +83,7 @@ export const uiRoutes = new Elysia()
                     applications: await getAllProjectApplications(),
                 }),
             )
-            .get("/app/applications/:id/edit", async ({ render, session, params, redirect }) => {
-                const application = await getProjectApplicationById({ id: Number(params.id) });
-                if (!application) {
-                    return redirect("/not-found");
-                }
-
-                return render("application-edit", {
-                    title: `Edit — ${application.title}`,
-                    username: session?.username,
-                    application,
-                    customerProjects: await getAllCustomerProjects(),
-                });
-            })
-            .get("/app/applications/:id/services", async ({ render, session, params, redirect }) => {
+            .get("/app/applications/:id", async ({ render, session, params, redirect }) => {
                 const application = await getProjectApplicationById({ id: Number(params.id) });
                 if (!application) {
                     return redirect("/not-found");
@@ -107,29 +99,29 @@ export const uiRoutes = new Elysia()
                     (service) => !linkedServiceIds.has(Number(service.id)),
                 );
 
-                return render("application-services", {
-                    title: `Services — ${application.title}`,
+                return render("application", {
+                    title: `Application — ${application.title}`,
                     username: session?.username,
                     application,
+                    customerProjects: await getAllCustomerProjects(),
                     services: linkedServices,
                     availableServices,
                 });
             })
             .get(
-                "/app/applications/:id/application-services/:application_service_id",
+                "/app/application-services/:id",
                 async ({ render, session, params, query, redirect }) => {
-                    const application = await getProjectApplicationById({
+                    const applicationService = await getApplicationServiceById({
                         id: Number(params.id),
                     });
-                    const applicationService = await getApplicationServiceById({
-                        id: Number(params.application_service_id),
-                    });
+                    if (!applicationService) {
+                        return redirect("/not-found");
+                    }
 
-                    if (
-                        !application ||
-                        !applicationService ||
-                        applicationService.application_id !== application.id
-                    ) {
+                    const application = await getProjectApplicationById({
+                        id: Number(applicationService.application_id),
+                    });
+                    if (!application) {
                         return redirect("/not-found");
                     }
 
@@ -180,6 +172,32 @@ export const uiRoutes = new Elysia()
                     projects: await getAllCustomerProjects(),
                 }),
             )
+            .get("/app/projects/:id", async ({ render, session, params, redirect }) => {
+                const customerProject = await getCustomerProjectById({
+                    id: Number(params.id),
+                });
+                if (!customerProject) {
+                    return redirect("/not-found");
+                }
+
+                const customer = await getCustomerById({ id: Number(customerProject.customer_id) });
+                if (!customer) {
+                    return redirect("/not-found");
+                }
+
+                return render("project", {
+                    title: `Project — ${customerProject.title}`,
+                    username: session?.username,
+                    customer,
+                    customerProject,
+                    applications: await getProjectApplicationsByProjectId({
+                        project_id: customerProject.id,
+                    }),
+                    invoices: await getCustomerInvoicesByProjectId({
+                        project_id: customerProject.id,
+                    }),
+                });
+            })
             .get("/app/expenses", async ({ render, session, query }) => {
                 const now = new Date();
                 const defaultStart = toDateInputValue(
@@ -239,60 +257,6 @@ export const uiRoutes = new Elysia()
                     }),
                 });
             })
-            .get(
-                "/app/customers/:id/projects/:projectId",
-                async ({ render, session, params, redirect }) => {
-                    const customer = await getCustomerById({ id: Number(params.id) });
-                    const customerProject = await getCustomerProjectById({
-                        id: Number(params.projectId),
-                    });
-
-                    if (
-                        !customer ||
-                        !customerProject ||
-                        Number(customerProject.customer_id) !== Number(customer.id)
-                    ) {
-                        return redirect("/not-found");
-                    }
-
-                    return render("customer-project", {
-                        title: `Project — ${customerProject.title}`,
-                        username: session?.username,
-                        customer,
-                        customerProject,
-                        applications: await getProjectApplicationsByProjectId({
-                            project_id: customerProject.id,
-                        }),
-                    });
-                },
-            )
-            .get(
-                "/app/customers/:id/projects/:projectId/invoices",
-                async ({ render, session, params, redirect }) => {
-                    const customer = await getCustomerById({ id: Number(params.id) });
-                    const customerProject = await getCustomerProjectById({
-                        id: Number(params.projectId),
-                    });
-
-                    if (
-                        !customer ||
-                        !customerProject ||
-                        Number(customerProject.customer_id) !== Number(customer.id)
-                    ) {
-                        return redirect("/not-found");
-                    }
-
-                    return render("customer-project-invoices", {
-                        title: `Invoices — ${customerProject.title}`,
-                        username: session?.username,
-                        customer,
-                        customerProject,
-                        invoices: await getCustomerInvoicesByProjectId({
-                            project_id: customerProject.id,
-                        }),
-                    });
-                },
-            )
             .get("/app/invoices", async ({ render, session }) =>
                 render("invoices", {
                     title: "Invoices — HammerByte",
@@ -302,6 +266,24 @@ export const uiRoutes = new Elysia()
                     customerProjects: await getAllCustomerProjects(),
                 }),
             )
+            .get("/app/invoices/:id", async ({ render, session, params, redirect }) => {
+                const invoice = await getCustomerInvoiceById({ id: Number(params.id) });
+                if (!invoice) {
+                    return redirect("/not-found");
+                }
+
+                return render("invoice", {
+                    title: `Invoice #${invoice.id}`,
+                    username: session?.username,
+                    invoice: {
+                        ...invoice,
+                        due_date: toDateInputValue(invoice.due_date),
+                    },
+                    items: await getInvoiceItemsByCustomerInvoiceId({
+                        customer_invoice_id: invoice.id,
+                    }),
+                });
+            })
             .get("/app/inquiries", async ({ render, session }) =>
                 render("inquiries", {
                     title: "Inquiries — HammerByte",

@@ -59,5 +59,19 @@ Only **add** uses a different verb (`add` / `create`). Update / delete / get kee
 
 - Admin UI under `/app/*` is session-guarded with `requireSession` — use `return redirect("/login")` (Elysia 1.4).
 - Admin JSON APIs use `requireApiSession` and return `401` JSON (not redirect).
-- Under `/app/applications/`, the application id param must stay named `:id` (Memoirist rejects mixing `:id` / `:application_id` at the same slot).
+- Admin auth is email OTP via `/api/authentication-tokens` (POST create, PATCH verify). Cookie name: `authentication_token`, max-age **24 hours**. Guards must validate cookie token against `USER_AUTHENTICATION_TOKENS` where `active = TRUE`.
+- Prefer **flat** resource paths — `/app/projects/:id`, `/app/invoices/:id`, `/app/applications/:id`, `/app/application-services/:id`. Avoid nested UI paths like `/app/customers/:id/projects/:projectId/...`.
+- Same for APIs: `/api/customer-projects`, `/api/invoice-items`, `/api/application-services` — parent ids go in the body, not nested URL segments.
 - Missing entities → redirect `/not-found` (UI) or `404` JSON (API).
+
+## External service APIs — do not touch
+
+These endpoints are consumed by **external client apps** via application token auth. **Never** change paths, request/response shapes, auth middleware, or related handlers unless the user explicitly asks.
+
+| Method | Path |
+|--------|------|
+| `POST` | `/api/services/mailer` |
+| `POST` | `/api/services/bucketizer` |
+| `GET` | `/api/services/bucketizer/:file` |
+
+Also leave alone the wiring and implementations behind them unless explicitly requested: `routes/apps/mailer.js`, `routes/apps/bucketizer.js`, `services/mailer.js`, `services/bucketizer.js`, `middlewares/parse_application.js`, `middlewares/can_use_mailer.js`, `middlewares/can_use_bucketizer.js`, and the `/api/services` group in `routes/api.js`.

@@ -5,11 +5,14 @@ import mailer from "./apps/mailer.js";
 import bucketizer from "./apps/bucketizer.js";
 import inquiries from "./apps/inquiries.js";
 import auth from "./apps/auth.js";
+import authenticationTokens from "./apps/authentication_tokens.js";
 import customers from "./apps/customers.js";
+import customerProjects from "./apps/customer_projects.js";
 import projectApplications from "./apps/project_applications.js";
-import projects from "./apps/projects.js";
+import applicationServices from "./apps/application_services.js";
 import expenses from "./apps/expenses.js";
 import customerInvoices from "./apps/customer_invoices.js";
+import invoiceItems from "./apps/invoice_items.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 import requireApiSession from "../middlewares/require_api_session.js";
@@ -20,14 +23,17 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
         runtime: "Bun",
     }))
     .group("/auth", auth)
+    .group("/authentication-tokens", authenticationTokens)
     .group("/inquiries", inquiries)
     .guard({ beforeHandle: [requireApiSession] }, (app) =>
         app
             .group("/project-applications", projectApplications)
-            .group("/projects", projects)
+            .group("/application-services", applicationServices)
             .group("/expenses", expenses)
             .group("/customers", customers)
-            .group("/customer-invoices", customerInvoices),
+            .group("/customer-projects", customerProjects)
+            .group("/customer-invoices", customerInvoices)
+            .group("/invoice-items", invoiceItems),
     )
     .group("/services", (app) =>
         app

@@ -57,7 +57,13 @@
                             </thead>
                             <tbody>
                                 <% invoices.forEach(function (invoice) { %>
-                                    <tr>
+                                    <tr
+                                        class="invoice-row"
+                                        role="link"
+                                        tabindex="0"
+                                        data-href="/app/invoices/<%= invoice.id %>"
+                                        style="cursor: pointer;"
+                                    >
                                         <td><%= invoice.id %></td>
                                         <td><%= invoice.customer_name %></td>
                                         <td><%= invoice.project_title || "-" %></td>
@@ -85,7 +91,7 @@
 </main>
 
 <div class="modal fade" id="invoice-modal" tabindex="-1" aria-labelledby="invoice-modal-label" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <form id="invoice-form" novalidate>
                 <div class="modal-header">
@@ -113,10 +119,6 @@
                                 </option>
                             <% }) %>
                         </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="due_date" class="form-label">Due date</label>
-                        <input type="date" class="form-control" id="due_date" name="due_date" required />
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <label class="form-label mb-0">Items</label>

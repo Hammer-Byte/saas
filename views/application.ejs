@@ -15,35 +15,100 @@
 
 <main class="bg-light min-vh-100">
     <div class="container py-5">
-        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
-            <div>
-                <p class="text-secondary small mb-1">
-                    <a href="/app" class="text-decoration-none">App</a> /
-                    <a href="/app/applications" class="text-decoration-none">Applications</a> /
-                    Services
-                </p>
-                <h1 class="h3 mb-1">Services for <%= application.title %></h1>
-                <p class="text-secondary mb-0">
-                    Services linked to this application via APPLICATION_SERVICES.
-                </p>
-            </div>
-            <button
-                type="button"
-                class="btn btn-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#add-service-modal"
-                <%= !availableServices || availableServices.length === 0 ? "disabled" : "" %>
-            >
-                Add Service
-            </button>
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/applications" class="text-decoration-none">Applications</a> /
+                <%= application.title %>
+            </p>
+            <h1 class="h3 mb-1"><%= application.title %></h1>
+            <p class="text-secondary mb-0">Application details and linked services.</p>
         </div>
 
-        <div id="application-services-alert" class="alert d-none" role="alert"></div>
+        <div id="application-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">Application details</h2>
+            </div>
+            <div class="card-body p-4">
+                <form id="application-edit-form" data-application-id="<%= application.id %>" novalidate>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="title" class="form-label">Title</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="title"
+                                name="title"
+                                maxlength="56"
+                                value="<%= application.title %>"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="token" class="form-label">Token</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="token"
+                                name="token"
+                                maxlength="16"
+                                value="<%= application.token %>"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="project_id" class="form-label">Customer project</label>
+                            <select class="form-select" id="project_id" name="project_id" required>
+                                <option value="">Select a project</option>
+                                <% (customerProjects || []).forEach(function (project) { %>
+                                    <option
+                                        value="<%= project.id %>"
+                                        <%= Number(application.project_id) === Number(project.id) ? "selected" : "" %>
+                                    >
+                                        <%= project.customer_name %> — <%= project.title %>
+                                    </option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="active" class="form-label">Status</label>
+                            <select class="form-select" id="active" name="active">
+                                <option value="true" <%= application.active ? "selected" : "" %>>Active</option>
+                                <option value="false" <%= !application.active ? "selected" : "" %>>Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4 flex-wrap">
+                        <button type="submit" class="btn btn-primary">Save</button>
+                        <% if (application.project_id) { %>
+                            <a href="/app/projects/<%= application.project_id %>" class="btn btn-outline-secondary">Project</a>
+                        <% } %>
+                        <a href="/app/applications" class="btn btn-outline-secondary">Back</a>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 px-4">
+                <h2 class="h5 mb-0">Services</h2>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#add-service-modal"
+                    <%= !availableServices || availableServices.length === 0 ? "disabled" : "" %>
+                >
+                    Add Service
+                </button>
+            </div>
             <div class="card-body p-0">
+                <div id="application-services-alert" class="alert d-none mx-4 mt-3" role="alert"></div>
                 <% if (!services || services.length === 0) { %>
-                    <div class="p-4 p-md-5 text-center text-secondary">
+                    <div class="p-4 text-center text-secondary">
                         No services are associated with this application.
                     </div>
                 <% } else { %>
@@ -74,7 +139,6 @@
                                                     class="form-check-input application-service-active"
                                                     type="checkbox"
                                                     role="switch"
-                                                    data-application-id="<%= application.id %>"
                                                     data-application-service-id="<%= service.id %>"
                                                     <%= service.active ? "checked" : "" %>
                                                     aria-label="Toggle <%= service.title %> active"
@@ -85,7 +149,7 @@
                                         <td><%= service.updated_at ? new Date(service.updated_at).toLocaleString() : "-" %></td>
                                         <td>
                                             <a
-                                                href="/app/applications/<%= application.id %>/application-services/<%= service.id %>"
+                                                href="/app/application-services/<%= service.id %>"
                                                 class="btn btn-sm btn-outline-primary"
                                             >
                                                 Check Usage
@@ -98,10 +162,6 @@
                     </div>
                 <% } %>
             </div>
-        </div>
-
-        <div class="mt-3">
-            <a href="/app/applications" class="btn btn-outline-secondary btn-sm">← Back to Applications</a>
         </div>
     </div>
 </main>
@@ -146,5 +206,5 @@
 </div>
 
 <script src="/public/app.js" defer></script>
-<script src="/public/application-services.js" defer></script>
+<script src="/public/application.js" defer></script>
 <%- include('common/footer') %>

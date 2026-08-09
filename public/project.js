@@ -1,82 +1,327 @@
 (() => {
-    const form = document.getElementById("project-form");
-    const alertBox = document.getElementById("project-alert");
+    const form = document.getElementById("customer-project-detail-form");
+    const alertBox = document.getElementById("customer-project-alert");
+    const editBtn = document.getElementById("edit-project-btn");
+    const saveBtn = document.getElementById("save-project-btn");
+    const cancelBtn = document.getElementById("cancel-edit-project-btn");
     const deleteBtn = document.getElementById("delete-project-btn");
+    const addAppForm = document.getElementById("add-application-form");
+    const addAppAlert = document.getElementById("add-application-alert");
+    const invoiceForm = document.getElementById("invoice-form");
+    const invoiceFormAlert = document.getElementById("invoice-form-alert");
+    const invoicesAlert = document.getElementById("invoices-alert");
+    const itemsContainer = document.getElementById("invoice-items");
+    const addItemBtn = document.getElementById("add-invoice-item-btn");
 
-    if (!form || !alertBox) {
-        return;
+    function showAlert(target, message, type) {
+        if (!target) return;
+        target.textContent = message;
+        target.className = `alert alert-${type}`;
+        target.classList.remove("d-none");
     }
 
-    const projectId = Number(form.dataset.projectId);
-
-    function showAlert(message, type) {
-        alertBox.textContent = message;
-        alertBox.className = `alert alert-${type}`;
-        alertBox.classList.remove("d-none");
+    function hideAlert(target) {
+        if (!target) return;
+        target.classList.add("d-none");
+        target.textContent = "";
     }
 
-    form.addEventListener("submit", async (event) => {
+    if (form) {
+        const customerId = form.dataset.customerId;
+        const projectId = form.dataset.projectId;
+        const editableFields = ["title", "description"];
+        let snapshot = null;
+
+        function getField(name) {
+            return form.elements.namedItem(name);
+        }
+
+        function readSnapshot() {
+            const values = {};
+            for (const name of editableFields) {
+                values[name] = getField(name)?.value ?? "";
+            }
+            return values;
+        }
+
+        function applySnapshot(values) {
+            for (const name of editableFields) {
+                const field = getField(name);
+                if (field) field.value = values[name] ?? "";
+            }
+        }
+
+        function setEditing(enabled) {
+            for (const name of editableFields) {
+                const field = getField(name);
+                if (field) field.disabled = !enabled;
+            }
+            editBtn?.classList.toggle("d-none", enabled);
+            saveBtn?.classList.toggle("d-none", !enabled);
+            cancelBtn?.classList.toggle("d-none", !enabled);
+            if (enabled) getField("title")?.focus();
+        }
+
+        editBtn?.addEventListener("click", () => {
+            hideAlert(alertBox);
+            snapshot = readSnapshot();
+            setEditing(true);
+        });
+
+        cancelBtn?.addEventListener("click", () => {
+            hideAlert(alertBox);
+            if (snapshot) applySnapshot(snapshot);
+            setEditing(false);
+        });
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            hideAlert(alertBox);
+
+            const title = getField("title")?.value?.trim() || "";
+            const description = getField("description")?.value?.trim() || "";
+
+            if (!title) {
+                showAlert(alertBox, "Title is required.", "danger");
+                return;
+            }
+
+            const payload = { id: Number(projectId), title };
+            if (description) payload.description = description;
+
+            if (saveBtn) saveBtn.disabled = true;
+
+            try {
+                const response = await fetch("/api/customer-projects", {
+                    method: "PATCH",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                const data = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    showAlert(alertBox, data.error || "Failed to update project.", "danger");
+                    return;
+                }
+
+                snapshot = readSnapshot();
+                setEditing(false);
+                showAlert(alertBox, "Project updated.", "success");
+            } catch (error) {
+                console.error(error);
+                showAlert(alertBox, "Failed to update project.", "danger");
+            } finally {
+                if (saveBtn) saveBtn.disabled = false;
+            }
+        });
+
+        deleteBtn?.addEventListener("click", async () => {
+            if (!window.confirm("Delete this project?")) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/customer-projects/${projectId}`, {
+                    method: "DELETE",
+                    credentials: "same-origin",
+                });
+
+                if (!response.ok && response.status !== 204) {
+                    const data = await response.json().catch(() => ({}));
+                    showAlert(alertBox, data.error || "Failed to delete project.", "danger");
+                    return;
+                }
+
+                window.location.href = `/app/customers/${customerId}`;
+            } catch (error) {
+                console.error(error);
+                showAlert(alertBox, "Failed to delete project.", "danger");
+            }
+        });
+    }
+
+    addAppForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
+        hideAlert(addAppAlert);
 
-        const title = form.elements.namedItem("title")?.value?.trim() || "";
-        const description = form.elements.namedItem("description")?.value?.trim() || "";
+        const title = addAppForm.elements.namedItem("title")?.value?.trim() || "";
+        const active = addAppForm.elements.namedItem("active")?.value === "true";
 
         if (!title) {
-            showAlert("Title is required.", "danger");
+            showAlert(addAppAlert, "Title is required.", "danger");
             return;
         }
 
-        const submitBtn = form.querySelector('button[type="submit"]');
+        const submitBtn = addAppForm.querySelector('button[type="submit"]');
         if (submitBtn) submitBtn.disabled = true;
 
         try {
-            const response = await fetch("/api/projects", {
-                method: "PATCH",
+            const response = await fetch("/api/project-applications", {
+                method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: projectId, title, description }),
+                body: JSON.stringify({
+                    title,
+                    active,
+                    project_id: Number(addAppForm.dataset.projectId),
+                }),
             });
             const data = await response.json().catch(() => ({}));
 
             if (!response.ok) {
-                showAlert(data.error || "Failed to update project.", "danger");
+                showAlert(addAppAlert, data.error || "Failed to add application.", "danger");
                 return;
             }
 
-            showAlert("Project updated.", "success");
-            if (data.project) {
-                form.elements.namedItem("title").value = data.project.title;
-                form.elements.namedItem("description").value = data.project.description || "";
-            }
+            window.location.reload();
         } catch (error) {
             console.error(error);
-            showAlert("Failed to update project.", "danger");
+            showAlert(addAppAlert, "Failed to add application.", "danger");
         } finally {
             if (submitBtn) submitBtn.disabled = false;
         }
     });
 
-    deleteBtn?.addEventListener("click", async () => {
-        if (!window.confirm("Delete this project?")) {
-            return;
-        }
+    function createItemRow() {
+        const row = document.createElement("div");
+        row.className = "invoice-item-row border rounded p-3";
+        row.innerHTML = `
+            <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label">Item</label>
+                    <input type="text" class="form-control item-name" maxlength="128" required />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Cost</label>
+                    <input type="number" class="form-control item-cost" min="0" step="0.01" value="0" required />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Qty</label>
+                    <input type="number" class="form-control item-quantity" min="0.01" step="0.01" value="1" required />
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-outline-danger w-100 remove-invoice-item-btn">Remove</button>
+                </div>
+            </div>
+        `;
+        row.querySelector(".remove-invoice-item-btn")?.addEventListener("click", () => {
+            if (itemsContainer.children.length <= 1) {
+                showAlert(invoiceFormAlert, "At least one item is required.", "danger");
+                return;
+            }
+            row.remove();
+        });
+        return row;
+    }
 
-        try {
-            const response = await fetch(`/api/projects/${projectId}`, {
-                method: "DELETE",
-                credentials: "same-origin",
-            });
+    function resetItems() {
+        if (!itemsContainer) return;
+        itemsContainer.innerHTML = "";
+        itemsContainer.appendChild(createItemRow());
+    }
 
-            if (!response.ok && response.status !== 204) {
-                const data = await response.json().catch(() => ({}));
-                showAlert(data.error || "Failed to delete project.", "danger");
+    document.querySelectorAll(".invoice-row[data-href]").forEach((row) => {
+        row.addEventListener("click", (event) => {
+            if (event.target.closest(".invoice-delete-btn")) return;
+            window.location.href = row.dataset.href;
+        });
+        row.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                window.location.href = row.dataset.href;
+            }
+        });
+    });
+
+    addItemBtn?.addEventListener("click", () => {
+        invoiceFormAlert?.classList.add("d-none");
+        itemsContainer?.appendChild(createItemRow());
+    });
+
+    document.getElementById("invoice-modal")?.addEventListener("show.bs.modal", () => {
+        invoiceFormAlert?.classList.add("d-none");
+        resetItems();
+    });
+
+    document.querySelectorAll(".invoice-delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            if (!window.confirm("Delete this invoice?")) {
                 return;
             }
 
-            window.location.href = "/app/projects";
-        } catch (error) {
-            console.error(error);
-            showAlert("Failed to delete project.", "danger");
-        }
+            try {
+                const response = await fetch(`/api/customer-invoices/${btn.dataset.id}`, {
+                    method: "DELETE",
+                    credentials: "same-origin",
+                });
+
+                if (!response.ok && response.status !== 204) {
+                    const data = await response.json().catch(() => ({}));
+                    showAlert(invoicesAlert, data.error || "Failed to delete invoice.", "danger");
+                    return;
+                }
+
+                window.location.reload();
+            } catch (error) {
+                console.error(error);
+                showAlert(invoicesAlert, "Failed to delete invoice.", "danger");
+            }
+        });
     });
+
+    if (invoiceForm) {
+        resetItems();
+
+        invoiceForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            invoiceFormAlert?.classList.add("d-none");
+
+            const customer_id = Number(invoiceForm.dataset.customerId);
+            const project_id = Number(invoiceForm.dataset.projectId);
+            const items = Array.from(itemsContainer?.querySelectorAll(".invoice-item-row") || [])
+                .map((row) => ({
+                    item: row.querySelector(".item-name")?.value?.trim() || "",
+                    cost: Number(row.querySelector(".item-cost")?.value || 0),
+                    quantity: Number(row.querySelector(".item-quantity")?.value || 0),
+                }))
+                .filter((row) => row.item);
+
+            if (items.length === 0) {
+                showAlert(invoiceFormAlert, "Add at least one item with a name.", "danger");
+                return;
+            }
+
+            if (items.some((row) => row.quantity <= 0)) {
+                showAlert(invoiceFormAlert, "Each item quantity must be greater than 0.", "danger");
+                return;
+            }
+
+            const submitBtn = invoiceForm.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+
+            try {
+                const response = await fetch("/api/customer-invoices", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ customer_id, project_id, items }),
+                });
+                const data = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    showAlert(invoiceFormAlert, data.error || "Failed to add invoice.", "danger");
+                    return;
+                }
+
+                window.location.href = `/app/invoices/${data.invoice.id}`;
+            } catch (error) {
+                console.error(error);
+                showAlert(invoiceFormAlert, "Failed to add invoice.", "danger");
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        });
+    }
 })();

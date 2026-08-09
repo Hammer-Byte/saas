@@ -6,8 +6,8 @@ import {
     updateCustomerProjectById,
 } from "../db/customer_projects.js";
 
-export async function addCustomerProject({ params, body, set }) {
-    const customer = await getCustomerById({ id: Number(params.id) });
+export async function addCustomerProject({ body, set }) {
+    const customer = await getCustomerById({ id: Number(body.customer_id) });
     if (!customer) {
         set.status = 404;
         return { error: "Customer not found" };
@@ -25,15 +25,9 @@ export async function addCustomerProject({ params, body, set }) {
     return { message: "Customer project created", customerProject };
 }
 
-export async function updateCustomerProject({ params, body, set }) {
-    const customer = await getCustomerById({ id: Number(params.id) });
-    if (!customer) {
-        set.status = 404;
-        return { error: "Customer not found" };
-    }
-
+export async function updateCustomerProject({ body, set }) {
     const existing = await getCustomerProjectById({ id: body.id });
-    if (!existing || Number(existing.customer_id) !== Number(customer.id)) {
+    if (!existing) {
         set.status = 404;
         return { error: "Customer project not found" };
     }
@@ -51,16 +45,8 @@ export async function updateCustomerProject({ params, body, set }) {
 }
 
 export async function deleteCustomerProject({ params, set }) {
-    const customer = await getCustomerById({ id: Number(params.id) });
-    if (!customer) {
-        set.status = 404;
-        return { error: "Customer not found" };
-    }
-
-    const existing = await getCustomerProjectById({
-        id: Number(params.customer_project_id),
-    });
-    if (!existing || Number(existing.customer_id) !== Number(customer.id)) {
+    const existing = await getCustomerProjectById({ id: Number(params.id) });
+    if (!existing) {
         set.status = 404;
         return { error: "Customer project not found" };
     }

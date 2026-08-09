@@ -4,17 +4,15 @@ import { executeSQLQuery } from "../libs/db.js";
 export async function createCustomerInvoice({
     customer_id,
     project_id,
-    due_date,
     total = 0,
     gst = 0,
 }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO CUSTOMER_INVOICES ${sql(
-                { customer_id, project_id, due_date, total, gst },
+                { customer_id, project_id, total, gst },
                 "customer_id",
                 "project_id",
-                "due_date",
                 "total",
                 "gst",
             )}

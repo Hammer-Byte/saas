@@ -28,13 +28,6 @@ export async function executeSQLQuery(queryFunction) {
 
 export async function generateDBTables() {
     const requiredTables = [
-        `CREATE TABLE IF NOT EXISTS PROJECTS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(56) NOT NULL UNIQUE,
-            description VARCHAR(512) NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )`,
         `CREATE TABLE IF NOT EXISTS CUSTOMERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             full_name VARCHAR(128) NOT NULL,
@@ -101,14 +94,23 @@ export async function generateDBTables() {
         )`,
         `CREATE TABLE IF NOT EXISTS USERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            application_id INT NOT NULL,
             email VARCHAR(48) NOT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_application_email (application_id, email),
-            CONSTRAINT fk_users_project_application
-                FOREIGN KEY (application_id)
-                REFERENCES PROJECT_APPLICATIONS(id)
+            UNIQUE KEY unique_user_email (email)
+        )`,
+        `CREATE TABLE IF NOT EXISTS USER_AUTHENTICATION_TOKENS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            token CHAR(32) NOT NULL,
+            otp CHAR(4) NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT FALSE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_user_authentication_token (token),
+            CONSTRAINT fk_user_authentication_tokens_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
@@ -210,7 +212,8 @@ export async function generateDBTables() {
         )`,
 
         `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails');`,
-        `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads');`
+        `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads');`,
+        `INSERT IGNORE INTO USERS (email) VALUES ('admin@hammerbyte.co.in');`,
     ];
 
     for (const table of requiredTables) {

@@ -20,6 +20,46 @@ export async function createInvoiceItem({ customer_invoice_id, item, cost, quant
         });
 }
 
+export async function updateInvoiceItemById({ id, item, cost, quantity }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE INVOICE_ITEMS
+            SET
+                item = ${item},
+                cost = ${cost},
+                quantity = ${quantity}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateInvoiceItemById: ${error}`);
+        throw error;
+    });
+}
+
+export async function deleteInvoiceItemById({ id }) {
+    await executeSQLQuery((sql) => sql`DELETE FROM INVOICE_ITEMS WHERE id = ${id}`).catch(
+        (error) => {
+            logger.error(`deleteInvoiceItemById: ${error}`);
+            throw error;
+        },
+    );
+}
+
+export async function getInvoiceItemById({ id }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *
+            FROM INVOICE_ITEMS
+            WHERE id = ${id}
+        `,
+    )
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getInvoiceItemById: ${error}`);
+            return null;
+        });
+}
+
 export async function getInvoiceItemsByCustomerInvoiceId({ customer_invoice_id }) {
     return await executeSQLQuery(
         (sql) => sql`

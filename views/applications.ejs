@@ -20,7 +20,7 @@
                 <a href="/app" class="text-decoration-none">App</a> / Applications
             </p>
             <h1 class="h3 mb-1">Applications</h1>
-            <p class="text-secondary mb-0">All project applications. Add new ones from a customer project page.</p>
+            <p class="text-secondary mb-0">All project applications. Add new ones from a project page.</p>
         </div>
 
         <div class="card border-0 shadow-sm">
@@ -43,7 +43,13 @@
                             </thead>
                             <tbody>
                                 <% applications.forEach(function (application) { %>
-                                    <tr>
+                                    <tr
+                                        class="application-row"
+                                        role="link"
+                                        tabindex="0"
+                                        data-href="/app/applications/<%= application.id %>"
+                                        style="cursor: pointer;"
+                                    >
                                         <td><%= application.id %></td>
                                         <td><%= application.title %></td>
                                         <td><%= application.project_title || "-" %></td>
@@ -55,8 +61,11 @@
                                             <% } %>
                                         </td>
                                         <td>
-                                            <a href="/app/applications/<%= application.id %>/services" class="btn btn-sm btn-outline-primary">
-                                                Manage Services
+                                            <a
+                                                href="/app/applications/<%= application.id %>"
+                                                class="btn btn-sm btn-outline-primary"
+                                            >
+                                                Open
                                             </a>
                                         </td>
                                     </tr>
@@ -71,4 +80,18 @@
 </main>
 
 <script src="/public/app.js" defer></script>
+<script>
+    document.querySelectorAll(".application-row[data-href]").forEach((row) => {
+        row.addEventListener("click", (event) => {
+            if (event.target.closest("a")) return;
+            window.location.href = row.dataset.href;
+        });
+        row.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                window.location.href = row.dataset.href;
+            }
+        });
+    });
+</script>
 <%- include('common/footer') %>

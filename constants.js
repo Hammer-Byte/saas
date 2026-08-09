@@ -15,6 +15,8 @@ export const ERRORS = {
     USERNAME_REQUIRED: "Username is required",
     PASSWORD_REQUIRED: "Password is required",
     INVALID_CREDENTIALS: "Invalid username or password",
+    NO_SUCH_USER: "No Such User Found",
+    INVALID_OTP: "Invalid OTP",
 };
 
 

@@ -3,10 +3,6 @@ import {
     addProjectApplication,
     updateProjectApplication,
 } from "../../services/project_applications.js";
-import {
-    addApplicationService,
-    updateApplicationService,
-} from "../../services/application_services.js";
 
 export default function (app) {
     return app
@@ -46,32 +42,6 @@ export default function (app) {
             detail: {
                 tags: ["Project Applications"],
                 summary: "Update project application",
-            },
-        })
-        .post("/:id/services", addApplicationService, {
-            params: t.Object({
-                id: t.Numeric(),
-            }),
-            body: t.Object({
-                service_id: t.Numeric({ minimum: 1 }),
-                service_configs: t.Optional(t.String()),
-            }),
-            detail: {
-                tags: ["Project Applications"],
-                summary: "Link a service to a project application",
-            },
-        })
-        .patch("/:id/application-services/:application_service_id", updateApplicationService, {
-            params: t.Object({
-                id: t.Numeric(),
-                application_service_id: t.Numeric(),
-            }),
-            body: t.Object({
-                active: t.Boolean(),
-            }),
-            detail: {
-                tags: ["Project Applications"],
-                summary: "Update application service active status",
             },
         });
 }

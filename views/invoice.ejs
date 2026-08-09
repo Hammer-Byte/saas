@@ -1,0 +1,221 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= typeof username !== "undefined" && username ? username : "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/invoices" class="text-decoration-none">Invoices</a> /
+                #<%= invoice.id %>
+            </p>
+            <h1 class="h3 mb-1">Invoice #<%= invoice.id %></h1>
+            <p class="text-secondary mb-0">
+                <%= invoice.customer_name %> — <%= invoice.project_title %>
+            </p>
+        </div>
+
+        <div id="invoice-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">Invoice details</h2>
+            </div>
+            <div class="card-body p-4">
+                <form id="invoice-detail-form" data-invoice-id="<%= invoice.id %>" novalidate>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Customer</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="<%= invoice.customer_name %> — <%= invoice.customer_company %>"
+                                disabled
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Project</label>
+                            <input type="text" class="form-control" value="<%= invoice.project_title %>" disabled />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="due_date" class="form-label">Due date</label>
+                            <input
+                                type="date"
+                                class="form-control"
+                                id="due_date"
+                                name="due_date"
+                                value="<%= invoice.due_date %>"
+                                required
+                                disabled
+                            />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Total</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="<%= Number(invoice.total).toFixed(2) %>"
+                                disabled
+                            />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">GST (18%)</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="<%= Number(invoice.gst).toFixed(2) %>"
+                                disabled
+                            />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Grand total</label>
+                            <input
+                                type="text"
+                                class="form-control fw-semibold"
+                                value="<%= (Number(invoice.total) + Number(invoice.gst)).toFixed(2) %>"
+                                disabled
+                            />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Created</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="<%= invoice.created_on ? new Date(invoice.created_on).toLocaleString() : '-' %>"
+                                disabled
+                            />
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-4 flex-wrap">
+                        <button type="submit" id="save-invoice-btn" class="btn btn-primary d-none">Save</button>
+                        <button type="button" id="cancel-edit-invoice-btn" class="btn btn-outline-secondary d-none">Cancel</button>
+                        <button type="button" id="edit-invoice-btn" class="btn btn-outline-primary">Edit due date</button>
+                        <button type="button" id="delete-invoice-btn" class="btn btn-outline-danger">Delete invoice</button>
+                        <a href="/app/invoices" class="btn btn-outline-secondary">Back to invoices</a>
+                        <a href="/app/projects/<%= invoice.project_id %>" class="btn btn-outline-secondary">
+                            Project
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 px-4">
+                <h2 class="h5 mb-0">Items</h2>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#invoice-item-modal"
+                    id="open-add-invoice-item-btn"
+                >
+                    Add item
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <% if (!items || items.length === 0) { %>
+                    <div class="p-4 text-center text-secondary">
+                        No items on this invoice.
+                    </div>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Item</th>
+                                    <th scope="col">Cost</th>
+                                    <th scope="col">Qty</th>
+                                    <th scope="col">Amount</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% items.forEach(function (row) { %>
+                                    <tr>
+                                        <td><%= row.item %></td>
+                                        <td><%= Number(row.cost).toFixed(2) %></td>
+                                        <td><%= Number(row.quantity).toFixed(2) %></td>
+                                        <td><%= Number(row.amount).toFixed(2) %></td>
+                                        <td>
+                                            <div class="d-flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-primary invoice-item-edit-btn"
+                                                    data-id="<%= row.id %>"
+                                                    data-item="<%= String(row.item).replace(/"/g, '&quot;') %>"
+                                                    data-cost="<%= row.cost %>"
+                                                    data-quantity="<%= row.quantity %>"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-danger invoice-item-delete-btn"
+                                                    data-id="<%= row.id %>"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="invoice-item-modal" tabindex="-1" aria-labelledby="invoice-item-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="invoice-item-form" data-invoice-id="<%= invoice.id %>" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="invoice-item-modal-label">Add item</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="invoice-item-form-alert" class="alert d-none" role="alert"></div>
+                    <input type="hidden" id="invoice-item-id" name="item_id" value="" />
+                    <div class="mb-3">
+                        <label for="invoice-item-name" class="form-label">Item</label>
+                        <input type="text" class="form-control" id="invoice-item-name" name="item" maxlength="128" required />
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="invoice-item-cost" class="form-label">Cost</label>
+                            <input type="number" class="form-control" id="invoice-item-cost" name="cost" min="0" step="0.01" value="0" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="invoice-item-quantity" class="form-label">Quantity</label>
+                            <input type="number" class="form-control" id="invoice-item-quantity" name="quantity" min="0.01" step="0.01" value="1" required />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/invoice.js" defer></script>
+<%- include('common/footer') %>

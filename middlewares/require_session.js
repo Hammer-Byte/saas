@@ -1,9 +1,14 @@
-import { getSession, SESSION_COOKIE } from "../libs/session.js";
+import { AUTHENTICATION_TOKEN_COOKIE } from "../libs/authentication.js";
+import { getActiveUserAuthenticationTokenByToken } from "../db/user_authentication_tokens.js";
 
-export default function requireSession({ cookie, redirect }) {
-    const session = getSession(cookie[SESSION_COOKIE]?.value);
+export default async function requireSession({ cookie, redirect }) {
+    const token = cookie[AUTHENTICATION_TOKEN_COOKIE]?.value;
+    if (!token) {
+        return redirect("/login");
+    }
 
-    if (!session) {
+    const auth = await getActiveUserAuthenticationTokenByToken({ token });
+    if (!auth) {
         return redirect("/login");
     }
 }

@@ -70,6 +70,19 @@
         }
     }
 
+    document.querySelectorAll(".invoice-row[data-href]").forEach((row) => {
+        row.addEventListener("click", (event) => {
+            if (event.target.closest(".invoice-delete-btn")) return;
+            window.location.href = row.dataset.href;
+        });
+        row.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                window.location.href = row.dataset.href;
+            }
+        });
+    });
+
     customerSelect?.addEventListener("change", filterProjectsByCustomer);
     filterProjectsByCustomer();
 
@@ -88,7 +101,8 @@
     });
 
     document.querySelectorAll(".invoice-delete-btn").forEach((btn) => {
-        btn.addEventListener("click", async () => {
+        btn.addEventListener("click", async (event) => {
+            event.stopPropagation();
             if (!window.confirm("Delete this invoice?")) {
                 return;
             }
@@ -125,7 +139,6 @@
 
         const customer_id = Number(form.elements.namedItem("customer_id")?.value || 0);
         const project_id = Number(form.elements.namedItem("project_id")?.value || 0);
-        const due_date = form.elements.namedItem("due_date")?.value || "";
         const items = Array.from(itemsContainer?.querySelectorAll(".invoice-item-row") || [])
             .map((row) => ({
                 item: row.querySelector(".item-name")?.value?.trim() || "",
@@ -134,8 +147,8 @@
             }))
             .filter((row) => row.item);
 
-        if (!customer_id || !project_id || !due_date) {
-            showAlert(formAlert, "Customer, project, and due date are required.", "danger");
+        if (!customer_id || !project_id) {
+            showAlert(formAlert, "Customer and project are required.", "danger");
             return;
         }
 
@@ -157,7 +170,7 @@
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ customer_id, project_id, due_date, items }),
+                body: JSON.stringify({ customer_id, project_id, items }),
             });
             const data = await response.json().catch(() => ({}));
 
@@ -166,7 +179,7 @@
                 return;
             }
 
-            window.location.reload();
+            window.location.href = `/app/invoices/${data.invoice.id}`;
         } catch (error) {
             console.error(error);
             showAlert(formAlert, "Failed to add invoice.", "danger");
