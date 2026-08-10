@@ -127,6 +127,7 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(56) NOT NULL UNIQUE,
             description VARCHAR(128) NOT NULL UNIQUE,
+            cost DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
           )`,
@@ -212,8 +213,8 @@ export async function generateDBTables() {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )`,
 
-        `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails');`,
-        `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads');`,
+        `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
+        `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,
         `INSERT IGNORE INTO USERS (full_name, email) VALUES ('Admin', 'support@hammerbyte.co.in');`,
     ];
 
