@@ -94,6 +94,7 @@ export async function generateDBTables() {
         )`,
         `CREATE TABLE IF NOT EXISTS USERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            full_name VARCHAR(128) NOT NULL,
             email VARCHAR(48) NOT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -213,7 +214,7 @@ export async function generateDBTables() {
 
         `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails');`,
         `INSERT IGNORE INTO SERVICES (title, description) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads');`,
-        `INSERT IGNORE INTO USERS (email) VALUES ('admin@hammerbyte.co.in');`,
+        `INSERT IGNORE INTO USERS (full_name, email) VALUES ('Admin', 'support@hammerbyte.co.in');`,
     ];
 
     for (const table of requiredTables) {

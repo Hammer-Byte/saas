@@ -7,10 +7,10 @@ import {
 
 export async function addExpense({ body, set }) {
     const id = await createExpense({
+        ...body,
         title: body.title.trim(),
         description: body.description?.trim() || null,
         amount: Number(body.amount),
-        expense_date: body.expense_date,
     });
 
     const expense = await getExpenseById({ id });
@@ -27,11 +27,10 @@ export async function updateExpense({ body, set }) {
     }
 
     await updateExpenseById({
-        id: body.id,
+        ...body,
         title: body.title.trim(),
         description: body.description?.trim() || null,
         amount: Number(body.amount),
-        expense_date: body.expense_date,
     });
 
     const expense = await getExpenseById({ id: body.id });

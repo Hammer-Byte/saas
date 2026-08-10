@@ -31,6 +31,7 @@ alwaysApply: false
 ## Helpers
 
 - Do **not** extract a helper for logic used in only one place — inline it. Extract only when the same block is used in two or more places in that file (e.g. shared `showAlert` / row builders reused by add + modal reset).
+- Prefer object spread over rebuilding an object field-by-field: `{ ...payload, id }` / `{ customer_invoice_id, ...payload }` — not `{ item: payload.item, cost: payload.cost, … }`. Only rebuild when renaming/omitting fields.
 
 ## Naming
 

@@ -53,7 +53,8 @@ export async function getActiveUserAuthenticationTokenByToken({ token }) {
         (sql) => sql`
             SELECT
                 USER_AUTHENTICATION_TOKENS.*,
-                USERS.email AS email
+                USERS.email AS email,
+                USERS.full_name AS full_name
             FROM USER_AUTHENTICATION_TOKENS
             INNER JOIN USERS ON USERS.id = USER_AUTHENTICATION_TOKENS.user_id
             WHERE USER_AUTHENTICATION_TOKENS.token = ${token}

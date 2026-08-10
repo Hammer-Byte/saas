@@ -31,15 +31,16 @@ export async function getCurrentUser({ cookie }) {
         return null;
     }
 
-    const auth = await getActiveUserAuthenticationTokenByToken({ token });
-    if (!auth) {
+    const authenticationToken = await getActiveUserAuthenticationTokenByToken({ token });
+    if (!authenticationToken) {
         return null;
     }
 
     return {
-        id: auth.user_id,
-        email: auth.email,
-        username: auth.email,
-        authentication_token: auth.token,
+        id: authenticationToken.user_id,
+        email: authenticationToken.email,
+        full_name: authenticationToken.full_name,
+        username: authenticationToken.full_name || authenticationToken.email,
+        authentication_token: authenticationToken.token,
     };
 }

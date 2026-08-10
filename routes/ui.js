@@ -1,7 +1,7 @@
 import { Elysia } from "elysia";
 import { CONSTANTS } from "@hammerbyte/utils";
 import requireSession from "../middlewares/require_session.js";
-import { getCurrentUser } from "../services/auth.js";
+import { getCurrentUser } from "../services/authentication.js";
 import {
     getAllProjectApplications,
     getProjectApplicationById,
@@ -24,6 +24,7 @@ import {
     getCustomerInvoicesByProjectId,
 } from "../db/customer_invoices.js";
 import { getInvoiceItemsByCustomerInvoiceId } from "../db/invoice_items.js";
+import { getAllUsers } from "../db/users.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
 
@@ -289,6 +290,13 @@ export const uiRoutes = new Elysia()
                     title: "Inquiries — HammerByte",
                     username: session?.username,
                     inquiries: await getAllInquiries(),
+                }),
+            )
+            .get("/app/users", async ({ render, session }) =>
+                render("users", {
+                    title: "Users — HammerByte",
+                    username: session?.username,
+                    users: await getAllUsers(),
                 }),
             ),
     );

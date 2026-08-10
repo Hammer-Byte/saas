@@ -14,6 +14,7 @@ export async function addCustomerProject({ body, set }) {
     }
 
     const id = await createCustomerProject({
+        ...body,
         customer_id: customer.id,
         title: body.title.trim(),
         description: body.description?.trim() || null,
@@ -33,7 +34,7 @@ export async function updateCustomerProject({ body, set }) {
     }
 
     await updateCustomerProjectById({
-        id: body.id,
+        ...body,
         title: body.title.trim(),
         description: body.description?.trim() || null,
     });

@@ -8,6 +8,7 @@ import {
 
 export async function addCustomer({ body, set }) {
     const id = await createCustomer({
+        ...body,
         full_name: body.full_name.trim(),
         company: body.company.trim(),
         pan_gst: body.pan_gst?.trim() || null,
@@ -29,7 +30,7 @@ export async function updateCustomer({ body, set }) {
     }
 
     await updateCustomerById({
-        id: body.id,
+        ...body,
         full_name: body.full_name.trim(),
         company: body.company.trim(),
         pan_gst: body.pan_gst?.trim() || null,

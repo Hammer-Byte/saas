@@ -44,11 +44,7 @@ async function recalcCustomerInvoiceTotal({ id }) {
 }
 
 export async function addCustomerInvoice({ body, set }) {
-    const resolved = await resolveCustomerAndProject({
-        customer_id: body.customer_id,
-        project_id: body.project_id,
-        set,
-    });
+    const resolved = await resolveCustomerAndProject({ ...body, set });
     if (resolved.error) {
         return { error: resolved.error };
     }
@@ -56,12 +52,11 @@ export async function addCustomerInvoice({ body, set }) {
     const id = await createCustomerInvoice({
         customer_id: resolved.customer.id,
         project_id: resolved.project.id,
-        total: 0,
-        gst: 0,
     });
 
     for (const row of body.items) {
         await createInvoiceItem({
+            ...row,
             customer_invoice_id: id,
             item: String(row.item).trim(),
             cost: Number(row.cost),
@@ -86,10 +81,8 @@ export async function updateCustomerInvoice({ body, set }) {
     }
 
     await updateCustomerInvoiceById({
-        id: body.id,
-        customer_id: existing.customer_id,
-        project_id: existing.project_id,
-        due_date: body.due_date,
+        ...existing,
+        ...body,
         total: Number(existing.total ?? 0),
         gst: Number(existing.gst ?? 0),
     });
@@ -119,6 +112,7 @@ export async function addInvoiceItem({ body, set }) {
     }
 
     const itemId = await createInvoiceItem({
+        ...body,
         customer_invoice_id: invoice.id,
         item: String(body.item).trim(),
         cost: Number(body.cost),
@@ -142,7 +136,8 @@ export async function updateInvoiceItem({ params, body, set }) {
     }
 
     await updateInvoiceItemById({
-        id: existing.id,
+        ...existing,
+        ...body,
         item: String(body.item).trim(),
         cost: Number(body.cost),
         quantity: Number(body.quantity),

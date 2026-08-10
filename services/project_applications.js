@@ -13,6 +13,7 @@ export async function addProjectApplication({ body, set }) {
     }
 
     const id = await createProjectApplication({
+        ...body,
         title: body.title.trim(),
         active: body.active === undefined ? true : Boolean(body.active),
         project_id: project.id,
@@ -39,6 +40,7 @@ export async function updateProjectApplication({ params, body, set }) {
     }
 
     await updateProjectApplicationById({
+        ...body,
         id,
         title: body.title.trim(),
         token: body.token.trim(),

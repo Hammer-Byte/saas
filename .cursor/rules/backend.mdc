@@ -55,6 +55,21 @@ Only **add** uses a different verb (`add` / `create`). Update / delete / get kee
 - Validate request shape **only** at the route (`minItems`, `minLength`, types, etc.). Do **not** re-check those in `services/` — services do existence/ownership/business rules only.
 - Do **not** extract a helper for logic used in only one place — inline it. Extract only when the same logic is shared (two or more call sites). Exported route/service/db entry points and shared utils are fine even if a given file calls them once.
 
+## Object spread (no manual rebuilds)
+
+Do **not** copy an object property-by-property into a new literal. Spread, then override only what changes.
+
+```js
+// ❌ BAD — rebuilds x by hand
+const y = { prop1: x.prop1, prop2: x.prop2 };
+
+// ✅ GOOD
+const y = { ...x };
+const y = { ...x, prop2: override };
+```
+
+Same for passing args: prefer `{ ...body, title: body.title.trim() }` over listing every field from `body` again. Only rebuild field-by-field when you must **rename**, **omit**, or **reshape** (e.g. session DTO that must not leak `otp`).
+
 ## Routes & auth
 
 - Admin UI under `/app/*` is session-guarded with `requireSession` — use `return redirect("/login")` (Elysia 1.4).

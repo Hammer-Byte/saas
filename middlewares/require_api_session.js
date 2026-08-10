@@ -9,8 +9,8 @@ export default async function requireApiSession({ cookie, set }) {
         return { error: ERRORS.UNAUTHORIZED };
     }
 
-    const auth = await getActiveUserAuthenticationTokenByToken({ token });
-    if (!auth) {
+    const authenticationToken = await getActiveUserAuthenticationTokenByToken({ token });
+    if (!authenticationToken) {
         set.status = 401;
         return { error: ERRORS.UNAUTHORIZED };
     }

@@ -32,6 +32,7 @@ export async function addApplicationService({ body, set }) {
     }
 
     const id = await createApplicationService({
+        ...body,
         application_id: application.id,
         service_id,
     });

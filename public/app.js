@@ -1,6 +1,6 @@
 document.getElementById("logout-btn")?.addEventListener("click", async () => {
     try {
-        const response = await fetch("/api/auth/logout", {
+        const response = await fetch("/api/authentication/logout", {
             method: "POST",
             credentials: "same-origin",
         });

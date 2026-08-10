@@ -7,8 +7,8 @@ export default async function requireSession({ cookie, redirect }) {
         return redirect("/login");
     }
 
-    const auth = await getActiveUserAuthenticationTokenByToken({ token });
-    if (!auth) {
+    const authenticationToken = await getActiveUserAuthenticationTokenByToken({ token });
+    if (!authenticationToken) {
         return redirect("/login");
     }
 }
