@@ -146,6 +146,7 @@ export async function generateDBTables() {
             recipient VARCHAR(255) NOT NULL,
             subject VARCHAR(512) NOT NULL,
             body TEXT NOT NULL,
+            invoiced BOOLEAN NOT NULL DEFAULT FALSE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP
         )`,
         `CREATE TABLE IF NOT EXISTS INQUIRIES (

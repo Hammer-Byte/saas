@@ -55,6 +55,24 @@ Only **add** uses a different verb (`add` / `create`). Update / delete / get kee
 - Validate request shape **only** at the route (`minItems`, `minLength`, types, etc.). Do **not** re-check those in `services/` — services do existence/ownership/business rules only.
 - Do **not** extract a helper for logic used in only one place — inline it. Extract only when the same logic is shared (two or more call sites). Exported route/service/db entry points and shared utils are fine even if a given file calls them once.
 
+## Type casts
+
+Skip redundant `Number` / `String` / `Boolean` / `typeof` when Elysia schemas or DB helpers already give the right type.
+
+**Keep** casts that prevent real breaks:
+
+- `Number(...)` on MySQL COUNT / SUM / DECIMAL aggregates (drivers may return strings)
+- `Number(Bun.env.…)` for numeric env vars
+- `String(n).padStart` / `` `${n}`.padStart `` when formatting OTP or date parts
+
+```js
+// ❌ BAD — body fields already typed by the route schema
+const id = Number(body.id);
+
+// ✅ GOOD — aggregate may be a string
+.then((result) => Number(result?.[0]?.count ?? 0))
+```
+
 ## Object spread (no manual rebuilds)
 
 Do **not** copy an object property-by-property into a new literal. Spread, then override only what changes.

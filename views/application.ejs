@@ -5,7 +5,7 @@
         <a class="navbar-brand" href="/app">HammerByte App</a>
         <div class="d-flex align-items-center gap-3">
             <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= typeof username !== "undefined" && username ? username : "user" %></strong>
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
             </span>
             <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
             <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
@@ -65,7 +65,7 @@
                                 <% (customerProjects || []).forEach(function (project) { %>
                                     <option
                                         value="<%= project.id %>"
-                                        <%= Number(application.project_id) === Number(project.id) ? "selected" : "" %>
+                                        <%= application.project_id == project.id ? "selected" : "" %>
                                     >
                                         <%= project.customer_name %> — <%= project.title %>
                                     </option>

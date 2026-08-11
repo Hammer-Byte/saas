@@ -28,6 +28,27 @@ alwaysApply: false
 - On successful create/update/delete, reload the page (`window.location.reload()`) unless a sibling does otherwise.
 - Missing entities from UI routes → `/not-found`.
 
+## Type casts
+
+Skip fluff casts (`Boolean(query)`, `String(count)`, `typeof username !== "undefined"`). Prefer `query && …`, assign numbers directly to `textContent`, and `username || "user"` / `title || "HammerByte"` when locals are always passed from guarded routes.
+
+**Keep** casts that prevent real breaks:
+
+- `Number(...)` on DOM / `dataset` / form `.value` before JSON API payloads
+- `Number(...).toFixed(2)` for DECIMAL money display in EJS and client JS
+- `Number(query.month)` / `Number(query.year)` when reading query strings in UI routes (those live in `routes/ui.js` but feed these views)
+
+```js
+// ❌ BAD
+countEl.textContent = String(visibleRows.length);
+row.classList.toggle("d-none", Boolean(query) && !haystack.includes(query));
+
+// ✅ GOOD
+countEl.textContent = visibleRows.length;
+row.classList.toggle("d-none", query && !haystack.includes(query));
+const payload = { id: Number(row.dataset.id), amount: Number(amountInput.value) };
+```
+
 ## Helpers
 
 - Do **not** extract a helper for logic used in only one place — inline it. Extract only when the same block is used in two or more places in that file (e.g. shared `showAlert` / row builders reused by add + modal reset).

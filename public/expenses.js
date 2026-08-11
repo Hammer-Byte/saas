@@ -66,7 +66,7 @@
         const total = visibleRows.reduce((sum, row) => sum + Number(row.dataset.amount || 0), 0);
 
         if (totalEl) totalEl.textContent = formatAmount(total);
-        if (countEl) countEl.textContent = String(visibleRows.length);
+        if (countEl) countEl.textContent = visibleRows.length;
 
         const hasVisible = visibleRows.length > 0;
         empty?.classList.toggle("d-none", hasVisible);
@@ -86,7 +86,7 @@
                 .join(" ")
                 .toLowerCase();
 
-            row.classList.toggle("d-none", Boolean(query) && !haystack.includes(query));
+            row.classList.toggle("d-none", query && !haystack.includes(query));
         });
 
         updateSummary();

@@ -5,7 +5,7 @@
         <a class="navbar-brand" href="/app">HammerByte App</a>
         <div class="d-flex align-items-center gap-3">
             <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= typeof username !== "undefined" && username ? username : "user" %></strong>
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
             </span>
             <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
             <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
@@ -151,12 +151,11 @@
                             <tbody>
                                 <% invoices.forEach(function (invoice) { %>
                                     <%
-                                        const dueDate = invoice.due_date instanceof Date
-                                            ? invoice.due_date
-                                            : new Date(invoice.due_date);
-                                        const invoiceMonth = Number.isNaN(dueDate.getTime())
-                                            ? "-"
-                                            : dueDate.toLocaleString("en-US", { month: "long", year: "numeric" });
+                                        const invoiceDueDate = new Date(invoice.due_date);
+                                        const invoiceMonth = invoiceDueDate.toLocaleString("en-US", {
+                                            month: "long",
+                                            year: "numeric",
+                                        });
                                     %>
                                     <tr
                                         class="invoice-row"

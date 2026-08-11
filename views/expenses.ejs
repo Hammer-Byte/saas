@@ -5,7 +5,7 @@
         <a class="navbar-brand" href="/app">HammerByte App</a>
         <div class="d-flex align-items-center gap-3">
             <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= typeof username !== "undefined" && username ? username : "user" %></strong>
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
             </span>
             <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
             <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
@@ -109,10 +109,10 @@
                                     data-title="<%= expense.title %>"
                                     data-description="<%= expense.description || '' %>"
                                     data-amount="<%= expense.amount %>"
-                                    data-expense-date="<%= expense.expense_date instanceof Date ? expense.expense_date.toISOString().slice(0, 10) : String(expense.expense_date).slice(0, 10) %>"
+                                    data-expense-date="<%= expense.expense_date.slice(0, 10) %>"
                                 >
                                     <td class="expense-date">
-                                        <%= expense.expense_date instanceof Date ? expense.expense_date.toISOString().slice(0, 10) : String(expense.expense_date).slice(0, 10) %>
+                                        <%= expense.expense_date.slice(0, 10) %>
                                     </td>
                                     <td class="expense-title"><%= expense.title %></td>
                                     <td class="expense-description"><%= expense.description || "-" %></td>

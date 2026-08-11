@@ -6,7 +6,7 @@ import {
 } from "../db/project_applications.js";
 
 export async function addProjectApplication({ body, set }) {
-    const project = await getCustomerProjectById({ id: Number(body.project_id) });
+    const project = await getCustomerProjectById({ id: body.project_id });
     if (!project) {
         set.status = 400;
         return { error: "Customer project not found" };
@@ -15,7 +15,7 @@ export async function addProjectApplication({ body, set }) {
     const id = await createProjectApplication({
         ...body,
         title: body.title.trim(),
-        active: body.active === undefined ? true : Boolean(body.active),
+        active: body.active ?? true,
         project_id: project.id,
     });
 
@@ -26,14 +26,14 @@ export async function addProjectApplication({ body, set }) {
 }
 
 export async function updateProjectApplication({ params, body, set }) {
-    const id = Number(params.id);
+    const { id } = params;
     const application = await getProjectApplicationById({ id });
     if (!application) {
         set.status = 404;
         return { error: "Project application not found" };
     }
 
-    const project = await getCustomerProjectById({ id: Number(body.project_id) });
+    const project = await getCustomerProjectById({ id: body.project_id });
     if (!project) {
         set.status = 400;
         return { error: "Customer project not found" };
@@ -44,7 +44,7 @@ export async function updateProjectApplication({ params, body, set }) {
         id,
         title: body.title.trim(),
         token: body.token.trim(),
-        active: Boolean(body.active),
+        active: body.active,
         project_id: project.id,
     });
 

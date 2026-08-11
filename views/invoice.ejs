@@ -5,7 +5,7 @@
         <a class="navbar-brand" href="/app">HammerByte App</a>
         <div class="d-flex align-items-center gap-3">
             <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= typeof username !== "undefined" && username ? username : "user" %></strong>
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
             </span>
             <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
             <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
@@ -102,6 +102,9 @@
                         <button type="submit" id="save-invoice-btn" class="btn btn-primary d-none">Save</button>
                         <button type="button" id="cancel-edit-invoice-btn" class="btn btn-outline-secondary d-none">Cancel</button>
                         <button type="button" id="edit-invoice-btn" class="btn btn-outline-primary">Edit due date</button>
+                        <button type="button" id="add-service-usage-btn" class="btn btn-outline-primary">
+                            Add service usage cost
+                        </button>
                         <button type="button" id="delete-invoice-btn" class="btn btn-outline-danger">Delete invoice</button>
                         <a href="/app/invoices" class="btn btn-outline-secondary">Back to invoices</a>
                         <a href="/app/projects/<%= invoice.project_id %>" class="btn btn-outline-secondary">
@@ -155,7 +158,7 @@
                                                     type="button"
                                                     class="btn btn-sm btn-outline-primary invoice-item-edit-btn"
                                                     data-id="<%= row.id %>"
-                                                    data-item="<%= String(row.item).replace(/"/g, '&quot;') %>"
+                                                    data-item="<%= row.item.replace(/"/g, '&quot;') %>"
                                                     data-cost="<%= row.cost %>"
                                                     data-quantity="<%= row.quantity %>"
                                                 >

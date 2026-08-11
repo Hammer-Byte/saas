@@ -11,7 +11,7 @@ import transporter from "../libs/transporter.js";
 import { ERRORS } from "../constants.js";
 
 export async function addAuthenticationToken({ body, set }) {
-    const email = String(body.email).trim().toLowerCase();
+    const email = body.email.trim().toLowerCase();
     const user = await getUserByEmail({ email });
 
     if (!user) {
@@ -48,8 +48,8 @@ export async function addAuthenticationToken({ body, set }) {
 }
 
 export async function updateAuthenticationToken({ body, cookie, set }) {
-    const token = String(body.authentication_token).trim();
-    const otp = String(body.otp).trim();
+    const token = body.authentication_token.trim();
+    const otp = body.otp.trim();
 
     const existing = await getUserAuthenticationTokenByTokenAndOtp({ token, otp });
     if (!existing) {

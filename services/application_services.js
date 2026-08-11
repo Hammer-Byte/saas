@@ -8,15 +8,15 @@ import {
 } from "../db/application_services.js";
 
 export async function addApplicationService({ body, set }) {
-    const application = await getProjectApplicationById({ id: Number(body.application_id) });
+    const application = await getProjectApplicationById({ id: body.application_id });
     if (!application) {
         set.status = 404;
         return { error: "Application not found" };
     }
 
-    const service_id = Number(body.service_id);
+    const { service_id } = body;
     const allServices = await getAllServices();
-    const serviceExists = allServices.some((service) => Number(service.id) === service_id);
+    const serviceExists = allServices.some((service) => service.id === service_id);
     if (!serviceExists) {
         set.status = 400;
         return { error: "Service not found" };
@@ -48,7 +48,7 @@ export async function addApplicationService({ body, set }) {
 
 export async function updateApplicationService({ params, body, set }) {
     const applicationService = await getApplicationServiceById({
-        id: Number(params.id),
+        id: params.id,
     });
 
     if (!applicationService) {
@@ -58,7 +58,7 @@ export async function updateApplicationService({ params, body, set }) {
 
     await updateApplicationServiceActiveById({
         id: applicationService.id,
-        active: Boolean(body.active),
+        active: body.active,
     });
 
     const updated = await getApplicationServiceById({ id: applicationService.id });

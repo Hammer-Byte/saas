@@ -45,13 +45,13 @@ export async function updateCustomer({ body, set }) {
 }
 
 export async function deleteCustomer({ params, set }) {
-    const existing = await getCustomerById({ id: Number(params.id) });
+    const existing = await getCustomerById({ id: params.id });
     if (!existing) {
         set.status = 404;
         return { error: "Customer not found" };
     }
 
-    await deleteCustomerById({ id: Number(params.id) });
+    await deleteCustomerById({ id: params.id });
     set.status = 204;
 }
 

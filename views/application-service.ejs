@@ -5,7 +5,7 @@
         <a class="navbar-brand" href="/app">HammerByte App</a>
         <div class="d-flex align-items-center gap-3">
             <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= typeof username !== "undefined" && username ? username : "user" %></strong>
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
             </span>
             <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
             <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
@@ -36,8 +36,8 @@
                 <label for="month" class="form-label mb-1">Month</label>
                 <select class="form-select form-select-sm" id="month" name="month">
                     <% for (let m = 1; m <= 12; m++) { %>
-                        <option value="<%= m %>" <%= Number(month) === m ? "selected" : "" %>>
-                            <%= String(m).padStart(2, "0") %>
+                        <option value="<%= m %>" <%= month == m ? "selected" : "" %>>
+                            <%= `${m}`.padStart(2, "0") %>
                         </option>
                     <% } %>
                 </select>
@@ -61,7 +61,7 @@
 
         <div class="d-flex justify-content-between align-items-center mb-2">
             <p class="mb-0 text-secondary">
-                Showing usage for <strong><%= String(month).padStart(2, "0") %>/<%= year %></strong>
+                Showing usage for <strong><%= `${month}`.padStart(2, "0") %>/<%= year %></strong>
             </p>
             <p class="mb-0">
                 <span class="badge text-bg-primary"><%= usage ? usage.length : 0 %> records</span>
@@ -72,7 +72,7 @@
             <div class="card-body p-0">
                 <% if (!usage || usage.length === 0) { %>
                     <div class="p-4 p-md-5 text-center text-secondary">
-                        No usage found for this application service in <%= String(month).padStart(2, "0") %>/<%= year %>.
+                        No usage found for this application service in <%= `${month}`.padStart(2, "0") %>/<%= year %>.
                     </div>
                 <% } else { %>
                     <div class="table-responsive">

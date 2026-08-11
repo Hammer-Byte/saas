@@ -31,3 +31,45 @@ export async function getMailsByApplicationServiceId({ application_service_id, m
             return [];
         });
 }
+
+export async function getMailsByApplicationServiceIdForInvoice({
+    application_service_id,
+    start_date,
+    end_date,
+}) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT COUNT(*) AS count
+            FROM MAILS
+            WHERE application_service_id = ${application_service_id}
+                AND invoiced = FALSE
+                AND created_on >= ${start_date}
+                AND created_on < DATE_ADD(${end_date}, INTERVAL 1 DAY)
+        `,
+    )
+        .then((result) => Number(result?.[0]?.count ?? 0))
+        .catch((error) => {
+            logger.error(`getMailsByApplicationServiceIdForInvoice: ${error}`);
+            return 0;
+        });
+}
+
+export async function updateMailsInvoicedByApplicationServiceIdForInvoice({
+    application_service_id,
+    start_date,
+    end_date,
+}) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE MAILS
+            SET invoiced = TRUE
+            WHERE application_service_id = ${application_service_id}
+                AND invoiced = FALSE
+                AND created_on >= ${start_date}
+                AND created_on < DATE_ADD(${end_date}, INTERVAL 1 DAY)
+        `,
+    ).catch((error) => {
+        logger.error(`updateMailsInvoicedByApplicationServiceIdForInvoice: ${error}`);
+        throw error;
+    });
+}

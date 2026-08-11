@@ -1,3 +1,4 @@
+import { CONSTANTS } from "@hammerbyte/utils";
 import { getCustomerById } from "../db/customers.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
 import {
@@ -13,6 +14,15 @@ import {
     getInvoiceItemsByCustomerInvoiceId,
     getInvoiceItemsTotalByCustomerInvoiceId,
 } from "../db/invoice_items.js";
+import { getProjectApplicationsByProjectId } from "../db/project_applications.js";
+import { getServicesByApplicationId } from "../db/application_services.js";
+import {
+    getMailsByApplicationServiceIdForInvoice,
+    updateMailsInvoicedByApplicationServiceIdForInvoice,
+} from "../db/mails.js";
+import { getServiceById } from "../db/services.js";
+
+const { SERVICES } = CONSTANTS.SAAS;
 
 export async function calculateCustomerInvoiceTotal({ id }) {
     const total = await getInvoiceItemsTotalByCustomerInvoiceId({ customer_invoice_id: id });
@@ -21,25 +31,25 @@ export async function calculateCustomerInvoiceTotal({ id }) {
 }
 
 export async function addCustomerInvoice({ body, set }) {
-    const customer = await getCustomerById({ id: Number(body.customer_id) });
+    const customer = await getCustomerById({ id: body.customer_id });
     if (!customer) {
         set.status = 400;
         return { error: "Customer not found" };
     }
 
-    const project = await getCustomerProjectById({ id: Number(body.project_id) });
+    const project = await getCustomerProjectById({ id: body.project_id });
     if (!project) {
         set.status = 400;
         return { error: "Customer project not found" };
     }
 
-    if (Number(project.customer_id) !== Number(customer.id)) {
+    if (project.customer_id !== customer.id) {
         set.status = 400;
         return { error: "Project does not belong to this customer" };
     }
 
     const [year, month] = body.date.split("-").map(Number);
-    const due_date = `${body.date}-${String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0")}`;
+    const due_date = `${body.date}-${`${new Date(Date.UTC(year, month, 0)).getUTCDate()}`.padStart(2, "0")}`;
 
     const monthInvoice = await getCustomerInvoiceByCustomerProjectAndMonth({
         customer_id: customer.id,
@@ -60,9 +70,9 @@ export async function addCustomerInvoice({ body, set }) {
         await createInvoiceItem({
             ...row,
             customer_invoice_id: id,
-            item: String(row.item).trim(),
-            cost: Number(row.cost),
-            quantity: Number(row.quantity),
+            item: row.item.trim(),
+            cost: row.cost,
+            quantity: row.quantity,
         });
     }
 
@@ -93,7 +103,7 @@ export async function updateCustomerInvoice({ body, set }) {
         year,
         month,
     });
-    if (monthInvoice && Number(monthInvoice.id) !== Number(existing.id)) {
+    if (monthInvoice && monthInvoice.id !== existing.id) {
         set.status = 409;
         return { error: "An invoice already exists for this project in that month" };
     }
@@ -101,8 +111,8 @@ export async function updateCustomerInvoice({ body, set }) {
     await updateCustomerInvoiceById({
         ...existing,
         ...body,
-        total: Number(existing.total ?? 0),
-        gst: Number(existing.gst ?? 0),
+        total: existing.total ?? 0,
+        gst: existing.gst ?? 0,
     });
 
     const invoice = await getCustomerInvoiceById({ id: body.id });
@@ -112,7 +122,7 @@ export async function updateCustomerInvoice({ body, set }) {
 }
 
 export async function deleteCustomerInvoice({ params, set }) {
-    const existing = await getCustomerInvoiceById({ id: Number(params.id) });
+    const existing = await getCustomerInvoiceById({ id: params.id });
     if (!existing) {
         set.status = 404;
         return { error: "Invoice not found" };
@@ -120,4 +130,76 @@ export async function deleteCustomerInvoice({ params, set }) {
 
     await deleteCustomerInvoiceById({ id: existing.id });
     set.status = 204;
+}
+
+export async function addCustomerInvoiceServiceUsage({ params, set }) {
+    const invoice = await getCustomerInvoiceById({ id: params.id });
+    if (!invoice) {
+        set.status = 404;
+        return { error: "Invoice not found" };
+    }
+
+    const invoiceDueDate = invoice.due_date;
+    const start_date = `${invoiceDueDate.slice(0, 7)}-01`;
+    const end_date = invoiceDueDate;
+
+    const applications = await getProjectApplicationsByProjectId({
+        project_id: invoice.project_id,
+    });
+
+    let added = 0;
+
+    for (const application of applications) {
+        const applicationServices = await getServicesByApplicationId({
+            application_id: application.id,
+        });
+
+        for (const applicationService of applicationServices) {
+            if (applicationService.title === SERVICES.MAILER) {
+                const count = await getMailsByApplicationServiceIdForInvoice({
+                    application_service_id: applicationService.id,
+                    start_date,
+                    end_date,
+                });
+
+                if (count <= 0) {
+                    continue;
+                }
+
+                const service = await getServiceById({ id: applicationService.service_id });
+                if (!service) {
+                    continue;
+                }
+
+                await createInvoiceItem({
+                    customer_invoice_id: invoice.id,
+                    item: service.title,
+                    cost: service.cost,
+                    quantity: count,
+                });
+
+                await updateMailsInvoicedByApplicationServiceIdForInvoice({
+                    application_service_id: applicationService.id,
+                    start_date,
+                    end_date,
+                });
+
+                added += 1;
+            }
+        }
+    }
+
+    await calculateCustomerInvoiceTotal({ id: invoice.id });
+
+    const updatedInvoice = await getCustomerInvoiceById({ id: invoice.id });
+    const items = await getInvoiceItemsByCustomerInvoiceId({ customer_invoice_id: invoice.id });
+
+    set.status = 200;
+    return {
+        message: added
+            ? `Added ${added} service usage item(s)`
+            : "No uninvoiced service usage found",
+        invoice: updatedInvoice,
+        items,
+    };
 }

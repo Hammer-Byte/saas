@@ -10,7 +10,7 @@ export async function addExpense({ body, set }) {
         ...body,
         title: body.title.trim(),
         description: body.description?.trim() || null,
-        amount: Number(body.amount),
+        amount: body.amount,
     });
 
     const expense = await getExpenseById({ id });
@@ -30,7 +30,7 @@ export async function updateExpense({ body, set }) {
         ...body,
         title: body.title.trim(),
         description: body.description?.trim() || null,
-        amount: Number(body.amount),
+        amount: body.amount,
     });
 
     const expense = await getExpenseById({ id: body.id });
@@ -40,12 +40,12 @@ export async function updateExpense({ body, set }) {
 }
 
 export async function deleteExpense({ params, set }) {
-    const existing = await getExpenseById({ id: Number(params.id) });
+    const existing = await getExpenseById({ id: params.id });
     if (!existing) {
         set.status = 404;
         return { error: "Expense not found" };
     }
 
-    await deleteExpenseById({ id: Number(params.id) });
+    await deleteExpenseById({ id: params.id });
     set.status = 204;
 }

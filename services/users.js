@@ -35,7 +35,7 @@ export async function updateUser({ body, set }) {
 
     const email = body.email.trim().toLowerCase();
     const emailOwner = await getUserByEmail({ email });
-    if (emailOwner && Number(emailOwner.id) !== Number(body.id)) {
+    if (emailOwner && emailOwner.id !== body.id) {
         set.status = 409;
         return { error: "A user with this email already exists" };
     }
@@ -53,12 +53,12 @@ export async function updateUser({ body, set }) {
 }
 
 export async function deleteUser({ params, set }) {
-    const existing = await getUserById({ id: Number(params.id) });
+    const existing = await getUserById({ id: params.id });
     if (!existing) {
         set.status = 404;
         return { error: "User not found" };
     }
 
-    await deleteUserById({ id: Number(params.id) });
+    await deleteUserById({ id: params.id });
     set.status = 204;
 }

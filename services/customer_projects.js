@@ -7,7 +7,7 @@ import {
 } from "../db/customer_projects.js";
 
 export async function addCustomerProject({ body, set }) {
-    const customer = await getCustomerById({ id: Number(body.customer_id) });
+    const customer = await getCustomerById({ id: body.customer_id });
     if (!customer) {
         set.status = 404;
         return { error: "Customer not found" };
@@ -46,7 +46,7 @@ export async function updateCustomerProject({ body, set }) {
 }
 
 export async function deleteCustomerProject({ params, set }) {
-    const existing = await getCustomerProjectById({ id: Number(params.id) });
+    const existing = await getCustomerProjectById({ id: params.id });
     if (!existing) {
         set.status = 404;
         return { error: "Customer project not found" };

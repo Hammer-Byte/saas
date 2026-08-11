@@ -5,7 +5,7 @@
         <a class="navbar-brand" href="/app">HammerByte App</a>
         <div class="d-flex align-items-center gap-3">
             <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= typeof username !== "undefined" && username ? username : "user" %></strong>
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
             </span>
             <a href="/" class="btn btn-sm btn-outline-light">Website</a>
             <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
@@ -16,7 +16,7 @@
 <main class="bg-light min-vh-100">
     <div class="container py-5">
         <div class="mb-4">
-            <h1 class="h3 mb-1">Welcome<%= typeof username !== "undefined" && username ? `, ${username}` : "" %></h1>
+            <h1 class="h3 mb-1">Welcome<%= username ? `, ${username}` : "" %></h1>
             <p class="text-secondary mb-0">Choose a section to manage your SaaS platform.</p>
         </div>
 

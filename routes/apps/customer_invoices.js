@@ -1,6 +1,7 @@
 import { t } from "elysia";
 import {
     addCustomerInvoice,
+    addCustomerInvoiceServiceUsage,
     deleteCustomerInvoice,
     updateCustomerInvoice,
 } from "../../services/customer_invoices.js";
@@ -31,6 +32,15 @@ export default function (app) {
             detail: {
                 tags: ["Customer Invoices"],
                 summary: "Create customer invoice with items",
+            },
+        })
+        .post("/:id/service-usage", addCustomerInvoiceServiceUsage, {
+            params: t.Object({
+                id: t.Numeric(),
+            }),
+            detail: {
+                tags: ["Customer Invoices"],
+                summary: "Fetch service usage for invoice project month",
             },
         })
         .patch("/", updateCustomerInvoice, {

@@ -10,7 +10,7 @@ export async function addService({ body, set }) {
         ...body,
         title: body.title.trim(),
         description: body.description.trim(),
-        cost: Number(body.cost),
+        cost: body.cost,
     });
 
     const service = await getServiceById({ id });
@@ -30,7 +30,7 @@ export async function updateService({ body, set }) {
         ...body,
         title: body.title.trim(),
         description: body.description.trim(),
-        cost: Number(body.cost),
+        cost: body.cost,
     });
 
     const service = await getServiceById({ id: body.id });
@@ -40,12 +40,12 @@ export async function updateService({ body, set }) {
 }
 
 export async function deleteService({ params, set }) {
-    const existing = await getServiceById({ id: Number(params.id) });
+    const existing = await getServiceById({ id: params.id });
     if (!existing) {
         set.status = 404;
         return { error: "Service not found" };
     }
 
-    await deleteServiceById({ id: Number(params.id) });
+    await deleteServiceById({ id: params.id });
     set.status = 204;
 }

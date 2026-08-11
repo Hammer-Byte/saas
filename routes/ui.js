@@ -30,13 +30,7 @@ const { SERVICES } = CONSTANTS.SAAS;
 
 function toDateInputValue(value) {
     if (!value) return "";
-    if (typeof value === "string") return value.slice(0, 10);
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return value.slice(0, 10);
 }
 
 export const uiRoutes = new Elysia()
@@ -85,7 +79,7 @@ export const uiRoutes = new Elysia()
                 }),
             )
             .get("/app/applications/:id", async ({ render, session, params, redirect }) => {
-                const application = await getProjectApplicationById({ id: Number(params.id) });
+                const application = await getProjectApplicationById({ id: params.id });
                 if (!application) {
                     return redirect("/not-found");
                 }
@@ -94,10 +88,10 @@ export const uiRoutes = new Elysia()
                     application_id: application.id,
                 });
                 const linkedServiceIds = new Set(
-                    linkedServices.map((service) => Number(service.service_id)),
+                    linkedServices.map((service) => service.service_id),
                 );
                 const availableServices = (await getAllServices()).filter(
-                    (service) => !linkedServiceIds.has(Number(service.id)),
+                    (service) => !linkedServiceIds.has(service.id),
                 );
 
                 return render("application", {
@@ -113,14 +107,14 @@ export const uiRoutes = new Elysia()
                 "/app/application-services/:id",
                 async ({ render, session, params, query, redirect }) => {
                     const applicationService = await getApplicationServiceById({
-                        id: Number(params.id),
+                        id: params.id,
                     });
                     if (!applicationService) {
                         return redirect("/not-found");
                     }
 
                     const application = await getProjectApplicationById({
-                        id: Number(applicationService.application_id),
+                        id: applicationService.application_id,
                     });
                     if (!application) {
                         return redirect("/not-found");
@@ -175,13 +169,13 @@ export const uiRoutes = new Elysia()
             )
             .get("/app/projects/:id", async ({ render, session, params, redirect }) => {
                 const customerProject = await getCustomerProjectById({
-                    id: Number(params.id),
+                    id: params.id,
                 });
                 if (!customerProject) {
                     return redirect("/not-found");
                 }
 
-                const customer = await getCustomerById({ id: Number(customerProject.customer_id) });
+                const customer = await getCustomerById({ id: customerProject.customer_id });
                 if (!customer) {
                     return redirect("/not-found");
                 }
@@ -207,11 +201,11 @@ export const uiRoutes = new Elysia()
                 const defaultEnd = toDateInputValue(now);
 
                 const start =
-                    typeof query.start === "string" && /^\d{4}-\d{2}-\d{2}$/.test(query.start)
+                    query.start && /^\d{4}-\d{2}-\d{2}$/.test(query.start)
                         ? query.start
                         : defaultStart;
                 const end =
-                    typeof query.end === "string" && /^\d{4}-\d{2}-\d{2}$/.test(query.end)
+                    query.end && /^\d{4}-\d{2}-\d{2}$/.test(query.end)
                         ? query.end
                         : defaultEnd;
 
@@ -244,7 +238,7 @@ export const uiRoutes = new Elysia()
                 }),
             )
             .get("/app/customers/:id", async ({ render, session, params, redirect }) => {
-                const customer = await getCustomerById({ id: Number(params.id) });
+                const customer = await getCustomerById({ id: params.id });
                 if (!customer) {
                     return redirect("/not-found");
                 }
@@ -268,7 +262,7 @@ export const uiRoutes = new Elysia()
                 }),
             )
             .get("/app/invoices/:id", async ({ render, session, params, redirect }) => {
-                const invoice = await getCustomerInvoiceById({ id: Number(params.id) });
+                const invoice = await getCustomerInvoiceById({ id: params.id });
                 if (!invoice) {
                     return redirect("/not-found");
                 }

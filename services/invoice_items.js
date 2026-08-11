@@ -8,7 +8,7 @@ import {
 } from "../db/invoice_items.js";
 
 export async function addInvoiceItem({ body, set }) {
-    const invoice = await getCustomerInvoiceById({ id: Number(body.customer_invoice_id) });
+    const invoice = await getCustomerInvoiceById({ id: body.customer_invoice_id });
     if (!invoice) {
         set.status = 404;
         return { error: "Invoice not found" };
@@ -17,9 +17,9 @@ export async function addInvoiceItem({ body, set }) {
     const itemId = await createInvoiceItem({
         ...body,
         customer_invoice_id: invoice.id,
-        item: String(body.item).trim(),
-        cost: Number(body.cost),
-        quantity: Number(body.quantity),
+        item: body.item.trim(),
+        cost: body.cost,
+        quantity: body.quantity,
     });
 
     await calculateCustomerInvoiceTotal({ id: invoice.id });
@@ -32,7 +32,7 @@ export async function addInvoiceItem({ body, set }) {
 }
 
 export async function updateInvoiceItem({ params, body, set }) {
-    const existing = await getInvoiceItemById({ id: Number(params.id) });
+    const existing = await getInvoiceItemById({ id: params.id });
     if (!existing) {
         set.status = 404;
         return { error: "Invoice item not found" };
@@ -41,9 +41,9 @@ export async function updateInvoiceItem({ params, body, set }) {
     await updateInvoiceItemById({
         ...existing,
         ...body,
-        item: String(body.item).trim(),
-        cost: Number(body.cost),
-        quantity: Number(body.quantity),
+        item: body.item.trim(),
+        cost: body.cost,
+        quantity: body.quantity,
     });
 
     await calculateCustomerInvoiceTotal({ id: existing.customer_invoice_id });
@@ -56,7 +56,7 @@ export async function updateInvoiceItem({ params, body, set }) {
 }
 
 export async function deleteInvoiceItem({ params, set }) {
-    const existing = await getInvoiceItemById({ id: Number(params.id) });
+    const existing = await getInvoiceItemById({ id: params.id });
     if (!existing) {
         set.status = 404;
         return { error: "Invoice item not found" };
