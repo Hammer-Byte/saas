@@ -242,8 +242,7 @@
         invoiceFormAlert?.classList.add("d-none");
         resetItems();
         if (invoiceDateInput) {
-            const now = new Date();
-            invoiceDateInput.value = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, "0")}`;
+            invoiceDateInput.value = getReadableDate("YYYY-MM", new Date());
         }
     });
 
@@ -256,7 +255,7 @@
 
             const customer_id = Number(invoiceForm.dataset.customerId);
             const project_id = Number(invoiceForm.dataset.projectId);
-            const date = invoiceDateInput?.value || "";
+            const date = getWritableDate("YYYY-MM", invoiceDateInput?.value);
             const items = Array.from(itemsContainer?.querySelectorAll(".invoice-item-row") || [])
                 .map((row) => ({
                     item: row.querySelector(".item-name")?.value?.trim() || "",

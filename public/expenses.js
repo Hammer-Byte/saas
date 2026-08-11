@@ -44,7 +44,7 @@
     function openAddModal() {
         resetForm();
         modalLabel.textContent = "Add expense";
-        dateInput.value = new Date().toISOString().slice(0, 10);
+        dateInput.value = getReadableDate("YYYY-MM-DD", new Date());
     }
 
     function openEditModal(row) {
@@ -54,7 +54,7 @@
         titleInput.value = row.dataset.title || "";
         descriptionInput.value = row.dataset.description || "";
         amountInput.value = row.dataset.amount || "";
-        dateInput.value = row.dataset.expenseDate || "";
+        dateInput.value = getReadableDate("YYYY-MM-DD", row.dataset.expenseDate);
     }
 
     function updateSummary() {
@@ -140,7 +140,7 @@
             title: titleInput.value.trim(),
             description: descriptionInput.value.trim(),
             amount: Number(amountInput.value),
-            expense_date: dateInput.value,
+            expense_date: getWritableDate("YYYY-MM-DD", dateInput.value),
         };
 
         if (!payload.title || !payload.expense_date || Number.isNaN(payload.amount)) {

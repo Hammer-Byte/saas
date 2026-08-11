@@ -1,4 +1,5 @@
 import { CONSTANTS } from "@hammerbyte/utils";
+import { getReadableDate, getWritableDate } from "../libs/date.js";
 import { getCustomerById } from "../db/customers.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
 import {
@@ -48,8 +49,9 @@ export async function addCustomerInvoice({ body, set }) {
         return { error: "Project does not belong to this customer" };
     }
 
-    const [year, month] = body.date.split("-").map(Number);
-    const due_date = `${body.date}-${`${new Date(Date.UTC(year, month, 0)).getUTCDate()}`.padStart(2, "0")}`;
+    const year = Number(getReadableDate("YYYY", body.date));
+    const month = Number(getReadableDate("MM", body.date));
+    const due_date = getWritableDate("YYYY-MM-DD", new Date(year, month, 0));
 
     const monthInvoice = await getCustomerInvoiceByCustomerProjectAndMonth({
         customer_id: customer.id,
@@ -94,7 +96,8 @@ export async function updateCustomerInvoice({ body, set }) {
         return { error: "Invoice not found" };
     }
 
-    const [year, month] = body.due_date.split("-").map(Number);
+    const year = Number(getReadableDate("YYYY", body.due_date));
+    const month = Number(getReadableDate("MM", body.due_date));
     const monthInvoice = await getCustomerInvoiceByCustomerProjectAndMonth({
         customer_id: existingInvoice.customer_id,
         project_id: existingInvoice.project_id,
@@ -135,9 +138,15 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
         return { error: "Invoice not found" };
     }
 
-    const invoiceDueDate = existingInvoice.due_date;
-    const start_date = `${invoiceDueDate.slice(0, 7)}-01`;
-    const end_date = invoiceDueDate;
+    const end_date = getReadableDate("YYYY-MM-DD", existingInvoice.due_date);
+    const start_date = getWritableDate(
+        "YYYY-MM-DD",
+        new Date(
+            Number(getReadableDate("YYYY", existingInvoice.due_date)),
+            Number(getReadableDate("MM", existingInvoice.due_date)) - 1,
+            1,
+        ),
+    );
 
     const applications = await getProjectApplicationsByProjectId({
         project_id: existingInvoice.project_id,

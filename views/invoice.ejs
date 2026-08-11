@@ -56,7 +56,7 @@
                                 class="form-control"
                                 id="due_date"
                                 name="due_date"
-                                value="<%= invoice.due_date %>"
+                                data-date="<%= invoice.due_date %>"
                                 required
                                 disabled
                             />
@@ -93,7 +93,8 @@
                             <input
                                 type="text"
                                 class="form-control"
-                                value="<%= invoice.created_on ? new Date(invoice.created_on).toLocaleString() : '-' %>"
+                                id="invoice-created-on"
+                                data-date="<%= invoice.created_on || '' %>"
                                 disabled
                             />
                         </div>
@@ -220,5 +221,6 @@
 </div>
 
 <script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
 <script src="/public/invoice.js" defer></script>
 <%- include('common/footer') %>

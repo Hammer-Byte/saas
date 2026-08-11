@@ -67,7 +67,7 @@
                                         <td><%= invoice.id %></td>
                                         <td><%= invoice.customer_name %></td>
                                         <td><%= invoice.project_title || "-" %></td>
-                                        <td><%= invoice.due_date %></td>
+                                        <td data-readable-date="<%= invoice.due_date %>" data-date-format="YYYY-MM-DD"></td>
                                         <td><%= Number(invoice.total).toFixed(2) %></td>
                                         <td><%= Number(invoice.gst).toFixed(2) %></td>
                                         <td>
@@ -142,5 +142,6 @@
 </div>
 
 <script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
 <script src="/public/invoices.js" defer></script>
 <%- include('common/footer') %>

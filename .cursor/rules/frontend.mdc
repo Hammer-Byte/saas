@@ -17,6 +17,7 @@ alwaysApply: false
 - App pages use `<%- include('common/header') %>` and `<%- include('common/footer') %>`.
 - Pass `title` and `username` from guarded UI routes; wire logout via `/public/app.js`.
 - Page-specific script: `/public/<page>.js` with `defer`, after `/public/app.js`.
+- Date helpers: load `/public/utils.js` (after `app.js`, before the page script) when the page reads or writes dates. Use `getWritableDate(format, date)` before API sends and `getReadableDate(format, date)` for inputs/labels. Formats are call-site specific (`YYYY-MM-DD`, `YYYY-MM-DD HH:mm:ss`, `YYYY-MM`, …). Prefer `data-readable-date` + `data-date-format` for table cells (auto-filled by `utils.js`). Do not `slice` date strings.
 - Prefer schema-first on the backend; implement UI only when asked.
 - Use **flat** paths in links and redirects: `/app/projects/:id`, `/app/invoices/:id`, `/app/applications/:id`, `/app/application-services/:id`. Do not nest resources under parents in the URL.
 

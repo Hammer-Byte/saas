@@ -99,8 +99,7 @@
             filterProjectsByCustomer();
         }
         if (dateInput) {
-            const now = new Date();
-            dateInput.value = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, "0")}`;
+            dateInput.value = getReadableDate("YYYY-MM", new Date());
         }
         resetItems();
     });
@@ -144,7 +143,7 @@
 
         const customer_id = Number(form.elements.namedItem("customer_id")?.value || 0);
         const project_id = Number(form.elements.namedItem("project_id")?.value || 0);
-        const date = dateInput?.value || "";
+        const date = getWritableDate("YYYY-MM", dateInput?.value);
         const items = Array.from(itemsContainer?.querySelectorAll(".invoice-item-row") || [])
             .map((row) => ({
                 item: row.querySelector(".item-name")?.value?.trim() || "",

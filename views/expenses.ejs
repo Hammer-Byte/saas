@@ -109,11 +109,9 @@
                                     data-title="<%= expense.title %>"
                                     data-description="<%= expense.description || '' %>"
                                     data-amount="<%= expense.amount %>"
-                                    data-expense-date="<%= expense.expense_date.slice(0, 10) %>"
+                                    data-expense-date="<%= expense.expense_date %>"
                                 >
-                                    <td class="expense-date">
-                                        <%= expense.expense_date.slice(0, 10) %>
-                                    </td>
+                                    <td class="expense-date" data-readable-date="<%= expense.expense_date %>" data-date-format="YYYY-MM-DD"></td>
                                     <td class="expense-title"><%= expense.title %></td>
                                     <td class="expense-description"><%= expense.description || "-" %></td>
                                     <td class="expense-amount"><%= Number(expense.amount).toFixed(2) %></td>
@@ -171,5 +169,6 @@
 </div>
 
 <script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
 <script src="/public/expenses.js" defer></script>
 <%- include('common/footer') %>

@@ -16,6 +16,17 @@
     const openAddItemBtn = document.getElementById("open-add-invoice-item-btn");
     let dueDateSnapshot = "";
 
+    const dueDateField = invoiceForm?.elements.namedItem("due_date");
+    if (dueDateField?.dataset.date) {
+        dueDateField.value = getReadableDate("YYYY-MM-DD", dueDateField.dataset.date);
+    }
+
+    const createdOnField = document.getElementById("invoice-created-on");
+    if (createdOnField?.dataset.date) {
+        createdOnField.value =
+            getReadableDate("YYYY-MM-DD HH:mm:ss", createdOnField.dataset.date) || "-";
+    }
+
     function showAlert(target, message, type) {
         if (!target) return;
         target.textContent = message;
@@ -56,7 +67,10 @@
         hideAlert(invoiceAlert);
 
         const invoiceId = Number(invoiceForm.dataset.invoiceId);
-        const due_date = invoiceForm.elements.namedItem("due_date")?.value || "";
+        const due_date = getWritableDate(
+            "YYYY-MM-DD",
+            invoiceForm.elements.namedItem("due_date")?.value,
+        );
         if (!due_date) {
             showAlert(invoiceAlert, "Due date is required.", "danger");
             return;

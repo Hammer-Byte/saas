@@ -25,13 +25,9 @@ import {
 } from "../db/customer_invoices.js";
 import { getInvoiceItemsByCustomerInvoiceId } from "../db/invoice_items.js";
 import { getAllUsers } from "../db/users.js";
+import { getReadableDate } from "../libs/date.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
-
-function toDateInputValue(value) {
-    if (!value) return "";
-    return value.slice(0, 10);
-}
 
 export const uiRoutes = new Elysia()
     .get("/", ({ render }) =>
@@ -195,10 +191,11 @@ export const uiRoutes = new Elysia()
             })
             .get("/app/expenses", async ({ render, session, query }) => {
                 const now = new Date();
-                const defaultStart = toDateInputValue(
+                const defaultStart = getReadableDate(
+                    "YYYY-MM-DD",
                     new Date(now.getFullYear(), now.getMonth(), 1),
                 );
-                const defaultEnd = toDateInputValue(now);
+                const defaultEnd = getReadableDate("YYYY-MM-DD", now);
 
                 const start =
                     query.start && /^\d{4}-\d{2}-\d{2}$/.test(query.start)
@@ -270,10 +267,7 @@ export const uiRoutes = new Elysia()
                 return render("invoice", {
                     title: `Invoice #${invoice.id}`,
                     username: session?.username,
-                    invoice: {
-                        ...invoice,
-                        due_date: toDateInputValue(invoice.due_date),
-                    },
+                    invoice,
                     items: await getInvoiceItemsByCustomerInvoiceId({
                         customer_invoice_id: invoice.id,
                     }),

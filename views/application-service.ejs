@@ -91,7 +91,10 @@
                                         <td><%= row.id %></td>
                                         <td><%= row.recipient %></td>
                                         <td><%= row.subject %></td>
-                                        <td><%= row.created_on ? new Date(row.created_on).toLocaleString() : "-" %></td>
+                                        <td
+                                            data-readable-date="<%= row.created_on || '' %>"
+                                            data-date-format="YYYY-MM-DD HH:mm:ss"
+                                        ></td>
                                     </tr>
                                 <% }) %>
                             </tbody>
@@ -110,4 +113,5 @@
 </main>
 
 <script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
 <%- include('common/footer') %>

@@ -144,8 +144,14 @@
                                                 />
                                             </div>
                                         </td>
-                                        <td><%= service.created_on ? new Date(service.created_on).toLocaleString() : "-" %></td>
-                                        <td><%= service.updated_at ? new Date(service.updated_at).toLocaleString() : "-" %></td>
+                                        <td
+                                            data-readable-date="<%= service.created_on || '' %>"
+                                            data-date-format="YYYY-MM-DD HH:mm:ss"
+                                        ></td>
+                                        <td
+                                            data-readable-date="<%= service.updated_at || '' %>"
+                                            data-date-format="YYYY-MM-DD HH:mm:ss"
+                                        ></td>
                                         <td>
                                             <a
                                                 href="/app/application-services/<%= service.id %>"
@@ -205,5 +211,6 @@
 </div>
 
 <script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
 <script src="/public/application.js" defer></script>
 <%- include('common/footer') %>

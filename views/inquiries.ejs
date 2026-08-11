@@ -48,7 +48,10 @@
                                         <td><%= inquiry.full_name %></td>
                                         <td><%= inquiry.phone %></td>
                                         <td><%= inquiry.email || "-" %></td>
-                                        <td><%= inquiry.created_on ? new Date(inquiry.created_on).toLocaleString() : "-" %></td>
+                                        <td
+                                            data-readable-date="<%= inquiry.created_on || '' %>"
+                                            data-date-format="YYYY-MM-DD HH:mm:ss"
+                                        ></td>
                                     </tr>
                                 <% }) %>
                             </tbody>
@@ -61,4 +64,5 @@
 </main>
 
 <script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
 <%- include('common/footer') %>
