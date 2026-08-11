@@ -15,7 +15,7 @@ import {
     getInvoiceItemsTotalByCustomerInvoiceId,
 } from "../db/invoice_items.js";
 import { getProjectApplicationsByProjectId } from "../db/project_applications.js";
-import { getServicesByApplicationId } from "../db/application_services.js";
+import { getAllApplicationServicesByApplicationId } from "../db/application_services.js";
 import {
     getMailsByApplicationServiceIdForInvoice,
     updateMailsInvoicedByApplicationServiceIdForInvoice,
@@ -24,7 +24,7 @@ import { getServiceById } from "../db/services.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
 
-export async function calculateCustomerInvoiceTotal({ id }) {
+export async function updateCustomerInvoiceTotal({ id }) {
     const total = await getInvoiceItemsTotalByCustomerInvoiceId({ customer_invoice_id: id });
     const gst = Math.round(total * 0.18 * 100) / 100;
     await updateCustomerInvoiceTotalById({ id, total, gst });
@@ -71,12 +71,10 @@ export async function addCustomerInvoice({ body, set }) {
             ...row,
             customer_invoice_id: id,
             item: row.item.trim(),
-            cost: row.cost,
-            quantity: row.quantity,
         });
     }
 
-    await calculateCustomerInvoiceTotal({ id });
+    await updateCustomerInvoiceTotal({ id });
 
     const invoice = await getCustomerInvoiceById({ id });
     const items = await getInvoiceItemsByCustomerInvoiceId({ customer_invoice_id: id });
@@ -90,29 +88,27 @@ export async function addCustomerInvoice({ body, set }) {
 }
 
 export async function updateCustomerInvoice({ body, set }) {
-    const existing = await getCustomerInvoiceById({ id: body.id });
-    if (!existing) {
+    const existingInvoice = await getCustomerInvoiceById({ id: body.id });
+    if (!existingInvoice) {
         set.status = 404;
         return { error: "Invoice not found" };
     }
 
     const [year, month] = body.due_date.split("-").map(Number);
     const monthInvoice = await getCustomerInvoiceByCustomerProjectAndMonth({
-        customer_id: existing.customer_id,
-        project_id: existing.project_id,
+        customer_id: existingInvoice.customer_id,
+        project_id: existingInvoice.project_id,
         year,
         month,
     });
-    if (monthInvoice && monthInvoice.id !== existing.id) {
+    if (monthInvoice && monthInvoice.id !== existingInvoice.id) {
         set.status = 409;
         return { error: "An invoice already exists for this project in that month" };
     }
 
     await updateCustomerInvoiceById({
-        ...existing,
+        ...existingInvoice,
         ...body,
-        total: existing.total ?? 0,
-        gst: existing.gst ?? 0,
     });
 
     const invoice = await getCustomerInvoiceById({ id: body.id });
@@ -122,35 +118,35 @@ export async function updateCustomerInvoice({ body, set }) {
 }
 
 export async function deleteCustomerInvoice({ params, set }) {
-    const existing = await getCustomerInvoiceById({ id: params.id });
-    if (!existing) {
+    const existingInvoice = await getCustomerInvoiceById({ id: params.id });
+    if (!existingInvoice) {
         set.status = 404;
         return { error: "Invoice not found" };
     }
 
-    await deleteCustomerInvoiceById({ id: existing.id });
+    await deleteCustomerInvoiceById({ id: existingInvoice.id });
     set.status = 204;
 }
 
 export async function addCustomerInvoiceServiceUsage({ params, set }) {
-    const invoice = await getCustomerInvoiceById({ id: params.id });
-    if (!invoice) {
+    const existingInvoice = await getCustomerInvoiceById({ id: params.id });
+    if (!existingInvoice) {
         set.status = 404;
         return { error: "Invoice not found" };
     }
 
-    const invoiceDueDate = invoice.due_date;
+    const invoiceDueDate = existingInvoice.due_date;
     const start_date = `${invoiceDueDate.slice(0, 7)}-01`;
     const end_date = invoiceDueDate;
 
     const applications = await getProjectApplicationsByProjectId({
-        project_id: invoice.project_id,
+        project_id: existingInvoice.project_id,
     });
 
     let added = 0;
 
     for (const application of applications) {
-        const applicationServices = await getServicesByApplicationId({
+        const applicationServices = await getAllApplicationServicesByApplicationId({
             application_id: application.id,
         });
 
@@ -172,7 +168,7 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
                 }
 
                 await createInvoiceItem({
-                    customer_invoice_id: invoice.id,
+                    customer_invoice_id: existingInvoice.id,
                     item: service.title,
                     cost: service.cost,
                     quantity: count,
@@ -189,10 +185,12 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
         }
     }
 
-    await calculateCustomerInvoiceTotal({ id: invoice.id });
+    await updateCustomerInvoiceTotal({ id: existingInvoice.id });
 
-    const updatedInvoice = await getCustomerInvoiceById({ id: invoice.id });
-    const items = await getInvoiceItemsByCustomerInvoiceId({ customer_invoice_id: invoice.id });
+    const updatedInvoice = await getCustomerInvoiceById({ id: existingInvoice.id });
+    const items = await getInvoiceItemsByCustomerInvoiceId({
+        customer_invoice_id: existingInvoice.id,
+    });
 
     set.status = 200;
     return {

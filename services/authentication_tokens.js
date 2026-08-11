@@ -51,14 +51,14 @@ export async function updateAuthenticationToken({ body, cookie, set }) {
     const token = body.authentication_token.trim();
     const otp = body.otp.trim();
 
-    const existing = await getUserAuthenticationTokenByTokenAndOtp({ token, otp });
-    if (!existing) {
+    const existingAuthenticationToken = await getUserAuthenticationTokenByTokenAndOtp({ token, otp });
+    if (!existingAuthenticationToken) {
         set.status = 401;
         return { error: ERRORS.INVALID_OTP };
     }
 
-    await updateUserAuthenticationTokenActiveById({ id: existing.id, active: true });
-    setAuthenticationTokenCookie(cookie, existing.token);
+    await updateUserAuthenticationTokenActiveById({ id: existingAuthenticationToken.id, active: true });
+    setAuthenticationTokenCookie(cookie, existingAuthenticationToken.token);
 
     set.status = 200;
     return {

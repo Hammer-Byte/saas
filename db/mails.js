@@ -1,13 +1,19 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createMail(email) {
+export async function createMail({ application_service_id, recipient, subject, body }) {
     await executeSQLQuery((sql) =>
-        sql`INSERT INTO MAILS  ${sql(email, "application_service_id", "recipient", "subject", "body")}`,
-    ).catch((error) =>
-        logger.error(`createEmail: ${error}`)
-
-    )
+        sql`INSERT INTO MAILS ${sql(
+            { application_service_id, recipient, subject, body },
+            "application_service_id",
+            "recipient",
+            "subject",
+            "body",
+        )}`,
+    ).catch((error) => {
+        logger.error(`createMail: ${error}`);
+        throw error;
+    });
 }
 
 export async function getMailsByApplicationServiceId({ application_service_id, month, year }) {

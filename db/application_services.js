@@ -51,8 +51,8 @@ export async function canApplicationUseService({ application_id, service_id }) {
         .catch((error) => logger.error(`canApplicationUserService: ${error}`));
 }
 
-export async function getServicesByApplicationId({ application_id }) {
-    logger.info(`Getting Services By Application Id : ${application_id}`);
+export async function getAllApplicationServicesByApplicationId({ application_id }) {
+    logger.info(`Getting Application Services By Application Id : ${application_id}`);
 
     return await executeSQLQuery(
         (sql) => sql`
@@ -73,7 +73,7 @@ export async function getServicesByApplicationId({ application_id }) {
     )
         .then((result) => result ?? [])
         .catch((error) => {
-            logger.error(`getServicesByApplicationId: ${error}`);
+            logger.error(`getAllApplicationServicesByApplicationId: ${error}`);
             return [];
         });
 }

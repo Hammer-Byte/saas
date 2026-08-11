@@ -22,11 +22,11 @@ export async function addApplicationService({ body, set }) {
         return { error: "Service not found" };
     }
 
-    const existing = await getApplicationServiceByApplicationIdAndServiceId({
+    const existingApplicationService = await getApplicationServiceByApplicationIdAndServiceId({
         application_id: application.id,
         service_id,
     });
-    if (existing) {
+    if (existingApplicationService) {
         set.status = 400;
         return { error: "Service is already linked to this application" };
     }
@@ -34,7 +34,6 @@ export async function addApplicationService({ body, set }) {
     const id = await createApplicationService({
         ...body,
         application_id: application.id,
-        service_id,
     });
 
     const applicationService = await getApplicationServiceById({ id });
@@ -47,25 +46,27 @@ export async function addApplicationService({ body, set }) {
 }
 
 export async function updateApplicationService({ params, body, set }) {
-    const applicationService = await getApplicationServiceById({
+    const existingApplicationService = await getApplicationServiceById({
         id: params.id,
     });
 
-    if (!applicationService) {
+    if (!existingApplicationService) {
         set.status = 404;
         return { error: "Application service not found" };
     }
 
     await updateApplicationServiceActiveById({
-        id: applicationService.id,
+        id: existingApplicationService.id,
         active: body.active,
     });
 
-    const updated = await getApplicationServiceById({ id: applicationService.id });
+    const updatedApplicationService = await getApplicationServiceById({
+        id: existingApplicationService.id,
+    });
 
     set.status = 200;
     return {
         message: "Application service updated",
-        applicationService: updated,
+        applicationService: updatedApplicationService,
     };
 }

@@ -8,7 +8,7 @@ import {
     getProjectApplicationsByProjectId,
 } from "../db/project_applications.js";
 import { getAllServices } from "../db/services.js";
-import { getServicesByApplicationId, getApplicationServiceById } from "../db/application_services.js";
+import { getAllApplicationServicesByApplicationId, getApplicationServiceById } from "../db/application_services.js";
 import { getAllInquiries } from "../db/inquiries.js";
 import { getMailsByApplicationServiceId } from "../db/mails.js";
 import { getAllCustomers, getCustomerById } from "../db/customers.js";
@@ -84,7 +84,7 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
-                const linkedServices = await getServicesByApplicationId({
+                const linkedServices = await getAllApplicationServicesByApplicationId({
                     application_id: application.id,
                 });
                 const linkedServiceIds = new Set(

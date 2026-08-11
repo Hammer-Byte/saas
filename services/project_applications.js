@@ -13,9 +13,7 @@ export async function addProjectApplication({ body, set }) {
     }
 
     const id = await createProjectApplication({
-        ...body,
         title: body.title.trim(),
-        active: body.active ?? true,
         project_id: project.id,
     });
 
@@ -27,8 +25,8 @@ export async function addProjectApplication({ body, set }) {
 
 export async function updateProjectApplication({ params, body, set }) {
     const { id } = params;
-    const application = await getProjectApplicationById({ id });
-    if (!application) {
+    const existingApplication = await getProjectApplicationById({ id });
+    if (!existingApplication) {
         set.status = 404;
         return { error: "Project application not found" };
     }
@@ -44,12 +42,11 @@ export async function updateProjectApplication({ params, body, set }) {
         id,
         title: body.title.trim(),
         token: body.token.trim(),
-        active: body.active,
         project_id: project.id,
     });
 
-    const updated = await getProjectApplicationById({ id });
+    const updatedApplication = await getProjectApplicationById({ id });
 
     set.status = 200;
-    return { message: "Project application updated", application: updated };
+    return { message: "Project application updated", application: updatedApplication };
 }

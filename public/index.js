@@ -1,5 +1,3 @@
-const INQUIRY_API_URL = "/api/inquiries";
-
 const form = document.getElementById("inquiry-form");
 const nameInput = document.getElementById("inquiry-name");
 const phoneInput = document.getElementById("inquiry-phone");
@@ -57,8 +55,9 @@ if (form && nameInput && phoneInput && emailInput && submitBtn) {
         submitBtn.classList.add("is-submitting");
 
         try {
-            const response = await fetch(INQUIRY_API_URL, {
+            const response = await fetch("/api/inquiries", {
                 method: "POST",
+                credentials: "same-origin",
                 headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",

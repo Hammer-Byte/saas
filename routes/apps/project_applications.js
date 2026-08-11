@@ -13,7 +13,6 @@ export default function (app) {
                     maxLength: 56,
                     error: "Title is required",
                 }),
-                active: t.Optional(t.Boolean()),
                 project_id: t.Numeric({ minimum: 1 }),
             }),
             detail: {

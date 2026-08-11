@@ -35,10 +35,6 @@
         target.textContent = "";
     }
 
-    function formatAmount(value) {
-        return Number(value || 0).toFixed(2);
-    }
-
     function resetForm() {
         form.reset();
         idInput.value = "";
@@ -65,7 +61,7 @@
         const visibleRows = [...tbody.querySelectorAll("tr")].filter((row) => !row.classList.contains("d-none"));
         const total = visibleRows.reduce((sum, row) => sum + Number(row.dataset.amount || 0), 0);
 
-        if (totalEl) totalEl.textContent = formatAmount(total);
+        if (totalEl) totalEl.textContent = Number(total || 0).toFixed(2);
         if (countEl) countEl.textContent = visibleRows.length;
 
         const hasVisible = visibleRows.length > 0;

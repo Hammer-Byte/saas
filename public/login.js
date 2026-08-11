@@ -35,12 +35,6 @@
         emailInput.focus();
     }
 
-    function showOtpStep() {
-        emailStep?.classList.add("d-none");
-        otpStep?.classList.remove("d-none");
-        otpInput.focus();
-    }
-
     emailInput.addEventListener("input", clearError);
     otpInput.addEventListener("input", clearError);
 
@@ -83,7 +77,9 @@
                 return;
             }
 
-            showOtpStep();
+            emailStep?.classList.add("d-none");
+            otpStep?.classList.remove("d-none");
+            otpInput.focus();
         } catch (error) {
             console.error(error);
             showError("Unable to send OTP. Please try again.");

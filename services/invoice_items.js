@@ -1,5 +1,5 @@
 import { getCustomerInvoiceById } from "../db/customer_invoices.js";
-import { calculateCustomerInvoiceTotal } from "./customer_invoices.js";
+import { updateCustomerInvoiceTotal } from "./customer_invoices.js";
 import {
     createInvoiceItem,
     deleteInvoiceItemById,
@@ -18,11 +18,9 @@ export async function addInvoiceItem({ body, set }) {
         ...body,
         customer_invoice_id: invoice.id,
         item: body.item.trim(),
-        cost: body.cost,
-        quantity: body.quantity,
     });
 
-    await calculateCustomerInvoiceTotal({ id: invoice.id });
+    await updateCustomerInvoiceTotal({ id: invoice.id });
 
     const item = await getInvoiceItemById({ id: itemId });
     const updatedInvoice = await getCustomerInvoiceById({ id: invoice.id });
@@ -32,40 +30,38 @@ export async function addInvoiceItem({ body, set }) {
 }
 
 export async function updateInvoiceItem({ params, body, set }) {
-    const existing = await getInvoiceItemById({ id: params.id });
-    if (!existing) {
+    const existingItem = await getInvoiceItemById({ id: params.id });
+    if (!existingItem) {
         set.status = 404;
         return { error: "Invoice item not found" };
     }
 
     await updateInvoiceItemById({
-        ...existing,
+        ...existingItem,
         ...body,
         item: body.item.trim(),
-        cost: body.cost,
-        quantity: body.quantity,
     });
 
-    await calculateCustomerInvoiceTotal({ id: existing.customer_invoice_id });
+    await updateCustomerInvoiceTotal({ id: existingItem.customer_invoice_id });
 
-    const item = await getInvoiceItemById({ id: existing.id });
-    const updatedInvoice = await getCustomerInvoiceById({ id: existing.customer_invoice_id });
+    const item = await getInvoiceItemById({ id: existingItem.id });
+    const updatedInvoice = await getCustomerInvoiceById({ id: existingItem.customer_invoice_id });
 
     set.status = 200;
     return { message: "Invoice item updated", item, invoice: updatedInvoice };
 }
 
 export async function deleteInvoiceItem({ params, set }) {
-    const existing = await getInvoiceItemById({ id: params.id });
-    if (!existing) {
+    const existingItem = await getInvoiceItemById({ id: params.id });
+    if (!existingItem) {
         set.status = 404;
         return { error: "Invoice item not found" };
     }
 
-    await deleteInvoiceItemById({ id: existing.id });
-    await calculateCustomerInvoiceTotal({ id: existing.customer_invoice_id });
+    await deleteInvoiceItemById({ id: existingItem.id });
+    await updateCustomerInvoiceTotal({ id: existingItem.customer_invoice_id });
 
-    const updatedInvoice = await getCustomerInvoiceById({ id: existing.customer_invoice_id });
+    const updatedInvoice = await getCustomerInvoiceById({ id: existingItem.customer_invoice_id });
 
     set.status = 200;
     return { message: "Invoice item deleted", invoice: updatedInvoice };

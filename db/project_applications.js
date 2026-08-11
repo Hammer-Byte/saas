@@ -66,13 +66,12 @@ export async function getProjectApplicationsByProjectId({ project_id }) {
         });
 }
 
-export async function createProjectApplication({ title, active = true, project_id }) {
+export async function createProjectApplication({ title, project_id }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO PROJECT_APPLICATIONS ${sql(
-                { title, active, project_id },
+                { title, project_id },
                 "title",
-                "active",
                 "project_id",
             )}
         `,

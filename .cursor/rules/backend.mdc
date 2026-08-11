@@ -34,6 +34,7 @@ alwaysApply: false
 - Seed reference rows with `INSERT IGNORE` (e.g. `SERVICES`).
 - DB helpers take a single object: `getX({ id })`, not positional args.
 - When a table column is nullable, default that db param to `null` in the signature (e.g. `createThing({ col1, col2 = null })`). Do not add redundant `?? null` in the service when the db default already covers omission.
+- On **INSERT**, omit columns that already have a schema `DEFAULT` unless the caller intentionally overrides that default. Do not restate `active = true`, `total = 0`, `active: false`, etc. in `create*` / services — leave them out of the INSERT column list so MySQL applies the default (`token`, `invoiced`, timestamps, etc. already follow this).
 
 ## Naming (ums_api style)
 
@@ -48,6 +49,24 @@ Paired names so service/db never collide:
 | read many | `getXs` | `getAllXs` |
 
 Only **add** uses a different verb (`add` / `create`). Update / delete / get keep the same verb; db adds a qualifier (`ById`, `ByApplicationId`, `getAll…`).
+
+### Local variables
+
+Do **not** use bare names like `existing` or `updated`. Name the entity:
+
+```js
+// ❌ BAD
+const existing = await getUserById({ id });
+if (!existing) { … }
+
+// ✅ GOOD
+const existingUser = await getUserById({ id });
+if (!existingUser) { … }
+
+const updatedInvoice = await getCustomerInvoiceById({ id });
+```
+
+Same idea for lookups before create (`existingUser` by email) and post-update reloads (`updatedApplication`).
 
 ## Validation & helpers
 

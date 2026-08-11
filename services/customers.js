@@ -23,8 +23,8 @@ export async function addCustomer({ body, set }) {
 }
 
 export async function updateCustomer({ body, set }) {
-    const existing = await getCustomerById({ id: body.id });
-    if (!existing) {
+    const existingCustomer = await getCustomerById({ id: body.id });
+    if (!existingCustomer) {
         set.status = 404;
         return { error: "Customer not found" };
     }
@@ -45,8 +45,8 @@ export async function updateCustomer({ body, set }) {
 }
 
 export async function deleteCustomer({ params, set }) {
-    const existing = await getCustomerById({ id: params.id });
-    if (!existing) {
+    const existingCustomer = await getCustomerById({ id: params.id });
+    if (!existingCustomer) {
         set.status = 404;
         return { error: "Customer not found" };
     }

@@ -1,22 +1,14 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createCustomerInvoice({
-    customer_id,
-    project_id,
-    due_date,
-    total = 0,
-    gst = 0,
-}) {
+export async function createCustomerInvoice({ customer_id, project_id, due_date }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO CUSTOMER_INVOICES ${sql(
-                { customer_id, project_id, due_date, total, gst },
+                { customer_id, project_id, due_date },
                 "customer_id",
                 "project_id",
                 "due_date",
-                "total",
-                "gst",
             )}
         `,
     )

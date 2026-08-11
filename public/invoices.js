@@ -15,11 +15,6 @@
         target.classList.remove("d-none");
     }
 
-    function currentMonthValue() {
-        const now = new Date();
-        return `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, "0")}`;
-    }
-
     function createItemRow() {
         const row = document.createElement("div");
         row.className = "invoice-item-row border rounded p-3";
@@ -104,7 +99,8 @@
             filterProjectsByCustomer();
         }
         if (dateInput) {
-            dateInput.value = currentMonthValue();
+            const now = new Date();
+            dateInput.value = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, "0")}`;
         }
         resetItems();
     });

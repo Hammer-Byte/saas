@@ -1,7 +1,7 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createCustomerProject({ customer_id, title, description }) {
+export async function createCustomerProject({ customer_id, title, description = null }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO CUSTOMER_PROJECTS ${sql(
@@ -19,7 +19,7 @@ export async function createCustomerProject({ customer_id, title, description })
         });
 }
 
-export async function updateCustomerProjectById({ id, title, description }) {
+export async function updateCustomerProjectById({ id, title, description = null }) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE CUSTOMER_PROJECTS

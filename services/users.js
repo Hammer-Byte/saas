@@ -8,8 +8,8 @@ import {
 
 export async function addUser({ body, set }) {
     const email = body.email.trim().toLowerCase();
-    const existing = await getUserByEmail({ email });
-    if (existing) {
+    const existingUser = await getUserByEmail({ email });
+    if (existingUser) {
         set.status = 409;
         return { error: "A user with this email already exists" };
     }
@@ -27,8 +27,8 @@ export async function addUser({ body, set }) {
 }
 
 export async function updateUser({ body, set }) {
-    const existing = await getUserById({ id: body.id });
-    if (!existing) {
+    const existingUser = await getUserById({ id: body.id });
+    if (!existingUser) {
         set.status = 404;
         return { error: "User not found" };
     }
@@ -53,8 +53,8 @@ export async function updateUser({ body, set }) {
 }
 
 export async function deleteUser({ params, set }) {
-    const existing = await getUserById({ id: params.id });
-    if (!existing) {
+    const existingUser = await getUserById({ id: params.id });
+    if (!existingUser) {
         set.status = 404;
         return { error: "User not found" };
     }

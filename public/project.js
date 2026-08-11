@@ -26,11 +26,6 @@
         target.textContent = "";
     }
 
-    function currentMonthValue() {
-        const now = new Date();
-        return `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, "0")}`;
-    }
-
     if (form) {
         const customerId = form.dataset.customerId;
         const projectId = form.dataset.projectId;
@@ -247,7 +242,8 @@
         invoiceFormAlert?.classList.add("d-none");
         resetItems();
         if (invoiceDateInput) {
-            invoiceDateInput.value = currentMonthValue();
+            const now = new Date();
+            invoiceDateInput.value = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, "0")}`;
         }
     });
 

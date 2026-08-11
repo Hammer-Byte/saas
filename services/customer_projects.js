@@ -27,8 +27,8 @@ export async function addCustomerProject({ body, set }) {
 }
 
 export async function updateCustomerProject({ body, set }) {
-    const existing = await getCustomerProjectById({ id: body.id });
-    if (!existing) {
+    const existingProject = await getCustomerProjectById({ id: body.id });
+    if (!existingProject) {
         set.status = 404;
         return { error: "Customer project not found" };
     }
@@ -46,12 +46,12 @@ export async function updateCustomerProject({ body, set }) {
 }
 
 export async function deleteCustomerProject({ params, set }) {
-    const existing = await getCustomerProjectById({ id: params.id });
-    if (!existing) {
+    const existingProject = await getCustomerProjectById({ id: params.id });
+    if (!existingProject) {
         set.status = 404;
         return { error: "Customer project not found" };
     }
 
-    await deleteCustomerProjectById({ id: existing.id });
+    await deleteCustomerProjectById({ id: existingProject.id });
     set.status = 204;
 }

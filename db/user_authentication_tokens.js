@@ -5,11 +5,10 @@ export async function createUserAuthenticationToken({ user_id, token, otp }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO USER_AUTHENTICATION_TOKENS ${sql(
-                { user_id, token, otp, active: false },
+                { user_id, token, otp },
                 "user_id",
                 "token",
                 "otp",
-                "active",
             )}
         `,
     )

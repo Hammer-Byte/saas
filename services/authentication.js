@@ -10,9 +10,9 @@ import {
 export async function logout({ cookie, set }) {
     const token = cookie[AUTHENTICATION_TOKEN_COOKIE]?.value;
     if (token) {
-        const existing = await getActiveUserAuthenticationTokenByToken({ token });
-        if (existing) {
-            await updateUserAuthenticationTokenActiveById({ id: existing.id, active: false });
+        const existingAuthenticationToken = await getActiveUserAuthenticationTokenByToken({ token });
+        if (existingAuthenticationToken) {
+            await updateUserAuthenticationTokenActiveById({ id: existingAuthenticationToken.id, active: false });
         }
     }
 
