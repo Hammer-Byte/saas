@@ -142,8 +142,8 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
     const start_date = getWritableDate(
         "YYYY-MM-DD",
         new Date(
-            Number(getReadableDate("YYYY", existingInvoice.due_date)),
-            Number(getReadableDate("MM", existingInvoice.due_date)) - 1,
+            Number(getReadableDate("YYYY", end_date)),
+            Number(getReadableDate("MM", end_date)) - 1,
             1,
         ),
     );

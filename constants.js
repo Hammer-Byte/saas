@@ -7,20 +7,13 @@ export const ERRORS = {
     SUBJECT_REQUIRED: "Subject is required",
     BODY_REQUIRED: "Body is required",
     HTML_ENABLED_REQUIRED: "HTML enabled is required",
-    SMTP_NOT_CONFIGURED: "SMTP is not configured",
-    SEND_FAILED: "Failed to send email",
     FULL_NAME_REQUIRED: "Full name is required",
     PHONE_REQUIRED: "Phone is required",
     EMAIL_INVALID: "Email is invalid",
-    USERNAME_REQUIRED: "Username is required",
-    PASSWORD_REQUIRED: "Password is required",
-    INVALID_CREDENTIALS: "Invalid username or password",
     NO_SUCH_USER: "No Such User Found",
     INVALID_OTP: "Invalid OTP",
 };
 
-
 export const SWAGGER = {
     APPLICATION: "Saas Mailer",
-    MAILS: "Mails",
 };

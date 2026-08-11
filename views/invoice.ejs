@@ -103,11 +103,7 @@
                         <button type="submit" id="save-invoice-btn" class="btn btn-primary d-none">Save</button>
                         <button type="button" id="cancel-edit-invoice-btn" class="btn btn-outline-secondary d-none">Cancel</button>
                         <button type="button" id="edit-invoice-btn" class="btn btn-outline-primary">Edit due date</button>
-                        <button type="button" id="add-service-usage-btn" class="btn btn-outline-primary">
-                            Add service usage cost
-                        </button>
                         <button type="button" id="delete-invoice-btn" class="btn btn-outline-danger">Delete invoice</button>
-                        <a href="/app/invoices" class="btn btn-outline-secondary">Back to invoices</a>
                         <a href="/app/projects/<%= invoice.project_id %>" class="btn btn-outline-secondary">
                             Project
                         </a>
@@ -119,15 +115,24 @@
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 px-4">
                 <h2 class="h5 mb-0">Items</h2>
-                <button
-                    type="button"
-                    class="btn btn-sm btn-primary"
-                    data-bs-toggle="modal"
-                    data-bs-target="#invoice-item-modal"
-                    id="open-add-invoice-item-btn"
-                >
-                    Add item
-                </button>
+                <div class="d-flex gap-2">
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-primary"
+                        id="add-service-usage-btn"
+                    >
+                        Add service usage cost
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-primary"
+                        data-bs-toggle="modal"
+                        data-bs-target="#invoice-item-modal"
+                        id="open-add-invoice-item-btn"
+                    >
+                        Add item
+                    </button>
+                </div>
             </div>
             <div class="card-body p-0">
                 <% if (!items || items.length === 0) { %>

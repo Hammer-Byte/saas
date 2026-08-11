@@ -1,5 +1,5 @@
 import { getProjectApplicationById } from "../db/project_applications.js";
-import { getAllServices } from "../db/services.js";
+import { getServiceById } from "../db/services.js";
 import {
     createApplicationService,
     getApplicationServiceByApplicationIdAndServiceId,
@@ -14,17 +14,15 @@ export async function addApplicationService({ body, set }) {
         return { error: "Application not found" };
     }
 
-    const { service_id } = body;
-    const allServices = await getAllServices();
-    const serviceExists = allServices.some((service) => service.id === service_id);
-    if (!serviceExists) {
+    const service = await getServiceById({ id: body.service_id });
+    if (!service) {
         set.status = 400;
         return { error: "Service not found" };
     }
 
     const existingApplicationService = await getApplicationServiceByApplicationIdAndServiceId({
         application_id: application.id,
-        service_id,
+        service_id: service.id,
     });
     if (existingApplicationService) {
         set.status = 400;
@@ -32,8 +30,8 @@ export async function addApplicationService({ body, set }) {
     }
 
     const id = await createApplicationService({
-        ...body,
         application_id: application.id,
+        service_id: service.id,
     });
 
     const applicationService = await getApplicationServiceById({ id });

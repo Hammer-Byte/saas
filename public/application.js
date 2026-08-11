@@ -83,8 +83,6 @@
             addServiceAlert.classList.add("d-none");
 
             const service_id = Number(addServiceForm.elements.namedItem("service_id")?.value);
-            const service_configs =
-                addServiceForm.elements.namedItem("service_configs")?.value || "";
 
             if (!service_id) {
                 showAlert(addServiceAlert, "Please select a service.", "danger");
@@ -106,7 +104,6 @@
                     body: JSON.stringify({
                         application_id: Number(applicationId),
                         service_id,
-                        service_configs,
                     }),
                 });
 

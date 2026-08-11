@@ -181,7 +181,7 @@
                 </div>
                 <div class="modal-body">
                     <div id="add-service-alert" class="alert d-none" role="alert"></div>
-                    <div class="mb-3">
+                    <div class="mb-0">
                         <label for="service_id" class="form-label">Service</label>
                         <select class="form-select" id="service_id" name="service_id" required>
                             <option value="">Select a service</option>
@@ -189,16 +189,6 @@
                                 <option value="<%= service.id %>"><%= service.title %></option>
                             <% }) %>
                         </select>
-                    </div>
-                    <div class="mb-0">
-                        <label for="service_configs" class="form-label">Service configs</label>
-                        <textarea
-                            class="form-control"
-                            id="service_configs"
-                            name="service_configs"
-                            rows="3"
-                            placeholder="Optional free text (not saved yet)"
-                        ></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">

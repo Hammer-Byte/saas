@@ -30,18 +30,8 @@ import { getReadableDate } from "../libs/date.js";
 const { SERVICES } = CONSTANTS.SAAS;
 
 export const uiRoutes = new Elysia()
-    .get("/", ({ render }) =>
-        render("index", {
-            title: "Home",
-            message: "Welcome to the separated UI Route!",
-        }),
-    )
-    .get("/about", ({ render }) =>
-        render("index", {
-            title: "About Us",
-            message: "This is the About page.",
-        }),
-    )
+    .get("/", ({ render }) => render("index"))
+    .get("/about", ({ render }) => render("index"))
     .get("/login", async ({ render, cookie, redirect }) => {
         if (await getCurrentUser({ cookie })) {
             return redirect("/app");

@@ -10,7 +10,6 @@ export default function (app) {
             body: t.Object({
                 application_id: t.Numeric({ minimum: 1 }),
                 service_id: t.Numeric({ minimum: 1 }),
-                service_configs: t.Optional(t.String()),
             }),
             detail: {
                 tags: ["Application Services"],

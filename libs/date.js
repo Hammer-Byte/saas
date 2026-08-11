@@ -51,12 +51,10 @@ function formatDate(format, date) {
     return format.replace(DATE_TOKENS, (token) => parts[token]);
 }
 
-/** Format a date for API / DB write (`YYYY-MM-DD HH:mm:ss`, `YYYY-MM`, …). */
 export function getWritableDate(format, date) {
     return formatDate(format, date);
 }
 
-/** Format a date from API / DB for UI display or inputs. */
 export function getReadableDate(format, date) {
     return formatDate(format, date);
 }

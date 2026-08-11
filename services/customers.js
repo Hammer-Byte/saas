@@ -1,7 +1,6 @@
 import {
     createCustomer,
     deleteCustomerById,
-    getAllCustomers,
     getCustomerById,
     updateCustomerById,
 } from "../db/customers.js";
@@ -53,8 +52,4 @@ export async function deleteCustomer({ params, set }) {
 
     await deleteCustomerById({ id: params.id });
     set.status = 204;
-}
-
-export async function getCustomers() {
-    return await getAllCustomers();
 }
