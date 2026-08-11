@@ -9,7 +9,6 @@
     const addAppAlert = document.getElementById("add-application-alert");
     const invoiceForm = document.getElementById("invoice-form");
     const invoiceFormAlert = document.getElementById("invoice-form-alert");
-    const invoicesAlert = document.getElementById("invoices-alert");
     const itemsContainer = document.getElementById("invoice-items");
     const addItemBtn = document.getElementById("add-invoice-item-btn");
     const invoiceDateInput = document.getElementById("invoice-date");
@@ -227,9 +226,8 @@
         itemsContainer.appendChild(createItemRow());
     }
 
-    document.querySelectorAll(".invoice-row[data-href]").forEach((row) => {
-        row.addEventListener("click", (event) => {
-            if (event.target.closest(".invoice-delete-btn")) return;
+    document.querySelectorAll(".application-row[data-href], .invoice-row[data-href]").forEach((row) => {
+        row.addEventListener("click", () => {
             window.location.href = row.dataset.href;
         });
         row.addEventListener("keydown", (event) => {
@@ -251,33 +249,6 @@
         if (invoiceDateInput) {
             invoiceDateInput.value = currentMonthValue();
         }
-    });
-
-    document.querySelectorAll(".invoice-delete-btn").forEach((btn) => {
-        btn.addEventListener("click", async (event) => {
-            event.stopPropagation();
-            if (!window.confirm("Delete this invoice?")) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/customer-invoices/${btn.dataset.id}`, {
-                    method: "DELETE",
-                    credentials: "same-origin",
-                });
-
-                if (!response.ok && response.status !== 204) {
-                    const data = await response.json().catch(() => ({}));
-                    showAlert(invoicesAlert, data.error || "Failed to delete invoice.", "danger");
-                    return;
-                }
-
-                window.location.reload();
-            } catch (error) {
-                console.error(error);
-                showAlert(invoicesAlert, "Failed to delete invoice.", "danger");
-            }
-        });
     });
 
     if (invoiceForm) {

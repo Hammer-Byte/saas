@@ -89,12 +89,17 @@
                                     <th scope="col">Title</th>
                                     <th scope="col">Token</th>
                                     <th scope="col">Active</th>
-                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <% applications.forEach(function (application) { %>
-                                    <tr>
+                                    <tr
+                                        class="application-row"
+                                        role="link"
+                                        tabindex="0"
+                                        data-href="/app/applications/<%= application.id %>"
+                                        style="cursor: pointer;"
+                                    >
                                         <td><%= application.id %></td>
                                         <td><%= application.title %></td>
                                         <td><code><%= application.token %></code></td>
@@ -104,11 +109,6 @@
                                             <% } else { %>
                                                 <span class="badge text-bg-secondary">Inactive</span>
                                             <% } %>
-                                        </td>
-                                        <td>
-                                            <a href="/app/applications/<%= application.id %>" class="btn btn-sm btn-outline-primary">
-                                                Open
-                                            </a>
                                         </td>
                                     </tr>
                                 <% }) %>
@@ -132,7 +132,6 @@
                 </button>
             </div>
             <div class="card-body p-0">
-                <div id="invoices-alert" class="alert d-none mx-4 mt-3" role="alert"></div>
                 <% if (!invoices || invoices.length === 0) { %>
                     <div class="p-4 text-center text-secondary">
                         No invoices for this project.
@@ -143,15 +142,22 @@
                             <thead class="table-light">
                                 <tr>
                                     <th scope="col">ID</th>
-                                    <th scope="col">Due date</th>
-                                    <th scope="col">Total</th>
+                                    <th scope="col">Created at</th>
+                                    <th scope="col">Month</th>
                                     <th scope="col">GST</th>
-                                    <th scope="col">Created</th>
-                                    <th scope="col">Actions</th>
+                                    <th scope="col">Total</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <% invoices.forEach(function (invoice) { %>
+                                    <%
+                                        const dueDate = invoice.due_date instanceof Date
+                                            ? invoice.due_date
+                                            : new Date(invoice.due_date);
+                                        const invoiceMonth = Number.isNaN(dueDate.getTime())
+                                            ? "-"
+                                            : dueDate.toLocaleString("en-US", { month: "long", year: "numeric" });
+                                    %>
                                     <tr
                                         class="invoice-row"
                                         role="link"
@@ -160,19 +166,10 @@
                                         style="cursor: pointer;"
                                     >
                                         <td><%= invoice.id %></td>
-                                        <td><%= invoice.due_date %></td>
-                                        <td><%= Number(invoice.total).toFixed(2) %></td>
-                                        <td><%= Number(invoice.gst).toFixed(2) %></td>
                                         <td><%= invoice.created_on ? new Date(invoice.created_on).toLocaleString() : "-" %></td>
-                                        <td>
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-outline-danger invoice-delete-btn"
-                                                data-id="<%= invoice.id %>"
-                                            >
-                                                Delete
-                                            </button>
-                                        </td>
+                                        <td><%= invoiceMonth %></td>
+                                        <td><%= Number(invoice.gst).toFixed(2) %></td>
+                                        <td><%= Number(invoice.total).toFixed(2) %></td>
                                     </tr>
                                 <% }) %>
                             </tbody>
