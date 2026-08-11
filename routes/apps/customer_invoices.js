@@ -11,6 +11,10 @@ export default function (app) {
             body: t.Object({
                 customer_id: t.Numeric({ minimum: 1 }),
                 project_id: t.Numeric({ minimum: 1 }),
+                date: t.String({
+                    pattern: "^\\d{4}-(0[1-9]|1[0-2])$",
+                    error: "Invoice month is required",
+                }),
                 items: t.Array(
                     t.Object({
                         item: t.String({
@@ -33,8 +37,7 @@ export default function (app) {
             body: t.Object({
                 id: t.Numeric({ minimum: 1 }),
                 due_date: t.String({
-                    minLength: 10,
-                    maxLength: 10,
+                    pattern: "^\\d{4}-\\d{2}-\\d{2}$",
                     error: "Due date is required",
                 }),
             }),

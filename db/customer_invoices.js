@@ -4,15 +4,17 @@ import { executeSQLQuery } from "../libs/db.js";
 export async function createCustomerInvoice({
     customer_id,
     project_id,
+    due_date,
     total = 0,
     gst = 0,
 }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO CUSTOMER_INVOICES ${sql(
-                { customer_id, project_id, total, gst },
+                { customer_id, project_id, due_date, total, gst },
                 "customer_id",
                 "project_id",
+                "due_date",
                 "total",
                 "gst",
             )}
@@ -137,3 +139,28 @@ export async function getCustomerInvoicesByProjectId({ project_id }) {
             return [];
         });
 }
+
+export async function getCustomerInvoiceByCustomerProjectAndMonth({
+    customer_id,
+    project_id,
+    year,
+    month,
+}) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *
+            FROM CUSTOMER_INVOICES
+            WHERE customer_id = ${customer_id}
+                AND project_id = ${project_id}
+                AND YEAR(due_date) = ${year}
+                AND MONTH(due_date) = ${month}
+            LIMIT 1
+        `,
+    )
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getCustomerInvoiceByCustomerProjectAndMonth: ${error}`);
+            return null;
+        });
+}
+

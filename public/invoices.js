@@ -4,6 +4,7 @@
     const pageAlert = document.getElementById("invoices-alert");
     const customerSelect = document.getElementById("customer_id");
     const projectSelect = document.getElementById("project_id");
+    const dateInput = document.getElementById("invoice-date");
     const itemsContainer = document.getElementById("invoice-items");
     const addItemBtn = document.getElementById("add-invoice-item-btn");
 
@@ -12,6 +13,11 @@
         target.textContent = message;
         target.className = `alert alert-${type}`;
         target.classList.remove("d-none");
+    }
+
+    function currentMonthValue() {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     }
 
     function createItemRow() {
@@ -97,6 +103,9 @@
             form.reset();
             filterProjectsByCustomer();
         }
+        if (dateInput) {
+            dateInput.value = currentMonthValue();
+        }
         resetItems();
     });
 
@@ -139,6 +148,7 @@
 
         const customer_id = Number(form.elements.namedItem("customer_id")?.value || 0);
         const project_id = Number(form.elements.namedItem("project_id")?.value || 0);
+        const date = dateInput?.value || "";
         const items = Array.from(itemsContainer?.querySelectorAll(".invoice-item-row") || [])
             .map((row) => ({
                 item: row.querySelector(".item-name")?.value?.trim() || "",
@@ -149,6 +159,11 @@
 
         if (!customer_id || !project_id) {
             showAlert(formAlert, "Customer and project are required.", "danger");
+            return;
+        }
+
+        if (!date) {
+            showAlert(formAlert, "Invoice month is required.", "danger");
             return;
         }
 
@@ -170,7 +185,7 @@
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ customer_id, project_id, items }),
+                body: JSON.stringify({ customer_id, project_id, date, items }),
             });
             const data = await response.json().catch(() => ({}));
 

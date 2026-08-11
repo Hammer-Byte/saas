@@ -3,7 +3,7 @@ import {
     addInvoiceItem,
     deleteInvoiceItem,
     updateInvoiceItem,
-} from "../../services/customer_invoices.js";
+} from "../../services/invoice_items.js";
 
 export default function (app) {
     return app

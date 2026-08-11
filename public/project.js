@@ -12,6 +12,7 @@
     const invoicesAlert = document.getElementById("invoices-alert");
     const itemsContainer = document.getElementById("invoice-items");
     const addItemBtn = document.getElementById("add-invoice-item-btn");
+    const invoiceDateInput = document.getElementById("invoice-date");
 
     function showAlert(target, message, type) {
         if (!target) return;
@@ -24,6 +25,11 @@
         if (!target) return;
         target.classList.add("d-none");
         target.textContent = "";
+    }
+
+    function currentMonthValue() {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     }
 
     if (form) {
@@ -242,6 +248,9 @@
     document.getElementById("invoice-modal")?.addEventListener("show.bs.modal", () => {
         invoiceFormAlert?.classList.add("d-none");
         resetItems();
+        if (invoiceDateInput) {
+            invoiceDateInput.value = currentMonthValue();
+        }
     });
 
     document.querySelectorAll(".invoice-delete-btn").forEach((btn) => {
@@ -280,6 +289,7 @@
 
             const customer_id = Number(invoiceForm.dataset.customerId);
             const project_id = Number(invoiceForm.dataset.projectId);
+            const date = invoiceDateInput?.value || "";
             const items = Array.from(itemsContainer?.querySelectorAll(".invoice-item-row") || [])
                 .map((row) => ({
                     item: row.querySelector(".item-name")?.value?.trim() || "",
@@ -287,6 +297,11 @@
                     quantity: Number(row.querySelector(".item-quantity")?.value || 0),
                 }))
                 .filter((row) => row.item);
+
+            if (!date) {
+                showAlert(invoiceFormAlert, "Invoice month is required.", "danger");
+                return;
+            }
 
             if (items.length === 0) {
                 showAlert(invoiceFormAlert, "Add at least one item with a name.", "danger");
@@ -306,7 +321,7 @@
                     method: "POST",
                     credentials: "same-origin",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ customer_id, project_id, items }),
+                    body: JSON.stringify({ customer_id, project_id, date, items }),
                 });
                 const data = await response.json().catch(() => ({}));
 
