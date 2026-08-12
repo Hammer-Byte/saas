@@ -72,7 +72,7 @@ export async function getCustomerInvoiceHtml({ id }) {
     const html = filer.prepareTemplated("templates/invoice.html", {
         invoice_number: formatInvoiceNumber({ id: invoice.id }),
         customer_details: buildInvoiceCustomerDetailsHtml({
-            name: customer?.company || customer?.full_name || "-",
+            name: customer?.company || customer?.full_name,
             phone: customerPhones.join(", "),
             email: customerEmails.join(", "),
             pan_gst: customer?.pan_gst,
