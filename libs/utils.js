@@ -8,3 +8,7 @@ export function generateAuthenticationToken() {
         byte.toString(16).padStart(2, "0"),
     ).join("");
 }
+
+export function formatCurrency(value) {
+    return Number(value || 0).toFixed(2);
+}

@@ -1,6 +1,15 @@
-import { CONSTANTS } from "@hammerbyte/utils";
+import { CONSTANTS, filer } from "@hammerbyte/utils";
 import { getReadableDate, getWritableDate } from "../libs/date.js";
+import {
+    buildInvoiceBillStatusHtml,
+    buildInvoiceItemsHtml,
+    formatInvoiceNumber,
+    resolveInvoiceTemplateAssets,
+} from "../libs/invoicer.js";
+import { formatCurrency } from "../libs/utils.js";
 import { getCustomerById } from "../db/customers.js";
+import { getCustomerEmailByCustomerId } from "../db/customer_emails.js";
+import { getCustomerPhoneByCustomerId } from "../db/customer_phones.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
 import {
     createCustomerInvoice,
@@ -15,6 +24,7 @@ import {
     getInvoiceItemsByCustomerInvoiceId,
     getInvoiceItemsTotalByCustomerInvoiceId,
 } from "../db/invoice_items.js";
+import { getInvoicePaymentsTotalByCustomerInvoiceId } from "../db/invoice_payments.js";
 import { getProjectApplicationsByProjectId } from "../db/project_applications.js";
 import { getAllApplicationServicesByApplicationId } from "../db/application_services.js";
 import {
@@ -29,6 +39,51 @@ export async function updateCustomerInvoiceTotal({ id }) {
     const total = await getInvoiceItemsTotalByCustomerInvoiceId({ customer_invoice_id: id });
     const gst = Math.round(total * 0.18 * 100) / 100;
     await updateCustomerInvoiceTotalById({ id, total, gst });
+}
+
+export async function getCustomerInvoiceHtml({ id }) {
+    const invoice = await getCustomerInvoiceById({ id });
+    if (!invoice) {
+        return null;
+    }
+
+    const [customer, customerPhone, customerEmail, items, amountPaid] = await Promise.all([
+        getCustomerById({ id: invoice.customer_id }),
+        getCustomerPhoneByCustomerId({ customer_id: invoice.customer_id }),
+        getCustomerEmailByCustomerId({ customer_id: invoice.customer_id }),
+        getInvoiceItemsByCustomerInvoiceId({ customer_invoice_id: invoice.id }),
+        getInvoicePaymentsTotalByCustomerInvoiceId({ customer_invoice_id: invoice.id }),
+    ]);
+
+    const subTotal = Number(invoice.total || 0);
+    const gst = Number(invoice.gst || 0);
+    const grandTotal = subTotal + gst;
+    const amountDue = Math.max(grandTotal - amountPaid, 0);
+
+    let billStatus = "due";
+    if (amountPaid >= grandTotal && grandTotal > 0) {
+        billStatus = "paid";
+    } else if (amountPaid > 0) {
+        billStatus = "partial";
+    }
+
+    const html = filer.prepareTemplated("templates/invoice.html", {
+        invoice_number: formatInvoiceNumber({ id: invoice.id }),
+        customer_name: customer?.full_name || invoice.customer_name,
+        customer_phone: customerPhone || "-",
+        customer_email: customerEmail || "-",
+        customer_pan_gst: customer?.pan_gst || "-",
+        invoice_date: getReadableDate("DD/MM/YYYY", invoice.due_date),
+        bill_status: buildInvoiceBillStatusHtml(billStatus),
+        items: buildInvoiceItemsHtml(items),
+        sub_total: formatCurrency(subTotal),
+        gst: formatCurrency(gst),
+        total: formatCurrency(grandTotal),
+        amount_paid: formatCurrency(amountPaid),
+        amount_due: formatCurrency(amountDue),
+    });
+
+    return resolveInvoiceTemplateAssets(html);
 }
 
 export async function addCustomerInvoice({ body, set }) {
