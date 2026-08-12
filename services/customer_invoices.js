@@ -4,6 +4,7 @@ import {
     buildInvoiceBillStatusHtml,
     buildInvoiceItemsHtml,
     formatInvoiceNumber,
+    generateInvoicePdf,
     resolveInvoiceTemplateAssets,
 } from "../libs/invoicer.js";
 import { formatCurrency } from "../libs/utils.js";
@@ -84,6 +85,21 @@ export async function getCustomerInvoiceHtml({ id }) {
     });
 
     return resolveInvoiceTemplateAssets(html);
+}
+
+export async function getCustomerInvoicePdf({ params, set }) {
+    const html = await getCustomerInvoiceHtml({ id: params.id });
+    if (!html) {
+        set.status = 404;
+        return { error: "Invoice not found" };
+    }
+
+    const pdf = await generateInvoicePdf(html);
+    const fileName = `${formatInvoiceNumber({ id: params.id })}.pdf`;
+
+    set.headers["Content-Type"] = "application/pdf";
+    set.headers["Content-Disposition"] = `attachment; filename="${fileName}"`;
+    return pdf;
 }
 
 export async function addCustomerInvoice({ body, set }) {

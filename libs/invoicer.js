@@ -1,7 +1,13 @@
 import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { readFileSync, unlinkSync } from "node:fs";
+import { promisify } from "node:util";
+import wkhtmltopdf from "wkhtmltopdf";
 import { formatCurrency } from "./utils.js";
 
-const invoiceAssetsDirectory = `${join(process.cwd(), "templates", "invoice")}/`;
+const writePdf = promisify(wkhtmltopdf);
+
+const invoiceAssetsDirectory = `file://${join(process.cwd(), "templates", "invoice")}/`;
 
 export function formatInvoiceNumber({ id }) {
     return `HBT-${`${id}`.padStart(7, "0")}`;
@@ -41,4 +47,24 @@ export function resolveInvoiceTemplateAssets(html) {
     return html
         .replace(/src="invoice\//g, `src="${invoiceAssetsDirectory}`)
         .replace(/url\("invoice\//g, `url("${invoiceAssetsDirectory}`);
+}
+
+export async function generateInvoicePdf(html) {
+    const output = join(tmpdir(), `invoice-${Date.now()}.pdf`);
+
+    await writePdf(html, {
+        output,
+        pageSize: "A4",
+        enableLocalFileAccess: true,
+        marginTop: 0,
+        marginRight: 0,
+        marginBottom: 0,
+        marginLeft: 0,
+    });
+
+    try {
+        return readFileSync(output);
+    } finally {
+        unlinkSync(output);
+    }
 }

@@ -3,6 +3,7 @@ import {
     addCustomerInvoice,
     addCustomerInvoiceServiceUsage,
     deleteCustomerInvoice,
+    getCustomerInvoicePdf,
     updateCustomerInvoice,
 } from "../../services/customer_invoices.js";
 
@@ -32,6 +33,15 @@ export default function (app) {
             detail: {
                 tags: ["Customer Invoices"],
                 summary: "Create customer invoice with items",
+            },
+        })
+        .get("/:id/pdf", getCustomerInvoicePdf, {
+            params: t.Object({
+                id: t.Numeric(),
+            }),
+            detail: {
+                tags: ["Customer Invoices"],
+                summary: "Download customer invoice PDF",
             },
         })
         .post("/:id/service-usage", addCustomerInvoiceServiceUsage, {
