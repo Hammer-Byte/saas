@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HammerByte Invoice — {{invoice_number}}</title>
+<style>
+    @font-face {
+        font-family: "Open Sans";
+        src: url("invoice/fonts/OpenSans-regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+    }
+
+    @font-face {
+        font-family: "Open Sans";
+        src: url("invoice/fonts/OpenSans-bold.ttf") format("truetype");
+        font-weight: 700;
+        font-style: normal;
+    }
+
+    @font-face {
+        font-family: "Open Sans";
+        src: url("invoice/fonts/OpenSans-italic.ttf") format("truetype");
+        font-weight: 400;
+        font-style: italic;
+    }
+
+    @font-face {
+        font-family: "Open Sans";
+        src: url("invoice/fonts/OpenSans-boldItalic.ttf") format("truetype");
+        font-weight: 700;
+        font-style: italic;
+    }
+
+    @page {
+        size: A4;
+        margin: 0;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+        background: #eee;
+        color: #434343;
+        font-family: "Open Sans", Arial, Helvetica, sans-serif;
+        font-size: 12px;
+        line-height: 1.4;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+        position: relative;
+        width: 210mm;
+        min-height: 297mm;
+        margin: 15px auto;
+        background: #fff;
+        overflow: hidden;
+        padding: 0 14mm 28mm;
+    }
+
+    .header-art {
+        width: calc(100% + 28mm);
+        margin-left: -14mm;
+        display: block;
+    }
+
+    .customer-area {
+        display: grid;
+        grid-template-columns: 52% 1fr auto;
+        column-gap: 6mm;
+        margin-top: 8mm;
+        align-items: center;
+    }
+
+    .customer {
+        font-size: 11px;
+        font-weight: 700;
+        color: #434343;
+        line-height: 1.55;
+    }
+
+    .customer .to-name {
+        font-size: 14px;
+    }
+
+    .invoice-meta-labels,
+    .invoice-meta-values {
+        font-size: 12px;
+        line-height: 1.7;
+        text-align: right;
+    }
+
+    .invoice-meta-labels {
+        color: #747474;
+        font-weight: 400;
+    }
+
+    .invoice-meta-values {
+        font-weight: 700;
+        color: #111;
+    }
+
+    .bill-status {
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .bill-status .sep {
+        color: #747474;
+    }
+
+    .bill-status .paid { color: #274e13; }
+    .bill-status .partial { color: #783f04; }
+    .bill-status .due { color: #660000; }
+    .bill-status .struck {
+        text-decoration: line-through;
+    }
+
+    .items {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-top: 8mm;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .items th,
+    .items td {
+        border: 1px solid #333;
+        padding: 2mm;
+        vertical-align: middle;
+        font-size: 10pt;
+        line-height: 1.2;
+    }
+
+    .items th {
+        font-weight: 400;
+        color: #747474;
+        text-align: left;
+        white-space: nowrap;
+        padding-top: 1.5mm;
+        padding-bottom: 1.5mm;
+    }
+
+    .items th:nth-child(1),
+    .items td:nth-child(1) {
+        width: 7%;
+        text-align: center;
+    }
+
+    .items th:nth-child(2),
+    .items td:nth-child(2) {
+        width: 51%;
+    }
+
+    .items th:nth-child(3),
+    .items td:nth-child(3) {
+        width: 8%;
+    }
+
+    .items th:nth-child(4),
+    .items td:nth-child(4) {
+        width: 19%;
+        text-align: right;
+    }
+
+    .items th:nth-child(5),
+    .items td:nth-child(5) {
+        width: 15%;
+        text-align: right;
+    }
+
+    .items .description {
+        font-weight: 700;
+    }
+
+    .items .summary td {
+        background: #eef3ff;
+        font-size: 9pt;
+        font-weight: 400;
+    }
+
+    .items .summary-label {
+        text-align: right;
+    }
+
+    .items .summary.total-row td,
+    .items .due-row td {
+        font-size: 9pt;
+        font-weight: 700;
+    }
+
+    .items .due-row .summary-label {
+        background: #e0e8ff;
+    }
+
+    .items .due-row td:last-child {
+        background: #eef3ff;
+    }
+
+    .terms {
+        margin-top: 8mm;
+        font-size: 12px;
+        line-height: 1.55;
+        color: #434343;
+    }
+
+    .terms-title {
+        font-weight: 700;
+        margin-bottom: 3px;
+    }
+
+    .terms-text {
+        margin: 0;
+        font-weight: 400;
+    }
+
+    .signature-area {
+        position: relative;
+        width: 76mm;
+        height: 22mm;
+        margin: 8mm 0 0 auto;
+    }
+
+    .stamp {
+        position: absolute;
+        width: 72mm;
+        height: 20mm;
+        object-fit: contain;
+        left: 0;
+        top: 0;
+    }
+
+    .signature {
+        position: absolute;
+        width: 24mm;
+        height: 13mm;
+        object-fit: contain;
+        left: 52mm;
+        top: 2mm;
+        z-index: 2;
+    }
+
+    .authorized {
+        text-align: right;
+        margin-top: 3mm;
+        font-size: 12px;
+        color: #434343;
+    }
+
+    .footer-art {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        display: block;
+    }
+
+    @media print {
+        html, body {
+            background: #fff;
+        }
+
+        .page {
+            margin: 0;
+            box-shadow: none;
+        }
+    }
+
+    @media screen {
+        .page {
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.15);
+        }
+    }
+</style>
+</head>
+<body>
+<div class="page">
+    <img class="header-art" src="invoice/header.png" alt="HammerByte">
+
+    <section class="customer-area">
+        <div class="customer">
+            <div class="to-name">To - {{customer_name}}</div>
+            <div>Phone - {{customer_phone}}</div>
+            <div>Email - {{customer_email}}</div>
+            <div>PAN/GST - {{customer_pan_gst}}</div>
+        </div>
+
+        <div class="invoice-meta-labels">
+            <div>Invoice#</div>
+            <div>Invoice Date</div>
+            <div>Bill Status</div>
+        </div>
+        <div class="invoice-meta-values">
+            <div>{{invoice_number}}</div>
+            <div>{{invoice_date}}</div>
+            <div class="bill-status">{{bill_status}}</div>
+        </div>
+    </section>
+
+    <table class="items">
+        <thead>
+            <tr>
+                <th>NO.</th>
+                <th>ITEM &amp; DESCRIPTION</th>
+                <th>UNITS</th>
+                <th>COST</th>
+                <th>TOTAL</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{items}}
+            <tr class="summary">
+                <td></td>
+                <td></td>
+                <td></td>
+                <td class="summary-label">Sub Total</td>
+                <td>{{sub_total}}</td>
+            </tr>
+            <tr class="summary">
+                <td></td>
+                <td></td>
+                <td></td>
+                <td class="summary-label">Tax (GST 18%)</td>
+                <td>{{gst}}</td>
+            </tr>
+            <tr class="summary total-row">
+                <td></td>
+                <td></td>
+                <td></td>
+                <td class="summary-label">Total</td>
+                <td>{{total}}</td>
+            </tr>
+            <tr class="summary total-row">
+                <td></td>
+                <td></td>
+                <td></td>
+                <td class="summary-label">Amount Paid</td>
+                <td>{{amount_paid}}</td>
+            </tr>
+            <tr class="due-row">
+                <td></td>
+                <td></td>
+                <td></td>
+                <td class="summary-label">Amount Due</td>
+                <td>{{amount_due}}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <section class="terms">
+        <div class="terms-title">Terms &amp; Conditions</div>
+        <p class="terms-text">
+            Full payment is due upon receipt of this invoice. Late payments may incur additional charges or interest as per the applicable laws and agreement.
+        </p>
+    </section>
+
+    <div class="signature-area">
+        <img class="stamp" src="invoice/stamp.png" alt="HammerByte stamp">
+        <img class="signature" src="invoice/signature.png" alt="Authorized signature">
+    </div>
+
+    <div class="authorized">For HammerByte Authorized Personnel Only</div>
+
+    <img class="footer-art" src="invoice/footer.png" alt="">
+</div>
+</body>
+</html>

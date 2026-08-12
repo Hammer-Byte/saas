@@ -178,7 +178,7 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
 
                 await createInvoiceItem({
                     customer_invoice_id: existingInvoice.id,
-                    item: service.title,
+                    item: `Service Usage - ${service.title.toUpperCase()}`,
                     cost: service.cost,
                     quantity: count,
                 });
