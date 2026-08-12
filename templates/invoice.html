@@ -59,14 +59,17 @@
         min-height: 297mm;
         margin: 15px auto;
         background: #fff;
-        overflow: hidden;
-        padding: 0 14mm 28mm;
+        padding: 0;
     }
 
-    .header-art {
-        width: calc(100% + 28mm);
-        margin-left: -14mm;
+    .header-art,
+    .footer-art {
+        width: 100%;
         display: block;
+    }
+
+    .content {
+        padding: 0 14mm 28mm;
     }
 
     .customer-area {
@@ -257,8 +260,6 @@
         position: absolute;
         bottom: 0;
         left: 0;
-        width: 100%;
-        display: block;
     }
 
     @media print {
@@ -283,6 +284,7 @@
 <div class="page">
     <img class="header-art" src="invoice/header.png" alt="HammerByte">
 
+    <div class="content">
     <section class="customer-area">
         <div class="customer">
             <div class="to-name">To - {{customer_name}}</div>
@@ -366,6 +368,7 @@
     </div>
 
     <div class="authorized">For HammerByte Authorized Personnel Only</div>
+    </div>
 
     <img class="footer-art" src="invoice/footer.png" alt="">
 </div>
