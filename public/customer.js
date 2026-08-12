@@ -26,7 +26,7 @@
     }
 
     const customerId = customerForm.dataset.customerId;
-    const editableFields = ["full_name", "company", "pan_gst", "hsn", "address"];
+    const editableFields = ["full_name", "company", "pan_gst", "hsn", "address", "phones", "emails"];
     let snapshot = null;
 
     function showAlert(target, message, type) {
@@ -44,6 +44,13 @@
 
     function getField(name) {
         return customerForm.elements.namedItem(name);
+    }
+
+    function parseContactLines(value) {
+        return String(value || "")
+            .split(/\n|,/)
+            .map((entry) => entry.trim())
+            .filter(Boolean);
     }
 
     function readSnapshot() {
@@ -97,6 +104,8 @@
             full_name: getField("full_name")?.value?.trim() || "",
             company: getField("company")?.value?.trim() || "",
             address: getField("address")?.value?.trim() || "",
+            phones: parseContactLines(getField("phones")?.value),
+            emails: parseContactLines(getField("emails")?.value),
         };
         const pan_gst = getField("pan_gst")?.value?.trim() || "";
         const hsn = getField("hsn")?.value?.trim() || "";

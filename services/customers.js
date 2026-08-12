@@ -4,6 +4,14 @@ import {
     getCustomerById,
     updateCustomerById,
 } from "../db/customers.js";
+import {
+    createCustomerEmail,
+    deleteCustomerEmailsByCustomerId,
+} from "../db/customer_emails.js";
+import {
+    createCustomerPhone,
+    deleteCustomerPhonesByCustomerId,
+} from "../db/customer_phones.js";
 
 export async function addCustomer({ body, set }) {
     const id = await createCustomer({
@@ -14,6 +22,16 @@ export async function addCustomer({ body, set }) {
         hsn: body.hsn?.trim() || null,
         address: body.address.trim(),
     });
+
+    await deleteCustomerPhonesByCustomerId({ customer_id: id });
+    for (const phone of body.phones ?? []) {
+        await createCustomerPhone({ customer_id: id, phone });
+    }
+
+    await deleteCustomerEmailsByCustomerId({ customer_id: id });
+    for (const email of body.emails ?? []) {
+        await createCustomerEmail({ customer_id: id, email });
+    }
 
     const customer = await getCustomerById({ id });
 
@@ -36,6 +54,16 @@ export async function updateCustomer({ body, set }) {
         hsn: body.hsn?.trim() || null,
         address: body.address.trim(),
     });
+
+    await deleteCustomerPhonesByCustomerId({ customer_id: body.id });
+    for (const phone of body.phones ?? []) {
+        await createCustomerPhone({ customer_id: body.id, phone });
+    }
+
+    await deleteCustomerEmailsByCustomerId({ customer_id: body.id });
+    for (const email of body.emails ?? []) {
+        await createCustomerEmail({ customer_id: body.id, email });
+    }
 
     const customer = await getCustomerById({ id: body.id });
 

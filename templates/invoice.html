@@ -73,11 +73,25 @@
     }
 
     .customer-area {
-        display: grid;
-        grid-template-columns: 52% 1fr auto;
-        column-gap: 6mm;
+        width: 100%;
+        border-collapse: collapse;
         margin-top: 8mm;
-        align-items: center;
+        table-layout: fixed;
+    }
+
+    .customer-area td {
+        vertical-align: middle;
+        padding: 0;
+        border: none;
+    }
+
+    .customer-area .customer-col {
+        width: 55%;
+        padding-right: 6mm;
+    }
+
+    .customer-area .meta-col {
+        width: 45%;
     }
 
     .customer {
@@ -91,21 +105,32 @@
         font-size: 14px;
     }
 
-    .invoice-meta-labels,
-    .invoice-meta-values {
+    .invoice-meta {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: auto;
+    }
+
+    .invoice-meta td {
+        padding: 0;
+        border: none;
         font-size: 12px;
         line-height: 1.7;
-        text-align: right;
+        vertical-align: baseline;
+        white-space: nowrap;
     }
 
-    .invoice-meta-labels {
+    .invoice-meta .meta-label {
         color: #747474;
         font-weight: 400;
+        text-align: right;
+        padding-right: 4mm;
     }
 
-    .invoice-meta-values {
+    .invoice-meta .meta-value {
         font-weight: 700;
         color: #111;
+        text-align: right;
     }
 
     .bill-status {
@@ -285,25 +310,31 @@
     <img class="header-art" src="invoice/header.png" alt="HammerByte">
 
     <div class="content">
-    <section class="customer-area">
-        <div class="customer">
-            <div class="to-name">To - {{customer_name}}</div>
-            <div>Phone - {{customer_phone}}</div>
-            <div>Email - {{customer_email}}</div>
-            <div>PAN/GST - {{customer_pan_gst}}</div>
-        </div>
-
-        <div class="invoice-meta-labels">
-            <div>Invoice#</div>
-            <div>Invoice Date</div>
-            <div>Bill Status</div>
-        </div>
-        <div class="invoice-meta-values">
-            <div>{{invoice_number}}</div>
-            <div>{{invoice_date}}</div>
-            <div class="bill-status">{{bill_status}}</div>
-        </div>
-    </section>
+    <table class="customer-area">
+        <tr>
+            <td class="customer-col">
+                <div class="customer">
+                    {{customer_details}}
+                </div>
+            </td>
+            <td class="meta-col">
+                <table class="invoice-meta">
+                    <tr>
+                        <td class="meta-label">Invoice#</td>
+                        <td class="meta-value">{{invoice_number}}</td>
+                    </tr>
+                    <tr>
+                        <td class="meta-label">Invoice Date</td>
+                        <td class="meta-value">{{invoice_date}}</td>
+                    </tr>
+                    <tr>
+                        <td class="meta-label">Bill Status</td>
+                        <td class="meta-value bill-status">{{bill_status}}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 
     <table class="items">
         <thead>

@@ -21,6 +21,22 @@ export function escapeInvoiceHtml(value) {
         .replaceAll('"', "&quot;");
 }
 
+export function buildInvoiceCustomerDetailsHtml({ name, phone, email, pan_gst }) {
+    const lines = [`<div class="to-name">To - ${escapeInvoiceHtml(name)}</div>`];
+
+    if (phone) {
+        lines.push(`<div>Phone - ${escapeInvoiceHtml(phone)}</div>`);
+    }
+    if (email) {
+        lines.push(`<div>Email - ${escapeInvoiceHtml(email)}</div>`);
+    }
+    if (pan_gst) {
+        lines.push(`<div>PAN/GST - ${escapeInvoiceHtml(pan_gst)}</div>`);
+    }
+
+    return lines.join("\n");
+}
+
 export function buildInvoiceBillStatusHtml(status) {
     const paidStruck = status === "paid" ? "" : " struck";
     const partialStruck = status === "partial" ? "" : " struck";

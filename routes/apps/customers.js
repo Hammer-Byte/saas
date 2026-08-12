@@ -23,6 +23,23 @@ export default function (app) {
                     maxLength: 512,
                     error: "Address is required",
                 }),
+                phones: t.Optional(
+                    t.Array(
+                        t.String({
+                            pattern: "^\\+?[0-9]{10,13}$",
+                            error: "Valid phone is required",
+                        }),
+                    ),
+                ),
+                emails: t.Optional(
+                    t.Array(
+                        t.String({
+                            format: "email",
+                            maxLength: 255,
+                            error: ERRORS.EMAIL_INVALID,
+                        }),
+                    ),
+                ),
             }),
             detail: {
                 tags: ["Customers"],
@@ -49,6 +66,23 @@ export default function (app) {
                     maxLength: 512,
                     error: "Address is required",
                 }),
+                phones: t.Optional(
+                    t.Array(
+                        t.String({
+                            pattern: "^\\+?[0-9]{10,13}$",
+                            error: "Valid phone is required",
+                        }),
+                    ),
+                ),
+                emails: t.Optional(
+                    t.Array(
+                        t.String({
+                            format: "email",
+                            maxLength: 255,
+                            error: ERRORS.EMAIL_INVALID,
+                        }),
+                    ),
+                ),
             }),
             detail: {
                 tags: ["Customers"],

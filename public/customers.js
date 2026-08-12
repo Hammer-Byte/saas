@@ -34,6 +34,14 @@
         const pan_gst = document.getElementById("customer-pan-gst")?.value?.trim() || "";
         const hsn = document.getElementById("customer-hsn")?.value?.trim() || "";
         const address = document.getElementById("customer-address")?.value?.trim() || "";
+        const phones = (document.getElementById("customer-phones")?.value || "")
+            .split(/\n|,/)
+            .map((value) => value.trim())
+            .filter(Boolean);
+        const emails = (document.getElementById("customer-emails")?.value || "")
+            .split(/\n|,/)
+            .map((value) => value.trim())
+            .filter(Boolean);
 
         if (!full_name || !company || !address) {
             showAlert(formAlert, "Please fill in full name, company, and address.", "danger");
@@ -44,6 +52,8 @@
             full_name,
             company,
             address,
+            phones,
+            emails,
         };
         if (pan_gst) payload.pan_gst = pan_gst;
         if (hsn) payload.hsn = hsn;

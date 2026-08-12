@@ -54,6 +54,14 @@
                             <label for="address" class="form-label">Address</label>
                             <textarea class="form-control" id="address" name="address" rows="3" maxlength="512" required disabled><%= customer.address %></textarea>
                         </div>
+                        <div class="col-md-6">
+                            <label for="phones" class="form-label">Phones <span class="text-secondary fw-normal">(optional, one per line)</span></label>
+                            <textarea class="form-control" id="phones" name="phones" rows="2" disabled><%= (customerPhones || []).join('\n') %></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="emails" class="form-label">Emails <span class="text-secondary fw-normal">(optional, one per line)</span></label>
+                            <textarea class="form-control" id="emails" name="emails" rows="2" disabled><%= (customerEmails || []).join('\n') %></textarea>
+                        </div>
                     </div>
                     <div class="d-flex gap-2 mt-4 flex-wrap">
                         <button type="submit" id="save-customer-btn" class="btn btn-primary d-none">Save</button>

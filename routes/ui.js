@@ -12,6 +12,8 @@ import { getAllApplicationServicesByApplicationId, getApplicationServiceById } f
 import { getAllInquiries } from "../db/inquiries.js";
 import { getMailsByApplicationServiceId } from "../db/mails.js";
 import { getAllCustomers, getCustomerById } from "../db/customers.js";
+import { getCustomerEmailsByCustomerId } from "../db/customer_emails.js";
+import { getCustomerPhonesByCustomerId } from "../db/customer_phones.js";
 import {
     getAllCustomerProjects,
     getCustomerProjectById,
@@ -230,13 +232,19 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
+                const [customerPhones, customerEmails, customerProjects] = await Promise.all([
+                    getCustomerPhonesByCustomerId({ customer_id: customer.id }),
+                    getCustomerEmailsByCustomerId({ customer_id: customer.id }),
+                    getCustomerProjectsByCustomerId({ customer_id: customer.id }),
+                ]);
+
                 return render("customer", {
                     title: `Customer — ${customer.full_name}`,
                     username: session?.username,
                     customer,
-                    customerProjects: await getCustomerProjectsByCustomerId({
-                        customer_id: customer.id,
-                    }),
+                    customerPhones,
+                    customerEmails,
+                    customerProjects,
                 });
             })
             .get("/app/invoices", async ({ render, session }) =>

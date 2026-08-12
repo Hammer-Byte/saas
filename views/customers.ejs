@@ -107,9 +107,17 @@
                         <label for="customer-hsn" class="form-label">HSN <span class="text-secondary fw-normal">(optional)</span></label>
                         <input type="text" class="form-control" id="customer-hsn" name="hsn" maxlength="16" />
                     </div>
-                    <div class="mb-0">
+                    <div class="mb-3">
                         <label for="customer-address" class="form-label">Address</label>
                         <textarea class="form-control" id="customer-address" name="address" rows="3" maxlength="512" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="customer-phones" class="form-label">Phones <span class="text-secondary fw-normal">(optional, one per line)</span></label>
+                        <textarea class="form-control" id="customer-phones" name="phones" rows="2" placeholder="+919876543210"></textarea>
+                    </div>
+                    <div class="mb-0">
+                        <label for="customer-emails" class="form-label">Emails <span class="text-secondary fw-normal">(optional, one per line)</span></label>
+                        <textarea class="form-control" id="customer-emails" name="emails" rows="2" placeholder="billing@example.com"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
