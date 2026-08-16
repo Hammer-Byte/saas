@@ -196,6 +196,7 @@ export async function generateDBTables() {
             customer_invoice_id INT NOT NULL,
             amount DECIMAL(10, 2) NOT NULL,
             gst DECIMAL(10, 2) GENERATED ALWAYS AS (ROUND(amount * 0.18, 2)) STORED,
+            note VARCHAR(512) NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             CONSTRAINT fk_invoice_payments_customer_invoice
@@ -222,4 +223,12 @@ export async function generateDBTables() {
     for (const table of requiredTables) {
         await dbConnection.unsafe(table);
     }
+
+    await dbConnection
+        .unsafe(`ALTER TABLE INVOICE_PAYMENTS ADD COLUMN note VARCHAR(512) NULL`)
+        .catch((error) => {
+            if (!String(error).includes("Duplicate column")) {
+                throw error;
+            }
+        });
 }

@@ -15,6 +15,15 @@
     const itemCostField = document.getElementById("invoice-item-cost");
     const itemQuantityField = document.getElementById("invoice-item-quantity");
     const openAddItemBtn = document.getElementById("open-add-invoice-item-btn");
+    const paymentForm = document.getElementById("invoice-payment-form");
+    const paymentFormAlert = document.getElementById("invoice-payment-form-alert");
+    const paymentModalLabel = document.getElementById("invoice-payment-modal-label");
+    const paymentIdField = document.getElementById("invoice-payment-id");
+    const paymentPaidField = document.getElementById("invoice-payment-paid");
+    const paymentAmountField = document.getElementById("invoice-payment-amount");
+    const paymentGstField = document.getElementById("invoice-payment-gst");
+    const paymentNoteField = document.getElementById("invoice-payment-note");
+    const openAddPaymentBtn = document.getElementById("open-add-invoice-payment-btn");
     let dueDateSnapshot = "";
 
     const dueDateField = invoiceForm?.elements.namedItem("due_date");
@@ -285,6 +294,128 @@
         } catch (error) {
             console.error(error);
             showAlert(itemFormAlert, "Failed to save item.", "danger");
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    });
+
+    function roundMoney(value) {
+        return Math.round(Number(value || 0) * 100) / 100;
+    }
+
+    function splitPaid(paid) {
+        const amount = roundMoney(paid / 1.18);
+        const gst = roundMoney(amount * 0.18);
+        return { amount, gst };
+    }
+
+    function updatePaymentSplit() {
+        const { amount, gst } = splitPaid(paymentPaidField?.value);
+        if (paymentAmountField) paymentAmountField.value = amount.toFixed(2);
+        if (paymentGstField) paymentGstField.value = gst.toFixed(2);
+    }
+
+    paymentPaidField?.addEventListener("input", updatePaymentSplit);
+
+    openAddPaymentBtn?.addEventListener("click", () => {
+        hideAlert(paymentFormAlert);
+        if (paymentModalLabel) paymentModalLabel.textContent = "Add payment";
+        if (paymentIdField) paymentIdField.value = "";
+        if (paymentPaidField) paymentPaidField.value = "0";
+        if (paymentNoteField) paymentNoteField.value = "";
+        updatePaymentSplit();
+    });
+
+    document.querySelectorAll(".invoice-payment-edit-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            hideAlert(paymentFormAlert);
+            if (paymentModalLabel) paymentModalLabel.textContent = "Edit payment";
+            if (paymentIdField) paymentIdField.value = btn.dataset.id || "";
+            if (paymentPaidField) {
+                paymentPaidField.value = roundMoney(
+                    Number(btn.dataset.amount || 0) + Number(btn.dataset.gst || 0),
+                );
+            }
+            if (paymentNoteField) paymentNoteField.value = btn.dataset.note || "";
+            updatePaymentSplit();
+
+            const modalEl = document.getElementById("invoice-payment-modal");
+            if (modalEl && window.bootstrap?.Modal) {
+                window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+        });
+    });
+
+    document.querySelectorAll(".invoice-payment-delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!window.confirm("Delete this payment?")) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/invoice-payments/${btn.dataset.id}`, {
+                    method: "DELETE",
+                    credentials: "same-origin",
+                });
+
+                if (!response.ok && response.status !== 204) {
+                    const data = await response.json().catch(() => ({}));
+                    showAlert(invoiceAlert, data.error || "Failed to delete payment.", "danger");
+                    return;
+                }
+
+                window.location.reload();
+            } catch (error) {
+                console.error(error);
+                showAlert(invoiceAlert, "Failed to delete payment.", "danger");
+            }
+        });
+    });
+
+    paymentForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        hideAlert(paymentFormAlert);
+
+        const invoiceId = Number(paymentForm.dataset.invoiceId);
+        const paymentId = paymentIdField?.value || "";
+        const paid = Number(paymentPaidField?.value || 0);
+        const { amount } = splitPaid(paid);
+        const note = paymentNoteField?.value?.trim() || "";
+
+        if (paid < 0) {
+            showAlert(paymentFormAlert, "Paid must be 0 or more.", "danger");
+            return;
+        }
+
+        const payload = { amount };
+        if (note) payload.note = note;
+
+        const submitBtn = paymentForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            const response = await fetch(
+                paymentId ? `/api/invoice-payments/${paymentId}` : "/api/invoice-payments",
+                {
+                    method: paymentId ? "PATCH" : "POST",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(
+                        paymentId ? payload : { customer_invoice_id: invoiceId, ...payload },
+                    ),
+                },
+            );
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                showAlert(paymentFormAlert, data.error || "Failed to save payment.", "danger");
+                return;
+            }
+
+            window.location.reload();
+        } catch (error) {
+            console.error(error);
+            showAlert(paymentFormAlert, "Failed to save payment.", "danger");
         } finally {
             if (submitBtn) submitBtn.disabled = false;
         }

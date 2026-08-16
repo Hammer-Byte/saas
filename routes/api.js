@@ -13,6 +13,7 @@ import applicationServices from "./apps/application_services.js";
 import expenses from "./apps/expenses.js";
 import customerInvoices from "./apps/customer_invoices.js";
 import invoiceItems from "./apps/invoice_items.js";
+import invoicePayments from "./apps/invoice_payments.js";
 import users from "./apps/users.js";
 import services from "./apps/services.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
@@ -36,6 +37,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/customer-projects", customerProjects)
             .group("/customer-invoices", customerInvoices)
             .group("/invoice-items", invoiceItems)
+            .group("/invoice-payments", invoicePayments)
             .group("/users", users)
             .group("/services", services),
     )

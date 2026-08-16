@@ -26,6 +26,7 @@ import {
     getCustomerInvoicesByProjectId,
 } from "../db/customer_invoices.js";
 import { getInvoiceItemsByCustomerInvoiceId } from "../db/invoice_items.js";
+import { getInvoicePaymentsByCustomerInvoiceId } from "../db/invoice_payments.js";
 import { getAllUsers } from "../db/users.js";
 import { getReadableDate } from "../libs/date.js";
 
@@ -267,6 +268,9 @@ export const uiRoutes = new Elysia()
                     username: session?.username,
                     invoice,
                     items: await getInvoiceItemsByCustomerInvoiceId({
+                        customer_invoice_id: invoice.id,
+                    }),
+                    payments: await getInvoicePaymentsByCustomerInvoiceId({
                         customer_invoice_id: invoice.id,
                     }),
                     customerEmails: await getCustomerEmailsByCustomerId({
