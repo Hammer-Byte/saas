@@ -11,5 +11,3 @@
 - Customer access and ticket creation
 - Hosting, SMS, and WhatsApp services
 - Role-based access
-- Revenue and expense management
-- Invoice payments
