@@ -1,0 +1,21 @@
+<div style="background:#f6f8fb;padding:24px 12px;font-family:sans-serif;color:#1f2937;">
+  <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:32px;text-align:center;">
+    <h2 style="margin:0 0 12px;color:#111827;">Invoice reminder</h2>
+    <p style="font-size:15px;line-height:1.5;color:#374151;margin-bottom:24px;">
+      Hello {{customer_name}},<br>
+      This is a reminder for invoice <b>{{invoice_number}}</b>.
+    </p>
+    <p style="font-size:14px;color:#6b7280;margin:0 0 8px;">
+      Invoice date: <b>{{invoice_date}}</b>
+    </p>
+    <p style="font-size:14px;color:#6b7280;margin:0 0 24px;">
+      Amount due: <b>{{amount_due}}</b>
+    </p>
+    <p style="font-size:14px;color:#374151;margin:0 0 16px;">
+      The invoice PDF is attached to this email.
+    </p>
+    <div style="padding-top:20px;border-top:1px solid #f3f4f6;font-size:12px;color:#9ca3af;">
+      {{app_name}} Team
+    </div>
+  </div>
+</div>

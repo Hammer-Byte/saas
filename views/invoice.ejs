@@ -104,6 +104,14 @@
                         <button type="button" id="cancel-edit-invoice-btn" class="btn btn-outline-secondary d-none">Cancel</button>
                         <button type="button" id="edit-invoice-btn" class="btn btn-outline-primary">Edit due date</button>
                         <a href="/api/customer-invoices/<%= invoice.id %>/pdf" class="btn btn-outline-primary">Download PDF</a>
+                        <button
+                            type="button"
+                            id="send-invoice-reminder-btn"
+                            class="btn btn-outline-primary"
+                            <% if (!customerEmails || customerEmails.length === 0) { %>disabled title="Add a customer email first"<% } %>
+                        >
+                            Send reminder
+                        </button>
                         <button type="button" id="delete-invoice-btn" class="btn btn-outline-danger">Delete invoice</button>
                         <a href="/app/projects/<%= invoice.project_id %>" class="btn btn-outline-secondary">
                             Project

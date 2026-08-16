@@ -269,6 +269,9 @@ export const uiRoutes = new Elysia()
                     items: await getInvoiceItemsByCustomerInvoiceId({
                         customer_invoice_id: invoice.id,
                     }),
+                    customerEmails: await getCustomerEmailsByCustomerId({
+                        customer_id: invoice.customer_id,
+                    }),
                 });
             })
             .get("/app/inquiries", async ({ render, session }) =>

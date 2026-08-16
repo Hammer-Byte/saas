@@ -4,6 +4,7 @@ import {
     addCustomerInvoiceServiceUsage,
     deleteCustomerInvoice,
     getCustomerInvoicePdf,
+    createCustomerInvoiceReminder,
     updateCustomerInvoice,
 } from "../../services/customer_invoices.js";
 
@@ -42,6 +43,15 @@ export default function (app) {
             detail: {
                 tags: ["Customer Invoices"],
                 summary: "Download customer invoice PDF",
+            },
+        })
+        .post("/:id/reminder", createCustomerInvoiceReminder, {
+            params: t.Object({
+                id: t.Numeric(),
+            }),
+            detail: {
+                tags: ["Customer Invoices"],
+                summary: "Send invoice reminder emails with PDF attached",
             },
         })
         .post("/:id/service-usage", addCustomerInvoiceServiceUsage, {

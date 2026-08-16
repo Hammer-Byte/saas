@@ -6,6 +6,7 @@
     const cancelEditInvoiceBtn = document.getElementById("cancel-edit-invoice-btn");
     const deleteInvoiceBtn = document.getElementById("delete-invoice-btn");
     const addServiceUsageBtn = document.getElementById("add-service-usage-btn");
+    const sendInvoiceReminderBtn = document.getElementById("send-invoice-reminder-btn");
     const itemForm = document.getElementById("invoice-item-form");
     const itemFormAlert = document.getElementById("invoice-item-form-alert");
     const itemModalLabel = document.getElementById("invoice-item-modal-label");
@@ -123,6 +124,34 @@
         } catch (error) {
             console.error(error);
             showAlert(invoiceAlert, "Failed to delete invoice.", "danger");
+        }
+    });
+
+    sendInvoiceReminderBtn?.addEventListener("click", async () => {
+        const invoiceId = invoiceForm?.dataset.invoiceId;
+        if (!invoiceId || sendInvoiceReminderBtn.disabled) return;
+
+        hideAlert(invoiceAlert);
+        sendInvoiceReminderBtn.disabled = true;
+
+        try {
+            const response = await fetch(`/api/customer-invoices/${invoiceId}/reminder`, {
+                method: "POST",
+                credentials: "same-origin",
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                showAlert(invoiceAlert, data.error || "Failed to send reminder.", "danger");
+                return;
+            }
+
+            showAlert(invoiceAlert, data.message || "Reminder sent.", "success");
+        } catch (error) {
+            console.error(error);
+            showAlert(invoiceAlert, "Failed to send reminder.", "danger");
+        } finally {
+            sendInvoiceReminderBtn.disabled = false;
         }
     });
 

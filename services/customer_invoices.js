@@ -1,5 +1,6 @@
 import { CONSTANTS, filer } from "@hammerbyte/utils";
 import { getReadableDate, getWritableDate } from "../libs/date.js";
+import transporter from "../libs/transporter.js";
 import {
     buildInvoiceBillStatusHtml,
     buildInvoiceCustomerDetailsHtml,
@@ -103,6 +104,56 @@ export async function getCustomerInvoicePdf({ params, set }) {
     set.headers["Content-Type"] = "application/pdf";
     set.headers["Content-Disposition"] = `attachment; filename="${fileName}"`;
     return pdf;
+}
+
+export async function createCustomerInvoiceReminder({ params, set }) {
+    const invoice = await getCustomerInvoiceById({ id: params.id });
+    if (!invoice) {
+        set.status = 404;
+        return { error: "Invoice not found" };
+    }
+
+    const customerEmails = await getCustomerEmailsByCustomerId({ customer_id: invoice.customer_id });
+    if (!customerEmails.length) {
+        set.status = 400;
+        return { error: "No customer emails" };
+    }
+
+    const customer = await getCustomerById({ id: invoice.customer_id });
+    const amountPaid = await getInvoicePaymentsTotalByCustomerInvoiceId({
+        customer_invoice_id: invoice.id,
+    });
+    const html = await getCustomerInvoiceHtml({ id: invoice.id });
+
+    const pdf = await generateInvoicePdf(html);
+    const invoiceNumber = formatInvoiceNumber({ id: invoice.id });
+    const grandTotal = Number(invoice.total || 0) + Number(invoice.gst || 0);
+    const reminderHtml = filer.prepareTemplated("templates/invoice_reminder.html", {
+        invoice_number: invoiceNumber,
+        customer_name: customer?.company || customer?.full_name || "--",
+        invoice_date: getReadableDate("DD/MM/YYYY", invoice.due_date),
+        amount_due: formatCurrency(Math.max(grandTotal - amountPaid, 0)),
+        app_name: "HammerByte",
+    });
+
+    for (const email of customerEmails) {
+        transporter.transport({
+            recipient: email,
+            subject: `Invoice reminder — ${invoiceNumber}`,
+            body: reminderHtml,
+            html_enabled: true,
+            attachments: [
+                {
+                    filename: `${invoiceNumber}.pdf`,
+                    content: pdf,
+                    contentType: "application/pdf",
+                },
+            ],
+        });
+    }
+
+    set.status = 200;
+    return { message: "Reminder sent" };
 }
 
 export async function addCustomerInvoice({ body, set }) {
