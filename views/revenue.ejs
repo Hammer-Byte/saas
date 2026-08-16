@@ -1,0 +1,147 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> / Revenue
+            </p>
+            <h1 class="h3 mb-1">Revenue</h1>
+            <p class="text-secondary mb-0">Invoice payments vs expenses by created date.</p>
+        </div>
+
+        <form class="card border-0 shadow-sm mb-4" method="get" action="/app/revenue">
+            <div class="card-body p-4">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label for="start" class="form-label">Start date</label>
+                        <input type="date" class="form-control" id="start" name="start" value="<%= start %>" required />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="end" class="form-label">End date</label>
+                        <input type="date" class="form-control" id="end" name="end" value="<%= end %>" required />
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-outline-primary w-100">Apply range</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <h2 class="h5 mb-0">Invoice payments</h2>
+                    </div>
+                    <div class="card-body p-0">
+                        <% if (!payments || payments.length === 0) { %>
+                            <div class="p-4 text-center text-secondary">
+                                No invoice payments in this date range.
+                            </div>
+                        <% } else { %>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th scope="col">Date</th>
+                                            <th scope="col">Invoice</th>
+                                            <th scope="col">Note</th>
+                                            <th scope="col">Paid</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% payments.forEach(function (row) { %>
+                                            <tr>
+                                                <td data-readable-date="<%= row.created_on %>" data-date-format="YYYY-MM-DD"></td>
+                                                <td>
+                                                    <a href="/app/invoices/<%= row.customer_invoice_id %>">
+                                                        HBT-<%= String(row.customer_invoice_id).padStart(7, '0') %>
+                                                    </a>
+                                                </td>
+                                                <td><%= row.note || "-" %></td>
+                                                <td><%= (Number(row.amount) + Number(row.gst)).toFixed(2) %></td>
+                                            </tr>
+                                        <% }) %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <% } %>
+                    </div>
+                    <div class="card-footer bg-white px-4 py-3">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-secondary">Total payments</span>
+                            <span class="fw-semibold"><%= Number(paymentsTotal || 0).toFixed(2) %></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <h2 class="h5 mb-0">Expenses</h2>
+                    </div>
+                    <div class="card-body p-0">
+                        <% if (!expenses || expenses.length === 0) { %>
+                            <div class="p-4 text-center text-secondary">
+                                No expenses in this date range.
+                            </div>
+                        <% } else { %>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th scope="col">Date</th>
+                                            <th scope="col">Title</th>
+                                            <th scope="col">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% expenses.forEach(function (row) { %>
+                                            <tr>
+                                                <td data-readable-date="<%= row.created_on %>" data-date-format="YYYY-MM-DD"></td>
+                                                <td><%= row.title %></td>
+                                                <td><%= Number(row.amount).toFixed(2) %></td>
+                                            </tr>
+                                        <% }) %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <% } %>
+                    </div>
+                    <div class="card-footer bg-white px-4 py-3">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-secondary">Total expenses</span>
+                            <span class="fw-semibold"><%= Number(expensesTotal || 0).toFixed(2) %></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span class="text-secondary">Net (payments − expenses)</span>
+                <span class="h4 mb-0"><%= Number(net || 0).toFixed(2) %></span>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<%- include('common/footer') %>

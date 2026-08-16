@@ -69,3 +69,19 @@ export async function getExpensesByDateRange({ start, end }) {
             return [];
         });
 }
+
+export async function getExpensesByCreatedOnRange({ start, end }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *
+            FROM EXPENSES
+            WHERE DATE(created_on) >= ${start} AND DATE(created_on) <= ${end}
+            ORDER BY created_on DESC, id DESC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getExpensesByCreatedOnRange: ${error}`);
+            return [];
+        });
+}

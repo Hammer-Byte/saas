@@ -19,14 +19,17 @@ import {
     getCustomerProjectById,
     getCustomerProjectsByCustomerId,
 } from "../db/customer_projects.js";
-import { getExpensesByDateRange } from "../db/expenses.js";
+import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
 import {
     getAllCustomerInvoices,
     getCustomerInvoiceById,
     getCustomerInvoicesByProjectId,
 } from "../db/customer_invoices.js";
 import { getInvoiceItemsByCustomerInvoiceId } from "../db/invoice_items.js";
-import { getInvoicePaymentsByCustomerInvoiceId } from "../db/invoice_payments.js";
+import {
+    getInvoicePaymentsByCreatedOnRange,
+    getInvoicePaymentsByCustomerInvoiceId,
+} from "../db/invoice_payments.js";
 import { getAllUsers } from "../db/users.js";
 import { getReadableDate } from "../libs/date.js";
 
@@ -218,6 +221,55 @@ export const uiRoutes = new Elysia()
                     end: rangeEnd,
                     totalAmount,
                     itemCount: expenses.length,
+                });
+            })
+            .get("/app/revenue", async ({ render, session, query }) => {
+                const now = new Date();
+                const defaultStart = getReadableDate(
+                    "YYYY-MM-DD",
+                    new Date(now.getFullYear(), now.getMonth(), 1),
+                );
+                const defaultEnd = getReadableDate("YYYY-MM-DD", now);
+
+                const start =
+                    query.start && /^\d{4}-\d{2}-\d{2}$/.test(query.start)
+                        ? query.start
+                        : defaultStart;
+                const end =
+                    query.end && /^\d{4}-\d{2}-\d{2}$/.test(query.end)
+                        ? query.end
+                        : defaultEnd;
+
+                const rangeStart = start <= end ? start : end;
+                const rangeEnd = start <= end ? end : start;
+
+                const payments = await getInvoicePaymentsByCreatedOnRange({
+                    start: rangeStart,
+                    end: rangeEnd,
+                });
+                const expenses = await getExpensesByCreatedOnRange({
+                    start: rangeStart,
+                    end: rangeEnd,
+                });
+                const paymentsTotal = payments.reduce(
+                    (sum, row) => sum + Number(row.amount || 0) + Number(row.gst || 0),
+                    0,
+                );
+                const expensesTotal = expenses.reduce(
+                    (sum, expense) => sum + Number(expense.amount || 0),
+                    0,
+                );
+
+                return render("revenue", {
+                    title: "Revenue — HammerByte",
+                    username: session?.username,
+                    payments,
+                    expenses,
+                    start: rangeStart,
+                    end: rangeEnd,
+                    paymentsTotal,
+                    expensesTotal,
+                    net: paymentsTotal - expensesTotal,
                 });
             })
             .get("/app/customers", async ({ render, session }) =>

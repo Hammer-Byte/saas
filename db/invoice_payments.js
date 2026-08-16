@@ -88,3 +88,19 @@ export async function getInvoicePaymentsTotalByCustomerInvoiceId({ customer_invo
             return 0;
         });
 }
+
+export async function getInvoicePaymentsByCreatedOnRange({ start, end }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *
+            FROM INVOICE_PAYMENTS
+            WHERE DATE(created_on) >= ${start} AND DATE(created_on) <= ${end}
+            ORDER BY created_on DESC, id DESC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getInvoicePaymentsByCreatedOnRange: ${error}`);
+            return [];
+        });
+}
