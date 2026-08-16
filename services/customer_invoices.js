@@ -78,7 +78,8 @@ export async function getCustomerInvoiceHtml({ id }) {
             email: customerEmails.join(", "),
             pan_gst: customer?.pan_gst,
         }),
-        invoice_date: getReadableDate("DD/MM/YYYY", invoice.due_date),
+        invoice_date: getReadableDate("DD/MM/YYYY", invoice.created_on),
+        due_date: getReadableDate("DD/MM/YYYY", invoice.due_date),
         bill_status: buildInvoiceBillStatusHtml(billStatus),
         items: buildInvoiceItemsHtml(items),
         sub_total: formatCurrency(subTotal),
@@ -131,7 +132,8 @@ export async function createCustomerInvoiceReminder({ params, set }) {
     const reminderHtml = filer.prepareTemplated("templates/invoice_reminder.html", {
         invoice_number: invoiceNumber,
         customer_name: customer?.company || customer?.full_name || "--",
-        invoice_date: getReadableDate("DD/MM/YYYY", invoice.due_date),
+        invoice_date: getReadableDate("DD/MM/YYYY", invoice.created_on),
+        due_date: getReadableDate("DD/MM/YYYY", invoice.due_date),
         amount_due: formatCurrency(Math.max(grandTotal - amountPaid, 0)),
         app_name: "HammerByte",
     });
