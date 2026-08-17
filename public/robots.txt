@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /api
+Disallow: /login
+Disallow: /swagger
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://hammerbyte.co.in/sitemap.xml

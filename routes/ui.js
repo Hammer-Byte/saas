@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { Elysia } from "elysia";
 import { CONSTANTS } from "@hammerbyte/utils";
 import requireSession from "../middlewares/require_session.js";
@@ -37,7 +38,9 @@ const { SERVICES } = CONSTANTS.SAAS;
 
 export const uiRoutes = new Elysia()
     .get("/", ({ render }) => render("index"))
-    .get("/about", ({ render }) => render("index"))
+    .get("/robots.txt", () => Bun.file(join(import.meta.dir, "../public/robots.txt")))
+    .get("/sitemap.xml", () => Bun.file(join(import.meta.dir, "../public/sitemap.xml")))
+    .get("/llms.txt", () => Bun.file(join(import.meta.dir, "../public/llms.txt")))
     .get("/login", async ({ render, cookie, redirect }) => {
         if (await getCurrentUser({ cookie })) {
             return redirect("/app");

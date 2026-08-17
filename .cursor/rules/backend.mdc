@@ -70,7 +70,7 @@ Same idea for lookups before create (`existingUser` by email) and post-update re
 
 ## Validation & helpers
 
-- Keep Elysia body/params schemas **inline** in the route config — do not extract `const …Body = t.Object(…)` unless the exact schema is reused in multiple route handlers.
+- Elysia `t.` body / params / query schemas **must be inline** on each route. Never assign a shape to a top-level `const` (or helper) and reuse it on another route. Duplicate the schema on POST and PATCH even when fields match.
 - Validate request shape **only** at the route (`minItems`, `minLength`, types, etc.). Do **not** re-check those in `services/` — services do existence/ownership/business rules only.
 - Do **not** extract a helper for logic used in only one place — inline it. Extract only when the same logic is shared (two or more call sites). Exported route/service/db entry points and shared utils are fine even if a given file calls them once.
 

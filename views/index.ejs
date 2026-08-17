@@ -4,105 +4,233 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HammerByte</title>
-    <link rel="stylesheet" href="public/style.css" />
+    <title>IT Services, Website Design &amp; Mobile Apps | HammerByte</title>
+    <meta
+        name="description"
+        content="HammerByte is an IT services company in Nadiad, Gujarat. We design websites, build mobile applications, and ship digital products for startups and enterprises."
+    />
+    <meta
+        name="keywords"
+        content="IT services, website design, website designing, mobile application development, digital products, software development, HammerByte, Nadiad, Gujarat"
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://hammerbyte.co.in/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="HammerByte" />
+    <meta property="og:url" content="https://hammerbyte.co.in/" />
+    <meta property="og:title" content="IT Services, Website Design &amp; Mobile Apps | HammerByte" />
+    <meta
+        property="og:description"
+        content="Website design, mobile app development, and digital products from HammerByte — an IT services company in Nadiad, Gujarat."
+    />
+    <meta property="og:image" content="https://hammerbyte.co.in/public/images/hammerbyte-logo.avif" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="IT Services, Website Design &amp; Mobile Apps | HammerByte" />
+    <meta
+        name="twitter:description"
+        content="HammerByte designs websites, builds mobile apps, and delivers digital products and IT services."
+    />
+    <meta name="twitter:image" content="https://hammerbyte.co.in/public/images/hammerbyte-logo.avif" />
+    <link rel="stylesheet" href="/public/style.css" />
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "ProfessionalService",
+                    "@id": "https://hammerbyte.co.in/#business",
+                    "name": "HammerByte",
+                    "url": "https://hammerbyte.co.in/",
+                    "logo": "https://hammerbyte.co.in/public/images/hammerbyte-logo.avif",
+                    "image": "https://hammerbyte.co.in/public/images/about-hammerbyte.avif",
+                    "email": "support@hammerbyte.co.in",
+                    "telephone": "+91-97258-37442",
+                    "description": "IT services company offering website design, mobile application development, and digital product development for startups and enterprises.",
+                    "address": {
+                        "@type": "PostalAddress",
+                        "streetAddress": "206, Beverly Arcade, Near Woodland Restaurant, Maha Gujarat Hospital Road",
+                        "addressLocality": "Nadiad",
+                        "addressRegion": "Gujarat",
+                        "postalCode": "387001",
+                        "addressCountry": "IN"
+                    },
+                    "areaServed": "IN",
+                    "sameAs": ["https://www.linkedin.com/company/hammerbyte/"],
+                    "knowsAbout": [
+                        "IT services",
+                        "website design",
+                        "mobile application development",
+                        "digital product development",
+                        "web application development"
+                    ],
+                    "hasOfferCatalog": {
+                        "@type": "OfferCatalog",
+                        "name": "HammerByte IT services",
+                        "itemListElement": [
+                            {
+                                "@type": "Offer",
+                                "itemOffered": {
+                                    "@type": "Service",
+                                    "name": "Mobile application development",
+                                    "description": "Android and iOS mobile apps using Flutter, React Native, Android Studio, and Java."
+                                }
+                            },
+                            {
+                                "@type": "Offer",
+                                "itemOffered": {
+                                    "@type": "Service",
+                                    "name": "Website design and web application development",
+                                    "description": "Website design and data-driven web applications using React, Node.js, PHP Laravel, Java, and Spring Boot."
+                                }
+                            },
+                            {
+                                "@type": "Offer",
+                                "itemOffered": {
+                                    "@type": "Service",
+                                    "name": "Digital product development",
+                                    "description": "Games, desktop software, and IoT systems using Unity, C#, Electron.js, Raspberry Pi, Arduino, C, and Python."
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "@type": "FAQPage",
+                    "mainEntity": [
+                        {
+                            "@type": "Question",
+                            "name": "What IT services does HammerByte provide?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "HammerByte provides IT services including website design, web application development, mobile application development for Android and iOS, and digital product development such as games, desktop software, and IoT systems."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Does HammerByte design websites?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "Yes. HammerByte designs websites and builds data-driven web applications with modern, responsive layouts and secure, scalable backends."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Does HammerByte develop mobile applications?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "Yes. HammerByte builds mobile applications for Android and iOS using Flutter, React Native, Android Studio, and Java."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Where is HammerByte located?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "HammerByte is based in Nadiad, Gujarat, India, at 206 Beverly Arcade, Near Woodland Restaurant, Maha Gujarat Hospital Road, Nadiad 387001."
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    </script>
 </head>
 
 <body>
     <header class="header-logo">
-        <img src="public/images/hammerbyte-logo.avif" alt="hammerbyte logo" />
+        <img src="/public/images/hammerbyte-logo.avif" alt="HammerByte IT services company logo" />
         <a href="/app" class="app-entry-btn">App</a>
     </header>
+    <main>
     <section class="hero-section">
         <div class="slider">
-            <video class="slide active" autoplay muted loop playsinline>
-                <source src="public/images/banner-gif.mp4" type="video/mp4" />
+            <video class="slide active" autoplay muted loop playsinline aria-hidden="true">
+                <source src="/public/images/banner-gif.mp4" type="video/mp4" />
             </video>
         </div>
         <div class="overlay"></div>
         <div class="container hero-content">
             <h1>
-                From Startups to Enterprises,<br />
-                We Power Digital Growth
+                IT Services, Website Design, Mobile Apps &amp; Digital Products
             </h1>
             <p>
-                With over a decade of expertise, our IT firm delivers innovative, reliable, and secure software
-                solutions tailored to diverse industries
-                including <strong> EdTech, Healthcare, Retail, E-commerce, Transport, and Security.</strong>
+                HammerByte is an IT services company in Nadiad, Gujarat. For more than a decade we have designed
+                websites, developed mobile applications, and built digital products for startups and enterprises
+                across <strong>EdTech, Healthcare, Retail, E-commerce, Transport, and Security.</strong>
             </p>
             <a class="hero-cta" href="#contact">Let's Work Together</a>
         </div>
     </section>
-    <section class="about-section container">
+    <section id="about" class="about-section container">
         <!-- <div class="container"> -->
         <!-- Left Content -->
         <div class="about-left">
-            <h1>About HammerByte</h1>
+            <h2>About HammerByte</h2>
             <div class="stats">
                 <div class="stat">
-                    <h2>70+</h2>
+                    <p class="stat-value">70+</p>
                     <p>Projects Delivered</p>
                 </div>
                 <div class="stat">
-                    <h2>11+</h2>
+                    <p class="stat-value">11+</p>
                     <p>Years of Experience</p>
                 </div>
                 <div class="stat">
-                    <h2>32+</h2>
+                    <p class="stat-value">32+</p>
                     <p>Happy Clients</p>
                 </div>
             </div>
             <p class="about-text">
                 We are proud to have partnered with <b>32+ clients across diverse industries</b>, delivering end-to-end
-                <b>custom software development services</b>. From mobile apps, websites, and desktop applications to IoT
-                systems and enterprise-grade
-                solutions, we craft technology that helps businesses innovate, scale, and succeed.
+                <b>IT services</b> and <b>custom software development</b>. From <b>website design</b>, mobile apps, and
+                desktop applications to IoT systems and enterprise-grade solutions, we craft digital products that help
+                businesses innovate, scale, and succeed.
             </p>
             <a class="export-btn" href="#projects">Explore Portfolio</a>
         </div>
         <!-- Right Image -->
         <div class="about-right">
-            <img src="public/images/about-hammerbyte.avif" alt="HammerByte Office" />
+            <img src="/public/images/about-hammerbyte.avif" alt="HammerByte office in Nadiad, Gujarat" />
         </div>
         <!-- </div> -->
     </section>
-    <section class="services">
+    <section id="services" class="services">
         <div class="container">
-            <h1 class="title">Our Services</h1>
-            <p class="subtitle">Delivering innovative solutions across various domains for over a decade.</p>
+            <h2 class="title">Our Services</h2>
+            <p class="subtitle">IT services, website design, mobile application development, and digital products — delivered for over a decade.</p>
             <div class="services-content">
                 <!-- Left Image -->
                 <div class="services-image">
-                    <img src="public/images/service-bg.avif" />
+                    <img src="/public/images/service-bg.avif" alt="HammerByte team delivering website design and mobile app development" />
                 </div>
                 <!-- Right Text -->
                 <div class="services-text">
                     <div class="service-item">
-                        <h3>1.Mobile Application Development - Android, iOS</h3>
+                        <h3>1. Mobile Application Development — Android &amp; iOS</h3>
                         <ul>
                             <li>
-                                We build <b>high-quality, performance-optimized mobile apps</b>
+                                We build <b>high-quality, performance-optimized mobile applications</b>
                                 for Android and iOS using Flutter, React Native, Android Studio, and Java.
                             </li>
                         </ul>
                     </div>
                     <div class="service-item">
-                        <h3>2.Data Driven Web Application Development</h3>
+                        <h3>2. Website Design &amp; Web Application Development</h3>
                         <ul>
                             <li>
-                                We build <b>responsive, secure, and scalable websites</b>
+                                We <b>design websites</b> and build <b>responsive, secure, and scalable web applications</b>
                                 using React, Node.js, PHP Laravel, Java, and Spring Boot to deliver modern design and
                                 seamless functionality.
                             </li>
                         </ul>
                     </div>
                     <div class="service-item">
-                        <h3>3.Games, Desktop Software & IoT Systems</h3>
+                        <h3>3. Digital Products, Games, Desktop Software &amp; IoT</h3>
                         <ul>
                             <li>
-                                We deliver <b>secure and scalable desktop applications , IoT solutions and Games </b>
+                                We ship <b>digital products</b> including <b>games, desktop applications, and IoT systems</b>
                                 using
-                                <b> Unity, C#, Electron.js, Raspberry Pi, Arduino, C, and Python </b> to enable
+                                <b>Unity, C#, Electron.js, Raspberry Pi, Arduino, C, and Python</b> to enable
                                 automation, connectivity, and real-time
                                 insights.
                             </li>
@@ -114,7 +242,7 @@
     </section>
     <section id="projects" class="projects">
         <div class="container">
-            <h1 class="project-title">Our Projects & Clients</h1>
+            <h2 class="project-title">Our Projects &amp; Clients</h2>
             <p class="project-subtitle">Explore our diverse projects across multiple domains.</p>
             <div class="btn-center">
                 <button class="brochure-btn">Download Brochure</button>
@@ -127,7 +255,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://www.sahasinstitute.com/" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/sahas.avif" />
+                                    <img src="/public/images/sahas.avif" alt="Sahas Smart Studies EdTech website and learning platform" />
                                 </div>
                                 <h6>Sahas Smart Studies</h6>
                             </a>
@@ -140,7 +268,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://iietedu.ac.in" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/IIET.avif" />
+                                    <img src="/public/images/IIET.avif" alt="I.I.E.T. Dharmaj engineering college mobile application" />
                                 </div>
                                 <h6>I.I.E.T. Dharmaj</h6>
                             </a>
@@ -152,7 +280,7 @@
                         </div>
                         <div class="logo-card">
                             <div class="project-logo-img">
-                                <img src="public/images/HSTP_Logo.avif" />
+                                <img src="/public/images/HSTP_Logo.avif" alt="HSTP hospitality staff training platform" />
                             </div>
                             <h6>HSTP</h6>
                             <p>
@@ -164,7 +292,7 @@
                         </div>
                         <div class="logo-card">
                             <div class="project-logo-img">
-                                <img src="public/images/CUShah_UMS_logo.avif" />
+                                <img src="/public/images/CUShah_UMS_logo.avif" alt="C.U. Shah University management system" />
                             </div>
                             <h6>University Management System</h6>
                             <p>
@@ -182,7 +310,7 @@
                     <div class="logo-row">
                         <div class="logo-card">
                             <div class="project-logo-img">
-                                <img src="public/images/sequel-eye.avif" />
+                                <img src="/public/images/sequel-eye.avif" alt="Sequel Eye SQL injection testing mobile tool" />
                             </div>
                             <h6>Sequel Eye</h6>
                             <p>
@@ -194,7 +322,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://github.com/Hammer-Byte/python_MPT" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/mpt.avif" />
+                                    <img src="/public/images/mpt.avif" alt="Master Pentest Tool website and network security software" />
                                 </div>
                                 <h6>Master Pentest Tool</h6>
                             </a>
@@ -207,7 +335,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://github.com/Hammer-Byte/android_VulnEye" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/vulneye.avif" />
+                                    <img src="/public/images/vulneye.avif" alt="VulnEye Android web app security testing tool" />
                                 </div>
                                 <h6>VulenEye</h6>
                             </a>
@@ -226,7 +354,7 @@
                 <div class="game-logo-row">
                     <div class="logo-card">
                         <div class="project-logo-img">
-                            <img src="public/images/digi-lotto.avif" />
+                            <img src="/public/images/digi-lotto.avif" alt="Digiloto digital lottery and trivia game" />
                         </div>
                         <h6>Digiloto</h6>
                         <p>
@@ -237,7 +365,7 @@
                     </div>
                     <div class="logo-card">
                         <div class="project-logo-img">
-                            <img src="public/images/warlock.avif" />
+                            <img src="/public/images/warlock.avif" alt="Warlock PL first-person shooter game" />
                         </div>
                         <h6>Warlock PL</h6>
                         <p>
@@ -248,7 +376,7 @@
                     </div>
                     <div class="logo-card">
                         <div class="project-logo-img">
-                            <img src="public/images/quizzer.avif" />
+                            <img src="/public/images/quizzer.avif" alt="Quizzer trivia mobile application" />
                         </div>
                         <h6>Quizzer</h6>
                         <p>
@@ -260,7 +388,7 @@
                     <div class="logo-card">
                         <a class="logo-card-link" href="https://play.google.com/store/apps/details?id=com.hammerbyte.cec&hl=en_IN" target="_blank" rel="noopener noreferrer">
                             <div class="project-logo-img">
-                                <img src="public/images/CEC.avif" />
+                                <img src="/public/images/CEC.avif" alt="CEC Pharaoh chess mobile game" />
                             </div>
                             <h6>CEC</h6>
                         </a>
@@ -280,7 +408,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://play.google.com/store/apps/details?id=com.ritanyasanstha&hl=en_IN" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/ritanya-sanstha.avif" />
+                                    <img src="/public/images/ritanya-sanstha.avif" alt="Ritanya Sanstha alumni mobile application" />
                                 </div>
                                 <h6>Ritanya Sanstha</h6>
                             </a>
@@ -293,7 +421,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://divyadhammandir.org/" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/DivyaDham_Logo.avif" />
+                                    <img src="/public/images/DivyaDham_Logo.avif" alt="Divyadham charitable trust website" />
                                 </div>
                                 <h6>Divyadham</h6>
                             </a>
@@ -306,7 +434,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://www.xiente.org/" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/xiente_Logo.avif" />
+                                    <img src="/public/images/xiente_Logo.avif" alt="Xiente social impact organization website" />
                                 </div>
                                 <h6>Xiente</h6>
                             </a>
@@ -327,7 +455,7 @@
                     <div class="logo-row">
                         <div class="logo-card">
                             <div class="project-logo-img">
-                                <img src="public/images/food-geek.avif" />
+                                <img src="/public/images/food-geek.avif" alt="Food Geek recipe mobile application" />
                             </div>
                             <h6>Food Geek</h6>
                             <p>
@@ -338,7 +466,7 @@
                         </div>
                         <div class="logo-card">
                             <div class="project-logo-img">
-                                <img src="public/images/FDM_Logo.avif" />
+                                <img src="/public/images/FDM_Logo.avif" alt="Financial Data Management business application" />
                             </div>
                             <h6>Financial Data Management</h6>
                             <p>
@@ -354,7 +482,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://adhirajtechsoul.in/" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/adhirajtechsoul_Logo.avif" />
+                                    <img src="/public/images/adhirajtechsoul_Logo.avif" alt="Adhiraj Tech Solution corporate website" />
                                 </div>
                                 <h6>Adhiraj Tech Solution</h6>
                             </a>
@@ -368,7 +496,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://facetechengineer.com/" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/facetech-engineers.png" alt="Face-Tech Engineers" />
+                                    <img src="/public/images/facetech-engineers.png" alt="Face-Tech Engineers" />
                                 </div>
                                 <h6>Face-Tech Engineers</h6>
                             </a>
@@ -381,7 +509,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://www.ckrinteriorsolutions.com/" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/ckr-interior-solutions.png" alt="CKR Interior Solutions" />
+                                    <img src="/public/images/ckr-interior-solutions.png" alt="CKR Interior Solutions" />
                                 </div>
                                 <h6>CKR Interior Solutions</h6>
                             </a>
@@ -394,7 +522,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://spaceagelaser.com/" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/space-age-laser.png" alt="Space Age Laser" />
+                                    <img src="/public/images/space-age-laser.png" alt="Space Age Laser" />
                                 </div>
                                 <h6>Space Age Laser</h6>
                             </a>
@@ -415,7 +543,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://www.starlightcarepartnership.co.uk/About_Us.html" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/starlight.avif" />
+                                    <img src="/public/images/starlight.avif" alt="Starlight Care Partnership home care website" />
                                 </div>
                                 <h6>Starlight Care Partnership</h6>
                             </a>
@@ -428,7 +556,7 @@
                         <div class="logo-card">
                             <a class="logo-card-link" href="https://mentalathlete.gg/" target="_blank" rel="noopener noreferrer">
                                 <div class="project-logo-img">
-                                    <img src="public/images/mental-athlete.avif" />
+                                    <img src="/public/images/mental-athlete.avif" alt="Mental Athlete product website" />
                                 </div>
                                 <h6>Mental Athlete</h6>
                             </a>
@@ -449,7 +577,7 @@
                     <div class="logo-card">
                         <a class="logo-card-link" href="https://play.google.com/store/apps/details?id=com.foodhunt24x7.foodhunt24x7&hl=en_IN" target="_blank" rel="noopener noreferrer">
                             <div class="project-logo-img">
-                                <img src="public/images/food-hunt.avif" />
+                                <img src="/public/images/food-hunt.avif" alt="Food Hunt 24x7 food ordering mobile application" />
                             </div>
                             <h6>Food Hunt 24*7</h6>
                         </a>
@@ -461,7 +589,7 @@
                     </div>
                     <div class="logo-card">
                         <div class="project-logo-img">
-                            <img src="public/images/mataji-fashion.avif" />
+                            <img src="/public/images/mataji-fashion.avif" alt="Mataji Fashion e-commerce website" />
                         </div>
                         <h6>Mataji Fashion</h6>
                         <p>
@@ -473,7 +601,7 @@
                     <div class="logo-card">
                         <a class="logo-card-link" href="https://rehalsdivine.com.au/" target="_blank" rel="noopener noreferrer">
                             <div class="project-logo-img">
-                                <img src="public/images/rehals.avif" />
+                                <img src="/public/images/rehals.avif" alt="Rehal's Divine restaurant website" />
                             </div>
                             <h6>Rehal's Divine</h6>
                         </a>
@@ -487,40 +615,39 @@
             </div>
         </div>
     </section>
-    <section class="technology">
+    <section id="technology" class="technology">
         <div class="container">
-            <h1 class="tech-title">Technologies & Platforms</h1>
+            <h2 class="tech-title">Technologies &amp; Platforms</h2>
             <p class="tech-text">
-                At HammerByte, we leverage a diverse range of modern technologies and platforms to deliver scalable,
-                secure, and high-performing solutions.
-                Our carefully chosen tech stack ensures we stay ahead of industry trends while meeting the unique needs
-                of our clients.
+                At HammerByte, we use modern technologies and platforms to deliver scalable, secure, and high-performing
+                IT services — from website design and web applications to mobile apps and other digital products.
+                Our tech stack stays current with industry practice while matching each client's needs.
             </p>
             <div class="tech-category">
                 <h2>Mobile Technologies</h2>
                 <div class="tech-grid">
                     <div class="tech-item">
-                        <img src="public/images/android.avif" />
+                        <img src="/public/images/android.avif" alt="Android" />
                         <p>Android</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/apple-img.avif" />
+                        <img src="/public/images/apple-img.avif" alt="iOS" />
                         <p>iOS</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/flutter.avif" />
+                        <img src="/public/images/flutter.avif" alt="Flutter" />
                         <p>Flutter</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/React.png" />
+                        <img src="/public/images/React.png" alt="React" />
                         <p>React Native</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/ionic.avif" />
+                        <img src="/public/images/ionic.avif" alt="Ionic" />
                         <p>Ionic</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/kotlin.avif" />
+                        <img src="/public/images/kotlin.avif" alt="Kotlin" />
                         <p>Kotlin</p>
                     </div>
                 </div>
@@ -530,23 +657,23 @@
                 <h2>Frontend Technologies</h2>
                 <div class="tech-grid">
                     <div class="tech-item">
-                        <img src="public/images/React.png" />
+                        <img src="/public/images/React.png" alt="React" />
                         <p>React Js</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/angular.avif" />
+                        <img src="/public/images/angular.avif" alt="Angular" />
                         <p>Angular</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/vuejs.avif" />
+                        <img src="/public/images/vuejs.avif" alt="Vue.js" />
                         <p>Vue Js</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/html5.avif" />
+                        <img src="/public/images/html5.avif" alt="HTML5" />
                         <p>HTML 5</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/css3.avif" />
+                        <img src="/public/images/css3.avif" alt="CSS3" />
                         <p>CSS 3</p>
                     </div>
                 </div>
@@ -555,27 +682,27 @@
                 <h2>Backend Technologies</h2>
                 <div class="tech-grid">
                     <div class="tech-item">
-                        <img src="public/images/nodejs-img.avif" />
+                        <img src="/public/images/nodejs-img.avif" alt="Node.js" />
                         <p>Node Js</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/php.avif" />
+                        <img src="/public/images/php.avif" alt="PHP" />
                         <p>PHP</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/dotnet.avif" />
+                        <img src="/public/images/dotnet.avif" alt=".NET" />
                         <p>.NET</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/java.avif" />
+                        <img src="/public/images/java.avif" alt="Java" />
                         <p>Java</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/python.avif" />
+                        <img src="/public/images/python.avif" alt="Python" />
                         <p>Python</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/rais.avif" />
+                        <img src="/public/images/rais.avif" alt="Ruby on Rails" />
                         <p>Rails</p>
                     </div>
                 </div>
@@ -584,23 +711,23 @@
                 <h2>Database</h2>
                 <div class="tech-grid">
                     <div class="tech-item">
-                        <img src="public/images/mysql.avif" />
+                        <img src="/public/images/mysql.avif" alt="MySQL" />
                         <p>My Sql</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/mongodb-img.avif" />
+                        <img src="/public/images/mongodb-img.avif" alt="MongoDB" />
                         <p>Mongo Db</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/mysql-img.avif" />
+                        <img src="/public/images/mysql-img.avif" alt="Microsoft SQL Server" />
                         <p>MsSQL</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/oracle.avif" />
+                        <img src="/public/images/oracle.avif" alt="Oracle" />
                         <p>Oracle</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/firebase.avif" />
+                        <img src="/public/images/firebase.avif" alt="Firebase" />
                         <p>FireBase</p>
                     </div>
                 </div>
@@ -609,34 +736,69 @@
                 <h2>Infra and DevOps</h2>
                 <div class="tech-grid">
                     <div class="tech-item">
-                        <img src="public/images/aws.avif" />
+                        <img src="/public/images/aws.avif" alt="Amazon Web Services" />
                         <p>AWS</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/google-cloud.avif" />
+                        <img src="/public/images/google-cloud.avif" alt="Google Cloud" />
                         <p>Google Cloud</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/jenkins.avif" />
+                        <img src="/public/images/jenkins.avif" alt="Jenkins" />
                         <p>Jenkins</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/gradle.avif" />
+                        <img src="/public/images/gradle.avif" alt="Gradle" />
                         <p>Gradle</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/azure.avif" />
+                        <img src="/public/images/azure.avif" alt="Microsoft Azure" />
                         <p>Azure</p>
                     </div>
                     <div class="tech-item">
-                        <img src="public/images/selenium.avif" />
+                        <img src="/public/images/selenium.avif" alt="Selenium" />
                         <p>Selenium</p>
                     </div>
                 </div>
             </div>
         </div>
     </section>
-    <section class="footer-section">
+    <section id="faq" class="faq">
+        <div class="container">
+            <h2 class="faq-title">Questions about our IT services</h2>
+            <div class="faq-item">
+                <h3>What IT services does HammerByte provide?</h3>
+                <p>
+                    HammerByte provides IT services including website design, web application development, mobile
+                    application development for Android and iOS, and digital product development such as games, desktop
+                    software, and IoT systems.
+                </p>
+            </div>
+            <div class="faq-item">
+                <h3>Does HammerByte design websites?</h3>
+                <p>
+                    Yes. HammerByte designs websites and builds data-driven web applications with modern, responsive
+                    layouts and secure, scalable backends.
+                </p>
+            </div>
+            <div class="faq-item">
+                <h3>Does HammerByte develop mobile applications?</h3>
+                <p>
+                    Yes. HammerByte builds mobile applications for Android and iOS using Flutter, React Native, Android
+                    Studio, and Java.
+                </p>
+            </div>
+            <div class="faq-item">
+                <h3>Where is HammerByte located?</h3>
+                <p>
+                    HammerByte is based in Nadiad, Gujarat, India, at 206 Beverly Arcade, Near Woodland Restaurant,
+                    Maha Gujarat Hospital Road, Nadiad 387001.
+                </p>
+            </div>
+        </div>
+    </section>
+    </main>
+    <footer class="footer-section">
         <div class="container footer-content">
             <div class="footer-left">
                 <h2>Careers & Technology Partners</h2>
@@ -648,24 +810,24 @@
                 </ul>
                 <p>
                     Candidates can apply at
-                    <a href="#">priya.rajesh@hammerbyte.co.in</a>
+                    <a href="mailto:priya.rajesh@hammerbyte.co.in">priya.rajesh@hammerbyte.co.in</a>
                     or can connect over
                     <a href="https://www.linkedin.com/in/priya-rajesh-46b148382/" rel="nofollow"
                         target="_blank">LinkedIn</a>
                 </p>
                 <div class="partner-logos">
-                    <img src="public/images/aws.avif" />
-                    <img src="public/images/debian.avif" />
-                    <img src="public/images/microsoft.avif" />
-                    <img src="public/images/hostinger.avif" />
+                    <img src="/public/images/aws.avif" alt="Amazon Web Services" />
+                    <img src="/public/images/debian.avif" alt="Debian" />
+                    <img src="/public/images/microsoft.avif" alt="Microsoft" />
+                    <img src="/public/images/hostinger.avif" alt="Hostinger" />
                 </div>
             </div>
             <div class="divider"></div>
             <div id="contact" class="footer-right">
                 <h2>Let's Collaborate and Grow Together</h2>
                 <div class="contact-row">
-                    <span>support@hammerbyte.co.in</span>
-                    <span>+91 97258-37442</span>
+                    <a href="mailto:support@hammerbyte.co.in">support@hammerbyte.co.in</a>
+                    <a href="tel:+919725837442">+91 97258-37442</a>
                 </div>
                 <p class="address">206, Beverly Arcade, Near Woodland Restaurant, Maha Gujarat Hospital Road, Nadiad,
                     Gujarat 387001</p>
@@ -693,14 +855,14 @@
         <!-- Bottom -->
         <div class="footer-bottom">
             <div class="social">
-                <a href="https://youtube.com/" rel="noopener" target="_blank">
+                <a href="https://youtube.com/" rel="noopener" target="_blank" aria-label="HammerByte on YouTube">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path
                             d="M23.4985 6.20286C23.2225 5.16356 22.4092 4.34503 21.3766 4.06726C19.505 3.5625 12 3.5625 12 3.5625C12 3.5625 4.49503 3.5625 2.62336 4.06726C1.59077 4.34508 0.777523 5.16356 0.501503 6.20286C0 8.08666 0 12.017 0 12.017C0 12.017 0 15.9474 0.501503 17.8312C0.777523 18.8705 1.59077 19.6549 2.62336 19.9327C4.49503 20.4375 12 20.4375 12 20.4375C12 20.4375 19.505 20.4375 21.3766 19.9327C22.4092 19.6549 23.2225 18.8705 23.4985 17.8312C24 15.9474 24 12.017 24 12.017C24 12.017 24 8.08666 23.4985 6.20286ZM9.54544 15.5855V8.44855L15.8181 12.0171L9.54544 15.5855Z"
                             fill="#fff"></path>
                     </svg>
                 </a>
-                <a href="https://www.linkedin.com/company/hammerbyte/" rel="noopener" target="_blank">
+                <a href="https://www.linkedin.com/company/hammerbyte/" rel="noopener" target="_blank" aria-label="HammerByte on LinkedIn">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path
                             d="M6.20156 21H1.84688V6.97969H6.20156V21ZM4.02187 5.06719C2.62969 5.06719 1.5 3.91406 1.5 2.52187C1.5 1.85303 1.7657 1.21158 2.23864 0.73864C2.71158 0.265697 3.35303 0 4.02187 0C4.69072 0 5.33217 0.265697 5.80511 0.73864C6.27805 1.21158 6.54375 1.85303 6.54375 2.52187C6.54375 3.91406 5.41406 5.06719 4.02187 5.06719ZM22.4953 21H18.15V14.175C18.15 12.5484 18.1172 10.4625 15.8859 10.4625C13.6219 10.4625 13.275 12.2297 13.275 14.0578V21H8.925V6.97969H13.1016V8.89219H13.1625C13.7438 7.79062 15.1641 6.62812 17.2828 6.62812C21.6891 6.62812 22.5 9.52969 22.5 13.2984V21H22.4953Z"
@@ -710,8 +872,8 @@
             </div>
             <p>HammerByte © 2025. All rights reserved.</p>
         </div>
-    </section>
+    </footer>
+    <script src="/public/index.js" defer></script>
 </body>
-<script src="/public/index.js" defer></script>
 
 </html>
