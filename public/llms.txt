@@ -1,18 +1,28 @@
 # HammerByte
 
-> HammerByte is an IT services company in Nadiad, Gujarat, India. We design websites, build mobile applications, and ship digital products for startups and enterprises.
+> HammerByte is a software development company in Nadiad, Gujarat, India. Hire the team for website design, Android and iOS apps, EdTech platforms, e-commerce, healthcare sites, corporate websites, and custom digital products. 70+ projects delivered over 11+ years.
 
 ## Services
-- IT services and custom software development
-- Website design and data-driven web application development
-- Mobile application development for Android and iOS
+- Custom software development
+- Website design and corporate websites
+- Data-driven web application development
+- Mobile application development for Android and iOS (Flutter, React Native, Java)
 - Digital products: games, desktop software, and IoT systems
+
+## Industries
+- Education and EdTech (learning platforms, institute apps, university management)
+- Healthcare (care providers and health-product sites)
+- Retail and e-commerce (stores, food ordering, catalogues)
+- Manufacturing and engineering (industrial and interiors company websites)
+- Nonprofits and communities (donations, alumni, institutes)
+- Business tools and security products
 
 ## Location
 - 206, Beverly Arcade, Near Woodland Restaurant, Maha Gujarat Hospital Road, Nadiad, Gujarat 387001, India
 
-## Contact
-- https://hammerbyte.co.in/
-- support@hammerbyte.co.in
-- +91 97258-37442
-- https://www.linkedin.com/company/hammerbyte/
+## How to hire
+- Website: https://hammerbyte.co.in/#contact
+- Email: support@hammerbyte.co.in
+- Phone: +91 97258-37442
+- LinkedIn: https://www.linkedin.com/company/hammerbyte/
+- The team responds within 48 hours.
