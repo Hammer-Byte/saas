@@ -19,6 +19,7 @@ export default function (app) {
                     maxLength: 10,
                     error: "Date is required",
                 }),
+                loaned: t.Boolean(),
             }),
             detail: {
                 tags: ["Expenses"],
@@ -42,6 +43,7 @@ export default function (app) {
                     maxLength: 10,
                     error: "Date is required",
                 }),
+                loaned: t.Boolean(),
             }),
             detail: {
                 tags: ["Expenses"],

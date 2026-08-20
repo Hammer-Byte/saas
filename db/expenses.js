@@ -1,17 +1,28 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createExpense({ title, description = null, amount, expense_date }) {
-    return await executeSQLQuery(
-        (sql) => sql`
-            INSERT INTO EXPENSES ${sql(
-                { title, description, amount, expense_date },
-                "title",
-                "description",
-                "amount",
-                "expense_date",
-            )}
-        `,
+export async function createExpense({ title, description = null, amount, expense_date, loaned }) {
+    return await executeSQLQuery((sql) =>
+        loaned
+            ? sql`
+                INSERT INTO EXPENSES ${sql(
+                    { title, description, amount, expense_date, loaned: true },
+                    "title",
+                    "description",
+                    "amount",
+                    "expense_date",
+                    "loaned",
+                )}
+            `
+            : sql`
+                INSERT INTO EXPENSES ${sql(
+                    { title, description, amount, expense_date },
+                    "title",
+                    "description",
+                    "amount",
+                    "expense_date",
+                )}
+            `,
     )
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
@@ -20,7 +31,7 @@ export async function createExpense({ title, description = null, amount, expense
         });
 }
 
-export async function updateExpenseById({ id, title, description = null, amount, expense_date }) {
+export async function updateExpenseById({ id, title, description = null, amount, expense_date, loaned }) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE EXPENSES
@@ -28,7 +39,8 @@ export async function updateExpenseById({ id, title, description = null, amount,
                 title = ${title},
                 description = ${description},
                 amount = ${amount},
-                expense_date = ${expense_date}
+                expense_date = ${expense_date},
+                loaned = ${loaned}
             WHERE id = ${id}
         `,
     ).catch((error) => {

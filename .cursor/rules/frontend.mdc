@@ -41,11 +41,11 @@ Skip fluff casts (`Boolean(query)`, `String(count)`, `typeof username !== "undef
 
 ```js
 // ❌ BAD
-countEl.textContent = String(visibleRows.length);
+countElement.textContent = String(visibleRows.length);
 row.classList.toggle("d-none", Boolean(query) && !haystack.includes(query));
 
 // ✅ GOOD
-countEl.textContent = visibleRows.length;
+countElement.textContent = visibleRows.length;
 row.classList.toggle("d-none", query && !haystack.includes(query));
 const payload = { id: Number(row.dataset.id), amount: Number(amountInput.value) };
 ```
@@ -60,3 +60,20 @@ const payload = { id: Number(row.dataset.id), amount: Number(amountInput.value) 
 - Page script file name mirrors the view: `views/customers.ejs` → `public/customers.js`.
 - DOM ids use kebab-case (`customer-form`, `invoice-items`).
 - API JSON bodies use snake_case field names matching the backend (`customer_id`, `due_date`, `full_name`).
+- Never use short forms or cryptic abbreviations for variables or parameters — spell the word out:
+
+```js
+// ❌ BAD
+const pl = { … };
+const btn = document.getElementById("…");
+const el = document.getElementById("…");
+const res = await fetch(…);
+
+// ✅ GOOD
+const payload = { … };
+const submitButton = document.getElementById("…");
+const modalElement = document.getElementById("…");
+const response = await fetch(…);
+```
+
+  Also avoid truncations (`Btn` → `Button`, `El` → `Element`, `msg` → `message`) and single/double-letter stand-ins (`e`, `cb`, `fn` → `event`/`error`, `callback`, `handler`). Full short words and schema/DOM field names are fine (`id`, `row`, `form`, `query`, `amount`). Prefer `catch (error)`.

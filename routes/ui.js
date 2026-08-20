@@ -211,10 +211,16 @@ export const uiRoutes = new Elysia()
                     start: rangeStart,
                     end: rangeEnd,
                 });
-                const totalAmount = expenses.reduce(
-                    (sum, expense) => sum + Number(expense.amount || 0),
-                    0,
-                );
+                let nonLoanedAmount = 0;
+                let loanedAmount = 0;
+                for (const expense of expenses) {
+                    const amount = Number(expense.amount || 0);
+                    if (expense.loaned) {
+                        loanedAmount += amount;
+                    } else {
+                        nonLoanedAmount += amount;
+                    }
+                }
 
                 return render("expenses", {
                     title: "Expenses — HammerByte",
@@ -222,7 +228,8 @@ export const uiRoutes = new Elysia()
                     expenses,
                     start: rangeStart,
                     end: rangeEnd,
-                    totalAmount,
+                    nonLoanedAmount,
+                    loanedAmount,
                     itemCount: expenses.length,
                 });
             })

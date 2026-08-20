@@ -6,10 +6,12 @@ import {
 } from "../db/expenses.js";
 
 export async function addExpense({ body, set }) {
+    const { loaned, ...rest } = body;
     const id = await createExpense({
-        ...body,
+        ...rest,
         title: body.title.trim(),
         description: body.description?.trim() || null,
+        ...(loaned ? { loaned: true } : {}),
     });
 
     const expense = await getExpenseById({ id });

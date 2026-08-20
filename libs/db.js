@@ -211,6 +211,7 @@ export async function generateDBTables() {
             description VARCHAR(512) NULL,
             amount DECIMAL(10, 2) NOT NULL,
             expense_date DATE NOT NULL,
+            loaned BOOLEAN NOT NULL DEFAULT FALSE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )`,

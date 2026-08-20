@@ -68,6 +68,24 @@ const updatedInvoice = await getCustomerInvoiceById({ id });
 
 Same idea for lookups before create (`existingUser` by email) and post-update reloads (`updatedApplication`).
 
+Never use short forms or cryptic abbreviations for variables or parameters — spell the word out:
+
+```js
+// ❌ BAD
+const pl = { … };
+const res = await fetch(…);
+const err = …;
+const amt = Number(…);
+
+// ✅ GOOD
+const payload = { … };
+const response = await fetch(…);
+const error = …;
+const amount = Number(…);
+```
+
+Also avoid truncations (`msg` → `message`, `idx` → `index`) and single/double-letter stand-ins (`e`, `cb`, `fn` → `event`/`error`, `callback`, `handler`). Full short words and schema field names are fine (`id`, `row`, `query`, `amount`). Prefer `catch (error)`.
+
 ## Validation & helpers
 
 - Elysia `t.` body / params / query schemas **must be inline** on each route. Never assign a shape to a top-level `const` (or helper) and reuse it on another route. Duplicate the schema on POST and PATCH even when fields match.
