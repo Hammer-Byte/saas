@@ -9,6 +9,7 @@ export const dbConnection = new SQL({
     username: Bun.env.MYSQL_USERNAME,
     password: Bun.env.MYSQL_PASSWORD,
     tls: false,
+    allowPublicKeyRetrieval: true,
     max: 1,
     onconnect: (client) => {
         logger.success("Connected to MySQL DataBase");
