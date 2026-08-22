@@ -2,9 +2,9 @@
     const form = document.getElementById("service-form");
     const formAlert = document.getElementById("service-form-alert");
     const pageAlert = document.getElementById("services-alert");
-    const modalEl = document.getElementById("service-modal");
+    const modalElement = document.getElementById("service-modal");
     const modalLabel = document.getElementById("service-modal-label");
-    const openAddBtn = document.getElementById("open-add-service-btn");
+    const openAddButton = document.getElementById("open-add-service-btn");
     const tbody = document.getElementById("services-tbody");
 
     if (!form || !tbody) {
@@ -50,7 +50,7 @@
         costInput.value = row.dataset.cost || "0";
     }
 
-    openAddBtn?.addEventListener("click", openAddModal);
+    openAddButton?.addEventListener("click", openAddModal);
 
     tbody.addEventListener("click", async (event) => {
         const row = event.target.closest("tr[data-id]");
@@ -58,7 +58,7 @@
 
         if (event.target.closest(".service-edit-btn")) {
             openEditModal(row);
-            const modal = window.bootstrap?.Modal?.getOrCreateInstance(modalEl);
+            const modal = window.bootstrap?.Modal?.getOrCreateInstance(modalElement);
             modal?.show();
             return;
         }
@@ -105,8 +105,8 @@
             return;
         }
 
-        const submitBtn = document.getElementById("service-submit-btn");
-        if (submitBtn) submitBtn.disabled = true;
+        const submitButton = document.getElementById("service-submit-btn");
+        if (submitButton) submitButton.disabled = true;
 
         try {
             const response = await fetch("/api/services", {
@@ -128,7 +128,7 @@
             console.error(error);
             showAlert(formAlert, "Failed to save service.", "danger");
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitButton) submitButton.disabled = false;
         }
     });
 })();

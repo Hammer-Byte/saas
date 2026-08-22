@@ -2,9 +2,9 @@
     const form = document.getElementById("user-form");
     const formAlert = document.getElementById("user-form-alert");
     const pageAlert = document.getElementById("users-alert");
-    const modalEl = document.getElementById("user-modal");
+    const modalElement = document.getElementById("user-modal");
     const modalLabel = document.getElementById("user-modal-label");
-    const openAddBtn = document.getElementById("open-add-user-btn");
+    const openAddButton = document.getElementById("open-add-user-btn");
     const tbody = document.getElementById("users-tbody");
 
     if (!form || !tbody) {
@@ -47,7 +47,7 @@
         emailInput.value = row.dataset.email || "";
     }
 
-    openAddBtn?.addEventListener("click", openAddModal);
+    openAddButton?.addEventListener("click", openAddModal);
 
     tbody.addEventListener("click", async (event) => {
         const row = event.target.closest("tr[data-id]");
@@ -55,7 +55,7 @@
 
         if (event.target.closest(".user-edit-btn")) {
             openEditModal(row);
-            const modal = window.bootstrap?.Modal?.getOrCreateInstance(modalEl);
+            const modal = window.bootstrap?.Modal?.getOrCreateInstance(modalElement);
             modal?.show();
             return;
         }
@@ -101,8 +101,8 @@
             return;
         }
 
-        const submitBtn = document.getElementById("user-submit-btn");
-        if (submitBtn) submitBtn.disabled = true;
+        const submitButton = document.getElementById("user-submit-btn");
+        if (submitButton) submitButton.disabled = true;
 
         try {
             const response = await fetch("/api/users", {
@@ -124,7 +124,7 @@
             console.error(error);
             showAlert(formAlert, "Failed to save user.", "danger");
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitButton) submitButton.disabled = false;
         }
     });
 })();

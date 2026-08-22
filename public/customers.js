@@ -58,8 +58,8 @@
         if (pan_gst) payload.pan_gst = pan_gst;
         if (hsn) payload.hsn = hsn;
 
-        const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
+        const submitButton = form.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
 
         try {
             const response = await fetch("/api/customers", {
@@ -85,7 +85,7 @@
             console.error(error);
             showAlert(formAlert, "Failed to add customer.", "danger");
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitButton) submitButton.disabled = false;
         }
     });
 })();

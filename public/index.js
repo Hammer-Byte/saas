@@ -2,14 +2,14 @@ const form = document.getElementById("inquiry-form");
 const nameInput = document.getElementById("inquiry-name");
 const phoneInput = document.getElementById("inquiry-phone");
 const emailInput = document.getElementById("inquiry-email");
-const submitBtn = document.getElementById("inquiry-submit");
+const submitButton = document.getElementById("inquiry-submit");
 const statusEl = document.getElementById("inquiry-status");
 
-if (form && nameInput && phoneInput && emailInput && submitBtn) {
+if (form && nameInput && phoneInput && emailInput && submitButton) {
     function syncSubmitState() {
         const nameOk = nameInput.value.trim().length > 0;
         const phoneOk = phoneInput.value.trim().length > 0;
-        submitBtn.disabled = !(nameOk && phoneOk);
+        submitButton.disabled = !(nameOk && phoneOk);
     }
 
     function showStatus(message, type) {
@@ -51,8 +51,8 @@ if (form && nameInput && phoneInput && emailInput && submitBtn) {
             return;
         }
 
-        submitBtn.disabled = true;
-        submitBtn.classList.add("is-submitting");
+        submitButton.disabled = true;
+        submitButton.classList.add("is-submitting");
 
         try {
             const response = await fetch("/api/inquiries", {
@@ -81,7 +81,7 @@ if (form && nameInput && phoneInput && emailInput && submitBtn) {
             syncSubmitState();
             showStatus("Unable to submit inquiry. Please try again.", "error");
         } finally {
-            submitBtn.classList.remove("is-submitting");
+            submitButton.classList.remove("is-submitting");
         }
     });
 }

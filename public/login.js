@@ -4,13 +4,13 @@
     const otpStep = document.getElementById("otp-step");
     const emailInput = document.getElementById("login-email");
     const otpInput = document.getElementById("login-otp");
-    const getOtpBtn = document.getElementById("get-otp-btn");
-    const cancelOtpBtn = document.getElementById("cancel-otp-btn");
-    const verifyOtpBtn = document.getElementById("verify-otp-btn");
+    const getOtpButton = document.getElementById("get-otp-btn");
+    const cancelOtpButton = document.getElementById("cancel-otp-btn");
+    const verifyOtpButton = document.getElementById("verify-otp-btn");
     const statusEl = document.getElementById("login-status");
     let authenticationToken = "";
 
-    if (!form || !emailInput || !otpInput || !getOtpBtn) {
+    if (!form || !emailInput || !otpInput || !getOtpButton) {
         return;
     }
 
@@ -38,12 +38,12 @@
     emailInput.addEventListener("input", clearError);
     otpInput.addEventListener("input", clearError);
 
-    cancelOtpBtn?.addEventListener("click", () => {
+    cancelOtpButton?.addEventListener("click", () => {
         clearError();
         showEmailStep();
     });
 
-    getOtpBtn.addEventListener("click", async () => {
+    getOtpButton.addEventListener("click", async () => {
         clearError();
 
         const email = emailInput.value.trim();
@@ -52,7 +52,7 @@
             return;
         }
 
-        getOtpBtn.disabled = true;
+        getOtpButton.disabled = true;
 
         try {
             const response = await fetch("/api/authentication-tokens", {
@@ -84,7 +84,7 @@
             console.error(error);
             showError("Unable to send OTP. Please try again.");
         } finally {
-            getOtpBtn.disabled = false;
+            getOtpButton.disabled = false;
         }
     });
 
@@ -104,7 +104,7 @@
             return;
         }
 
-        if (verifyOtpBtn) verifyOtpBtn.disabled = true;
+        if (verifyOtpButton) verifyOtpButton.disabled = true;
 
         try {
             const response = await fetch("/api/authentication-tokens", {
@@ -131,7 +131,7 @@
             console.error(error);
             showError("Unable to verify OTP. Please try again.");
         } finally {
-            if (verifyOtpBtn) verifyOtpBtn.disabled = false;
+            if (verifyOtpButton) verifyOtpButton.disabled = false;
         }
     });
 })();

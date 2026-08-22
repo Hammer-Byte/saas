@@ -1,12 +1,12 @@
 (() => {
     const invoiceForm = document.getElementById("invoice-detail-form");
     const invoiceAlert = document.getElementById("invoice-alert");
-    const editInvoiceBtn = document.getElementById("edit-invoice-btn");
-    const saveInvoiceBtn = document.getElementById("save-invoice-btn");
-    const cancelEditInvoiceBtn = document.getElementById("cancel-edit-invoice-btn");
-    const deleteInvoiceBtn = document.getElementById("delete-invoice-btn");
-    const addServiceUsageBtn = document.getElementById("add-service-usage-btn");
-    const sendInvoiceReminderBtn = document.getElementById("send-invoice-reminder-btn");
+    const editInvoiceButton = document.getElementById("edit-invoice-btn");
+    const saveInvoiceButton = document.getElementById("save-invoice-btn");
+    const cancelEditInvoiceButton = document.getElementById("cancel-edit-invoice-btn");
+    const deleteInvoiceButton = document.getElementById("delete-invoice-btn");
+    const addServiceUsageButton = document.getElementById("add-service-usage-btn");
+    const sendInvoiceReminderButton = document.getElementById("send-invoice-reminder-btn");
     const itemForm = document.getElementById("invoice-item-form");
     const itemFormAlert = document.getElementById("invoice-item-form-alert");
     const itemModalLabel = document.getElementById("invoice-item-modal-label");
@@ -14,7 +14,7 @@
     const itemNameField = document.getElementById("invoice-item-name");
     const itemCostField = document.getElementById("invoice-item-cost");
     const itemQuantityField = document.getElementById("invoice-item-quantity");
-    const openAddItemBtn = document.getElementById("open-add-invoice-item-btn");
+    const openAddItemButton = document.getElementById("open-add-invoice-item-btn");
     const paymentForm = document.getElementById("invoice-payment-form");
     const paymentFormAlert = document.getElementById("invoice-payment-form-alert");
     const paymentModalLabel = document.getElementById("invoice-payment-modal-label");
@@ -23,7 +23,7 @@
     const paymentAmountField = document.getElementById("invoice-payment-amount");
     const paymentGstField = document.getElementById("invoice-payment-gst");
     const paymentNoteField = document.getElementById("invoice-payment-note");
-    const openAddPaymentBtn = document.getElementById("open-add-invoice-payment-btn");
+    const openAddPaymentButton = document.getElementById("open-add-invoice-payment-btn");
     let dueDateSnapshot = "";
 
     const dueDateField = invoiceForm?.elements.namedItem("due_date");
@@ -53,19 +53,19 @@
     function setDueDateEditing(enabled) {
         const dueDateField = invoiceForm?.elements.namedItem("due_date");
         if (dueDateField) dueDateField.disabled = !enabled;
-        editInvoiceBtn?.classList.toggle("d-none", enabled);
-        saveInvoiceBtn?.classList.toggle("d-none", !enabled);
-        cancelEditInvoiceBtn?.classList.toggle("d-none", !enabled);
+        editInvoiceButton?.classList.toggle("d-none", enabled);
+        saveInvoiceButton?.classList.toggle("d-none", !enabled);
+        cancelEditInvoiceButton?.classList.toggle("d-none", !enabled);
         if (enabled) dueDateField?.focus();
     }
 
-    editInvoiceBtn?.addEventListener("click", () => {
+    editInvoiceButton?.addEventListener("click", () => {
         hideAlert(invoiceAlert);
         dueDateSnapshot = invoiceForm?.elements.namedItem("due_date")?.value || "";
         setDueDateEditing(true);
     });
 
-    cancelEditInvoiceBtn?.addEventListener("click", () => {
+    cancelEditInvoiceButton?.addEventListener("click", () => {
         hideAlert(invoiceAlert);
         const dueDateField = invoiceForm?.elements.namedItem("due_date");
         if (dueDateField) dueDateField.value = dueDateSnapshot;
@@ -86,7 +86,7 @@
             return;
         }
 
-        if (saveInvoiceBtn) saveInvoiceBtn.disabled = true;
+        if (saveInvoiceButton) saveInvoiceButton.disabled = true;
 
         try {
             const response = await fetch("/api/customer-invoices", {
@@ -107,11 +107,11 @@
             console.error(error);
             showAlert(invoiceAlert, "Failed to update invoice.", "danger");
         } finally {
-            if (saveInvoiceBtn) saveInvoiceBtn.disabled = false;
+            if (saveInvoiceButton) saveInvoiceButton.disabled = false;
         }
     });
 
-    deleteInvoiceBtn?.addEventListener("click", async () => {
+    deleteInvoiceButton?.addEventListener("click", async () => {
         if (!window.confirm("Delete this invoice?")) {
             return;
         }
@@ -136,12 +136,12 @@
         }
     });
 
-    sendInvoiceReminderBtn?.addEventListener("click", async () => {
+    sendInvoiceReminderButton?.addEventListener("click", async () => {
         const invoiceId = invoiceForm?.dataset.invoiceId;
-        if (!invoiceId || sendInvoiceReminderBtn.disabled) return;
+        if (!invoiceId || sendInvoiceReminderButton.disabled) return;
 
         hideAlert(invoiceAlert);
-        sendInvoiceReminderBtn.disabled = true;
+        sendInvoiceReminderButton.disabled = true;
 
         try {
             const response = await fetch(`/api/customer-invoices/${invoiceId}/reminder`, {
@@ -160,16 +160,16 @@
             console.error(error);
             showAlert(invoiceAlert, "Failed to send reminder.", "danger");
         } finally {
-            sendInvoiceReminderBtn.disabled = false;
+            sendInvoiceReminderButton.disabled = false;
         }
     });
 
-    addServiceUsageBtn?.addEventListener("click", async () => {
+    addServiceUsageButton?.addEventListener("click", async () => {
         const invoiceId = invoiceForm?.dataset.invoiceId;
         if (!invoiceId) return;
 
         hideAlert(invoiceAlert);
-        addServiceUsageBtn.disabled = true;
+        addServiceUsageButton.disabled = true;
 
         try {
             const response = await fetch(`/api/customer-invoices/${invoiceId}/service-usage`, {
@@ -188,11 +188,11 @@
             console.error(error);
             showAlert(invoiceAlert, "Failed to add service usage.", "danger");
         } finally {
-            addServiceUsageBtn.disabled = false;
+            addServiceUsageButton.disabled = false;
         }
     });
 
-    openAddItemBtn?.addEventListener("click", () => {
+    openAddItemButton?.addEventListener("click", () => {
         hideAlert(itemFormAlert);
         if (itemModalLabel) itemModalLabel.textContent = "Add item";
         if (itemIdField) itemIdField.value = "";
@@ -201,31 +201,31 @@
         if (itemQuantityField) itemQuantityField.value = "1";
     });
 
-    document.querySelectorAll(".invoice-item-edit-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
+    document.querySelectorAll(".invoice-item-edit-btn").forEach((button) => {
+        button.addEventListener("click", () => {
             hideAlert(itemFormAlert);
             if (itemModalLabel) itemModalLabel.textContent = "Edit item";
-            if (itemIdField) itemIdField.value = btn.dataset.id || "";
-            if (itemNameField) itemNameField.value = btn.dataset.item || "";
-            if (itemCostField) itemCostField.value = btn.dataset.cost || "0";
-            if (itemQuantityField) itemQuantityField.value = btn.dataset.quantity || "1";
+            if (itemIdField) itemIdField.value = button.dataset.id || "";
+            if (itemNameField) itemNameField.value = button.dataset.item || "";
+            if (itemCostField) itemCostField.value = button.dataset.cost || "0";
+            if (itemQuantityField) itemQuantityField.value = button.dataset.quantity || "1";
 
-            const modalEl = document.getElementById("invoice-item-modal");
-            if (modalEl && window.bootstrap?.Modal) {
-                window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            const modalElement = document.getElementById("invoice-item-modal");
+            if (modalElement && window.bootstrap?.Modal) {
+                window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
             }
         });
     });
 
-    document.querySelectorAll(".invoice-item-delete-btn").forEach((btn) => {
-        btn.addEventListener("click", async () => {
+    document.querySelectorAll(".invoice-item-delete-btn").forEach((button) => {
+        button.addEventListener("click", async () => {
             if (!window.confirm("Delete this item?")) {
                 return;
             }
 
             const invoiceId = itemForm?.dataset.invoiceId;
             try {
-                const response = await fetch(`/api/invoice-items/${btn.dataset.id}`, {
+                const response = await fetch(`/api/invoice-items/${button.dataset.id}`, {
                     method: "DELETE",
                     credentials: "same-origin",
                 });
@@ -266,8 +266,8 @@
             return;
         }
 
-        const submitBtn = itemForm.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
+        const submitButton = itemForm.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
 
         try {
             const response = await fetch(
@@ -295,7 +295,7 @@
             console.error(error);
             showAlert(itemFormAlert, "Failed to save item.", "danger");
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitButton) submitButton.disabled = false;
         }
     });
 
@@ -317,7 +317,7 @@
 
     paymentPaidField?.addEventListener("input", updatePaymentSplit);
 
-    openAddPaymentBtn?.addEventListener("click", () => {
+    openAddPaymentButton?.addEventListener("click", () => {
         hideAlert(paymentFormAlert);
         if (paymentModalLabel) paymentModalLabel.textContent = "Add payment";
         if (paymentIdField) paymentIdField.value = "";
@@ -326,34 +326,34 @@
         updatePaymentSplit();
     });
 
-    document.querySelectorAll(".invoice-payment-edit-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
+    document.querySelectorAll(".invoice-payment-edit-btn").forEach((button) => {
+        button.addEventListener("click", () => {
             hideAlert(paymentFormAlert);
             if (paymentModalLabel) paymentModalLabel.textContent = "Edit payment";
-            if (paymentIdField) paymentIdField.value = btn.dataset.id || "";
+            if (paymentIdField) paymentIdField.value = button.dataset.id || "";
             if (paymentPaidField) {
                 paymentPaidField.value = roundMoney(
-                    Number(btn.dataset.amount || 0) + Number(btn.dataset.gst || 0),
+                    Number(button.dataset.amount || 0) + Number(button.dataset.gst || 0),
                 );
             }
-            if (paymentNoteField) paymentNoteField.value = btn.dataset.note || "";
+            if (paymentNoteField) paymentNoteField.value = button.dataset.note || "";
             updatePaymentSplit();
 
-            const modalEl = document.getElementById("invoice-payment-modal");
-            if (modalEl && window.bootstrap?.Modal) {
-                window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            const modalElement = document.getElementById("invoice-payment-modal");
+            if (modalElement && window.bootstrap?.Modal) {
+                window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
             }
         });
     });
 
-    document.querySelectorAll(".invoice-payment-delete-btn").forEach((btn) => {
-        btn.addEventListener("click", async () => {
+    document.querySelectorAll(".invoice-payment-delete-btn").forEach((button) => {
+        button.addEventListener("click", async () => {
             if (!window.confirm("Delete this payment?")) {
                 return;
             }
 
             try {
-                const response = await fetch(`/api/invoice-payments/${btn.dataset.id}`, {
+                const response = await fetch(`/api/invoice-payments/${button.dataset.id}`, {
                     method: "DELETE",
                     credentials: "same-origin",
                 });
@@ -390,8 +390,8 @@
         const payload = { amount };
         if (note) payload.note = note;
 
-        const submitBtn = paymentForm.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
+        const submitButton = paymentForm.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
 
         try {
             const response = await fetch(
@@ -417,7 +417,7 @@
             console.error(error);
             showAlert(paymentFormAlert, "Failed to save payment.", "danger");
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitButton) submitButton.disabled = false;
         }
     });
 })();

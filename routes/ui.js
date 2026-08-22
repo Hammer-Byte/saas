@@ -295,11 +295,15 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
-                const [customerPhones, customerEmails, customerProjects] = await Promise.all([
-                    getCustomerPhonesByCustomerId({ customer_id: customer.id }),
-                    getCustomerEmailsByCustomerId({ customer_id: customer.id }),
-                    getCustomerProjectsByCustomerId({ customer_id: customer.id }),
-                ]);
+                const customerPhones = await getCustomerPhonesByCustomerId({
+                    customer_id: customer.id,
+                });
+                const customerEmails = await getCustomerEmailsByCustomerId({
+                    customer_id: customer.id,
+                });
+                const customerProjects = await getCustomerProjectsByCustomerId({
+                    customer_id: customer.id,
+                });
 
                 return render("customer", {
                     title: `Customer — ${customer.full_name}`,

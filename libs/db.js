@@ -225,12 +225,4 @@ export async function generateDBTables() {
     for (const table of requiredTables) {
         await dbConnection.unsafe(table);
     }
-
-    await dbConnection
-        .unsafe(`ALTER TABLE INVOICE_PAYMENTS ADD COLUMN note VARCHAR(512) NULL`)
-        .catch((error) => {
-            if (!String(error).includes("Duplicate column")) {
-                throw error;
-            }
-        });
 }

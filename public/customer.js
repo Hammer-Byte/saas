@@ -1,13 +1,13 @@
 (() => {
     const customerForm = document.getElementById("customer-detail-form");
     const customerAlert = document.getElementById("customer-alert");
-    const deleteCustomerBtn = document.getElementById("delete-customer-btn");
-    const editCustomerBtn = document.getElementById("edit-customer-btn");
-    const saveCustomerBtn = document.getElementById("save-customer-btn");
-    const cancelEditCustomerBtn = document.getElementById("cancel-edit-customer-btn");
+    const deleteCustomerButton = document.getElementById("delete-customer-btn");
+    const editCustomerButton = document.getElementById("edit-customer-btn");
+    const saveCustomerButton = document.getElementById("save-customer-btn");
+    const cancelEditCustomerButton = document.getElementById("cancel-edit-customer-btn");
     const projectForm = document.getElementById("customer-project-form");
     const projectFormAlert = document.getElementById("customer-project-form-alert");
-    const openAddProjectBtn = document.getElementById("open-add-customer-project-btn");
+    const openAddProjectButton = document.getElementById("open-add-customer-project-btn");
 
     document.querySelectorAll(".customer-project-row[data-href]").forEach((row) => {
         row.addEventListener("click", () => {
@@ -74,22 +74,22 @@
             if (field) field.disabled = !enabled;
         }
 
-        editCustomerBtn?.classList.toggle("d-none", enabled);
-        saveCustomerBtn?.classList.toggle("d-none", !enabled);
-        cancelEditCustomerBtn?.classList.toggle("d-none", !enabled);
+        editCustomerButton?.classList.toggle("d-none", enabled);
+        saveCustomerButton?.classList.toggle("d-none", !enabled);
+        cancelEditCustomerButton?.classList.toggle("d-none", !enabled);
 
         if (enabled) {
             getField("full_name")?.focus();
         }
     }
 
-    editCustomerBtn?.addEventListener("click", () => {
+    editCustomerButton?.addEventListener("click", () => {
         hideAlert(customerAlert);
         snapshot = readSnapshot();
         setEditing(true);
     });
 
-    cancelEditCustomerBtn?.addEventListener("click", () => {
+    cancelEditCustomerButton?.addEventListener("click", () => {
         hideAlert(customerAlert);
         if (snapshot) applySnapshot(snapshot);
         setEditing(false);
@@ -117,7 +117,7 @@
             return;
         }
 
-        if (saveCustomerBtn) saveCustomerBtn.disabled = true;
+        if (saveCustomerButton) saveCustomerButton.disabled = true;
 
         try {
             const response = await fetch("/api/customers", {
@@ -140,11 +140,11 @@
             console.error(error);
             showAlert(customerAlert, "Failed to update customer.", "danger");
         } finally {
-            if (saveCustomerBtn) saveCustomerBtn.disabled = false;
+            if (saveCustomerButton) saveCustomerButton.disabled = false;
         }
     });
 
-    deleteCustomerBtn?.addEventListener("click", async () => {
+    deleteCustomerButton?.addEventListener("click", async () => {
         if (!window.confirm("Delete this customer?")) {
             return;
         }
@@ -175,7 +175,7 @@
     const projectTitleInput = projectForm.elements.namedItem("title");
     const projectDescriptionInput = projectForm.elements.namedItem("description");
 
-    openAddProjectBtn?.addEventListener("click", () => {
+    openAddProjectButton?.addEventListener("click", () => {
         hideAlert(projectFormAlert);
         projectForm.reset();
     });
@@ -195,8 +195,8 @@
         const payload = { title };
         if (description) payload.description = description;
 
-        const submitBtn = projectForm.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
+        const submitButton = projectForm.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
 
         try {
             const response = await fetch("/api/customer-projects", {
@@ -220,7 +220,7 @@
             console.error(error);
             showAlert(projectFormAlert, "Failed to save project.", "danger");
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitButton) submitButton.disabled = false;
         }
     });
 })();

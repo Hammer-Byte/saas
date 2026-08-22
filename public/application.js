@@ -28,9 +28,9 @@
                 return;
             }
 
-            const saveBtn = form.querySelector('button[type="submit"]');
-            if (saveBtn) {
-                saveBtn.disabled = true;
+            const saveButton = form.querySelector('button[type="submit"]');
+            if (saveButton) {
+                saveButton.disabled = true;
             }
 
             try {
@@ -68,8 +68,8 @@
                 console.error(error);
                 showAlert(alertBox, "Failed to update application.", "danger");
             } finally {
-                if (saveBtn) {
-                    saveBtn.disabled = false;
+                if (saveButton) {
+                    saveButton.disabled = false;
                 }
             }
         });
@@ -89,9 +89,9 @@
                 return;
             }
 
-            const submitBtn = addServiceForm.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = true;
+            const submitButton = addServiceForm.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.disabled = true;
             }
 
             try {
@@ -119,8 +119,8 @@
                 console.error(error);
                 showAlert(addServiceAlert, "Failed to add service.", "danger");
             } finally {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
+                if (submitButton) {
+                    submitButton.disabled = false;
                 }
             }
         });

@@ -6,7 +6,7 @@
     const projectSelect = document.getElementById("project_id");
     const dateInput = document.getElementById("invoice-date");
     const itemsContainer = document.getElementById("invoice-items");
-    const addItemBtn = document.getElementById("add-invoice-item-btn");
+    const addItemButton = document.getElementById("add-invoice-item-btn");
 
     function showAlert(target, message, type) {
         if (!target) return;
@@ -87,7 +87,7 @@
     customerSelect?.addEventListener("change", filterProjectsByCustomer);
     filterProjectsByCustomer();
 
-    addItemBtn?.addEventListener("click", () => {
+    addItemButton?.addEventListener("click", () => {
         formAlert?.classList.add("d-none");
         itemsContainer?.appendChild(createItemRow());
     });
@@ -104,15 +104,15 @@
         resetItems();
     });
 
-    document.querySelectorAll(".invoice-delete-btn").forEach((btn) => {
-        btn.addEventListener("click", async (event) => {
+    document.querySelectorAll(".invoice-delete-btn").forEach((button) => {
+        button.addEventListener("click", async (event) => {
             event.stopPropagation();
             if (!window.confirm("Delete this invoice?")) {
                 return;
             }
 
             try {
-                const response = await fetch(`/api/customer-invoices/${btn.dataset.id}`, {
+                const response = await fetch(`/api/customer-invoices/${button.dataset.id}`, {
                     method: "DELETE",
                     credentials: "same-origin",
                 });
@@ -172,8 +172,8 @@
             return;
         }
 
-        const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
+        const submitButton = form.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
 
         try {
             const response = await fetch("/api/customer-invoices", {
@@ -194,7 +194,7 @@
             console.error(error);
             showAlert(formAlert, "Failed to add invoice.", "danger");
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitButton) submitButton.disabled = false;
         }
     });
 })();

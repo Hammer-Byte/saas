@@ -1,16 +1,16 @@
 (() => {
     const form = document.getElementById("customer-project-detail-form");
     const alertBox = document.getElementById("customer-project-alert");
-    const editBtn = document.getElementById("edit-project-btn");
-    const saveBtn = document.getElementById("save-project-btn");
-    const cancelBtn = document.getElementById("cancel-edit-project-btn");
-    const deleteBtn = document.getElementById("delete-project-btn");
+    const editButton = document.getElementById("edit-project-btn");
+    const saveButton = document.getElementById("save-project-btn");
+    const cancelButton = document.getElementById("cancel-edit-project-btn");
+    const deleteButton = document.getElementById("delete-project-btn");
     const addAppForm = document.getElementById("add-application-form");
     const addAppAlert = document.getElementById("add-application-alert");
     const invoiceForm = document.getElementById("invoice-form");
     const invoiceFormAlert = document.getElementById("invoice-form-alert");
     const itemsContainer = document.getElementById("invoice-items");
-    const addItemBtn = document.getElementById("add-invoice-item-btn");
+    const addItemButton = document.getElementById("add-invoice-item-btn");
     const invoiceDateInput = document.getElementById("invoice-date");
 
     function showAlert(target, message, type) {
@@ -56,19 +56,19 @@
                 const field = getField(name);
                 if (field) field.disabled = !enabled;
             }
-            editBtn?.classList.toggle("d-none", enabled);
-            saveBtn?.classList.toggle("d-none", !enabled);
-            cancelBtn?.classList.toggle("d-none", !enabled);
+            editButton?.classList.toggle("d-none", enabled);
+            saveButton?.classList.toggle("d-none", !enabled);
+            cancelButton?.classList.toggle("d-none", !enabled);
             if (enabled) getField("title")?.focus();
         }
 
-        editBtn?.addEventListener("click", () => {
+        editButton?.addEventListener("click", () => {
             hideAlert(alertBox);
             snapshot = readSnapshot();
             setEditing(true);
         });
 
-        cancelBtn?.addEventListener("click", () => {
+        cancelButton?.addEventListener("click", () => {
             hideAlert(alertBox);
             if (snapshot) applySnapshot(snapshot);
             setEditing(false);
@@ -89,7 +89,7 @@
             const payload = { id: Number(projectId), title };
             if (description) payload.description = description;
 
-            if (saveBtn) saveBtn.disabled = true;
+            if (saveButton) saveButton.disabled = true;
 
             try {
                 const response = await fetch("/api/customer-projects", {
@@ -112,11 +112,11 @@
                 console.error(error);
                 showAlert(alertBox, "Failed to update project.", "danger");
             } finally {
-                if (saveBtn) saveBtn.disabled = false;
+                if (saveButton) saveButton.disabled = false;
             }
         });
 
-        deleteBtn?.addEventListener("click", async () => {
+        deleteButton?.addEventListener("click", async () => {
             if (!window.confirm("Delete this project?")) {
                 return;
             }
@@ -153,8 +153,8 @@
             return;
         }
 
-        const submitBtn = addAppForm.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
+        const submitButton = addAppForm.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
 
         try {
             const response = await fetch("/api/project-applications", {
@@ -179,7 +179,7 @@
             console.error(error);
             showAlert(addAppAlert, "Failed to add application.", "danger");
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitButton) submitButton.disabled = false;
         }
     });
 
@@ -233,7 +233,7 @@
         });
     });
 
-    addItemBtn?.addEventListener("click", () => {
+    addItemButton?.addEventListener("click", () => {
         invoiceFormAlert?.classList.add("d-none");
         itemsContainer?.appendChild(createItemRow());
     });
@@ -279,8 +279,8 @@
                 return;
             }
 
-            const submitBtn = invoiceForm.querySelector('button[type="submit"]');
-            if (submitBtn) submitBtn.disabled = true;
+            const submitButton = invoiceForm.querySelector('button[type="submit"]');
+            if (submitButton) submitButton.disabled = true;
 
             try {
                 const response = await fetch("/api/customer-invoices", {
@@ -301,7 +301,7 @@
                 console.error(error);
                 showAlert(invoiceFormAlert, "Failed to add invoice.", "danger");
             } finally {
-                if (submitBtn) submitBtn.disabled = false;
+                if (submitButton) submitButton.disabled = false;
             }
         });
     }

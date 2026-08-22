@@ -50,13 +50,19 @@ export async function getCustomerInvoiceHtml({ id }) {
         return null;
     }
 
-    const [customer, customerPhones, customerEmails, items, amountPaid] = await Promise.all([
-        getCustomerById({ id: invoice.customer_id }),
-        getCustomerPhonesByCustomerId({ customer_id: invoice.customer_id }),
-        getCustomerEmailsByCustomerId({ customer_id: invoice.customer_id }),
-        getInvoiceItemsByCustomerInvoiceId({ customer_invoice_id: invoice.id }),
-        getInvoicePaymentsTotalByCustomerInvoiceId({ customer_invoice_id: invoice.id }),
-    ]);
+    const customer = await getCustomerById({ id: invoice.customer_id });
+    const customerPhones = await getCustomerPhonesByCustomerId({
+        customer_id: invoice.customer_id,
+    });
+    const customerEmails = await getCustomerEmailsByCustomerId({
+        customer_id: invoice.customer_id,
+    });
+    const items = await getInvoiceItemsByCustomerInvoiceId({
+        customer_invoice_id: invoice.id,
+    });
+    const amountPaid = await getInvoicePaymentsTotalByCustomerInvoiceId({
+        customer_invoice_id: invoice.id,
+    });
 
     const subTotal = Number(invoice.total || 0);
     const gst = Number(invoice.gst || 0);

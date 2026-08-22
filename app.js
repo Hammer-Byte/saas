@@ -25,8 +25,8 @@ try {
     await generateDBTables();
     logger.success("Database Ready (Tables Verified)");
     allowTraffic();
-} catch (e) {
-    logger.error(`Application Exited - ${e.message}`);
+} catch (error) {
+    logger.error(`Application Exited - ${error.message}`);
 }
 
 
