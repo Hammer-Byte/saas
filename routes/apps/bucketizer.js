@@ -8,7 +8,8 @@ const { SERVICES } = hammerbyteUtils.CONSTANTS.SAAS;
 
 export default function (app) {
     return app
-        .post("/", bucketize, {
+        .post("/", ({ application, body, set }) =>
+            bucketize({ directory: application.service.id, body, set }), {
             body: t.Object({
                 file: t.String({ error: ERRORS.FILE_REQUIRED }),
                 accumulator: t.String({ error: ERRORS.ACCUMULATOR_REQUIRED }),
@@ -19,7 +20,8 @@ export default function (app) {
                 description: "Returns presigned GET and PUT URLs for a generated object key.",
             },
         })
-        .get("/:file", getBucketized, {
+        .get("/:file", ({ application, params, query }) =>
+            getBucketized({ directory: application.service.id, params, query }), {
             params: t.Object({
                 file: t.String({ error: ERRORS.FILE_REQUIRED }),
             }),

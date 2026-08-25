@@ -17,3 +17,7 @@ export const ERRORS = {
 export const SWAGGER = {
     APPLICATION: "Saas Mailer",
 };
+
+export const BUCKETIZER = {
+    INTERNAL_DIRECTORY: "hammerbyte",
+};
