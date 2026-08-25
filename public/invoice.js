@@ -112,7 +112,15 @@
     });
 
     deleteInvoiceButton?.addEventListener("click", async () => {
-        if (!window.confirm("Delete this invoice?")) {
+        const confirmed = await showConfirm({
+            title: "Delete invoice?",
+            description: "This cannot be undone.",
+            choices: [
+                { label: "Cancel", variant: "secondary", value: false },
+                { label: "Delete", variant: "danger", value: true },
+            ],
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -219,7 +227,15 @@
 
     document.querySelectorAll(".invoice-item-delete-btn").forEach((button) => {
         button.addEventListener("click", async () => {
-            if (!window.confirm("Delete this item?")) {
+            const confirmed = await showConfirm({
+                title: "Delete item?",
+                description: "This cannot be undone.",
+                choices: [
+                    { label: "Cancel", variant: "secondary", value: false },
+                    { label: "Delete", variant: "danger", value: true },
+                ],
+            });
+            if (!confirmed) {
                 return;
             }
 
@@ -348,7 +364,15 @@
 
     document.querySelectorAll(".invoice-payment-delete-btn").forEach((button) => {
         button.addEventListener("click", async () => {
-            if (!window.confirm("Delete this payment?")) {
+            const confirmed = await showConfirm({
+                title: "Delete payment?",
+                description: "This cannot be undone.",
+                choices: [
+                    { label: "Cancel", variant: "secondary", value: false },
+                    { label: "Delete", variant: "danger", value: true },
+                ],
+            });
+            if (!confirmed) {
                 return;
             }
 

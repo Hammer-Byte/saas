@@ -107,7 +107,15 @@
     document.querySelectorAll(".invoice-delete-btn").forEach((button) => {
         button.addEventListener("click", async (event) => {
             event.stopPropagation();
-            if (!window.confirm("Delete this invoice?")) {
+            const confirmed = await showConfirm({
+                title: "Delete invoice?",
+                description: "This cannot be undone.",
+                choices: [
+                    { label: "Cancel", variant: "secondary", value: false },
+                    { label: "Delete", variant: "danger", value: true },
+                ],
+            });
+            if (!confirmed) {
                 return;
             }
 

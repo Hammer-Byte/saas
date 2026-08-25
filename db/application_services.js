@@ -48,7 +48,7 @@ export async function canApplicationUseService({ application_id, service_id }) {
         (sql) => sql` SELECT * FROM APPLICATION_SERVICES WHERE application_id=${application_id} AND service_id=${service_id} AND active=TRUE`,
     )
         .then((result) => (result.length ? result[0] : false))
-        .catch((error) => logger.error(`canApplicationUserService: ${error}`));
+        .catch((error) => logger.error(`canApplicationUseService: ${error}`));
 }
 
 export async function getAllApplicationServicesByApplicationId({ application_id }) {

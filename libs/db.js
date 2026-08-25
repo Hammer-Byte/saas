@@ -216,6 +216,43 @@ export async function generateDBTables() {
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )`,
+        `CREATE TABLE IF NOT EXISTS MEDIA (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(64) NOT NULL,
+            file VARCHAR(64) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS JOB_POSITIONS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(128) NOT NULL,
+            description TEXT NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS JOB_APPLICANTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            job_position_id INT NOT NULL,
+            full_name VARCHAR(128) NOT NULL,
+            phone VARCHAR(13) NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            cv INT NOT NULL,
+            viewed BOOLEAN NOT NULL DEFAULT FALSE,
+            selected BOOLEAN NOT NULL DEFAULT FALSE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_job_applicants_job_position
+                FOREIGN KEY (job_position_id)
+                REFERENCES JOB_POSITIONS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_job_applicants_media
+                FOREIGN KEY (cv)
+                REFERENCES MEDIA(id)
+                ON DELETE RESTRICT
+                ON UPDATE CASCADE
+        )`,
 
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,

@@ -89,6 +89,33 @@ Also avoid truncations (`msg` → `message`, `idx` → `index`) and single/doubl
 ## Validation & helpers
 
 - Elysia `t.` body / params / query schemas **must be inline** on each route. Never assign a shape to a top-level `const` (or helper) and reuse it on another route. Duplicate the schema on POST and PATCH even when fields match.
+
+```js
+// ❌ BAD — extracted and reused across routes
+const customerBody = t.Object({
+    full_name: t.String({ minLength: 1, maxLength: 128 }),
+});
+app.post("/", addCustomer, { body: customerBody })
+   .patch("/", updateCustomer, { body: customerBody });
+
+// ❌ BAD — shared field schema
+const phone = t.String({ pattern: "^\\+?[0-9]{10,13}$" });
+
+// ✅ GOOD — each route owns a full inline schema (duplicate fields if needed)
+app.post("/", addCustomer, {
+    body: t.Object({
+        full_name: t.String({ minLength: 1, maxLength: 128 }),
+        phones: t.Optional(t.Array(t.String({ pattern: "^\\+?[0-9]{10,13}$" }))),
+    }),
+}).patch("/", updateCustomer, {
+    body: t.Object({
+        id: t.Numeric({ minimum: 1 }),
+        full_name: t.String({ minLength: 1, maxLength: 128 }),
+        phones: t.Optional(t.Array(t.String({ pattern: "^\\+?[0-9]{10,13}$" }))),
+    }),
+});
+```
+
 - Validate request shape **only** at the route (`minItems`, `minLength`, types, etc.). Do **not** re-check those in `services/` — services do existence/ownership/business rules only.
 - Do **not** extract a helper for logic used in only one place — inline it. Extract only when the same logic is shared (two or more call sites). Exported route/service/db entry points and shared utils are fine even if a given file calls them once.
 

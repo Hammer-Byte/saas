@@ -5,9 +5,9 @@
     const modalElement = document.getElementById("user-modal");
     const modalLabel = document.getElementById("user-modal-label");
     const openAddButton = document.getElementById("open-add-user-btn");
-    const tbody = document.getElementById("users-tbody");
+    const tableBody = document.getElementById("users-tbody");
 
-    if (!form || !tbody) {
+    if (!form || !tableBody) {
         return;
     }
 
@@ -49,7 +49,7 @@
 
     openAddButton?.addEventListener("click", openAddModal);
 
-    tbody.addEventListener("click", async (event) => {
+    tableBody.addEventListener("click", async (event) => {
         const row = event.target.closest("tr[data-id]");
         if (!row) return;
 
@@ -61,7 +61,15 @@
         }
 
         if (event.target.closest(".user-delete-btn")) {
-            if (!window.confirm("Delete this user?")) {
+            const confirmed = await showConfirm({
+                title: "Delete user?",
+                description: "This cannot be undone.",
+                choices: [
+                    { label: "Cancel", variant: "secondary", value: false },
+                    { label: "Delete", variant: "danger", value: true },
+                ],
+            });
+            if (!confirmed) {
                 return;
             }
 

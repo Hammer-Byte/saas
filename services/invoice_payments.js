@@ -14,8 +14,8 @@ export async function addInvoicePayment({ body, set }) {
     }
 
     const id = await createInvoicePayment({
+        ...body,
         customer_invoice_id: invoice.id,
-        amount: body.amount,
         note: body.note?.trim() || null,
     });
 
@@ -33,8 +33,8 @@ export async function updateInvoicePayment({ params, body, set }) {
     }
 
     await updateInvoicePaymentById({
+        ...body,
         id: existingPayment.id,
-        amount: body.amount,
         note: body.note?.trim() || null,
     });
 

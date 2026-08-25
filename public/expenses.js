@@ -119,7 +119,15 @@
         }
 
         if (event.target.closest(".expense-delete-btn")) {
-            if (!window.confirm("Delete this expense?")) {
+            const confirmed = await showConfirm({
+                title: "Delete expense?",
+                description: "This cannot be undone.",
+                choices: [
+                    { label: "Cancel", variant: "secondary", value: false },
+                    { label: "Delete", variant: "danger", value: true },
+                ],
+            });
+            if (!confirmed) {
                 return;
             }
 

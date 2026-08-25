@@ -145,7 +145,15 @@
     });
 
     deleteCustomerButton?.addEventListener("click", async () => {
-        if (!window.confirm("Delete this customer?")) {
+        const confirmed = await showConfirm({
+            title: "Delete customer?",
+            description: "This cannot be undone.",
+            choices: [
+                { label: "Cancel", variant: "secondary", value: false },
+                { label: "Delete", variant: "danger", value: true },
+            ],
+        });
+        if (!confirmed) {
             return;
         }
 

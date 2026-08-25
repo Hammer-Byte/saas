@@ -117,7 +117,15 @@
         });
 
         deleteButton?.addEventListener("click", async () => {
-            if (!window.confirm("Delete this project?")) {
+            const confirmed = await showConfirm({
+                title: "Delete project?",
+                description: "This cannot be undone.",
+                choices: [
+                    { label: "Cancel", variant: "secondary", value: false },
+                    { label: "Delete", variant: "danger", value: true },
+                ],
+            });
+            if (!confirmed) {
                 return;
             }
 

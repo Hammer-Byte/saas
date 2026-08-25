@@ -5,9 +5,9 @@
     const modalElement = document.getElementById("service-modal");
     const modalLabel = document.getElementById("service-modal-label");
     const openAddButton = document.getElementById("open-add-service-btn");
-    const tbody = document.getElementById("services-tbody");
+    const tableBody = document.getElementById("services-tbody");
 
-    if (!form || !tbody) {
+    if (!form || !tableBody) {
         return;
     }
 
@@ -52,7 +52,7 @@
 
     openAddButton?.addEventListener("click", openAddModal);
 
-    tbody.addEventListener("click", async (event) => {
+    tableBody.addEventListener("click", async (event) => {
         const row = event.target.closest("tr[data-id]");
         if (!row) return;
 
@@ -64,7 +64,15 @@
         }
 
         if (event.target.closest(".service-delete-btn")) {
-            if (!window.confirm("Delete this service?")) {
+            const confirmed = await showConfirm({
+                title: "Delete service?",
+                description: "This cannot be undone.",
+                choices: [
+                    { label: "Cancel", variant: "secondary", value: false },
+                    { label: "Delete", variant: "danger", value: true },
+                ],
+            });
+            if (!confirmed) {
                 return;
             }
 
