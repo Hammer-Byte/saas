@@ -84,7 +84,7 @@ export async function getTotalFileSizeByApplicationServiceId({ application_servi
                 )
         `,
     )
-        .then((result) => Number(result?.[0]?.total_size ?? 0))
+        .then((result) => Math.ceil(Number(result?.[0]?.total_size ?? 0)))
         .catch((error) => {
             logger.error(`getTotalFileSizeByApplicationServiceId: ${error}`);
             return 0;

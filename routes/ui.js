@@ -12,7 +12,10 @@ import { getAllServices } from "../db/services.js";
 import { getAllApplicationServicesByApplicationId, getApplicationServiceById } from "../db/application_services.js";
 import { getAllInquiries } from "../db/inquiries.js";
 import { getMailsByApplicationServiceId } from "../db/mails.js";
-import { getFilesByApplicationServiceId } from "../db/files.js";
+import {
+    getFilesByApplicationServiceId,
+    getTotalFileSizeByApplicationServiceId,
+} from "../db/files.js";
 import { updateFileSizesByApplicationServiceId } from "../services/bucketizer.js";
 import { getAllCustomers, getCustomerById } from "../db/customers.js";
 import { getCustomerEmailsByCustomerId } from "../db/customer_emails.js";
@@ -150,9 +153,11 @@ export const uiRoutes = new Elysia()
                             month,
                             year,
                         });
-                        for (const file of usage) {
-                            totalSize += Number(file.size || 0);
-                        }
+                        totalSize = await getTotalFileSizeByApplicationServiceId({
+                            application_service_id: applicationService.id,
+                            month,
+                            year,
+                        });
                     }
 
                     return render("application-service", {
