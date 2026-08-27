@@ -24,7 +24,6 @@ export async function createCustomerEmail({ customer_id, email }) {
         `,
     ).catch((error) => {
         logger.error(`createCustomerEmail: ${error}`);
-        throw error;
     });
 }
 
@@ -36,6 +35,5 @@ export async function deleteCustomerEmailsByCustomerId({ customer_id }) {
         `,
     ).catch((error) => {
         logger.error(`deleteCustomerEmailsByCustomerId: ${error}`);
-        throw error;
     });
 }

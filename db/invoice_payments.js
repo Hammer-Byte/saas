@@ -15,7 +15,6 @@ export async function createInvoicePayment({ customer_invoice_id, amount, note =
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
             logger.error(`createInvoicePayment: ${error}`);
-            throw error;
         });
 }
 
@@ -30,7 +29,6 @@ export async function updateInvoicePaymentById({ id, amount, note = null }) {
         `,
     ).catch((error) => {
         logger.error(`updateInvoicePaymentById: ${error}`);
-        throw error;
     });
 }
 
@@ -38,7 +36,6 @@ export async function deleteInvoicePaymentById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM INVOICE_PAYMENTS WHERE id = ${id}`).catch(
         (error) => {
             logger.error(`deleteInvoicePaymentById: ${error}`);
-            throw error;
         },
     );
 }

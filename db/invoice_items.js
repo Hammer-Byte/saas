@@ -16,7 +16,6 @@ export async function createInvoiceItem({ customer_invoice_id, item, cost, quant
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
             logger.error(`createInvoiceItem: ${error}`);
-            throw error;
         });
 }
 
@@ -32,7 +31,6 @@ export async function updateInvoiceItemById({ id, item, cost, quantity }) {
         `,
     ).catch((error) => {
         logger.error(`updateInvoiceItemById: ${error}`);
-        throw error;
     });
 }
 
@@ -40,7 +38,6 @@ export async function deleteInvoiceItemById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM INVOICE_ITEMS WHERE id = ${id}`).catch(
         (error) => {
             logger.error(`deleteInvoiceItemById: ${error}`);
-            throw error;
         },
     );
 }

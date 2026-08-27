@@ -79,7 +79,6 @@ export async function createProjectApplication({ title, project_id }) {
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
             logger.error(`createProjectApplication: ${error}`);
-            throw error;
         });
 }
 
@@ -96,6 +95,5 @@ export async function updateProjectApplicationById({ id, title, token, active, p
         `,
     ).catch((error) => {
         logger.error(`updateProjectApplicationById: ${error}`);
-        throw error;
     });
 }

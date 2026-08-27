@@ -150,6 +150,19 @@ export async function generateDBTables() {
             invoiced BOOLEAN NOT NULL DEFAULT FALSE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP
         )`,
+        `CREATE TABLE IF NOT EXISTS FILES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            application_service_id INT NOT NULL,
+            file VARCHAR(64) NOT NULL,
+            size DECIMAL(16, 8) NOT NULL DEFAULT 0,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            deleted_on DATETIME NULL,
+            CONSTRAINT fk_files_application_service
+                FOREIGN KEY (application_service_id)
+                REFERENCES APPLICATION_SERVICES(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
         `CREATE TABLE IF NOT EXISTS INQUIRIES (
             id INT AUTO_INCREMENT PRIMARY KEY,
             full_name VARCHAR(128) NOT NULL,

@@ -8,7 +8,7 @@ export async function createJobApplicant({
     email,
     cv,
 }) {
-    return await executeSQLQuery(
+    await executeSQLQuery(
         (sql) => sql`
             INSERT INTO JOB_APPLICANTS ${sql(
                 { job_position_id, full_name, phone, email, cv },
@@ -19,12 +19,9 @@ export async function createJobApplicant({
                 "cv",
             )}
         `,
-    )
-        .then((result) => result.lastInsertRowid)
-        .catch((error) => {
-            logger.error(`createJobApplicant: ${error}`);
-            throw error;
-        });
+    ).catch((error) => {
+        logger.error(`createJobApplicant: ${error}`);
+    });
 }
 
 export async function updateJobApplicantById({ id, viewed, selected }) {
@@ -38,7 +35,6 @@ export async function updateJobApplicantById({ id, viewed, selected }) {
         `,
     ).catch((error) => {
         logger.error(`updateJobApplicantById: ${error}`);
-        throw error;
     });
 }
 
@@ -46,7 +42,6 @@ export async function deleteJobApplicantById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM JOB_APPLICANTS WHERE id = ${id}`).catch(
         (error) => {
             logger.error(`deleteJobApplicantById: ${error}`);
-            throw error;
         },
     );
 }

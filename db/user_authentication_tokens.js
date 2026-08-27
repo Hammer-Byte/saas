@@ -2,7 +2,7 @@ import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
 export async function createUserAuthenticationToken({ user_id, token, otp }) {
-    return await executeSQLQuery(
+    await executeSQLQuery(
         (sql) => sql`
             INSERT INTO USER_AUTHENTICATION_TOKENS ${sql(
                 { user_id, token, otp },
@@ -11,12 +11,9 @@ export async function createUserAuthenticationToken({ user_id, token, otp }) {
                 "otp",
             )}
         `,
-    )
-        .then((result) => result.lastInsertRowid)
-        .catch((error) => {
-            logger.error(`createUserAuthenticationToken: ${error}`);
-            throw error;
-        });
+    ).catch((error) => {
+        logger.error(`createUserAuthenticationToken: ${error}`);
+    });
 }
 
 export async function getUserAuthenticationTokenByTokenAndOtp({ token, otp }) {
@@ -43,7 +40,6 @@ export async function updateUserAuthenticationTokenActiveById({ id, active }) {
         `,
     ).catch((error) => {
         logger.error(`updateUserAuthenticationTokenActiveById: ${error}`);
-        throw error;
     });
 }
 

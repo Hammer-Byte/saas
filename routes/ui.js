@@ -12,6 +12,8 @@ import { getAllServices } from "../db/services.js";
 import { getAllApplicationServicesByApplicationId, getApplicationServiceById } from "../db/application_services.js";
 import { getAllInquiries } from "../db/inquiries.js";
 import { getMailsByApplicationServiceId } from "../db/mails.js";
+import { getFilesByApplicationServiceId } from "../db/files.js";
+import { updateFileSizesByApplicationServiceId } from "../services/bucketizer.js";
 import { getAllCustomers, getCustomerById } from "../db/customers.js";
 import { getCustomerEmailsByCustomerId } from "../db/customer_emails.js";
 import { getCustomerPhonesByCustomerId } from "../db/customer_phones.js";
@@ -128,13 +130,29 @@ export const uiRoutes = new Elysia()
                             : now.getFullYear();
 
                     let usage = [];
+                    let usageKind = null;
+                    let totalSize = 0;
 
                     if (applicationService.title === SERVICES.MAILER) {
+                        usageKind = SERVICES.MAILER;
                         usage = await getMailsByApplicationServiceId({
                             application_service_id: applicationService.id,
                             month,
                             year,
                         });
+                    } else if (applicationService.title === SERVICES.BUCKETIZER) {
+                        usageKind = SERVICES.BUCKETIZER;
+                        await updateFileSizesByApplicationServiceId({
+                            application_service_id: applicationService.id,
+                        });
+                        usage = await getFilesByApplicationServiceId({
+                            application_service_id: applicationService.id,
+                            month,
+                            year,
+                        });
+                        for (const file of usage) {
+                            totalSize += Number(file.size || 0);
+                        }
                     }
 
                     return render("application-service", {
@@ -143,6 +161,8 @@ export const uiRoutes = new Elysia()
                         application,
                         applicationService,
                         usage,
+                        usageKind,
+                        totalSize,
                         month,
                         year,
                     });

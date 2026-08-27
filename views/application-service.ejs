@@ -63,9 +63,16 @@
             <p class="mb-0 text-secondary">
                 Showing usage for <strong><%= `${month}`.padStart(2, "0") %>/<%= year %></strong>
             </p>
-            <p class="mb-0">
-                <span class="badge text-bg-primary"><%= usage ? usage.length : 0 %> records</span>
-            </p>
+            <div class="d-flex gap-2">
+                <% if (usageKind === "mailer") { %>
+                    <span class="badge text-bg-primary"><%= usage ? usage.length : 0 %> mails</span>
+                <% } else if (usageKind === "bucketizer") { %>
+                    <span class="badge text-bg-primary"><%= usage ? usage.length : 0 %> files</span>
+                    <span class="badge text-bg-dark"><%= Number(totalSize || 0).toFixed(4) %> GB</span>
+                <% } else { %>
+                    <span class="badge text-bg-secondary"><%= usage ? usage.length : 0 %> records</span>
+                <% } %>
+            </div>
         </div>
 
         <div class="card border-0 shadow-sm">
@@ -74,7 +81,7 @@
                     <div class="p-4 p-md-5 text-center text-secondary">
                         No usage found for this application service in <%= `${month}`.padStart(2, "0") %>/<%= year %>.
                     </div>
-                <% } else { %>
+                <% } else if (usageKind === "mailer") { %>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
@@ -95,6 +102,43 @@
                                             data-readable-date="<%= row.created_on || '' %>"
                                             data-date-format="YYYY-MM-DD HH:mm:ss"
                                         ></td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } else if (usageKind === "bucketizer") { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">File</th>
+                                    <th scope="col">Size (GB)</th>
+                                    <th scope="col">Created On</th>
+                                    <th scope="col">Deleted On</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% usage.forEach(function (row) { %>
+                                    <tr>
+                                        <td><%= row.id %></td>
+                                        <td><code><%= row.file %></code></td>
+                                        <td><%= Number(row.size || 0).toFixed(8) %></td>
+                                        <td
+                                            data-readable-date="<%= row.created_on || '' %>"
+                                            data-date-format="YYYY-MM-DD HH:mm:ss"
+                                        ></td>
+                                        <td>
+                                            <% if (row.deleted_on) { %>
+                                                <span
+                                                    data-readable-date="<%= row.deleted_on %>"
+                                                    data-date-format="YYYY-MM-DD HH:mm:ss"
+                                                ></span>
+                                            <% } else { %>
+                                                —
+                                            <% } %>
+                                        </td>
                                     </tr>
                                 <% }) %>
                             </tbody>

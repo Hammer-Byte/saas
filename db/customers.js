@@ -17,7 +17,6 @@ export async function createCustomer({ full_name, company, pan_gst = null, hsn =
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
             logger.error(`createCustomer: ${error}`);
-            throw error;
         });
 }
 
@@ -35,14 +34,12 @@ export async function updateCustomerById({ id, full_name, company, pan_gst = nul
         `,
     ).catch((error) => {
         logger.error(`updateCustomerById: ${error}`);
-        throw error;
     });
 }
 
 export async function deleteCustomerById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM CUSTOMERS WHERE id = ${id}`).catch((error) => {
         logger.error(`deleteCustomerById: ${error}`);
-        throw error;
     });
 }
 

@@ -10,7 +10,6 @@ export async function createService({ title, description, cost }) {
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
             logger.error(`createService: ${error}`);
-            throw error;
         });
 }
 
@@ -26,14 +25,12 @@ export async function updateServiceById({ id, title, description, cost }) {
         `,
     ).catch((error) => {
         logger.error(`updateServiceById: ${error}`);
-        throw error;
     });
 }
 
 export async function deleteServiceById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM SERVICES WHERE id = ${id}`).catch((error) => {
         logger.error(`deleteServiceById: ${error}`);
-        throw error;
     });
 }
 

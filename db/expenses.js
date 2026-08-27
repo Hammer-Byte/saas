@@ -27,7 +27,6 @@ export async function createExpense({ title, description = null, amount, expense
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
             logger.error(`createExpense: ${error}`);
-            throw error;
         });
 }
 
@@ -45,14 +44,12 @@ export async function updateExpenseById({ id, title, description = null, amount,
         `,
     ).catch((error) => {
         logger.error(`updateExpenseById: ${error}`);
-        throw error;
     });
 }
 
 export async function deleteExpenseById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM EXPENSES WHERE id = ${id}`).catch((error) => {
         logger.error(`deleteExpenseById: ${error}`);
-        throw error;
     });
 }
 

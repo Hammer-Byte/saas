@@ -6,7 +6,6 @@ export async function createInquiry({ full_name, phone, email = null }) {
         sql`INSERT INTO INQUIRIES ${sql({ full_name, phone, email }, "full_name", "phone", "email")}`,
     ).catch((error) => {
         logger.error(`createInquiry: ${error}`);
-        throw error;
     });
 }
 

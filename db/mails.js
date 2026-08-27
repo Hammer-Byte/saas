@@ -12,7 +12,6 @@ export async function createMail({ application_service_id, recipient, subject, b
         )}`,
     ).catch((error) => {
         logger.error(`createMail: ${error}`);
-        throw error;
     });
 }
 
@@ -76,6 +75,5 @@ export async function updateMailsInvoicedByApplicationServiceIdForInvoice({
         `,
     ).catch((error) => {
         logger.error(`updateMailsInvoicedByApplicationServiceIdForInvoice: ${error}`);
-        throw error;
     });
 }

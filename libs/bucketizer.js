@@ -40,6 +40,10 @@ class Bucketizer {
         return await this.bucketizer.file(file).exists();
     }
 
+    async size({ file }) {
+        return await this.bucketizer.size(file);
+    }
+
     get({ file, accumulator = CONSTANTS.SAAS.ACCUMULATORS.PRIVATE }) {
         return accumulator === CONSTANTS.SAAS.ACCUMULATORS.PRIVATE
             ? this.bucketizer.file(file).presign({ expiresIn: 3600 })
@@ -55,9 +59,6 @@ class Bucketizer {
             acl: accumulator,
         });
     }
-
-
-
 }
 
 

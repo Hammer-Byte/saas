@@ -2,16 +2,13 @@ import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
 export async function createJobPosition({ title, description }) {
-    return await executeSQLQuery(
+    await executeSQLQuery(
         (sql) => sql`
             INSERT INTO JOB_POSITIONS ${sql({ title, description }, "title", "description")}
         `,
-    )
-        .then((result) => result.lastInsertRowid)
-        .catch((error) => {
-            logger.error(`createJobPosition: ${error}`);
-            throw error;
-        });
+    ).catch((error) => {
+        logger.error(`createJobPosition: ${error}`);
+    });
 }
 
 export async function updateJobPositionById({ id, title, description, active }) {
@@ -26,7 +23,6 @@ export async function updateJobPositionById({ id, title, description, active }) 
         `,
     ).catch((error) => {
         logger.error(`updateJobPositionById: ${error}`);
-        throw error;
     });
 }
 
@@ -34,7 +30,6 @@ export async function deleteJobPositionById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM JOB_POSITIONS WHERE id = ${id}`).catch(
         (error) => {
             logger.error(`deleteJobPositionById: ${error}`);
-            throw error;
         },
     );
 }

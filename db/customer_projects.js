@@ -15,7 +15,6 @@ export async function createCustomerProject({ customer_id, title, description = 
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
             logger.error(`createCustomerProject: ${error}`);
-            throw error;
         });
 }
 
@@ -30,7 +29,6 @@ export async function updateCustomerProjectById({ id, title, description = null 
         `,
     ).catch((error) => {
         logger.error(`updateCustomerProjectById: ${error}`);
-        throw error;
     });
 }
 
@@ -38,7 +36,6 @@ export async function deleteCustomerProjectById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM CUSTOMER_PROJECTS WHERE id = ${id}`).catch(
         (error) => {
             logger.error(`deleteCustomerProjectById: ${error}`);
-            throw error;
         },
     );
 }

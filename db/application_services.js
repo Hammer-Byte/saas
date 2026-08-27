@@ -14,7 +14,6 @@ export async function createApplicationService({ application_id, service_id }) {
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
             logger.error(`createApplicationService: ${error}`);
-            throw error;
         });
 }
 
@@ -23,7 +22,6 @@ export async function updateApplicationServiceActiveById({ id, active }) {
         (sql) => sql`UPDATE APPLICATION_SERVICES SET active = ${active} WHERE id = ${id}`,
     ).catch((error) => {
         logger.error(`updateApplicationServiceActiveById: ${error}`);
-        throw error;
     });
 }
 

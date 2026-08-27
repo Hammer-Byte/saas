@@ -10,7 +10,6 @@ export async function createUser({ full_name, email }) {
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
             logger.error(`createUser: ${error}`);
-            throw error;
         });
 }
 
@@ -25,14 +24,12 @@ export async function updateUserById({ id, full_name, email }) {
         `,
     ).catch((error) => {
         logger.error(`updateUserById: ${error}`);
-        throw error;
     });
 }
 
 export async function deleteUserById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM USERS WHERE id = ${id}`).catch((error) => {
         logger.error(`deleteUserById: ${error}`);
-        throw error;
     });
 }
 

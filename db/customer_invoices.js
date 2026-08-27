@@ -15,7 +15,6 @@ export async function createCustomerInvoice({ customer_id, project_id, due_date 
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
             logger.error(`createCustomerInvoice: ${error}`);
-            throw error;
         });
 }
 
@@ -40,7 +39,6 @@ export async function updateCustomerInvoiceById({
         `,
     ).catch((error) => {
         logger.error(`updateCustomerInvoiceById: ${error}`);
-        throw error;
     });
 }
 
@@ -55,7 +53,6 @@ export async function updateCustomerInvoiceTotalById({ id, total, gst }) {
         `,
     ).catch((error) => {
         logger.error(`updateCustomerInvoiceTotalById: ${error}`);
-        throw error;
     });
 }
 
@@ -63,7 +60,6 @@ export async function deleteCustomerInvoiceById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM CUSTOMER_INVOICES WHERE id = ${id}`).catch(
         (error) => {
             logger.error(`deleteCustomerInvoiceById: ${error}`);
-            throw error;
         },
     );
 }

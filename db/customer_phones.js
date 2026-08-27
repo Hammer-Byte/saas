@@ -24,7 +24,6 @@ export async function createCustomerPhone({ customer_id, phone }) {
         `,
     ).catch((error) => {
         logger.error(`createCustomerPhone: ${error}`);
-        throw error;
     });
 }
 
@@ -36,6 +35,5 @@ export async function deleteCustomerPhonesByCustomerId({ customer_id }) {
         `,
     ).catch((error) => {
         logger.error(`deleteCustomerPhonesByCustomerId: ${error}`);
-        throw error;
     });
 }

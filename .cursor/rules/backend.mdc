@@ -35,6 +35,8 @@ alwaysApply: false
 - DB helpers take a single object: `getX({ id })`, not positional args.
 - When a table column is nullable, default that db param to `null` in the signature (e.g. `createThing({ col1, col2 = null })`). Do not add redundant `?? null` in the service when the db default already covers omission.
 - On **INSERT**, omit columns that already have a schema `DEFAULT` unless the caller intentionally overrides that default. Do not restate `active = true`, `total = 0`, `active: false`, etc. in `create*` / services — leave them out of the INSERT column list so MySQL applies the default (`token`, `invoiced`, timestamps, etc. already follow this).
+- **Errors in `db/`:** In `.catch`, **only** `logger.error(...)` — do **not** `throw error` and do **not** `return null` (or other fillers) just to “handle” the error. Let the catch end after the log. Reads that already map empty results in `.then` may still `return []` / `return null` / `return 0` when a failed query needs a safe default for callers.
+- **Create return values:** Only `return` `lastInsertRowid` from `create*` when a caller **uses** that id. If nothing accepts it (e.g. `createMail`, `createFile`, tracking inserts), make the helper void — no return.
 
 ## Naming (ums_api style)
 
