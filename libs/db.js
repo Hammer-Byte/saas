@@ -128,7 +128,7 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(56) NOT NULL UNIQUE,
             description VARCHAR(128) NOT NULL UNIQUE,
-            cost DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+            cost DECIMAL(10, 4) NOT NULL DEFAULT 0.0000,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
           )`,
@@ -193,7 +193,7 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             customer_invoice_id INT NOT NULL,
             item VARCHAR(128) NOT NULL,
-            cost DECIMAL(10, 2) NOT NULL,
+            cost DECIMAL(10, 4) NOT NULL,
             quantity DECIMAL(10, 2) NOT NULL DEFAULT 1.00,
             amount DECIMAL(10, 2) GENERATED ALWAYS AS (ROUND(cost * quantity, 2)) STORED,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,

@@ -38,7 +38,7 @@
     function openAddModal() {
         resetForm();
         modalLabel.textContent = "Add service";
-        costInput.value = "0.00";
+        costInput.value = "0.0000";
     }
 
     function openEditModal(row) {

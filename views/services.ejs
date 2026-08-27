@@ -63,7 +63,7 @@
                                     <td class="service-id"><%= service.id %></td>
                                     <td class="service-title"><%= service.title %></td>
                                     <td class="service-description"><%= service.description %></td>
-                                    <td class="service-cost"><%= Number(service.cost || 0).toFixed(2) %></td>
+                                    <td class="service-cost"><%= Number(service.cost || 0).toFixed(4) %></td>
                                     <td>
                                         <div class="d-flex gap-2 flex-wrap">
                                             <button type="button" class="btn btn-sm btn-outline-secondary service-edit-btn">Edit</button>
@@ -101,7 +101,7 @@
                     </div>
                     <div class="mb-0">
                         <label for="service-cost" class="form-label">Cost</label>
-                        <input type="number" class="form-control" id="service-cost" name="cost" min="0" step="0.01" required />
+                        <input type="number" class="form-control" id="service-cost" name="cost" min="0" step="0.0001" required />
                     </div>
                 </div>
                 <div class="modal-footer">
