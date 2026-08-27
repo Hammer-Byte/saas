@@ -21,7 +21,6 @@
 - Quote generation for customers
 - Mass mailing and offer sending for customers
 - Secret manager: store company credentials and documents
-- Ad-hoc storage for binary files
 - Storage service / CDN: connect with the site and store assets
 - External apps: launch or link out to tools such as mailing, wiki, and similar apps
 - SEO: rank HammerByte for IT services, digital product development, website design, and mobile application development (Google and ChatGPT). Landing page crawlability is the first step; later: dedicated service pages, local/business listings, and Search Console.
