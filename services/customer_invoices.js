@@ -32,8 +32,9 @@ import { getProjectApplicationsByProjectId } from "../db/project_applications.js
 import { getAllApplicationServicesByApplicationId } from "../db/application_services.js";
 import {
     getMailsByApplicationServiceIdForInvoice,
-    updateMailsInvoicedByApplicationServiceIdForInvoice,
 } from "../db/mails.js";
+import { getTotalFileSizeByApplicationServiceId } from "../db/files.js";
+import { updateFileSizesByApplicationServiceId } from "./bucketizer.js";
 import { getServiceById } from "../db/services.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
@@ -280,6 +281,8 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
             1,
         ),
     );
+    const month = Number(getReadableDate("MM", end_date));
+    const year = Number(getReadableDate("YYYY", end_date));
 
     const applications = await getProjectApplicationsByProjectId({
         project_id: existingInvoice.project_id,
@@ -293,6 +296,11 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
         });
 
         for (const applicationService of applicationServices) {
+            const service = await getServiceById({ id: applicationService.service_id });
+            if (!service) {
+                continue;
+            }
+
             if (applicationService.title === SERVICES.MAILER) {
                 const count = await getMailsByApplicationServiceIdForInvoice({
                     application_service_id: applicationService.id,
@@ -304,11 +312,6 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
                     continue;
                 }
 
-                const service = await getServiceById({ id: applicationService.service_id });
-                if (!service) {
-                    continue;
-                }
-
                 await createInvoiceItem({
                     customer_invoice_id: existingInvoice.id,
                     item: `Service Usage - ${service.title.toUpperCase()}`,
@@ -316,10 +319,27 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
                     quantity: count,
                 });
 
-                await updateMailsInvoicedByApplicationServiceIdForInvoice({
+                added += 1;
+            } else if (applicationService.title === SERVICES.BUCKETIZER) {
+                await updateFileSizesByApplicationServiceId({
                     application_service_id: applicationService.id,
-                    start_date,
-                    end_date,
+                });
+
+                const totalSize = await getTotalFileSizeByApplicationServiceId({
+                    application_service_id: applicationService.id,
+                    month,
+                    year,
+                });
+
+                if (totalSize <= 0) {
+                    continue;
+                }
+
+                await createInvoiceItem({
+                    customer_invoice_id: existingInvoice.id,
+                    item: `Service Usage - ${service.title.toUpperCase()}`,
+                    cost: service.cost,
+                    quantity: totalSize,
                 });
 
                 added += 1;
@@ -338,7 +358,7 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
     return {
         message: added
             ? `Added ${added} service usage item(s)`
-            : "No uninvoiced service usage found",
+            : "No service usage found for this invoice month",
         invoice: updatedInvoice,
         items,
     };

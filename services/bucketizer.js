@@ -43,7 +43,7 @@ export async function updateFileSizesByApplicationServiceId({ application_servic
                 }
 
                 const sizeInBytes = await bucketizer.size({ file: bucketFile });
-                const size = sizeInBytes / 1024 ** 3;
+                const size = sizeInBytes / 1024 ** 2;
                 await updateFileSizeById({ id: pendingFile.id, size });
             } catch (error) {
                 logger.error(`updateFileSizesByApplicationServiceId: ${bucketFile} — ${error}`);

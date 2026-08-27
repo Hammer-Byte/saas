@@ -67,3 +67,26 @@ export async function getFilesByApplicationServiceId({ application_service_id, m
             return [];
         });
 }
+
+export async function getTotalFileSizeByApplicationServiceId({ application_service_id, month, year }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT COALESCE(SUM(size), 0) AS total_size
+            FROM FILES
+            WHERE application_service_id = ${application_service_id}
+                AND created_on < DATE_ADD(
+                    STR_TO_DATE(CONCAT(${year}, '-', ${month}, '-01'), '%Y-%m-%d'),
+                    INTERVAL 1 MONTH
+                )
+                AND (
+                    deleted_on IS NULL
+                    OR deleted_on > STR_TO_DATE(CONCAT(${year}, '-', ${month}, '-01'), '%Y-%m-%d')
+                )
+        `,
+    )
+        .then((result) => Number(result?.[0]?.total_size ?? 0))
+        .catch((error) => {
+            logger.error(`getTotalFileSizeByApplicationServiceId: ${error}`);
+            return 0;
+        });
+}

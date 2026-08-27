@@ -68,7 +68,7 @@
                     <span class="badge text-bg-primary"><%= usage ? usage.length : 0 %> mails</span>
                 <% } else if (usageKind === "bucketizer") { %>
                     <span class="badge text-bg-primary"><%= usage ? usage.length : 0 %> files</span>
-                    <span class="badge text-bg-dark"><%= Number(totalSize || 0).toFixed(4) %> GB</span>
+                    <span class="badge text-bg-dark"><%= Number(totalSize || 0).toFixed(4) %> MB</span>
                 <% } else { %>
                     <span class="badge text-bg-secondary"><%= usage ? usage.length : 0 %> records</span>
                 <% } %>
@@ -114,7 +114,7 @@
                                 <tr>
                                     <th scope="col">ID</th>
                                     <th scope="col">File</th>
-                                    <th scope="col">Size (GB)</th>
+                                    <th scope="col">Size (MB)</th>
                                     <th scope="col">Created On</th>
                                     <th scope="col">Deleted On</th>
                                 </tr>
