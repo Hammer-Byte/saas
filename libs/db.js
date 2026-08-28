@@ -235,6 +235,23 @@ export async function generateDBTables() {
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )`,
+        `CREATE TABLE IF NOT EXISTS PROJECT_DOCUMENTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            project_id INT NOT NULL,
+            media_id INT NOT NULL,
+            description VARCHAR(512) NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_project_documents_customer_project
+                FOREIGN KEY (project_id)
+                REFERENCES CUSTOMER_PROJECTS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_project_documents_media
+                FOREIGN KEY (media_id)
+                REFERENCES MEDIA(id)
+                ON DELETE RESTRICT
+                ON UPDATE CASCADE
+        )`,
         `CREATE TABLE IF NOT EXISTS JOB_POSITIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(128) NOT NULL,

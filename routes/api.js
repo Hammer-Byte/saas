@@ -17,6 +17,7 @@ import invoicePayments from "./apps/invoice_payments.js";
 import users from "./apps/users.js";
 import services from "./apps/services.js";
 import media from "./apps/media.js";
+import projectDocuments from "./apps/project_documents.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 import requireApiSession from "../middlewares/require_api_session.js";
@@ -41,7 +42,8 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/invoice-payments", invoicePayments)
             .group("/users", users)
             .group("/services", services)
-            .group("/media", media),
+            .group("/media", media)
+            .group("/project-documents", projectDocuments),
     )
     .group("/services", (app) =>
         app

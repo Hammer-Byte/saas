@@ -25,6 +25,7 @@ import {
     getCustomerProjectById,
     getCustomerProjectsByCustomerId,
 } from "../db/customer_projects.js";
+import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
 import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
 import {
     getAllCustomerInvoices,
@@ -209,6 +210,29 @@ export const uiRoutes = new Elysia()
                         project_id: customerProject.id,
                     }),
                     invoices: await getCustomerInvoicesByProjectId({
+                        project_id: customerProject.id,
+                    }),
+                });
+            })
+            .get("/app/project-documents/:projectId", async ({ render, session, params, redirect }) => {
+                const customerProject = await getCustomerProjectById({
+                    id: params.projectId,
+                });
+                if (!customerProject) {
+                    return redirect("/not-found");
+                }
+
+                const customer = await getCustomerById({ id: customerProject.customer_id });
+                if (!customer) {
+                    return redirect("/not-found");
+                }
+
+                return render("project-documents", {
+                    title: `Documents — ${customerProject.title}`,
+                    username: session?.username,
+                    customer,
+                    customerProject,
+                    documents: await getProjectDocumentsByProjectId({
                         project_id: customerProject.id,
                     }),
                 });

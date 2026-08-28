@@ -1,0 +1,143 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/projects" class="text-decoration-none">Projects</a> /
+                <a href="/app/projects/<%= customerProject.id %>" class="text-decoration-none"><%= customerProject.title %></a> /
+                Documents
+            </p>
+            <h1 class="h3 mb-1">Documents — <%= customerProject.title %></h1>
+            <p class="text-secondary mb-0">
+                Customer:
+                <a href="/app/customers/<%= customer.id %>" class="text-decoration-none"><%= customer.full_name %></a>
+            </p>
+        </div>
+
+        <div id="project-documents-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 px-4">
+                <h2 class="h5 mb-0">Documents</h2>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#add-document-modal"
+                >
+                    Add document
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <% if (!documents || documents.length === 0) { %>
+                    <div class="p-4 text-center text-secondary">
+                        No documents for this project.
+                    </div>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">Description</th>
+                                    <th scope="col">Created On</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% documents.forEach(function (document) { %>
+                                    <tr>
+                                        <td><%= document.media_name %></td>
+                                        <td><%= document.description || "—" %></td>
+                                        <td
+                                            data-readable-date="<%= document.created_on || '' %>"
+                                            data-date-format="YYYY-MM-DD HH:mm:ss"
+                                        ></td>
+                                        <td>
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                <a
+                                                    href="/api/media/<%= document.media_id %>"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    View
+                                                </a>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary">
+                                                    Edit
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger">
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+
+        <div class="mt-3">
+            <a href="/app/projects/<%= customerProject.id %>" class="btn btn-outline-secondary btn-sm">
+                ← Back to project
+            </a>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="add-document-modal" tabindex="-1" aria-labelledby="add-document-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="add-document-form" data-project-id="<%= customerProject.id %>" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="add-document-modal-label">Add document</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="add-document-alert" class="alert d-none" role="alert"></div>
+                    <div class="mb-3">
+                        <label for="document-file" class="form-label">File</label>
+                        <input type="file" class="form-control" id="document-file" name="file" required />
+                    </div>
+                    <div class="mb-0">
+                        <label for="document-description" class="form-label">Description</label>
+                        <textarea
+                            class="form-control"
+                            id="document-description"
+                            name="description"
+                            rows="3"
+                            maxlength="512"
+                        ></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/project-documents.js" defer></script>
+<%- include('common/footer') %>
