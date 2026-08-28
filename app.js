@@ -4,23 +4,16 @@ import transporter from "./libs/transporter.js";
 import bucketizer from "./libs/bucketizer.js";
 import { allowTraffic } from "./server.js";
 
-const DIRECTORY_CONFIGS = Bun.env.DIRECTORY_CONFIGS || "configs";
-const DIRECTORY_LOGS = Bun.env.DIRECTORY_LOGS || "logs";
-const REQUIRED_DIRS = [DIRECTORY_LOGS, DIRECTORY_CONFIGS];
-
-//initiate the logger
 logger.init({
-    saveLogs: Bun.env.SAVE_LOGS, // Set to true to write to files
-    logsDirectory: "logs", // This folder will be created automatically
+    saveLogs: false,
 });
-
 
 try {
     await transporter.init();
     logger.success("Email Transporter Ready");
     await bucketizer.init();
     logger.success("Bucketizer Ready");
-    filer.prepareDirectories(REQUIRED_DIRS);
+    filer.prepareDirectories([Bun.env.DIRECTORY_MEDIA]);
     logger.success("Required Directories Ready");
     await generateDBTables();
     logger.success("Database Ready (Tables Verified)");
@@ -28,8 +21,6 @@ try {
 } catch (error) {
     logger.error(`Application Exited - ${error.message}`);
 }
-
-
 
 process.on("uncaughtException", (error) => logger.error(error));
 process.on("unhandledRejection", (error) => logger.error(error));

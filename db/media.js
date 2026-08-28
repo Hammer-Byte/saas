@@ -2,13 +2,15 @@ import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
 export async function createMedia({ name, file }) {
-    await executeSQLQuery(
+    return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO MEDIA ${sql({ name, file }, "name", "file")}
         `,
-    ).catch((error) => {
-        logger.error(`createMedia: ${error}`);
-    });
+    )
+        .then((result) => result.lastInsertRowid)
+        .catch((error) => {
+            logger.error(`createMedia: ${error}`);
+        });
 }
 
 export async function getMediaById({ id }) {

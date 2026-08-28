@@ -31,6 +31,8 @@ RUN bun install --frozen-lockfile
 
 COPY . .
 
+VOLUME ["/app/media"]
+
 EXPOSE 3000
 
 CMD ["bun", "app"]
