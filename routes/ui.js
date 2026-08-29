@@ -42,6 +42,7 @@ import { getAllExternalContracts, getExternalContractById, getExternalContractBy
 import { getContractClausesByExternalContractId } from "../db/contract_clauses.js";
 import { getClauseSubclausesByExternalContractId } from "../db/clause_subclauses.js";
 import { getReadableDate } from "../libs/date.js";
+import { formatExternalContractCreatedOn } from "../libs/external_contractor.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
 const sharedAssetsDirectory = join(import.meta.dir, "../templates/assets");
@@ -114,7 +115,14 @@ export const uiRoutes = new Elysia()
             is_signed: isSigned,
             contract: {
                 contractor_name: contractorName,
+                created_on: formatExternalContractCreatedOn(externalContract.created_on),
                 signing_code: externalContract.signing_code,
+                selfie_src: isSigned
+                    ? `/api/external-contracts/media/${externalContract.selfie}`
+                    : null,
+                signature_src: isSigned
+                    ? `/api/external-contracts/media/${externalContract.signature}`
+                    : null,
             },
             clauses: contractClauses.map((contractClause) => ({
                 ...contractClause,

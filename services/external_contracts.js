@@ -6,7 +6,9 @@ import { getWritableDate } from "../libs/date.js";
 import { generateSigningCode } from "../libs/utils.js";
 import {
     buildExternalContractClausesHtml,
+    buildExternalContractContractorMediaHtml,
     escapeExternalContractHtml,
+    formatExternalContractCreatedOn,
     generateExternalContractPdf,
     resolveExternalContractTemplateAssets,
 } from "../libs/external_contractor.js";
@@ -22,6 +24,26 @@ import {
 import { getContractClausesByExternalContractId } from "../db/contract_clauses.js";
 import { getClauseSubclausesByExternalContractId } from "../db/clause_subclauses.js";
 import { deleteMediaById, getMediaById } from "../db/media.js";
+
+async function getMediaDataUriById(id) {
+    if (!id) {
+        return null;
+    }
+
+    const media = await getMediaById({ id });
+    if (!media?.file) {
+        return null;
+    }
+
+    const diskFile = Bun.file(join(Bun.env.DIRECTORY_MEDIA, media.file));
+    if (!(await diskFile.exists())) {
+        return null;
+    }
+
+    const mimeType = filer.getContentTypeByFileName(media.file) || "image/jpeg";
+    const fileBytes = Buffer.from(await diskFile.arrayBuffer()).toString("base64");
+    return `data:${mimeType};base64,${fileBytes}`;
+}
 
 async function getExternalContractClauses({ external_contract_id }) {
     const contractClauses = await getContractClausesByExternalContractId({
@@ -82,11 +104,22 @@ export async function getExternalContractHtml({ signing_code }) {
         external_contract_id: externalContract.id,
     });
 
+    const contractorName = externalContract.full_name || externalContract.company || "";
+    const [selfieSrc, signatureSrc] = await Promise.all([
+        getMediaDataUriById(externalContract.selfie),
+        getMediaDataUriById(externalContract.signature),
+    ]);
+
     const html = filer.prepareTemplated("templates/contract.html", {
-        contractor_name: escapeExternalContractHtml(
-            externalContract.full_name || externalContract.company || "",
+        contractor_name: escapeExternalContractHtml(contractorName),
+        created_on: escapeExternalContractHtml(
+            formatExternalContractCreatedOn(externalContract.created_on),
         ),
         clauses: buildExternalContractClausesHtml(clauses),
+        contractor_media: buildExternalContractContractorMediaHtml({
+            selfie_src: selfieSrc,
+            signature_src: signatureSrc,
+        }),
     });
 
     return resolveExternalContractTemplateAssets(html);

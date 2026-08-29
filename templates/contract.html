@@ -112,11 +112,46 @@
         padding: 8mm 0;
     }
 
-    .signature-area {
+    .execution-block {
+        margin-top: 10mm;
+        color: #111;
+    }
+
+    .execution-heading {
+        font-size: 14px;
+        font-weight: 700;
+        text-align: center;
+        margin: 0 0 4mm;
+        letter-spacing: 0.02em;
+    }
+
+    .execution-witness {
+        text-align: justify;
+        margin: 0 0 8mm;
+    }
+
+    .party-sign-block {
+        margin-bottom: 8mm;
+    }
+
+    .party-sign-label {
+        font-weight: 700;
+        margin: 0 0 2mm;
+    }
+
+    .party-sign-for {
+        margin: 0 0 1mm;
+    }
+
+    .party-sign-date {
+        margin: 0 0 3mm;
+        color: #434343;
+    }
+
+    .hb-signature-area {
         position: relative;
         width: 76mm;
         height: 22mm;
-        margin: 8mm 0 0 auto;
     }
 
     .stamp {
@@ -128,7 +163,7 @@
         top: 0;
     }
 
-    .signature {
+    .hb-signature {
         position: absolute;
         width: 24mm;
         height: 13mm;
@@ -138,11 +173,32 @@
         z-index: 2;
     }
 
-    .authorized {
-        text-align: right;
-        margin-top: 3mm;
-        font-size: 12px;
-        color: #434343;
+    .contractor-media {
+        display: flex;
+        gap: 6mm;
+        align-items: flex-start;
+    }
+
+    .contractor-media img {
+        width: 32mm;
+        height: 32mm;
+        object-fit: cover;
+        border: 1px solid #d1d5db;
+        background: #f9fafb;
+    }
+
+    .media-placeholder {
+        width: 32mm;
+        height: 32mm;
+        border: 1px dashed #9ca3af;
+        background: #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b7280;
+        font-size: 10px;
+        text-align: center;
+        padding: 2mm;
     }
 
     .footer-art {
@@ -176,12 +232,29 @@
 
         {{clauses}}
 
-        <div class="signature-area">
-            <img class="stamp" src="assets/stamp.png" alt="HammerByte stamp">
-            <img class="signature" src="assets/signature.png" alt="Authorized signature">
-        </div>
+        <div class="execution-block">
+            <h2 class="execution-heading">SIGNATURES AND EXECUTION</h2>
+            <p class="execution-witness">
+                IN WITNESS WHEREOF, the Parties hereto have executed this Independent Contractor Agreement through their duly authorized representatives as of the Effective Date written above.
+            </p>
 
-        <div class="authorized">For HammerByte Authorized Personnel Only</div>
+            <div class="party-sign-block">
+                <p class="party-sign-label">FIRST PART:</p>
+                <p class="party-sign-for">For <strong>HAMMERBYTE</strong></p>
+                <p class="party-sign-date">Date: {{created_on}}</p>
+                <div class="hb-signature-area">
+                    <img class="stamp" src="assets/stamp.png" alt="HammerByte stamp">
+                    <img class="hb-signature" src="assets/signature.png" alt="Authorized signature">
+                </div>
+            </div>
+
+            <div class="party-sign-block">
+                <p class="party-sign-label">SECOND PART:</p>
+                <p class="party-sign-for">For / By <strong>CONTRACTOR ({{contractor_name}})</strong></p>
+                <p class="party-sign-date">Date: {{created_on}}</p>
+                {{contractor_media}}
+            </div>
+        </div>
     </div>
 
     <img class="footer-art" src="assets/footer.png" alt="">
