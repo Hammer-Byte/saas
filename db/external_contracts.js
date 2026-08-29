@@ -134,9 +134,6 @@ export async function getExternalContractBySigningCode({ signing_code }) {
             FROM EXTERNAL_CONTRACTS
             WHERE signing_code = ${signing_code}
                 AND active = TRUE
-                AND signature IS NULL
-                AND selfie IS NULL
-                AND identity IS NULL
             LIMIT 1
         `,
     )

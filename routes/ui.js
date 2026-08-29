@@ -44,7 +44,14 @@ import { getClauseSubclausesByExternalContractId } from "../db/clause_subclauses
 import { getReadableDate } from "../libs/date.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
-const contractHeaderImagePath = join(import.meta.dir, "../templates/invoice/header.png");
+const sharedAssetsDirectory = join(import.meta.dir, "../templates/assets");
+
+async function getSharedAssetDataUri({ fileName, mimeType }) {
+    const fileBytes = Buffer.from(
+        await Bun.file(join(sharedAssetsDirectory, fileName)).arrayBuffer(),
+    ).toString("base64");
+    return `data:${mimeType};base64,${fileBytes}`;
+}
 
 export const uiRoutes = new Elysia()
     .get("/", ({ render }) => render("index"))
@@ -79,13 +86,29 @@ export const uiRoutes = new Elysia()
         const clauseSubclauses = await getClauseSubclausesByExternalContractId({
             external_contract_id: externalContract.id,
         });
-        const headerImageBase64 = Buffer.from(
-            await Bun.file(contractHeaderImagePath).arrayBuffer(),
-        ).toString("base64");
+        const isSigned = Boolean(
+            externalContract.signature && externalContract.selfie && externalContract.identity,
+        );
 
         return render("sign-external-contract", {
             title: `Contract — ${externalContract.company}`,
-            header_image_src: `data:image/png;base64,${headerImageBase64}`,
+            header_image_src: await getSharedAssetDataUri({
+                fileName: "header.png",
+                mimeType: "image/png",
+            }),
+            stamp_image_src: await getSharedAssetDataUri({
+                fileName: "stamp.png",
+                mimeType: "image/png",
+            }),
+            signature_image_src: await getSharedAssetDataUri({
+                fileName: "signature.png",
+                mimeType: "image/png",
+            }),
+            footer_image_src: await getSharedAssetDataUri({
+                fileName: "footer.png",
+                mimeType: "image/png",
+            }),
+            is_signed: isSigned,
             contract: {
                 company: externalContract.company,
                 full_name: externalContract.full_name,

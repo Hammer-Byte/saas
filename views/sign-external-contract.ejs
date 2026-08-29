@@ -38,13 +38,20 @@
             box-shadow: 0 2px 15px rgba(0, 0, 0, 0.15);
         }
 
-        .header-art {
+        .header-art,
+        .footer-art {
             width: 100%;
             display: block;
         }
 
+        .footer-art {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+        }
+
         .content {
-            padding: 0 14mm;
+            padding: 0 14mm 28mm;
         }
 
         .party-area {
@@ -125,6 +132,39 @@
             text-align: center;
             color: #6b7280;
             padding: 12mm 0;
+        }
+
+        .signature-area {
+            position: relative;
+            width: 76mm;
+            height: 22mm;
+            margin: 8mm 0 0 auto;
+        }
+
+        .stamp {
+            position: absolute;
+            width: 72mm;
+            height: 20mm;
+            object-fit: contain;
+            left: 0;
+            top: 0;
+        }
+
+        .authorized-signature {
+            position: absolute;
+            width: 24mm;
+            height: 13mm;
+            object-fit: contain;
+            left: 52mm;
+            top: 2mm;
+            z-index: 2;
+        }
+
+        .authorized {
+            text-align: right;
+            margin-top: 3mm;
+            font-size: 12px;
+            color: #434343;
         }
 
         .signing-panel {
@@ -223,6 +263,26 @@
                 </ol>
             <% } %>
 
+            <div class="signature-area">
+                <img class="stamp" src="<%= stamp_image_src %>" alt="HammerByte stamp" />
+                <img
+                    class="authorized-signature"
+                    src="<%= signature_image_src %>"
+                    alt="Authorized signature"
+                />
+            </div>
+            <div class="authorized">For HammerByte Authorized Personnel Only</div>
+
+            <% if (is_signed) { %>
+                <div class="signing-panel">
+                    <a
+                        class="btn btn-primary"
+                        href="/api/external-contracts/<%= contract.signing_code %>/signed"
+                    >
+                        Download
+                    </a>
+                </div>
+            <% } else { %>
             <div class="signing-panel" data-signing-code="<%= contract.signing_code %>">
                 <h2>Sign this contract</h2>
                 <div id="sign-alert" class="alert d-none" role="alert"></div>
@@ -251,9 +311,13 @@
                     Sign
                 </button>
             </div>
+            <% } %>
         </div>
+
+        <img class="footer-art" src="<%= footer_image_src %>" alt="" />
     </div>
 
+    <% if (!is_signed) { %>
     <div
         class="modal fade"
         id="signed-success-modal"
@@ -277,12 +341,15 @@
             </div>
         </div>
     </div>
+    <% } %>
 
     <script
         src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
         crossorigin="anonymous"
     ></script>
+    <% if (!is_signed) { %>
     <script src="/public/sign-external-contract.js" defer></script>
+    <% } %>
 </body>
 </html>

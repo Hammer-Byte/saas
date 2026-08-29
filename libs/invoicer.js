@@ -7,7 +7,7 @@ import { formatCurrency } from "./utils.js";
 
 const writePdf = promisify(wkhtmltopdf);
 
-const invoiceAssetsDirectory = `file://${join(process.cwd(), "templates", "invoice")}/`;
+const sharedAssetsDirectory = `file://${join(process.cwd(), "templates", "assets")}/`;
 
 export function formatInvoiceNumber({ id }) {
     return `HBT-${`${id}`.padStart(7, "0")}`;
@@ -54,8 +54,8 @@ export function buildInvoiceItemsHtml(items) {
 
 export function resolveInvoiceTemplateAssets(html) {
     return html
-        .replace(/src="invoice\//g, `src="${invoiceAssetsDirectory}`)
-        .replace(/url\("invoice\//g, `url("${invoiceAssetsDirectory}`);
+        .replace(/src="assets\//g, `src="${sharedAssetsDirectory}`)
+        .replace(/url\("assets\//g, `url("${sharedAssetsDirectory}`);
 }
 
 export async function generateInvoicePdf(html) {

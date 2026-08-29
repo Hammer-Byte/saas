@@ -5,6 +5,11 @@ import transporter from "../libs/transporter.js";
 import { getWritableDate } from "../libs/date.js";
 import { generateSigningCode } from "../libs/utils.js";
 import {
+    buildExternalContractClausesHtml,
+    generateExternalContractPdf,
+    resolveExternalContractTemplateAssets,
+} from "../libs/external_contractor.js";
+import {
     clearExternalContractSignedMediaById,
     createExternalContract,
     deleteExternalContractById,
@@ -17,6 +22,28 @@ import { getContractClausesByExternalContractId } from "../db/contract_clauses.j
 import { getClauseSubclausesByExternalContractId } from "../db/clause_subclauses.js";
 import { deleteMediaById, getMediaById } from "../db/media.js";
 
+async function getExternalContractClauses({ external_contract_id }) {
+    const contractClauses = await getContractClausesByExternalContractId({
+        external_contract_id,
+    });
+    const clauseSubclauses = await getClauseSubclausesByExternalContractId({
+        external_contract_id,
+    });
+
+    return contractClauses.map((contractClause) => ({
+        id: contractClause.id,
+        title: contractClause.title,
+        view_index: contractClause.view_index,
+        subclauses: clauseSubclauses
+            .filter((clauseSubclause) => clauseSubclause.clause_id === contractClause.id)
+            .map((clauseSubclause) => ({
+                id: clauseSubclause.id,
+                body: clauseSubclause.body,
+                view_index: clauseSubclause.view_index,
+            })),
+    }));
+}
+
 export async function getExternalContract({ params, set }) {
     const externalContract = await getExternalContractBySigningCode({
         signing_code: params.signing_code,
@@ -26,10 +53,7 @@ export async function getExternalContract({ params, set }) {
         return { error: "External contract not found" };
     }
 
-    const contractClauses = await getContractClausesByExternalContractId({
-        external_contract_id: externalContract.id,
-    });
-    const clauseSubclauses = await getClauseSubclausesByExternalContractId({
+    const clauses = await getExternalContractClauses({
         external_contract_id: externalContract.id,
     });
 
@@ -43,19 +67,59 @@ export async function getExternalContract({ params, set }) {
             address: externalContract.address,
             signing_code: externalContract.signing_code,
         },
-        clauses: contractClauses.map((contractClause) => ({
-            id: contractClause.id,
-            title: contractClause.title,
-            view_index: contractClause.view_index,
-            subclauses: clauseSubclauses
-                .filter((clauseSubclause) => clauseSubclause.clause_id === contractClause.id)
-                .map((clauseSubclause) => ({
-                    id: clauseSubclause.id,
-                    body: clauseSubclause.body,
-                    view_index: clauseSubclause.view_index,
-                })),
-        })),
+        clauses,
     };
+}
+
+export async function getExternalContractHtml({ signing_code }) {
+    const externalContract = await getExternalContractBySigningCode({ signing_code });
+    if (!externalContract) {
+        return null;
+    }
+
+    const clauses = await getExternalContractClauses({
+        external_contract_id: externalContract.id,
+    });
+
+    const html = filer.prepareTemplated("templates/contract.html", {
+        company: externalContract.company,
+        full_name: externalContract.full_name,
+        email: externalContract.email,
+        phone: externalContract.phone,
+        address: externalContract.address,
+        signing_code: externalContract.signing_code,
+        clauses: buildExternalContractClausesHtml(clauses),
+    });
+
+    return resolveExternalContractTemplateAssets(html);
+}
+
+export async function getExternalContractPdf({ params, set }) {
+    const externalContract = await getExternalContractBySigningCode({
+        signing_code: params.signing_code,
+    });
+    if (!externalContract) {
+        set.status = 404;
+        return { error: "External contract not found" };
+    }
+
+    if (!(externalContract.signature && externalContract.selfie && externalContract.identity)) {
+        set.status = 400;
+        return { error: "External contract is not signed" };
+    }
+
+    const html = await getExternalContractHtml({ signing_code: params.signing_code });
+    if (!html) {
+        set.status = 404;
+        return { error: "External contract not found" };
+    }
+
+    const pdf = await generateExternalContractPdf(html);
+    const fileName = `contract-${externalContract.signing_code}.pdf`;
+
+    set.headers["Content-Type"] = "application/pdf";
+    set.headers["Content-Disposition"] = `attachment; filename="${fileName}"`;
+    return pdf;
 }
 
 export async function signExternalContract({ body, set }) {
@@ -65,6 +129,11 @@ export async function signExternalContract({ body, set }) {
     if (!externalContract) {
         set.status = 404;
         return { error: "External contract not found" };
+    }
+
+    if (externalContract.signature || externalContract.selfie || externalContract.identity) {
+        set.status = 400;
+        return { error: "External contract is already signed" };
     }
 
     const signatureMedia = await getMediaById({ id: body.signature });

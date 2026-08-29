@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HammerByte Contract — {{signing_code}}</title>
+<style>
+    @font-face {
+        font-family: "Open Sans";
+        src: url("assets/fonts/OpenSans-regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+    }
+
+    @font-face {
+        font-family: "Open Sans";
+        src: url("assets/fonts/OpenSans-bold.ttf") format("truetype");
+        font-weight: 700;
+        font-style: normal;
+    }
+
+    @page {
+        size: A4;
+        margin: 0;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        color: #434343;
+        font-family: "Open Sans", Arial, Helvetica, sans-serif;
+        font-size: 12px;
+        line-height: 1.4;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+        position: relative;
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0 auto;
+        background: #fff;
+        padding: 0;
+    }
+
+    .header-art {
+        width: 100%;
+        display: block;
+    }
+
+    .content {
+        padding: 0 14mm 28mm;
+    }
+
+    .party-area {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8mm;
+        table-layout: fixed;
+    }
+
+    .party-area td {
+        vertical-align: top;
+    }
+
+    .party-title {
+        font-weight: 700;
+        font-size: 14px;
+        margin-bottom: 4px;
+        color: #111;
+    }
+
+    .party-line {
+        margin: 0 0 3px;
+    }
+
+    .meta-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .meta-label {
+        width: 40%;
+        color: #6b7280;
+    }
+
+    .meta-value {
+        font-weight: 700;
+        text-align: right;
+    }
+
+    .contract-title {
+        margin: 10mm 0 6mm;
+        font-size: 16px;
+        font-weight: 700;
+        color: #111;
+        text-align: center;
+    }
+
+    .clauses {
+        margin: 0;
+        padding-left: 1.25rem;
+    }
+
+    .clauses > li {
+        margin-bottom: 4mm;
+    }
+
+    .clause-title {
+        font-weight: 700;
+        color: #111;
+        margin-bottom: 2mm;
+    }
+
+    .subclauses {
+        margin: 2mm 0 0;
+        padding-left: 1.25rem;
+    }
+
+    .subclauses li {
+        margin-bottom: 1.5mm;
+        white-space: pre-wrap;
+    }
+
+    .empty-clauses {
+        text-align: center;
+        color: #6b7280;
+        padding: 8mm 0;
+    }
+
+    .signature-area {
+        position: relative;
+        width: 76mm;
+        height: 22mm;
+        margin: 8mm 0 0 auto;
+    }
+
+    .stamp {
+        position: absolute;
+        width: 72mm;
+        height: 20mm;
+        object-fit: contain;
+        left: 0;
+        top: 0;
+    }
+
+    .signature {
+        position: absolute;
+        width: 24mm;
+        height: 13mm;
+        object-fit: contain;
+        left: 52mm;
+        top: 2mm;
+        z-index: 2;
+    }
+
+    .authorized {
+        text-align: right;
+        margin-top: 3mm;
+        font-size: 12px;
+        color: #434343;
+    }
+
+    .footer-art {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        display: block;
+    }
+</style>
+</head>
+<body>
+<div class="page">
+    <img class="header-art" src="assets/header.png" alt="HammerByte">
+
+    <div class="content">
+        <table class="party-area">
+            <tr>
+                <td>
+                    <div class="party-title">Party</div>
+                    <p class="party-line">{{full_name}}</p>
+                    <p class="party-line">{{company}}</p>
+                    <p class="party-line">{{email}}</p>
+                    <p class="party-line">{{phone}}</p>
+                    <p class="party-line">{{address}}</p>
+                </td>
+                <td>
+                    <table class="meta-table">
+                        <tr>
+                            <td class="meta-label">Document</td>
+                            <td class="meta-value">External Contract</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <h1 class="contract-title">Formal Contract</h1>
+
+        {{clauses}}
+
+        <div class="signature-area">
+            <img class="stamp" src="assets/stamp.png" alt="HammerByte stamp">
+            <img class="signature" src="assets/signature.png" alt="Authorized signature">
+        </div>
+
+        <div class="authorized">For HammerByte Authorized Personnel Only</div>
+    </div>
+
+    <img class="footer-art" src="assets/footer.png" alt="">
+</div>
+</body>
+</html>
