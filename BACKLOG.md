@@ -3,6 +3,7 @@
 ## Technical
 
 - Optimize invoice PDF generation reuse (`getCustomerInvoicePdf` and `createCustomerInvoiceReminder` both call `getCustomerInvoiceHtml` + `generateInvoicePdf`; reminder also reloads invoice, customer, emails, and payments that HTML generation already fetches).
+- JS locals should be camelCase (`signingCode`, `fullName`, …). Today many handlers use snake_case locals that mirror DB/API field names (`signing_code`, `full_name`, …). Keep request/response JSON and SQL columns snake_case; rename local variables across the codebase to camelCase.
 
 ## Product
 

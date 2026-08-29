@@ -1,0 +1,374 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/external-contracts" class="text-decoration-none">External Contracts</a> /
+                #<%= contract.id %>
+            </p>
+            <h1 class="h3 mb-1">Contract #<%= contract.id %></h1>
+            <p class="text-secondary mb-0">
+                <%= contract.full_name %> — <%= contract.company %>
+                <%
+                    const isSigned = contract.signature && contract.selfie && contract.identity;
+                %>
+                ·
+                <% if (isSigned) { %>
+                    <span class="badge text-bg-success">Signed</span>
+                <% } else { %>
+                    <span class="badge text-bg-secondary">Unsigned</span>
+                <% } %>
+            </p>
+        </div>
+
+        <div id="external-contract-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">Party details</h2>
+            </div>
+            <div class="card-body p-4">
+                <form id="external-contract-detail-form" data-contract-id="<%= contract.id %>" novalidate>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="detail-company" class="form-label">Company</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="detail-company"
+                                name="company"
+                                value="<%= contract.company %>"
+                                maxlength="128"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="detail-full_name" class="form-label">Full name</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="detail-full_name"
+                                name="full_name"
+                                value="<%= contract.full_name %>"
+                                maxlength="128"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="detail-email" class="form-label">Email</label>
+                            <input
+                                type="email"
+                                class="form-control"
+                                id="detail-email"
+                                name="email"
+                                value="<%= contract.email %>"
+                                maxlength="255"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="detail-phone" class="form-label">Phone</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="detail-phone"
+                                name="phone"
+                                value="<%= contract.phone %>"
+                                maxlength="13"
+                                required
+                            />
+                        </div>
+                        <div class="col-12">
+                            <label for="detail-address" class="form-label">Address</label>
+                            <textarea
+                                class="form-control"
+                                id="detail-address"
+                                name="address"
+                                rows="3"
+                                maxlength="512"
+                                required
+                            ><%= contract.address %></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="detail-signing-code" class="form-label">Signing code</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="detail-signing-code"
+                                value="<%= contract.signing_code %>"
+                                disabled
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="detail-signable_till" class="form-label">Signable till</label>
+                            <input
+                                type="datetime-local"
+                                class="form-control"
+                                id="detail-signable_till"
+                                name="signable_till"
+                                data-date="<%= contract.signable_till || '' %>"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input
+                                    class="form-check-input"
+                                    type="checkbox"
+                                    id="detail-active"
+                                    name="active"
+                                    <% if (contract.active) { %>checked<% } %>
+                                />
+                                <label class="form-check-label" for="detail-active">Active</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-4 flex-wrap">
+                        <button type="submit" class="btn btn-primary">Save details</button>
+                        <button type="button" id="send-contract-invite-btn" class="btn btn-outline-primary">
+                            Send invite
+                        </button>
+                        <% if (isSigned) { %>
+                            <a
+                                href="/api/external-contracts/media/<%= contract.signature %>"
+                                class="btn btn-outline-secondary"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                View signature
+                            </a>
+                            <a
+                                href="/api/external-contracts/media/<%= contract.selfie %>"
+                                class="btn btn-outline-secondary"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                View selfie
+                            </a>
+                            <a
+                                href="/api/external-contracts/media/<%= contract.identity %>"
+                                class="btn btn-outline-secondary"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                View identity
+                            </a>
+                            <button type="button" id="unsign-contract-btn" class="btn btn-outline-danger">
+                                Unsign
+                            </button>
+                        <% } %>
+                        <a href="/app/external-contracts" class="btn btn-outline-secondary">Back to list</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 px-4">
+                <h2 class="h5 mb-0">Clauses</h2>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#clause-modal"
+                    id="open-add-clause-btn"
+                >
+                    Add clause
+                </button>
+            </div>
+            <div class="card-body p-4">
+                <% if (!clauses || clauses.length === 0) { %>
+                    <div class="text-center text-secondary py-3">
+                        No clauses on this contract.
+                    </div>
+                <% } else { %>
+                    <ol class="mb-0 ps-3">
+                        <% clauses.forEach(function (clause, clauseIndex) { %>
+                            <li class="mb-4">
+                                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                                    <div class="fw-semibold"><%= clause.title %></div>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-secondary clause-move-btn"
+                                            data-id="<%= clause.id %>"
+                                            data-direction="up"
+                                            <% if (clauseIndex === 0) { %>disabled<% } %>
+                                            title="Move up"
+                                        >
+                                            ↑
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-secondary clause-move-btn"
+                                            data-id="<%= clause.id %>"
+                                            data-direction="down"
+                                            <% if (clauseIndex === clauses.length - 1) { %>disabled<% } %>
+                                            title="Move down"
+                                        >
+                                            ↓
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary add-subclause-btn"
+                                            data-clause-id="<%= clause.id %>"
+                                        >
+                                            Add subclause
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary clause-edit-btn"
+                                            data-id="<%= clause.id %>"
+                                            data-title="<%= String(clause.title).replace(/"/g, '&quot;') %>"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-danger clause-delete-btn"
+                                            data-id="<%= clause.id %>"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                                <% if (clause.subclauses && clause.subclauses.length > 0) { %>
+                                    <ol type="a" class="mb-0 ps-3">
+                                        <% clause.subclauses.forEach(function (subclause, subclauseIndex) { %>
+                                            <li class="mb-2">
+                                                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                                                    <div class="flex-grow-1" style="white-space: pre-wrap;"><%= subclause.body %></div>
+                                                    <div class="d-flex gap-2 flex-wrap">
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-outline-secondary subclause-move-btn"
+                                                            data-id="<%= subclause.id %>"
+                                                            data-direction="up"
+                                                            <% if (subclauseIndex === 0) { %>disabled<% } %>
+                                                            title="Move up"
+                                                        >
+                                                            ↑
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-outline-secondary subclause-move-btn"
+                                                            data-id="<%= subclause.id %>"
+                                                            data-direction="down"
+                                                            <% if (subclauseIndex === clause.subclauses.length - 1) { %>disabled<% } %>
+                                                            title="Move down"
+                                                        >
+                                                            ↓
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-outline-primary subclause-edit-btn"
+                                                            data-id="<%= subclause.id %>"
+                                                            data-body="<%= encodeURIComponent(subclause.body) %>"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-outline-danger subclause-delete-btn"
+                                                            data-id="<%= subclause.id %>"
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        <% }) %>
+                                    </ol>
+                                <% } %>
+                            </li>
+                        <% }) %>
+                    </ol>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="clause-modal" tabindex="-1" aria-labelledby="clause-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="clause-form" data-contract-id="<%= contract.id %>" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="clause-modal-label">Add clause</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="clause-form-alert" class="alert d-none" role="alert"></div>
+                    <input type="hidden" id="clause-id" name="id" value="" />
+                    <div class="mb-0">
+                        <label for="clause-title" class="form-label">Title</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="clause-title"
+                            name="title"
+                            maxlength="128"
+                            required
+                        />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="subclause-modal" tabindex="-1" aria-labelledby="subclause-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="subclause-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="subclause-modal-label">Add subclause</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="subclause-form-alert" class="alert d-none" role="alert"></div>
+                    <input type="hidden" id="subclause-id" name="id" value="" />
+                    <input type="hidden" id="subclause-clause-id" name="clause_id" value="" />
+                    <div class="mb-0">
+                        <label for="subclause-body" class="form-label">Body</label>
+                        <textarea
+                            class="form-control"
+                            id="subclause-body"
+                            name="body"
+                            rows="5"
+                            required
+                        ></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/external-contract.js" defer></script>
+<%- include('common/footer') %>

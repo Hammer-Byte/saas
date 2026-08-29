@@ -9,6 +9,12 @@ export function generateAuthenticationToken() {
     ).join("");
 }
 
+export function generateSigningCode() {
+    return Array.from(crypto.getRandomValues(new Uint8Array(4)), (byte) =>
+        byte.toString(16).padStart(2, "0"),
+    ).join("");
+}
+
 export function formatCurrency(value) {
     return Number(value || 0).toFixed(2);
 }

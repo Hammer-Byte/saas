@@ -282,6 +282,61 @@ export async function generateDBTables() {
                 ON DELETE RESTRICT
                 ON UPDATE CASCADE
         )`,
+        `CREATE TABLE IF NOT EXISTS EXTERNAL_CONTRACTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company VARCHAR(128) NOT NULL,
+            full_name VARCHAR(128) NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            phone VARCHAR(13) NOT NULL,
+            address VARCHAR(512) NOT NULL,
+            signing_code VARCHAR(8) NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            signable_till DATETIME NOT NULL,
+            signature INT NULL,
+            selfie INT NULL,
+            identity INT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_external_contracts_signature_media
+                FOREIGN KEY (signature)
+                REFERENCES MEDIA(id)
+                ON DELETE RESTRICT
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_external_contracts_selfie_media
+                FOREIGN KEY (selfie)
+                REFERENCES MEDIA(id)
+                ON DELETE RESTRICT
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_external_contracts_identity_media
+                FOREIGN KEY (identity)
+                REFERENCES MEDIA(id)
+                ON DELETE RESTRICT
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS CONTRACT_CLAUSES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            external_contract_id INT NOT NULL,
+            title VARCHAR(128) NOT NULL,
+            view_index INT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_contract_clauses_external_contract
+                FOREIGN KEY (external_contract_id)
+                REFERENCES EXTERNAL_CONTRACTS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS CLAUSE_SUBCLAUSES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            clause_id INT NOT NULL,
+            body TEXT NOT NULL,
+            view_index INT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_clause_subclauses_clause
+                FOREIGN KEY (clause_id)
+                REFERENCES CONTRACT_CLAUSES(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
 
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,

@@ -18,6 +18,10 @@ import users from "./apps/users.js";
 import services from "./apps/services.js";
 import media from "./apps/media.js";
 import projectDocuments from "./apps/project_documents.js";
+import externalContracts from "./apps/external_contracts.js";
+import externalContractsSign from "./apps/external_contracts_sign.js";
+import contractClauses from "./apps/contract_clauses.js";
+import clauseSubclauses from "./apps/clause_subclauses.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 import requireApiSession from "../middlewares/require_api_session.js";
@@ -30,6 +34,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
     .group("/authentication", authentication)
     .group("/authentication-tokens", authenticationTokens)
     .group("/inquiries", inquiries)
+    .group("/external-contracts", externalContractsSign)
     .guard({ beforeHandle: [requireApiSession] }, (app) =>
         app
             .group("/project-applications", projectApplications)
@@ -43,7 +48,10 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/users", users)
             .group("/services", services)
             .group("/media", media)
-            .group("/project-documents", projectDocuments),
+            .group("/project-documents", projectDocuments)
+            .group("/external-contracts", externalContracts)
+            .group("/contract-clauses", contractClauses)
+            .group("/clause-subclauses", clauseSubclauses),
     )
     .group("/services", (app) =>
         app

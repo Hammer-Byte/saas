@@ -38,9 +38,13 @@ import {
     getInvoicePaymentsByCustomerInvoiceId,
 } from "../db/invoice_payments.js";
 import { getAllUsers } from "../db/users.js";
+import { getAllExternalContracts, getExternalContractById, getExternalContractBySigningCode } from "../db/external_contracts.js";
+import { getContractClausesByExternalContractId } from "../db/contract_clauses.js";
+import { getClauseSubclausesByExternalContractId } from "../db/clause_subclauses.js";
 import { getReadableDate } from "../libs/date.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
+const contractHeaderImagePath = join(import.meta.dir, "../templates/invoice/header.png");
 
 export const uiRoutes = new Elysia()
     .get("/", ({ render }) => render("index"))
@@ -61,6 +65,43 @@ export const uiRoutes = new Elysia()
             title: "Not Found — HammerByte",
         }),
     )
+    .get("/external-contracts/:signing_code/sign", async ({ params, render, redirect }) => {
+        const externalContract = await getExternalContractBySigningCode({
+            signing_code: params.signing_code,
+        });
+        if (!externalContract) {
+            return redirect("/not-found");
+        }
+
+        const contractClauses = await getContractClausesByExternalContractId({
+            external_contract_id: externalContract.id,
+        });
+        const clauseSubclauses = await getClauseSubclausesByExternalContractId({
+            external_contract_id: externalContract.id,
+        });
+        const headerImageBase64 = Buffer.from(
+            await Bun.file(contractHeaderImagePath).arrayBuffer(),
+        ).toString("base64");
+
+        return render("sign-external-contract", {
+            title: `Contract — ${externalContract.company}`,
+            header_image_src: `data:image/png;base64,${headerImageBase64}`,
+            contract: {
+                company: externalContract.company,
+                full_name: externalContract.full_name,
+                email: externalContract.email,
+                phone: externalContract.phone,
+                address: externalContract.address,
+                signing_code: externalContract.signing_code,
+            },
+            clauses: contractClauses.map((contractClause) => ({
+                ...contractClause,
+                subclauses: clauseSubclauses.filter(
+                    (clauseSubclause) => clauseSubclause.clause_id === contractClause.id,
+                ),
+            })),
+        });
+    })
     .guard({ beforeHandle: [requireSession] }, (app) =>
         app
             .derive(async ({ cookie }) => ({
@@ -400,6 +441,38 @@ export const uiRoutes = new Elysia()
                     inquiries: await getAllInquiries(),
                 }),
             )
+            .get("/app/external-contracts", async ({ render, session }) =>
+                render("external-contracts", {
+                    title: "External Contracts — HammerByte",
+                    username: session?.username,
+                    contracts: await getAllExternalContracts(),
+                }),
+            )
+            .get("/app/external-contracts/:id", async ({ render, session, params, redirect }) => {
+                const contract = await getExternalContractById({ id: params.id });
+                if (!contract) {
+                    return redirect("/not-found");
+                }
+
+                const clauses = await getContractClausesByExternalContractId({
+                    external_contract_id: contract.id,
+                });
+                const subclauses = await getClauseSubclausesByExternalContractId({
+                    external_contract_id: contract.id,
+                });
+
+                return render("external-contract", {
+                    title: `Contract #${contract.id} — HammerByte`,
+                    username: session?.username,
+                    contract,
+                    clauses: clauses.map((clause) => ({
+                        ...clause,
+                        subclauses: subclauses.filter(
+                            (subclause) => subclause.clause_id === clause.id,
+                        ),
+                    })),
+                });
+            })
             .get("/app/users", async ({ render, session }) =>
                 render("users", {
                     title: "Users — HammerByte",
