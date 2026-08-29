@@ -2,7 +2,7 @@ import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
 export async function createExternalContract({
-    company,
+    company = null,
     full_name,
     email,
     phone,
@@ -43,7 +43,7 @@ export async function createExternalContract({
 
 export async function updateExternalContractById({
     id,
-    company,
+    company = null,
     full_name,
     email,
     phone,

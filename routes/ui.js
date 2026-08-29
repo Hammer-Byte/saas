@@ -90,8 +90,11 @@ export const uiRoutes = new Elysia()
             externalContract.signature && externalContract.selfie && externalContract.identity,
         );
 
+        const contractorName =
+            externalContract.full_name || externalContract.company || "";
+
         return render("sign-external-contract", {
-            title: `Contract — ${externalContract.company}`,
+            title: `Contract — ${contractorName}`,
             header_image_src: await getSharedAssetDataUri({
                 fileName: "header.png",
                 mimeType: "image/png",
@@ -110,11 +113,7 @@ export const uiRoutes = new Elysia()
             }),
             is_signed: isSigned,
             contract: {
-                company: externalContract.company,
-                full_name: externalContract.full_name,
-                email: externalContract.email,
-                phone: externalContract.phone,
-                address: externalContract.address,
+                contractor_name: contractorName,
                 signing_code: externalContract.signing_code,
             },
             clauses: contractClauses.map((contractClause) => ({

@@ -23,7 +23,7 @@
             </p>
             <h1 class="h3 mb-1">Contract #<%= contract.id %></h1>
             <p class="text-secondary mb-0">
-                <%= contract.full_name %> — <%= contract.company %>
+                <%= contract.full_name %><% if (contract.company) { %> — <%= contract.company %><% } %>
                 <%
                     const isSigned = contract.signature && contract.selfie && contract.identity;
                 %>
@@ -46,15 +46,14 @@
                 <form id="external-contract-detail-form" data-contract-id="<%= contract.id %>" novalidate>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label for="detail-company" class="form-label">Company</label>
+                            <label for="detail-company" class="form-label">Company <span class="text-secondary fw-normal">(optional)</span></label>
                             <input
                                 type="text"
                                 class="form-control"
                                 id="detail-company"
                                 name="company"
-                                value="<%= contract.company %>"
+                                value="<%= contract.company || '' %>"
                                 maxlength="128"
-                                required
                             />
                         </div>
                         <div class="col-md-6">

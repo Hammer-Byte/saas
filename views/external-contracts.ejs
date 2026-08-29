@@ -59,7 +59,7 @@
                                     %>
                                     <tr>
                                         <td><%= contract.full_name %></td>
-                                        <td><%= contract.company %></td>
+                                        <td><%= contract.company || "-" %></td>
                                         <td>
                                             <% if (isSigned) { %>
                                                 <span class="badge text-bg-success">Signed</span>
@@ -121,14 +121,13 @@
                     <div id="external-contract-form-alert" class="alert d-none" role="alert"></div>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label for="company" class="form-label">Company</label>
+                            <label for="company" class="form-label">Company <span class="text-secondary fw-normal">(optional)</span></label>
                             <input
                                 type="text"
                                 class="form-control"
                                 id="company"
                                 name="company"
                                 maxlength="128"
-                                required
                             />
                         </div>
                         <div class="col-md-6">

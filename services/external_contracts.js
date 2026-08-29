@@ -6,6 +6,7 @@ import { getWritableDate } from "../libs/date.js";
 import { generateSigningCode } from "../libs/utils.js";
 import {
     buildExternalContractClausesHtml,
+    escapeExternalContractHtml,
     generateExternalContractPdf,
     resolveExternalContractTemplateAssets,
 } from "../libs/external_contractor.js";
@@ -82,12 +83,9 @@ export async function getExternalContractHtml({ signing_code }) {
     });
 
     const html = filer.prepareTemplated("templates/contract.html", {
-        company: externalContract.company,
-        full_name: externalContract.full_name,
-        email: externalContract.email,
-        phone: externalContract.phone,
-        address: externalContract.address,
-        signing_code: externalContract.signing_code,
+        contractor_name: escapeExternalContractHtml(
+            externalContract.full_name || externalContract.company || "",
+        ),
         clauses: buildExternalContractClausesHtml(clauses),
     });
 
@@ -163,7 +161,7 @@ export async function addExternalContract({ body, set }) {
     }
 
     const contractId = await createExternalContract({
-        company: body.company.trim(),
+        company: body.company?.trim() || null,
         full_name: body.full_name.trim(),
         email: body.email.trim(),
         phone: body.phone.trim(),
@@ -194,7 +192,7 @@ export async function updateExternalContract({ params, body, set }) {
 
     await updateExternalContractById({
         id: existingContract.id,
-        company: body.company.trim(),
+        company: body.company?.trim() || null,
         full_name: body.full_name.trim(),
         email: body.email.trim(),
         phone: body.phone.trim(),

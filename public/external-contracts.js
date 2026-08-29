@@ -66,8 +66,8 @@
             form.elements.namedItem("signable_till")?.value,
         );
 
-        if (!company || !full_name || !email || !phone || !address || !signable_till) {
-            showAlert(formAlert, "All fields are required.", "danger");
+        if (!full_name || !email || !phone || !address || !signable_till) {
+            showAlert(formAlert, "Full name, email, phone, address, and signable till are required.", "danger");
             return;
         }
 
@@ -80,7 +80,7 @@
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    company,
+                    company: company || null,
                     full_name,
                     email,
                     phone,

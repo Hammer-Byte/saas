@@ -284,7 +284,7 @@ export async function generateDBTables() {
         )`,
         `CREATE TABLE IF NOT EXISTS EXTERNAL_CONTRACTS (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            company VARCHAR(128) NOT NULL,
+            company VARCHAR(128) NULL,
             full_name VARCHAR(128) NOT NULL,
             email VARCHAR(255) NOT NULL,
             phone VARCHAR(13) NOT NULL,

@@ -11,11 +11,9 @@ export default function (app) {
     return app
         .post("/", addExternalContract, {
             body: t.Object({
-                company: t.String({
-                    minLength: 1,
-                    maxLength: 128,
-                    error: "Company is required",
-                }),
+                company: t.Optional(
+                    t.Union([t.String({ maxLength: 128 }), t.Literal(""), t.Null()]),
+                ),
                 full_name: t.String({
                     minLength: 1,
                     maxLength: 128,
@@ -69,11 +67,9 @@ export default function (app) {
                 id: t.Numeric(),
             }),
             body: t.Object({
-                company: t.String({
-                    minLength: 1,
-                    maxLength: 128,
-                    error: "Company is required",
-                }),
+                company: t.Optional(
+                    t.Union([t.String({ maxLength: 128 }), t.Literal(""), t.Null()]),
+                ),
                 full_name: t.String({
                     minLength: 1,
                     maxLength: 128,

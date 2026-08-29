@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HammerByte Contract — {{signing_code}}</title>
+<title>HammerByte Contract</title>
 <style>
     @font-face {
         font-family: "Open Sans";
@@ -57,41 +57,20 @@
         padding: 0 14mm 28mm;
     }
 
-    .party-area {
-        width: 100%;
-        border-collapse: collapse;
+    .parties-preamble {
         margin-top: 8mm;
-        table-layout: fixed;
-    }
-
-    .party-area td {
-        vertical-align: top;
-    }
-
-    .party-title {
-        font-weight: 700;
-        font-size: 14px;
-        margin-bottom: 4px;
+        text-align: justify;
         color: #111;
     }
 
-    .party-line {
-        margin: 0 0 3px;
+    .parties-preamble p {
+        margin: 0 0 4mm;
     }
 
-    .meta-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .meta-label {
-        width: 40%;
-        color: #6b7280;
-    }
-
-    .meta-value {
+    .parties-and {
+        text-align: center;
         font-weight: 700;
-        text-align: right;
+        margin: 4mm 0;
     }
 
     .contract-title {
@@ -180,26 +159,18 @@
     <img class="header-art" src="assets/header.png" alt="HammerByte">
 
     <div class="content">
-        <table class="party-area">
-            <tr>
-                <td>
-                    <div class="party-title">Party</div>
-                    <p class="party-line">{{full_name}}</p>
-                    <p class="party-line">{{company}}</p>
-                    <p class="party-line">{{email}}</p>
-                    <p class="party-line">{{phone}}</p>
-                    <p class="party-line">{{address}}</p>
-                </td>
-                <td>
-                    <table class="meta-table">
-                        <tr>
-                            <td class="meta-label">Document</td>
-                            <td class="meta-value">External Contract</td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
+        <div class="parties-preamble">
+            <p>
+                HAMMERBYTE, a business entity registered in December 2025, having its principal place of business in India, represented by its Authorized Signatory (hereinafter referred to as the "Company" or "Hammerbyte", which expression shall unless repugnant to the context include its successors and permitted assigns), of the FIRST PART;
+            </p>
+            <p class="parties-and">AND</p>
+            <p>
+                {{contractor_name}}, an individual professional / sole proprietorship / registered business entity, represented by its authorized representative where applicable (hereinafter referred to as the "Contractor", which expression shall unless repugnant to the context include her/its legal heirs, executors, legal representatives, successors, and permitted assigns), of the SECOND PART.
+            </p>
+            <p>
+                (Hammerbyte and Contractor are individually referred to as a "Party" and collectively as the "Parties".)
+            </p>
+        </div>
 
         <h1 class="contract-title">Formal Contract</h1>
 
