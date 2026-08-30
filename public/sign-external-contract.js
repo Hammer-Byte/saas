@@ -3,8 +3,6 @@
     const signAlert = document.getElementById("sign-alert");
     const readContractCheckbox = document.getElementById("read-contract-checkbox");
     const signButton = document.getElementById("sign-contract-btn");
-    const successModalElement = document.getElementById("signed-success-modal");
-    const successOkButton = document.getElementById("signed-success-ok-btn");
 
     const mediaIds = {
         signature: null,
@@ -130,16 +128,30 @@
                 return;
             }
 
-            bootstrap.Modal.getOrCreateInstance(successModalElement).show();
+            const action = await showConfirm({
+                title: "Signed successfully",
+                description: "Your contract has been signed successfully.",
+                choices: [
+                    { label: "Close", variant: "secondary", value: "close" },
+                    { label: "Download", variant: "primary", value: "download" },
+                ],
+            });
+
+            if (action === "download") {
+                const downloadLink = document.createElement("a");
+                downloadLink.href = `/api/external-contracts/${signing_code}/signed`;
+                downloadLink.rel = "noopener";
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                downloadLink.remove();
+            }
+
+            window.location.reload();
         } catch (error) {
             console.error(error);
             showAlert("Failed to sign contract.", "danger");
             updateSignButton();
         }
-    });
-
-    successOkButton?.addEventListener("click", () => {
-        window.location.href = "/";
     });
 
     updateSignButton();

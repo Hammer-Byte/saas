@@ -368,38 +368,13 @@
         <img class="footer-art" src="<%= footer_image_src %>" alt="" />
     </div>
 
-    <% if (!is_signed) { %>
-    <div
-        class="modal fade"
-        id="signed-success-modal"
-        tabindex="-1"
-        aria-labelledby="signed-success-modal-label"
-        aria-hidden="true"
-        data-bs-backdrop="static"
-        data-bs-keyboard="false"
-    >
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 class="modal-title h5" id="signed-success-modal-label">Signed successfully</h2>
-                </div>
-                <div class="modal-body">
-                    <p class="mb-0">Your contract has been signed successfully.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" id="signed-success-ok-btn">OK</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <% } %>
-
     <script
         src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
         crossorigin="anonymous"
     ></script>
     <% if (!is_signed) { %>
+    <script src="/public/utils.js" defer></script>
     <script src="/public/sign-external-contract.js" defer></script>
     <% } %>
 </body>
