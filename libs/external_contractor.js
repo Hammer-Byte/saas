@@ -100,10 +100,11 @@ export async function generateExternalContractPdf(html) {
             output,
             pageSize: "A4",
             enableLocalFileAccess: true,
-            disableSmartShrinking: true,
-            marginTop: "0",
+            // Top/bottom margins apply on every page (breathing room on page 2+).
+            // Header/footer use negative margins to sit flush on first/last page only.
+            marginTop: "14mm",
             marginRight: "0",
-            marginBottom: "0",
+            marginBottom: "14mm",
             marginLeft: "0",
         });
 

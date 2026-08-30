@@ -47,28 +47,22 @@
         padding: 0;
     }
 
+    /* Pull into page top margin so page 1 header is edge-flush */
     .header-art {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        width: 100%;
         display: block;
-        z-index: 1000;
+        width: 100%;
+        margin: -14mm 0 0;
     }
 
+    /* Pull into page bottom margin so last-page footer is edge-flush */
     .footer-art {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        width: 100%;
         display: block;
-        z-index: 1000;
+        width: 100%;
+        margin: 0 0 -14mm;
     }
 
     .content {
-        padding: 57.7mm 14mm 13.3mm;
+        padding: 6mm 14mm 8mm;
     }
 
     .parties-preamble {
