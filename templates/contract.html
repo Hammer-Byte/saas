@@ -47,12 +47,32 @@
         padding: 0;
     }
 
+    .header-art {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        display: block;
+        z-index: 1000;
+    }
+
+    .footer-art {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        display: block;
+        z-index: 1000;
+    }
+
     .content {
-        padding: 0 14mm;
+        padding: 57.7mm 14mm 13.3mm;
     }
 
     .parties-preamble {
-        margin-top: 4mm;
+        margin-top: 0;
         text-align: justify;
         color: #111;
     }
@@ -198,6 +218,8 @@
 </head>
 <body>
 <div class="page">
+    <img class="header-art" src="assets/header.png" alt="HammerByte">
+
     <div class="content">
         <div class="parties-preamble">
             <p>
@@ -240,6 +262,8 @@
             </div>
         </div>
     </div>
+
+    <img class="footer-art" src="assets/footer.png" alt="">
 </div>
 </body>
 </html>

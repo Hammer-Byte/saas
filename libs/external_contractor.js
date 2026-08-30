@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { readFileSync, unlinkSync } from "node:fs";
 import { promisify } from "node:util";
 import wkhtmltopdf from "wkhtmltopdf";
 
@@ -93,68 +93,26 @@ export function buildExternalContractClausesHtml(clauses) {
 }
 
 export async function generateExternalContractPdf(html) {
-    const stamp = Date.now();
-    const output = join(tmpdir(), `external-contract-${stamp}.pdf`);
-    const headerHtmlPath = join(tmpdir(), `external-contract-header-${stamp}.html`);
-    const footerHtmlPath = join(tmpdir(), `external-contract-footer-${stamp}.html`);
-
-    writeFileSync(
-        headerHtmlPath,
-        `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<style>
-    html, body { margin: 0; padding: 0; }
-    img { width: 210mm; display: block; }
-</style>
-</head>
-<body>
-    <img src="${sharedAssetsDirectory}header.png" alt="HammerByte">
-</body>
-</html>`,
-    );
-
-    writeFileSync(
-        footerHtmlPath,
-        `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<style>
-    html, body { margin: 0; padding: 0; }
-    img { width: 210mm; display: block; }
-</style>
-</head>
-<body>
-    <img src="${sharedAssetsDirectory}footer.png" alt="">
-</body>
-</html>`,
-    );
+    const output = join(tmpdir(), `external-contract-${Date.now()}.pdf`);
 
     try {
         await writePdf(html, {
             output,
             pageSize: "A4",
             enableLocalFileAccess: true,
-            headerHtml: headerHtmlPath,
-            footerHtml: footerHtmlPath,
-            marginTop: "54mm",
-            marginRight: "0mm",
-            marginBottom: "12mm",
-            marginLeft: "0mm",
-            headerSpacing: 0,
-            footerSpacing: 0,
+            disableSmartShrinking: true,
+            marginTop: "0",
+            marginRight: "0",
+            marginBottom: "0",
+            marginLeft: "0",
         });
 
         return readFileSync(output);
     } finally {
-        for (const path of [output, headerHtmlPath, footerHtmlPath]) {
-            try {
-                unlinkSync(path);
-            } catch {
-                // ignore cleanup errors
-            }
+        try {
+            unlinkSync(output);
+        } catch {
+            // ignore cleanup errors
         }
     }
 }
