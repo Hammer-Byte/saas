@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { readFileSync, unlinkSync } from "node:fs";
+import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { promisify } from "node:util";
 import wkhtmltopdf from "wkhtmltopdf";
 
@@ -94,14 +94,18 @@ export function buildExternalContractClausesHtml(clauses) {
 
 export async function generateExternalContractPdf(html) {
     const output = join(tmpdir(), `external-contract-${Date.now()}.pdf`);
+    const htmlPath = join(tmpdir(), `external-contract-${Date.now()}.html`);
+
+    writeFileSync(htmlPath, html);
 
     try {
-        await writePdf(html, {
+        await writePdf(`file://${htmlPath}`, {
             output,
             pageSize: "A4",
             enableLocalFileAccess: true,
-            // Top/bottom margins apply on every page (breathing room on page 2+).
-            // Header/footer use negative margins to sit flush on first/last page only.
+            disableSmartShrinking: true,
+            // Top/bottom margins = breathing room on page 2+.
+            // Header uses -14mm top margin to sit flush on page 1.
             marginTop: "14mm",
             marginRight: "0",
             marginBottom: "14mm",
@@ -110,10 +114,12 @@ export async function generateExternalContractPdf(html) {
 
         return readFileSync(output);
     } finally {
-        try {
-            unlinkSync(output);
-        } catch {
-            // ignore cleanup errors
+        for (const path of [output, htmlPath]) {
+            try {
+                unlinkSync(path);
+            } catch {
+                // ignore cleanup errors
+            }
         }
     }
 }

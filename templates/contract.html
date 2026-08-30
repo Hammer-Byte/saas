@@ -31,6 +31,7 @@
     html, body {
         margin: 0;
         padding: 0;
+        width: 210mm;
         background: #fff;
         color: #434343;
         font-family: "Open Sans", Arial, Helvetica, sans-serif;
@@ -42,27 +43,26 @@
     .page {
         position: relative;
         width: 210mm;
-        margin: 0 auto;
+        margin: 0;
         background: #fff;
         padding: 0;
+        overflow: hidden;
     }
 
-    /* Pull into page top margin so page 1 header is edge-flush */
+    /* Full page width; negative top margin pulls into wkhtmltopdf top margin on page 1 */
     .header-art {
         display: block;
-        width: 100%;
-        margin: -14mm 0 0;
-    }
-
-    /* Pull into page bottom margin so last-page footer is edge-flush */
-    .footer-art {
-        display: block;
-        width: 100%;
-        margin: 0 0 -14mm;
+        width: 210mm;
+        max-width: 210mm;
+        margin: -14mm 0 0 0;
+        padding: 0;
+        border: 0;
     }
 
     .content {
         padding: 6mm 14mm 8mm;
+        width: 210mm;
+        box-sizing: border-box;
     }
 
     .parties-preamble {
@@ -256,8 +256,6 @@
             </div>
         </div>
     </div>
-
-    <img class="footer-art" src="assets/footer.png" alt="">
 </div>
 </body>
 </html>
