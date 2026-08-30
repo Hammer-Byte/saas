@@ -102,7 +102,7 @@
             !mediaIds.identity ||
             !readContractCheckbox?.checked
         ) {
-            showAlert("Upload all files and confirm you have read the contract.", "danger");
+            showAlert("Upload all files and confirm the agreement acknowledgment.", "danger");
             return;
         }
 
