@@ -5,14 +5,6 @@
     const emptyState = document.getElementById("gem-keywords-empty");
     const tableBody = document.getElementById("gem-keywords-tbody");
     const startScanButton = document.getElementById("gem-start-scan-btn");
-    const monthInput = document.getElementById("gem-tenders-month");
-
-    monthInput?.addEventListener("change", () => {
-        if (!monthInput.value) return;
-        const url = new URL(window.location.href);
-        url.searchParams.set("month", monthInput.value);
-        window.location.href = url.toString();
-    });
 
     function showAlert(message, type) {
         if (!pageAlert) return;
