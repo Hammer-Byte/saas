@@ -1,4 +1,4 @@
-import { By } from "selenium-webdriver";
+import { By, until } from "selenium-webdriver";
 
 export class GemPage {
     static path = "/all-bids";
@@ -41,6 +41,21 @@ export class GemPage {
 
     async open() {
         await this.driver.get(this.url());
+        await this.driver.wait(until.elementLocated(this.by("searchTypeDropdown")), 20000);
+        await this.driver.sleep(1000);
+    }
+
+    async clickElement(element) {
+        await this.driver.executeScript(
+            "arguments[0].scrollIntoView({block:'center', inline:'nearest'});",
+            element,
+        );
+        await this.driver.sleep(200);
+        try {
+            await element.click();
+        } catch {
+            await this.driver.executeScript("arguments[0].click();", element);
+        }
     }
 
     async searchTypeDropdown() {
@@ -113,12 +128,7 @@ export class GemPage {
     }
 
     async clickNextPage() {
-        const next = await this.nextPageButton();
-        await this.driver.executeScript(
-            "arguments[0].scrollIntoView({block:'center'});",
-            next,
-        );
-        await next.click();
+        await this.clickElement(await this.nextPageButton());
     }
 
     async prevPageButton() {

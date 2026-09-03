@@ -1,4 +1,5 @@
 import { Builder, Browser } from "selenium-webdriver";
+import firefox from "selenium-webdriver/firefox.js";
 import { logger } from "@hammerbyte/utils";
 import { searchTendersByKeyword } from "./tenderer/gem_crawler.js";
 
@@ -19,19 +20,32 @@ export function crawlGemForTenders({ keywords = [] } = {}) {
         .filter((entry) => entry.id && entry.keyword);
 
     if (!keywordList.length) {
+        processing = false;
         return false;
     }
 
     (async () => {
-        const driver = await new Builder().forBrowser(Browser.FIREFOX).build();
-        await driver.manage().window().maximize();
+        let driver = null;
 
         try {
+            const options = new firefox.Options()
+                .addArguments("-headless")
+                .windowSize({ width: 1920, height: 1080 });
+
+            driver = await new Builder()
+                .forBrowser(Browser.FIREFOX)
+                .setFirefoxOptions(options)
+                .build();
+
             for (const keyword of keywordList) {
                 await searchTendersByKeyword(driver, keyword);
             }
         } finally {
-            await driver.quit();
+            if (driver) {
+                await driver.quit().catch((error) => {
+                    logger.error(`gem tenderer driver quit failed: ${error}`);
+                });
+            }
         }
     })()
         .catch((error) => {

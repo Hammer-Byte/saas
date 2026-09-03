@@ -183,14 +183,14 @@ export const searchTendersByKeyword = async (driver, { keyword, id: keyword_id }
 
     await page.open();
 
-    await (await page.searchTypeDropdown()).click();
-    await (await page.exactSearchOption()).click();
+    await page.clickElement(await page.searchTypeDropdown());
+    await page.clickElement(await page.exactSearchOption());
 
     const searchInput = await page.searchInput();
     await searchInput.clear();
     await searchInput.sendKeys(keyword);
 
-    await (await page.searchButton()).click();
+    await page.clickElement(await page.searchButton());
     await sleep(driver, DELAY_MEDIUM);
     await page.bidCardContainer();
 
@@ -199,7 +199,7 @@ export const searchTendersByKeyword = async (driver, { keyword, id: keyword_id }
         return;
     }
 
-    const lastPage = 2;
+    const lastPage = await page.getLastPageNumber();
 
     for (let pageNumber = 1; pageNumber <= lastPage; pageNumber++) {
         logger.info(`Downloading page ${pageNumber} of ${lastPage} for ${keyword}...`);
