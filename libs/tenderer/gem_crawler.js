@@ -137,7 +137,7 @@ const extractTenderDetails = (text) => {
         ministry: valueAfterLabel(text, "Ministry/State Name"),
         department: valueAfterLabel(text, "Department Name"),
         organization: valueAfterLabel(text, "Organisation Name"),
-        office: valueAfterLabel(text, "Item Category"),
+        office: valueAfterLabel(text, "Office Name"),
         hod_email: text.match(TENDER_DETAIL_REGEXES.HOD_EMAIL)?.[1] || null,
         buyer_email: text.match(TENDER_DETAIL_REGEXES.BUYER_EMAIL)?.[1] || null,
         buyer_phone: null,
