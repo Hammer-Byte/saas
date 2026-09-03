@@ -1,5 +1,6 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
+import { toDbDateTime } from "../libs/date.js";
 
 export async function createExternalContract({
     company = null,
@@ -22,7 +23,7 @@ export async function createExternalContract({
                     address,
                     signing_code,
                     active,
-                    signable_till,
+                    signable_till: toDbDateTime(signable_till),
                 },
                 "company",
                 "full_name",
@@ -61,7 +62,7 @@ export async function updateExternalContractById({
                 phone = ${phone},
                 address = ${address},
                 active = ${active},
-                signable_till = ${signable_till}
+                signable_till = ${toDbDateTime(signable_till)}
             WHERE id = ${id}
         `,
     ).catch((error) => {

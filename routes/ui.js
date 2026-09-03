@@ -41,6 +41,9 @@ import { getAllUsers } from "../db/users.js";
 import { getAllExternalContracts, getExternalContractById, getExternalContractBySigningCode } from "../db/external_contracts.js";
 import { getContractClausesByExternalContractId } from "../db/contract_clauses.js";
 import { getClauseSubclausesByExternalContractId } from "../db/clause_subclauses.js";
+import { getAllGemTenderKeywords, getGemTenderKeywordById } from "../db/gem_tender_keywords.js";
+import { getGemKeywordTendersByKeywordId } from "../db/gem_keyword_tenders.js";
+import { processing as gemTendereProcessing } from "../libs/tenderer.js";
 import { getReadableDate } from "../libs/date.js";
 import { formatExternalContractCreatedOn } from "../libs/external_contractor.js";
 
@@ -509,5 +512,39 @@ export const uiRoutes = new Elysia()
                     username: session?.username,
                     users: await getAllUsers(),
                 }),
+            )
+            .get("/app/gem-tender-keywords", async ({ render, session }) =>
+                render("gem-tenders", {
+                    title: "Gem Tenders Analyzer — HammerByte",
+                    username: session?.username,
+                    keywords: await getAllGemTenderKeywords(),
+                    processing: gemTendereProcessing,
+                    month: getReadableDate("YYYY-MM", new Date()),
+                }),
+            )
+            .get(
+                "/app/gem-tender-keywords/:id",
+                async ({ render, session, params, query, redirect }) => {
+                    const keyword = await getGemTenderKeywordById({ id: params.id });
+                    if (!keyword) {
+                        return redirect("/not-found");
+                    }
+
+                    const month =
+                        query.month && /^\d{4}-\d{2}$/.test(query.month)
+                            ? query.month
+                            : getReadableDate("YYYY-MM", new Date());
+
+                    return render("gem-tender-keyword", {
+                        title: `Tenders — ${keyword.keyword} — HammerByte`,
+                        username: session?.username,
+                        keyword,
+                        month,
+                        tenders: await getGemKeywordTendersByKeywordId({
+                            keyword_id: keyword.id,
+                            month,
+                        }),
+                    });
+                },
             ),
     );

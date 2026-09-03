@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { promisify } from "node:util";
 import wkhtmltopdf from "wkhtmltopdf";
+import { getReadableDate } from "./date.js";
 
 const writePdf = promisify(wkhtmltopdf);
 
@@ -32,16 +33,13 @@ export function escapeExternalContractHtml(value) {
 }
 
 export function formatExternalContractCreatedOn(date) {
-    if (date == null || date === "") {
+    const wallClock = getReadableDate("YYYY-MM-DD", date);
+    if (!wallClock) {
         return "";
     }
 
-    const parsed = date instanceof Date ? date : new Date(date);
-    if (Number.isNaN(parsed.getTime())) {
-        return "";
-    }
-
-    return `${parsed.getDate()} ${MONTH_NAMES[parsed.getMonth()]} ${parsed.getFullYear()}`;
+    const [year, month, day] = wallClock.split("-");
+    return `${Number(day)} ${MONTH_NAMES[Number(month) - 1]} ${year}`;
 }
 
 export function buildExternalContractContractorMediaHtml({

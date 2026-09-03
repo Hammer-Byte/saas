@@ -2,6 +2,41 @@
     const DATE_TOKENS = /YYYY|MM|DD|HH|mm|ss/g;
     const CONFIRM_MODAL_ID = "app-confirm-modal";
 
+    function matchWallClock(value) {
+        const trimmed = String(value ?? "").trim();
+        const dateTimeMatch = trimmed.match(
+            /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/,
+        );
+        if (dateTimeMatch) {
+            return {
+                YYYY: dateTimeMatch[1],
+                MM: dateTimeMatch[2],
+                DD: dateTimeMatch[3],
+                HH: (dateTimeMatch[4] || "00").padStart(2, "0"),
+                mm: (dateTimeMatch[5] || "00").padStart(2, "0"),
+                ss: (dateTimeMatch[6] || "00").padStart(2, "0"),
+            };
+        }
+
+        const monthMatch = trimmed.match(/^(\d{4})-(\d{2})$/);
+        if (monthMatch) {
+            return {
+                YYYY: monthMatch[1],
+                MM: monthMatch[2],
+                DD: "01",
+                HH: "00",
+                mm: "00",
+                ss: "00",
+            };
+        }
+
+        return null;
+    }
+
+    function formatParts(format, parts) {
+        return format.replace(DATE_TOKENS, (token) => parts[token]);
+    }
+
     function parseToDate(date) {
         if (date == null || date === "") {
             return null;
@@ -11,46 +46,48 @@
             return Number.isNaN(date.getTime()) ? null : date;
         }
 
-        const value = String(date).trim();
-        const dateTimeMatch = value.match(
-            /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/,
-        );
-        if (dateTimeMatch) {
+        const wallClock = matchWallClock(date);
+        if (wallClock) {
             return new Date(
-                Number(dateTimeMatch[1]),
-                Number(dateTimeMatch[2]) - 1,
-                Number(dateTimeMatch[3]),
-                Number(dateTimeMatch[4] || 0),
-                Number(dateTimeMatch[5] || 0),
-                Number(dateTimeMatch[6] || 0),
+                Number(wallClock.YYYY),
+                Number(wallClock.MM) - 1,
+                Number(wallClock.DD),
+                Number(wallClock.HH),
+                Number(wallClock.mm),
+                Number(wallClock.ss),
             );
         }
 
-        const monthMatch = value.match(/^(\d{4})-(\d{2})$/);
-        if (monthMatch) {
-            return new Date(Number(monthMatch[1]), Number(monthMatch[2]) - 1, 1);
-        }
-
-        const parsed = new Date(value);
+        const parsed = new Date(String(date).trim());
         return Number.isNaN(parsed.getTime()) ? null : parsed;
     }
 
     function formatDate(format, date) {
+        if (date == null || date === "") {
+            return "";
+        }
+
+        // Keep YYYY-MM-DD[ HH:mm:ss] / datetime-local strings timezone-safe.
+        if (typeof date === "string" || typeof date === "number") {
+            const wallClock = matchWallClock(date);
+            if (wallClock) {
+                return formatParts(format, wallClock);
+            }
+        }
+
         const parsed = parseToDate(date);
         if (!parsed) {
             return "";
         }
 
-        const parts = {
+        return formatParts(format, {
             YYYY: String(parsed.getFullYear()),
             MM: `${parsed.getMonth() + 1}`.padStart(2, "0"),
             DD: `${parsed.getDate()}`.padStart(2, "0"),
             HH: `${parsed.getHours()}`.padStart(2, "0"),
             mm: `${parsed.getMinutes()}`.padStart(2, "0"),
             ss: `${parsed.getSeconds()}`.padStart(2, "0"),
-        };
-
-        return format.replace(DATE_TOKENS, (token) => parts[token]);
+        });
     }
 
     window.getWritableDate = function getWritableDate(format, date) {

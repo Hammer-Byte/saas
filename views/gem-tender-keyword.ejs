@@ -1,0 +1,98 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container-fluid py-5 px-3 px-lg-4">
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-end gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/gem-tender-keywords" class="text-decoration-none">Gem Tenders Analyzer</a> /
+                    #<%= keyword.id %>
+                </p>
+                <h1 class="h3 mb-1">Tenders for keyword</h1>
+                <p class="text-secondary mb-0"><%= keyword.keyword %></p>
+            </div>
+            <div style="min-width: 12rem">
+                <label for="gem-tenders-month" class="form-label">End month</label>
+                <input
+                    type="month"
+                    class="form-control"
+                    id="gem-tenders-month"
+                    name="month"
+                    value="<%= month %>"
+                />
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div
+                    class="p-4 p-md-5 text-center text-secondary <%= tenders && tenders.length ? 'd-none' : '' %>"
+                >
+                    No tenders ending in this month for this keyword.
+                </div>
+                <div class="table-responsive <%= !tenders || !tenders.length ? 'd-none' : '' %>">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Tender ID</th>
+                                <th scope="col">Start</th>
+                                <th scope="col">End</th>
+                                <th scope="col">Ministry</th>
+                                <th scope="col">Department</th>
+                                <th scope="col">Organization</th>
+                                <th scope="col">Office</th>
+                                <th scope="col">HOD email</th>
+                                <th scope="col">Buyer email</th>
+                                <th scope="col">Buyer phone</th>
+                                <th scope="col">Min avg turnover</th>
+                                <th scope="col">Past experience</th>
+                                <th scope="col">MSE exp</th>
+                                <th scope="col">MSE turnover</th>
+                                <th scope="col">Asked documents</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% (tenders || []).forEach(function (tender) { %>
+                                <tr>
+                                    <td><%= tender.tender_id %></td>
+                                    <td><%= tender.start_date_time || "-" %></td>
+                                    <td><%= tender.end_date_time || "-" %></td>
+                                    <td><%= tender.ministry || "-" %></td>
+                                    <td><%= tender.department || "-" %></td>
+                                    <td><%= tender.organization || "-" %></td>
+                                    <td><%= tender.office || "-" %></td>
+                                    <td><%= tender.hod_email || "-" %></td>
+                                    <td><%= tender.buyer_email || "-" %></td>
+                                    <td><%= tender.buyer_phone || "-" %></td>
+                                    <td><%= tender.required_minimum_average_turnover || "-" %></td>
+                                    <td><%= tender.required_past_experice_years || "-" %></td>
+                                    <td><%= tender.mse_experience_relaxation || "-" %></td>
+                                    <td><%= tender.mse_turnover_relaxation || "-" %></td>
+                                    <td><%= tender.asked_documents || "-" %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/gem-tenders.js" defer></script>
+<%- include('common/footer') %>

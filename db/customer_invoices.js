@@ -1,11 +1,12 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
+import { toDbDate } from "../libs/date.js";
 
 export async function createCustomerInvoice({ customer_id, project_id, due_date }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO CUSTOMER_INVOICES ${sql(
-                { customer_id, project_id, due_date },
+                { customer_id, project_id, due_date: toDbDate(due_date) },
                 "customer_id",
                 "project_id",
                 "due_date",
@@ -32,7 +33,7 @@ export async function updateCustomerInvoiceById({
             SET
                 customer_id = ${customer_id},
                 project_id = ${project_id},
-                due_date = ${due_date},
+                due_date = ${toDbDate(due_date)},
                 total = ${total},
                 gst = ${gst}
             WHERE id = ${id}

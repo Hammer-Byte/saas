@@ -1,5 +1,6 @@
 import { SQL } from "bun";
 import { logger, CONSTANTS } from "@hammerbyte/utils";
+import { fromDbDateTime } from "./date.js";
 
 export const dbConnection = new SQL({
     adapter: Bun.env.MYSQL_DIALECT,
@@ -23,8 +24,38 @@ export const dbConnection = new SQL({
     },
 });
 
+function normalizeSqlRow(row) {
+    if (!row || typeof row !== "object") {
+        return row;
+    }
+
+    const normalized = {};
+    for (const [key, value] of Object.entries(row)) {
+        normalized[key] = value instanceof Date ? fromDbDateTime(value) : value;
+    }
+    return normalized;
+}
+
+function normalizeSqlResult(result) {
+    if (result == null) {
+        return result;
+    }
+
+    if (typeof result.length === "number") {
+        for (let index = 0; index < result.length; index++) {
+            const row = result[index];
+            if (row && typeof row === "object") {
+                result[index] = normalizeSqlRow(row);
+            }
+        }
+    }
+
+    return result;
+}
+
 export async function executeSQLQuery(queryFunction) {
-    return await queryFunction(dbConnection);
+    const result = await queryFunction(dbConnection);
+    return normalizeSqlResult(result);
 }
 
 export async function generateDBTables() {
@@ -334,6 +365,38 @@ export async function generateDBTables() {
             CONSTRAINT fk_clause_subclauses_clause
                 FOREIGN KEY (clause_id)
                 REFERENCES CONTRACT_CLAUSES(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS GEM_TENDER_KEYWORDS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            keyword VARCHAR(255) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_gem_tender_keyword (keyword)
+        )`,
+        `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDERS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            keyword_id INT NOT NULL,
+            tender_id VARCHAR(128) NOT NULL,
+            start_date_time VARCHAR(64) NULL,
+            end_date_time VARCHAR(64) NULL,
+            ministry VARCHAR(255) NULL,
+            department VARCHAR(255) NULL,
+            organization VARCHAR(255) NULL,
+            office VARCHAR(255) NULL,
+            hod_email VARCHAR(255) NULL,
+            buyer_email VARCHAR(255) NULL,
+            buyer_phone VARCHAR(64) NULL,
+            required_minimum_average_turnover VARCHAR(128) NULL,
+            required_past_experice_years VARCHAR(128) NULL,
+            mse_experience_relaxation VARCHAR(32) NULL,
+            mse_turnover_relaxation VARCHAR(32) NULL,
+            asked_documents TEXT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_gem_keyword_tender (keyword_id, tender_id),
+            CONSTRAINT fk_gem_keyword_tenders_keyword
+                FOREIGN KEY (keyword_id)
+                REFERENCES GEM_TENDER_KEYWORDS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,

@@ -22,6 +22,7 @@ import externalContracts from "./apps/external_contracts.js";
 import externalContractsSign from "./apps/external_contracts_sign.js";
 import contractClauses from "./apps/contract_clauses.js";
 import clauseSubclauses from "./apps/clause_subclauses.js";
+import gemTenderKeywords from "./apps/gem_tender_keywords.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 import requireApiSession from "../middlewares/require_api_session.js";
@@ -51,7 +52,8 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/project-documents", projectDocuments)
             .group("/external-contracts", externalContracts)
             .group("/contract-clauses", contractClauses)
-            .group("/clause-subclauses", clauseSubclauses),
+            .group("/clause-subclauses", clauseSubclauses)
+            .group("/gem-tender-keywords", gemTenderKeywords),
     )
     .group("/services", (app) =>
         app

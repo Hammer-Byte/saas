@@ -1,0 +1,119 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> / Gem Tenders Analyzer
+                </p>
+                <h1 class="h3 mb-1">Gem Tenders Analyzer</h1>
+                <p class="text-secondary mb-0">Add keywords to track GEM tenders. Show tenders opens matches for that keyword.</p>
+            </div>
+            <button
+                type="button"
+                class="btn btn-success"
+                id="gem-start-scan-btn"
+                <% if (processing) { %>disabled<% } %>
+            >
+                <% if (processing) { %>
+                    Scan in progress…
+                <% } else { %>
+                    Start scan
+                <% } %>
+            </button>
+        </div>
+
+        <div id="gem-keywords-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <form id="gem-keyword-form" class="row g-3 align-items-end" novalidate>
+                    <div class="col-md-9">
+                        <label for="gem-keyword-input" class="form-label">Keyword</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="gem-keyword-input"
+                            name="keyword"
+                            maxlength="255"
+                            placeholder="e.g. Hiring of Agency for IT Projects"
+                            required
+                        />
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary w-100">Add keyword</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div
+                    id="gem-keywords-empty"
+                    class="p-4 p-md-5 text-center text-secondary <%= keywords && keywords.length ? 'd-none' : '' %>"
+                >
+                    No keywords yet. Add one above.
+                </div>
+                <div
+                    class="table-responsive <%= !keywords || !keywords.length ? 'd-none' : '' %>"
+                    id="gem-keywords-table-wrap"
+                >
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Keyword</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gem-keywords-tbody">
+                            <% (keywords || []).forEach(function (keyword) { %>
+                                <tr data-id="<%= keyword.id %>">
+                                    <td><%= keyword.id %></td>
+                                    <td><%= keyword.keyword %></td>
+                                    <td>
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            <a
+                                                href="/app/gem-tender-keywords/<%= keyword.id %>?month=<%= month %>"
+                                                class="btn btn-sm btn-outline-secondary"
+                                            >
+                                                Show tenders
+                                            </a>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger gem-keyword-delete-btn"
+                                                data-id="<%= keyword.id %>"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/gem-tenders.js" defer></script>
+<%- include('common/footer') %>

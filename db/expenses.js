@@ -1,12 +1,20 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
+import { toDbDate } from "../libs/date.js";
 
 export async function createExpense({ title, description = null, amount, expense_date, loaned }) {
+    const expenseDateValue = toDbDate(expense_date);
     return await executeSQLQuery((sql) =>
         loaned
             ? sql`
                 INSERT INTO EXPENSES ${sql(
-                    { title, description, amount, expense_date, loaned: true },
+                    {
+                        title,
+                        description,
+                        amount,
+                        expense_date: expenseDateValue,
+                        loaned: true,
+                    },
                     "title",
                     "description",
                     "amount",
@@ -16,7 +24,12 @@ export async function createExpense({ title, description = null, amount, expense
             `
             : sql`
                 INSERT INTO EXPENSES ${sql(
-                    { title, description, amount, expense_date },
+                    {
+                        title,
+                        description,
+                        amount,
+                        expense_date: expenseDateValue,
+                    },
                     "title",
                     "description",
                     "amount",
@@ -38,7 +51,7 @@ export async function updateExpenseById({ id, title, description = null, amount,
                 title = ${title},
                 description = ${description},
                 amount = ${amount},
-                expense_date = ${expense_date},
+                expense_date = ${toDbDate(expense_date)},
                 loaned = ${loaned}
             WHERE id = ${id}
         `,
@@ -68,7 +81,7 @@ export async function getExpensesByDateRange({ start, end }) {
         (sql) => sql`
             SELECT *
             FROM EXPENSES
-            WHERE expense_date >= ${start} AND expense_date <= ${end}
+            WHERE expense_date >= ${toDbDate(start)} AND expense_date <= ${toDbDate(end)}
             ORDER BY expense_date DESC, id DESC
         `,
     )
@@ -84,7 +97,7 @@ export async function getExpensesByCreatedOnRange({ start, end }) {
         (sql) => sql`
             SELECT *
             FROM EXPENSES
-            WHERE DATE(created_on) >= ${start} AND DATE(created_on) <= ${end}
+            WHERE DATE(created_on) >= ${toDbDate(start)} AND DATE(created_on) <= ${toDbDate(end)}
             ORDER BY created_on DESC, id DESC
         `,
     )
