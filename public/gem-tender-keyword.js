@@ -4,11 +4,14 @@
     const tableBody = document.getElementById("gem-tenders-tbody");
     const filterStatus = document.getElementById("gem-tenders-filter-status");
     const columnFilters = Array.from(document.querySelectorAll(".gem-tender-column-filter"));
+    const pastExperienceFilter = document.getElementById("gem-filter-past-experience");
 
     monthInput?.addEventListener("change", () => {
         if (!monthInput.value) return;
+        const month = monthInput.value.slice(0, 7);
+        if (!/^\d{4}-\d{2}$/.test(month)) return;
         const url = new URL(window.location.href);
-        url.searchParams.set("month", monthInput.value);
+        url.searchParams.set("month", month);
         window.location.href = url.toString();
     });
 
@@ -23,7 +26,7 @@
             if (value) values.add(value);
         }
         return Array.from(values).sort((left, right) =>
-            left.localeCompare(right, undefined, { sensitivity: "base" }),
+            left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }),
         );
     }
 
@@ -51,8 +54,28 @@
         }
     }
 
+    function fillPastExperienceFilter() {
+        if (!pastExperienceFilter) return;
+
+        pastExperienceFilter.replaceChildren();
+        for (const value of uniqueColumnValues("pastExperience")) {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = value;
+            pastExperienceFilter.appendChild(option);
+        }
+    }
+
+    function selectedPastExperienceValues() {
+        if (!pastExperienceFilter) return [];
+        return Array.from(pastExperienceFilter.selectedOptions)
+            .map((option) => option.value.trim().toLowerCase())
+            .filter(Boolean);
+    }
+
     function applyFilters() {
         const query = (searchInput?.value || "").trim().toLowerCase();
+        const pastExperienceValues = selectedPastExperienceValues();
         const activeFilters = columnFilters
             .map((select) => ({
                 column: select.dataset.column,
@@ -63,15 +86,20 @@
         let visibleCount = 0;
 
         for (const row of rows) {
-            const matchesSearch =
-                !query || row.textContent.toLowerCase().includes(query);
+            const matchesSearch = !query || row.textContent.toLowerCase().includes(query);
+
+            const matchesPastExperience =
+                !pastExperienceValues.length ||
+                pastExperienceValues.includes(
+                    (row.dataset.pastExperience || "").trim().toLowerCase(),
+                );
 
             const matchesColumns = activeFilters.every((filter) => {
                 const cellValue = (row.dataset[filter.column] || "").trim().toLowerCase();
                 return cellValue === filter.value;
             });
 
-            const visible = matchesSearch && matchesColumns;
+            const visible = matchesSearch && matchesPastExperience && matchesColumns;
             row.classList.toggle("d-none", !visible);
             if (visible) visibleCount += 1;
         }
@@ -86,6 +114,8 @@
         select.addEventListener("change", applyFilters);
     }
 
+    fillPastExperienceFilter();
+    pastExperienceFilter?.addEventListener("change", applyFilters);
     searchInput?.addEventListener("input", applyFilters);
     applyFilters();
 })();

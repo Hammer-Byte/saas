@@ -25,14 +25,14 @@
                 <h1 class="h3 mb-1">Tenders for keyword</h1>
                 <p class="text-secondary mb-0"><%= keyword.keyword %></p>
             </div>
-            <div style="min-width: 12rem">
+            <div style="min-width: 14rem">
                 <label for="gem-tenders-month" class="form-label">End month</label>
                 <input
-                    type="month"
+                    type="date"
                     class="form-control"
                     id="gem-tenders-month"
                     name="month"
-                    value="<%= month %>"
+                    value="<%= month %>-01"
                 />
             </div>
         </div>
@@ -60,6 +60,15 @@
                                     placeholder="Tender ID, email, documents…"
                                     autocomplete="off"
                                 />
+                            </div>
+                            <div class="col-6 col-md-3 col-lg-2">
+                                <label for="gem-filter-past-experience" class="form-label">Required Past Experience Years</label>
+                                <select
+                                    class="form-select"
+                                    id="gem-filter-past-experience"
+                                    multiple
+                                    size="4"
+                                ></select>
                             </div>
                             <div class="col-6 col-md-3 col-lg-2">
                                 <label for="gem-filter-mse-exp" class="form-label">MSE Experience Relaxation</label>
@@ -96,6 +105,7 @@
                             <tbody id="gem-tenders-tbody">
                                 <% (tenders || []).forEach(function (tender) { %>
                                     <tr
+                                        data-past-experience="<%= tender.required_past_experice_years || '' %>"
                                         data-mse-exp="<%= tender.mse_experience_relaxation || '' %>"
                                         data-mse-turnover="<%= tender.mse_turnover_relaxation || '' %>"
                                     >
