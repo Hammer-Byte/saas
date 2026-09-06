@@ -38,24 +38,21 @@
                                     <th scope="col">Customer</th>
                                     <th scope="col">Title</th>
                                     <th scope="col">Description</th>
-                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <% projects.forEach(function (project) { %>
-                                    <tr>
+                                    <tr
+                                        class="project-row"
+                                        role="link"
+                                        tabindex="0"
+                                        data-href="/app/projects/<%= project.id %>"
+                                        style="cursor: pointer"
+                                    >
                                         <td><%= project.id %></td>
                                         <td><%= project.customer_name || "-" %></td>
                                         <td><%= project.title %></td>
                                         <td><%= project.description || "-" %></td>
-                                        <td>
-                                            <a
-                                                href="/app/projects/<%= project.id %>"
-                                                class="btn btn-sm btn-outline-primary"
-                                            >
-                                                Open
-                                            </a>
-                                        </td>
                                     </tr>
                                 <% }) %>
                             </tbody>
@@ -68,4 +65,5 @@
 </main>
 
 <script src="/public/app.js" defer></script>
+<script src="/public/projects.js" defer></script>
 <%- include('common/footer') %>
