@@ -328,7 +328,7 @@
                 <div class="signing-panel">
                     <a
                         class="btn btn-primary"
-                        href="/api/external-contracts/<%= contract.signing_code %>/signed"
+                        href="/api/contracts/<%= contract.signing_code %>/signed"
                     >
                         Download
                     </a>
@@ -337,30 +337,44 @@
             <div class="signing-panel" data-signing-code="<%= contract.signing_code %>">
                 <h2>Sign this contract</h2>
                 <div id="sign-alert" class="alert d-none" role="alert"></div>
-                <div class="mb-3">
-                    <label for="signature-file" class="form-label">Signature</label>
-                    <input type="file" class="form-control" id="signature-file" accept="image/*" />
-                    <div class="upload-status" id="signature-status">Not uploaded</div>
-                </div>
-                <div class="mb-3">
-                    <label for="selfie-file" class="form-label">Selfie</label>
-                    <input type="file" class="form-control" id="selfie-file" accept="image/*" />
-                    <div class="upload-status" id="selfie-status">Not uploaded</div>
-                </div>
-                <div class="mb-3">
-                    <label for="identity-file" class="form-label">Identity (Aadhar, PAN, Passport)</label>
-                    <input type="file" class="form-control" id="identity-file" accept="image/*" />
-                    <div class="upload-status" id="identity-status">Not uploaded</div>
-                </div>
-                <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" id="read-contract-checkbox" />
-                    <label class="form-check-label" for="read-contract-checkbox">
-                        By signing below, the Contractor confirms that they have read, understood, and agreed to all terms of this Agreement. The Contractor acknowledges these conditions as legally binding and effective from the Effective Date.
-                    </label>
-                </div>
-                <button type="button" class="btn btn-primary" id="sign-contract-btn" disabled>
-                    Sign
-                </button>
+                <% if (!required_attachments || required_attachments.length === 0) { %>
+                    <p class="text-secondary mb-0">No required attachments are configured for this contract.</p>
+                <% } else { %>
+                    <% required_attachments.forEach(function (attachment) { %>
+                        <div class="mb-3">
+                            <label for="required-attachment-file-<%= attachment.id %>" class="form-label">
+                                <%= attachment.title %>
+                            </label>
+                            <input
+                                type="file"
+                                class="form-control required-attachment-file"
+                                id="required-attachment-file-<%= attachment.id %>"
+                                data-required-attachment-id="<%= attachment.id %>"
+                                data-has-attachment="<%= attachment.media_id ? '1' : '0' %>"
+                                accept="image/*,.pdf"
+                            />
+                            <div
+                                class="upload-status <%= attachment.media_id ? 'is-ready' : '' %>"
+                                id="required-attachment-status-<%= attachment.id %>"
+                            >
+                                <% if (attachment.media_id) { %>
+                                    Uploaded (#<%= attachment.media_id %>)
+                                <% } else { %>
+                                    Not uploaded
+                                <% } %>
+                            </div>
+                        </div>
+                    <% }) %>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="read-contract-checkbox" />
+                        <label class="form-check-label" for="read-contract-checkbox">
+                            By signing below, the Contractor confirms that they have read, understood, and agreed to all terms of this Agreement. The Contractor acknowledges these conditions as legally binding and effective from the Effective Date.
+                        </label>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="sign-contract-btn" disabled>
+                        Sign
+                    </button>
+                <% } %>
             </div>
             <% } %>
         </div>
@@ -375,7 +389,7 @@
     ></script>
     <% if (!is_signed) { %>
     <script src="/public/utils.js" defer></script>
-    <script src="/public/sign-external-contract.js" defer></script>
+    <script src="/public/sign-contract.js" defer></script>
     <% } %>
 </body>
 </html>

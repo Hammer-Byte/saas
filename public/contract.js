@@ -1,6 +1,6 @@
 (() => {
-    const detailForm = document.getElementById("external-contract-detail-form");
-    const pageAlert = document.getElementById("external-contract-alert");
+    const detailForm = document.getElementById("contract-detail-form");
+    const pageAlert = document.getElementById("contract-alert");
     const sendInviteButton = document.getElementById("send-contract-invite-btn");
     const unsignContractButton = document.getElementById("unsign-contract-btn");
     const clauseForm = document.getElementById("clause-form");
@@ -94,6 +94,9 @@
         const phone = detailForm.elements.namedItem("phone")?.value?.trim() || "";
         const address = detailForm.elements.namedItem("address")?.value?.trim() || "";
         const active = detailForm.elements.namedItem("active")?.checked === true;
+        const required_attachments = Array.from(
+            document.querySelectorAll(".required-attachment-checkbox:checked"),
+        ).map((checkbox) => Number(checkbox.value));
         const signable_till = getWritableDate(
             "YYYY-MM-DD HH:mm:ss",
             detailForm.elements.namedItem("signable_till")?.value,
@@ -104,11 +107,16 @@
             return;
         }
 
+        if (!required_attachments.length) {
+            showAlert(pageAlert, "Select at least one required attachment.", "danger");
+            return;
+        }
+
         const submitButton = detailForm.querySelector('button[type="submit"]');
         if (submitButton) submitButton.disabled = true;
 
         try {
-            const response = await fetch(`/api/external-contracts/${contractId}`, {
+            const response = await fetch(`/api/contracts/${contractId}`, {
                 method: "PATCH",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
@@ -120,6 +128,7 @@
                     address,
                     active,
                     signable_till,
+                    required_attachments,
                 }),
             });
             const data = await response.json().catch(() => ({}));
@@ -146,7 +155,7 @@
         hideAlert(pageAlert);
 
         try {
-            const response = await fetch(`/api/external-contracts/${contractId}/invite`, {
+            const response = await fetch(`/api/contracts/${contractId}/invite`, {
                 method: "POST",
                 credentials: "same-origin",
             });
@@ -172,7 +181,7 @@
 
         const confirmed = await showConfirm({
             title: "Unsign contract?",
-            description: "This will remove the signature, selfie, and identity files.",
+            description: "This will remove all attached required attachments.",
             choices: [
                 { label: "Cancel", variant: "secondary", value: false },
                 { label: "Unsign", variant: "danger", value: true },
@@ -186,7 +195,7 @@
         hideAlert(pageAlert);
 
         try {
-            const response = await fetch(`/api/external-contracts/${contractId}/signed`, {
+            const response = await fetch(`/api/contracts/${contractId}/signed`, {
                 method: "DELETE",
                 credentials: "same-origin",
             });
@@ -204,6 +213,55 @@
         } finally {
             unsignContractButton.disabled = false;
         }
+    });
+
+    document.querySelectorAll(".required-attachment-file").forEach((fileInput) => {
+        fileInput.addEventListener("change", async () => {
+            const requiredAttachmentId = Number(fileInput.dataset.requiredAttachmentId);
+            const uploadedFile = fileInput.files?.[0];
+            if (!requiredAttachmentId || !uploadedFile) {
+                return;
+            }
+
+            hideAlert(pageAlert);
+            fileInput.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append("file", uploadedFile);
+
+                const uploadResponse = await fetch("/api/contracts/media", {
+                    method: "POST",
+                    body: formData,
+                });
+                const uploadData = await uploadResponse.json().catch(() => ({}));
+                if (!uploadResponse.ok || !uploadData.id) {
+                    showAlert(pageAlert, uploadData.error || "Failed to upload attachment.", "danger");
+                    return;
+                }
+
+                const attachResponse = await fetch(
+                    `/api/contracts/required-attachments/${requiredAttachmentId}`,
+                    {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ media_id: uploadData.id }),
+                    },
+                );
+                const attachData = await attachResponse.json().catch(() => ({}));
+                if (!attachResponse.ok) {
+                    showAlert(pageAlert, attachData.error || "Failed to save attachment media.", "danger");
+                    return;
+                }
+
+                window.location.reload();
+            } catch (error) {
+                console.error(error);
+                showAlert(pageAlert, "Failed to save attachment media.", "danger");
+            } finally {
+                fileInput.disabled = false;
+            }
+        });
     });
 
     document.getElementById("open-add-clause-btn")?.addEventListener("click", () => {
@@ -283,7 +341,7 @@
                     body: JSON.stringify(
                         clauseId
                             ? { title }
-                            : { external_contract_id: contractId, title },
+                            : { contract_id: contractId, title },
                     ),
                 },
             );

@@ -1,12 +1,12 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createContractClause({ external_contract_id, title, view_index }) {
+export async function createContractClause({ contract_id, title, view_index }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO CONTRACT_CLAUSES ${sql(
-                { external_contract_id, title, view_index },
-                "external_contract_id",
+                { contract_id, title, view_index },
+                "contract_id",
                 "title",
                 "view_index",
             )}
@@ -65,53 +65,50 @@ export async function getContractClauseById({ id }) {
         });
 }
 
-export async function getContractClauseByExternalContractIdAndViewIndex({
-    external_contract_id,
-    view_index,
-}) {
+export async function getContractClauseByContractIdAndViewIndex({ contract_id, view_index }) {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT *
             FROM CONTRACT_CLAUSES
-            WHERE external_contract_id = ${external_contract_id}
+            WHERE contract_id = ${contract_id}
                 AND view_index = ${view_index}
             LIMIT 1
         `,
     )
         .then((result) => (result.length ? result[0] : null))
         .catch((error) => {
-            logger.error(`getContractClauseByExternalContractIdAndViewIndex: ${error}`);
+            logger.error(`getContractClauseByContractIdAndViewIndex: ${error}`);
             return null;
         });
 }
 
-export async function getMaxContractClauseViewIndexByExternalContractId({ external_contract_id }) {
+export async function getMaxContractClauseViewIndexByContractId({ contract_id }) {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT COALESCE(MAX(view_index), 0) AS max_view_index
             FROM CONTRACT_CLAUSES
-            WHERE external_contract_id = ${external_contract_id}
+            WHERE contract_id = ${contract_id}
         `,
     )
         .then((result) => Number(result?.[0]?.max_view_index ?? 0))
         .catch((error) => {
-            logger.error(`getMaxContractClauseViewIndexByExternalContractId: ${error}`);
+            logger.error(`getMaxContractClauseViewIndexByContractId: ${error}`);
             return 0;
         });
 }
 
-export async function getContractClausesByExternalContractId({ external_contract_id }) {
+export async function getContractClausesByContractId({ contract_id }) {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT *
             FROM CONTRACT_CLAUSES
-            WHERE external_contract_id = ${external_contract_id}
+            WHERE contract_id = ${contract_id}
             ORDER BY view_index ASC, id ASC
         `,
     )
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
-            logger.error(`getContractClausesByExternalContractId: ${error}`);
+            logger.error(`getContractClausesByContractId: ${error}`);
             return [];
         });
 }

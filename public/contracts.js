@@ -1,7 +1,7 @@
 (() => {
-    const form = document.getElementById("external-contract-form");
-    const formAlert = document.getElementById("external-contract-form-alert");
-    const pageAlert = document.getElementById("external-contracts-alert");
+    const form = document.getElementById("contract-form");
+    const formAlert = document.getElementById("contract-form-alert");
+    const pageAlert = document.getElementById("contracts-alert");
     const activeField = document.getElementById("active");
 
     function showAlert(target, message, type) {
@@ -11,13 +11,22 @@
         target.classList.remove("d-none");
     }
 
-    document.getElementById("external-contract-modal")?.addEventListener("show.bs.modal", () => {
+    function selectedRequiredAttachments() {
+        return Array.from(document.querySelectorAll(".required-attachment-checkbox:checked")).map(
+            (checkbox) => Number(checkbox.value),
+        );
+    }
+
+    document.getElementById("contract-modal")?.addEventListener("show.bs.modal", () => {
         formAlert?.classList.add("d-none");
         form?.reset();
         if (activeField) activeField.checked = true;
+        document.querySelectorAll(".required-attachment-checkbox").forEach((checkbox) => {
+            checkbox.checked = false;
+        });
     });
 
-    document.querySelectorAll(".external-contract-delete-btn").forEach((button) => {
+    document.querySelectorAll(".contract-delete-btn").forEach((button) => {
         button.addEventListener("click", async () => {
             const confirmed = await showConfirm({
                 title: "Delete contract?",
@@ -32,7 +41,7 @@
             }
 
             try {
-                const response = await fetch(`/api/external-contracts/${button.dataset.id}`, {
+                const response = await fetch(`/api/contracts/${button.dataset.id}`, {
                     method: "DELETE",
                     credentials: "same-origin",
                 });
@@ -61,6 +70,7 @@
         const phone = form.elements.namedItem("phone")?.value?.trim() || "";
         const address = form.elements.namedItem("address")?.value?.trim() || "";
         const active = form.elements.namedItem("active")?.checked === true;
+        const required_attachments = selectedRequiredAttachments();
         const signable_till = getWritableDate(
             "YYYY-MM-DD HH:mm:ss",
             form.elements.namedItem("signable_till")?.value,
@@ -71,11 +81,16 @@
             return;
         }
 
+        if (!required_attachments.length) {
+            showAlert(formAlert, "Select at least one required attachment.", "danger");
+            return;
+        }
+
         const submitButton = form.querySelector('button[type="submit"]');
         if (submitButton) submitButton.disabled = true;
 
         try {
-            const response = await fetch("/api/external-contracts", {
+            const response = await fetch("/api/contracts", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
@@ -87,6 +102,7 @@
                     address,
                     active,
                     signable_till,
+                    required_attachments,
                 }),
             });
             const data = await response.json().catch(() => ({}));

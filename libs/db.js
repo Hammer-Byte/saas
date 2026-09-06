@@ -313,7 +313,7 @@ export async function generateDBTables() {
                 ON DELETE RESTRICT
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS EXTERNAL_CONTRACTS (
+        `CREATE TABLE IF NOT EXISTS CONTRACTS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             company VARCHAR(128) NULL,
             full_name VARCHAR(128) NOT NULL,
@@ -323,36 +323,47 @@ export async function generateDBTables() {
             signing_code VARCHAR(8) NOT NULL,
             active BOOLEAN NOT NULL DEFAULT TRUE,
             signable_till DATETIME NOT NULL,
-            signature INT NULL,
-            selfie INT NULL,
-            identity INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            CONSTRAINT fk_external_contracts_signature_media
-                FOREIGN KEY (signature)
-                REFERENCES MEDIA(id)
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS CONTRACT_ATTACHMENTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(128) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_contract_attachment_title (title)
+        )`,
+        `CREATE TABLE IF NOT EXISTS CONTRACT_REQUIRED_ATTACHMENTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            contract_id INT NOT NULL,
+            attachment_id INT NOT NULL,
+            media_id INT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_contract_required_attachment (contract_id, attachment_id),
+            CONSTRAINT fk_contract_required_attachments_contract
+                FOREIGN KEY (contract_id)
+                REFERENCES CONTRACTS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_contract_required_attachments_attachment
+                FOREIGN KEY (attachment_id)
+                REFERENCES CONTRACT_ATTACHMENTS(id)
                 ON DELETE RESTRICT
                 ON UPDATE CASCADE,
-            CONSTRAINT fk_external_contracts_selfie_media
-                FOREIGN KEY (selfie)
-                REFERENCES MEDIA(id)
-                ON DELETE RESTRICT
-                ON UPDATE CASCADE,
-            CONSTRAINT fk_external_contracts_identity_media
-                FOREIGN KEY (identity)
+            CONSTRAINT fk_contract_required_attachments_media
+                FOREIGN KEY (media_id)
                 REFERENCES MEDIA(id)
                 ON DELETE RESTRICT
                 ON UPDATE CASCADE
         )`,
         `CREATE TABLE IF NOT EXISTS CONTRACT_CLAUSES (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            external_contract_id INT NOT NULL,
+            contract_id INT NOT NULL,
             title VARCHAR(128) NOT NULL,
             view_index INT NOT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT fk_contract_clauses_external_contract
-                FOREIGN KEY (external_contract_id)
-                REFERENCES EXTERNAL_CONTRACTS(id)
+            CONSTRAINT fk_contract_clauses_contract
+                FOREIGN KEY (contract_id)
+                REFERENCES CONTRACTS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
@@ -404,6 +415,7 @@ export async function generateDBTables() {
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,
         `INSERT IGNORE INTO USERS (full_name, email) VALUES ('Admin', 'support@hammerbyte.co.in');`,
+        `INSERT IGNORE INTO CONTRACT_ATTACHMENTS (title) VALUES ('Signature'), ('Selfie'), ('Aadhar'), ('PAN'), ('Passport');`,
     ];
 
     for (const table of requiredTables) {

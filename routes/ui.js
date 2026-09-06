@@ -38,14 +38,17 @@ import {
     getInvoicePaymentsByCustomerInvoiceId,
 } from "../db/invoice_payments.js";
 import { getAllUsers } from "../db/users.js";
-import { getAllExternalContracts, getExternalContractById, getExternalContractBySigningCode } from "../db/external_contracts.js";
-import { getContractClausesByExternalContractId } from "../db/contract_clauses.js";
-import { getClauseSubclausesByExternalContractId } from "../db/clause_subclauses.js";
+import { getAllContracts, getContractById, getContractBySigningCode } from "../db/contracts.js";
+import { getContractClausesByContractId } from "../db/contract_clauses.js";
+import { getClauseSubclausesByContractId } from "../db/clause_subclauses.js";
+import { getAllContractAttachments } from "../db/contract_attachments.js";
+import { getContractRequiredAttachmentsByContractId } from "../db/contract_required_attachments.js";
 import { getAllGemTenderKeywords, getGemTenderKeywordById } from "../db/gem_tender_keywords.js";
 import { getGemKeywordTendersByKeywordId } from "../db/gem_keyword_tenders.js";
 import { processing as gemTendereProcessing } from "../libs/tenderer.js";
 import { getReadableDate } from "../libs/date.js";
-import { formatExternalContractCreatedOn } from "../libs/external_contractor.js";
+import { formatContractCreatedOn } from "../libs/contractor.js";
+import { isContractSigned } from "../services/contracts.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
 const sharedAssetsDirectory = join(import.meta.dir, "../templates/assets");
@@ -76,28 +79,38 @@ export const uiRoutes = new Elysia()
             title: "Not Found — HammerByte",
         }),
     )
-    .get("/external-contracts/:signing_code/sign", async ({ params, render, redirect }) => {
-        const externalContract = await getExternalContractBySigningCode({
+    .get("/contracts/:signing_code/sign", async ({ params, render, redirect }) => {
+        const contract = await getContractBySigningCode({
             signing_code: params.signing_code,
         });
-        if (!externalContract) {
+        if (!contract) {
             return redirect("/not-found");
         }
 
-        const contractClauses = await getContractClausesByExternalContractId({
-            external_contract_id: externalContract.id,
+        const contractClauses = await getContractClausesByContractId({
+            contract_id: contract.id,
         });
-        const clauseSubclauses = await getClauseSubclausesByExternalContractId({
-            external_contract_id: externalContract.id,
+        const clauseSubclauses = await getClauseSubclausesByContractId({
+            contract_id: contract.id,
         });
-        const isSigned = Boolean(
-            externalContract.signature && externalContract.selfie && externalContract.identity,
-        );
+        const requiredAttachments = await getContractRequiredAttachmentsByContractId({
+            contract_id: contract.id,
+        });
+        const isSigned = isContractSigned(requiredAttachments);
 
         const contractorName =
-            externalContract.full_name || externalContract.company || "";
+            contract.full_name || contract.company || "";
 
-        return render("sign-external-contract", {
+        const selfieAttachment = requiredAttachments.find(
+            (required) =>
+                String(required.title || "").toLowerCase() === "selfie" && required.media_id,
+        )?.media_id;
+        const signatureAttachment = requiredAttachments.find(
+            (required) =>
+                String(required.title || "").toLowerCase() === "signature" && required.media_id,
+        )?.media_id;
+
+        return render("sign-contract", {
             title: `Contract — ${contractorName}`,
             header_image_src: await getSharedAssetDataUri({
                 fileName: "header.png",
@@ -116,15 +129,16 @@ export const uiRoutes = new Elysia()
                 mimeType: "image/png",
             }),
             is_signed: isSigned,
+            required_attachments: requiredAttachments,
             contract: {
                 contractor_name: contractorName,
-                created_on: formatExternalContractCreatedOn(externalContract.created_on),
-                signing_code: externalContract.signing_code,
-                selfie_src: isSigned
-                    ? `/api/external-contracts/media/${externalContract.selfie}`
+                created_on: formatContractCreatedOn(contract.created_on),
+                signing_code: contract.signing_code,
+                selfie_src: selfieAttachment
+                    ? `/api/contracts/media/${selfieAttachment}`
                     : null,
-                signature_src: isSigned
-                    ? `/api/external-contracts/media/${externalContract.signature}`
+                signature_src: signatureAttachment
+                    ? `/api/contracts/media/${signatureAttachment}`
                     : null,
             },
             clauses: contractClauses.map((contractClause) => ({
@@ -474,30 +488,37 @@ export const uiRoutes = new Elysia()
                     inquiries: await getAllInquiries(),
                 }),
             )
-            .get("/app/external-contracts", async ({ render, session }) =>
-                render("external-contracts", {
-                    title: "External Contracts — HammerByte",
+            .get("/app/contracts", async ({ render, session }) =>
+                render("contracts", {
+                    title: "Contracts — HammerByte",
                     username: session?.username,
-                    contracts: await getAllExternalContracts(),
+                    contracts: await getAllContracts(),
+                    attachments: await getAllContractAttachments(),
                 }),
             )
-            .get("/app/external-contracts/:id", async ({ render, session, params, redirect }) => {
-                const contract = await getExternalContractById({ id: params.id });
+            .get("/app/contracts/:id", async ({ render, session, params, redirect }) => {
+                const contract = await getContractById({ id: params.id });
                 if (!contract) {
                     return redirect("/not-found");
                 }
 
-                const clauses = await getContractClausesByExternalContractId({
-                    external_contract_id: contract.id,
+                const clauses = await getContractClausesByContractId({
+                    contract_id: contract.id,
                 });
-                const subclauses = await getClauseSubclausesByExternalContractId({
-                    external_contract_id: contract.id,
+                const subclauses = await getClauseSubclausesByContractId({
+                    contract_id: contract.id,
+                });
+                const requiredAttachments = await getContractRequiredAttachmentsByContractId({
+                    contract_id: contract.id,
                 });
 
-                return render("external-contract", {
+                return render("contract", {
                     title: `Contract #${contract.id} — HammerByte`,
                     username: session?.username,
                     contract,
+                    attachments: await getAllContractAttachments(),
+                    required_attachments: requiredAttachments,
+                    is_signed: isContractSigned(requiredAttachments),
                     clauses: clauses.map((clause) => ({
                         ...clause,
                         subclauses: subclauses.filter(

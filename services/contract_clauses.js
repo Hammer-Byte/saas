@@ -1,27 +1,27 @@
-import { getExternalContractById } from "../db/external_contracts.js";
+import { getContractById } from "../db/contracts.js";
 import {
     createContractClause,
     deleteContractClauseById,
-    getContractClauseByExternalContractIdAndViewIndex,
+    getContractClauseByContractIdAndViewIndex,
     getContractClauseById,
-    getMaxContractClauseViewIndexByExternalContractId,
+    getMaxContractClauseViewIndexByContractId,
     updateContractClauseById,
     updateContractClauseViewIndexById,
 } from "../db/contract_clauses.js";
 
 export async function addContractClause({ body, set }) {
-    const contract = await getExternalContractById({ id: body.external_contract_id });
+    const contract = await getContractById({ id: body.contract_id });
     if (!contract) {
         set.status = 404;
-        return { error: "External contract not found" };
+        return { error: "Contract not found" };
     }
 
-    const maxViewIndex = await getMaxContractClauseViewIndexByExternalContractId({
-        external_contract_id: contract.id,
+    const maxViewIndex = await getMaxContractClauseViewIndexByContractId({
+        contract_id: contract.id,
     });
 
     const clauseId = await createContractClause({
-        external_contract_id: contract.id,
+        contract_id: contract.id,
         title: body.title.trim(),
         view_index: maxViewIndex + 1,
     });
@@ -61,8 +61,8 @@ export async function updateContractClauseViewIndex({ params, body, set }) {
     const neighborViewIndex =
         body.direction === "up" ? currentViewIndex - 1 : currentViewIndex + 1;
 
-    const neighborClause = await getContractClauseByExternalContractIdAndViewIndex({
-        external_contract_id: existingClause.external_contract_id,
+    const neighborClause = await getContractClauseByContractIdAndViewIndex({
+        contract_id: existingClause.contract_id,
         view_index: neighborViewIndex,
     });
     if (!neighborClause) {

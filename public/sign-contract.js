@@ -3,12 +3,7 @@
     const signAlert = document.getElementById("sign-alert");
     const readContractCheckbox = document.getElementById("read-contract-checkbox");
     const signButton = document.getElementById("sign-contract-btn");
-
-    const mediaIds = {
-        signature: null,
-        selfie: null,
-        identity: null,
-    };
+    const fileInputs = Array.from(document.querySelectorAll(".required-attachment-file"));
 
     function showAlert(message, type) {
         if (!signAlert) return;
@@ -23,68 +18,93 @@
         signAlert.textContent = "";
     }
 
-    function setUploadStatus(field, message, state) {
-        const statusElement = document.getElementById(`${field}-status`);
+    function setUploadStatus(requiredAttachmentId, message, state) {
+        const statusElement = document.getElementById(
+            `required-attachment-status-${requiredAttachmentId}`,
+        );
         if (!statusElement) return;
         statusElement.textContent = message;
         statusElement.classList.toggle("is-ready", state === "ready");
         statusElement.classList.toggle("is-error", state === "error");
     }
 
-    function updateSignButton() {
-        if (!signButton) return;
-        signButton.disabled = !(
-            mediaIds.signature &&
-            mediaIds.selfie &&
-            mediaIds.identity &&
-            readContractCheckbox?.checked
+    function allDocumentsAttached() {
+        return (
+            fileInputs.length > 0 &&
+            fileInputs.every((fileInput) => fileInput.dataset.hasAttachment === "1")
         );
     }
 
-    async function uploadMedia({ field, fileInput }) {
+    function updateSignButton() {
+        if (!signButton) return;
+        signButton.disabled = !(allDocumentsAttached() && readContractCheckbox?.checked);
+    }
+
+    async function uploadRequiredDocument(fileInput) {
+        const requiredAttachmentId = Number(fileInput.dataset.requiredAttachmentId);
         const uploadedFile = fileInput.files?.[0];
-        mediaIds[field] = null;
+        fileInput.dataset.hasAttachment = "0";
         updateSignButton();
 
-        if (!uploadedFile) {
-            setUploadStatus(field, "Not uploaded", "idle");
+        if (!requiredAttachmentId || !uploadedFile) {
+            setUploadStatus(requiredAttachmentId, "Not uploaded", "idle");
             return;
         }
 
-        setUploadStatus(field, "Uploading…", "idle");
+        setUploadStatus(requiredAttachmentId, "Uploading…", "idle");
         fileInput.disabled = true;
 
         try {
             const formData = new FormData();
             formData.append("file", uploadedFile);
 
-            const response = await fetch("/api/external-contracts/media", {
+            const uploadResponse = await fetch("/api/contracts/media", {
                 method: "POST",
                 body: formData,
             });
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok || !data.id) {
-                setUploadStatus(field, data.error || "Upload failed", "error");
+            const uploadData = await uploadResponse.json().catch(() => ({}));
+            if (!uploadResponse.ok || !uploadData.id) {
+                setUploadStatus(
+                    requiredAttachmentId,
+                    uploadData.error || "Upload failed",
+                    "error",
+                );
                 return;
             }
 
-            mediaIds[field] = data.id;
-            setUploadStatus(field, `Uploaded (#${data.id})`, "ready");
+            const attachResponse = await fetch(
+                `/api/contracts/required-attachments/${requiredAttachmentId}`,
+                {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ media_id: uploadData.id }),
+                },
+            );
+            const attachData = await attachResponse.json().catch(() => ({}));
+            if (!attachResponse.ok) {
+                setUploadStatus(
+                    requiredAttachmentId,
+                    attachData.error || "Attach failed",
+                    "error",
+                );
+                return;
+            }
+
+            fileInput.dataset.hasAttachment = "1";
+            setUploadStatus(requiredAttachmentId, `Uploaded (#${uploadData.id})`, "ready");
             updateSignButton();
         } catch (error) {
             console.error(error);
-            setUploadStatus(field, "Upload failed", "error");
+            setUploadStatus(requiredAttachmentId, "Upload failed", "error");
         } finally {
             fileInput.disabled = false;
         }
     }
 
-    ["signature", "selfie", "identity"].forEach((field) => {
-        const fileInput = document.getElementById(`${field}-file`);
-        fileInput?.addEventListener("change", () => {
+    fileInputs.forEach((fileInput) => {
+        fileInput.addEventListener("change", () => {
             hideAlert();
-            uploadMedia({ field, fileInput });
+            uploadRequiredDocument(fileInput);
         });
     });
 
@@ -95,14 +115,8 @@
 
     signButton?.addEventListener("click", async () => {
         const signing_code = signingPanel?.dataset.signingCode;
-        if (
-            !signing_code ||
-            !mediaIds.signature ||
-            !mediaIds.selfie ||
-            !mediaIds.identity ||
-            !readContractCheckbox?.checked
-        ) {
-            showAlert("Upload all files and confirm the agreement acknowledgment.", "danger");
+        if (!signing_code || !allDocumentsAttached() || !readContractCheckbox?.checked) {
+            showAlert("Upload all required attachments and confirm the agreement acknowledgment.", "danger");
             return;
         }
 
@@ -110,15 +124,10 @@
         hideAlert();
 
         try {
-            const response = await fetch("/api/external-contracts/sign", {
+            const response = await fetch("/api/contracts/sign", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    signing_code,
-                    signature: mediaIds.signature,
-                    selfie: mediaIds.selfie,
-                    identity: mediaIds.identity,
-                }),
+                body: JSON.stringify({ signing_code }),
             });
             const data = await response.json().catch(() => ({}));
 
@@ -139,7 +148,7 @@
 
             if (action === "download") {
                 const downloadLink = document.createElement("a");
-                downloadLink.href = `/api/external-contracts/${signing_code}/signed`;
+                downloadLink.href = `/api/contracts/${signing_code}/signed`;
                 downloadLink.rel = "noopener";
                 document.body.appendChild(downloadLink);
                 downloadLink.click();

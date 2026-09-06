@@ -18,28 +18,28 @@
         <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
-                    <a href="/app" class="text-decoration-none">App</a> / External Contracts
+                    <a href="/app" class="text-decoration-none">App</a> / Contracts
                 </p>
-                <h1 class="h3 mb-1">External Contracts</h1>
+                <h1 class="h3 mb-1">Contracts</h1>
                 <p class="text-secondary mb-0">Contracts with external parties.</p>
             </div>
             <button
                 type="button"
                 class="btn btn-primary"
                 data-bs-toggle="modal"
-                data-bs-target="#external-contract-modal"
+                data-bs-target="#contract-modal"
             >
-                Add Contract
+                Add contract
             </button>
         </div>
 
-        <div id="external-contracts-alert" class="alert d-none" role="alert"></div>
+        <div id="contracts-alert" class="alert d-none" role="alert"></div>
 
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
                 <% if (!contracts || contracts.length === 0) { %>
                     <div class="p-4 p-md-5 text-center text-secondary">
-                        No external contracts found.
+                        No contracts found.
                     </div>
                 <% } else { %>
                     <div class="table-responsive">
@@ -55,7 +55,10 @@
                             <tbody>
                                 <% contracts.forEach(function (contract) { %>
                                     <%
-                                        const isSigned = contract.signature && contract.selfie && contract.identity;
+                                        const isSigned =
+                                            Number(contract.required_attachments_count) > 0 &&
+                                            Number(contract.required_attachments_count) ===
+                                                Number(contract.attached_media_count);
                                     %>
                                     <tr>
                                         <td><%= contract.full_name %></td>
@@ -70,7 +73,7 @@
                                         <td>
                                             <div class="d-flex gap-2 flex-wrap">
                                                 <a
-                                                    href="/external-contracts/<%= contract.signing_code %>/sign"
+                                                    href="/contracts/<%= contract.signing_code %>/sign"
                                                     class="btn btn-sm btn-outline-secondary"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
@@ -78,14 +81,14 @@
                                                     View
                                                 </a>
                                                 <a
-                                                    href="/app/external-contracts/<%= contract.id %>"
+                                                    href="/app/contracts/<%= contract.id %>"
                                                     class="btn btn-sm btn-outline-primary"
                                                 >
                                                     Edit
                                                 </a>
                                                 <button
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-danger external-contract-delete-btn"
+                                                    class="btn btn-sm btn-outline-danger contract-delete-btn"
                                                     data-id="<%= contract.id %>"
                                                 >
                                                     Delete
@@ -105,20 +108,20 @@
 
 <div
     class="modal fade"
-    id="external-contract-modal"
+    id="contract-modal"
     tabindex="-1"
-    aria-labelledby="external-contract-modal-label"
+    aria-labelledby="contract-modal-label"
     aria-hidden="true"
 >
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form id="external-contract-form" novalidate>
+            <form id="contract-form" novalidate>
                 <div class="modal-header">
-                    <h2 class="modal-title h5" id="external-contract-modal-label">Add contract</h2>
+                    <h2 class="modal-title h5" id="contract-modal-label">Add contract</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="external-contract-form-alert" class="alert d-none" role="alert"></div>
+                    <div id="contract-form-alert" class="alert d-none" role="alert"></div>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="company" class="form-label">Company <span class="text-secondary fw-normal">(optional)</span></label>
@@ -196,6 +199,29 @@
                                 <label class="form-check-label" for="active">Active</label>
                             </div>
                         </div>
+                        <div class="col-12">
+                            <label class="form-label">Required attachments</label>
+                            <div class="row g-2" id="required-attachments-options">
+                                <% (attachments || []).forEach(function (attachment) { %>
+                                    <div class="col-md-4">
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input required-attachment-checkbox"
+                                                type="checkbox"
+                                                id="required-attachment-<%= attachment.id %>"
+                                                value="<%= attachment.id %>"
+                                            />
+                                            <label
+                                                class="form-check-label"
+                                                for="required-attachment-<%= attachment.id %>"
+                                            >
+                                                <%= attachment.title %>
+                                            </label>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -211,5 +237,5 @@
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
-<script src="/public/external-contracts.js" defer></script>
+<script src="/public/contracts.js" defer></script>
 <%- include('common/footer') %>

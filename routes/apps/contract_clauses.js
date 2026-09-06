@@ -10,7 +10,7 @@ export default function (app) {
     return app
         .post("/", addContractClause, {
             body: t.Object({
-                external_contract_id: t.Numeric({ minimum: 1 }),
+                contract_id: t.Numeric({ minimum: 1 }),
                 title: t.String({
                     minLength: 1,
                     maxLength: 128,

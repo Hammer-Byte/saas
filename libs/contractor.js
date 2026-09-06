@@ -24,7 +24,7 @@ const MONTH_NAMES = [
     "Dec",
 ];
 
-export function escapeExternalContractHtml(value) {
+export function escapeContractHtml(value) {
     return String(value ?? "")
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
@@ -32,7 +32,7 @@ export function escapeExternalContractHtml(value) {
         .replaceAll('"', "&quot;");
 }
 
-export function formatExternalContractCreatedOn(date) {
+export function formatContractCreatedOn(date) {
     const wallClock = getReadableDate("YYYY-MM-DD", date);
     if (!wallClock) {
         return "";
@@ -42,10 +42,7 @@ export function formatExternalContractCreatedOn(date) {
     return `${Number(day)} ${MONTH_NAMES[Number(month) - 1]} ${year}`;
 }
 
-export function buildExternalContractContractorMediaHtml({
-    selfie_src = null,
-    signature_src = null,
-} = {}) {
+export function buildContractContractorMediaHtml({ selfie_src = null, signature_src = null } = {}) {
     if (selfie_src && signature_src) {
         return `<div class="contractor-media">
             <img src="${selfie_src}" alt="Contractor selfie">
@@ -59,13 +56,13 @@ export function buildExternalContractContractorMediaHtml({
     </div>`;
 }
 
-export function resolveExternalContractTemplateAssets(html) {
+export function resolveContractTemplateAssets(html) {
     return html
         .replace(/src="assets\//g, `src="${sharedAssetsDirectory}`)
         .replace(/url\("assets\//g, `url("${sharedAssetsDirectory}`);
 }
 
-export function buildExternalContractClausesHtml(clauses) {
+export function buildContractClausesHtml(clauses) {
     if (!clauses?.length) {
         return `<div class="empty-clauses">No clauses on this contract.</div>`;
     }
@@ -77,22 +74,22 @@ export function buildExternalContractClausesHtml(clauses) {
                     ? `<ol type="a" class="subclauses">${clause.subclauses
                           .map(
                               (subclause) =>
-                                  `<li>${escapeExternalContractHtml(subclause.body)}</li>`,
+                                  `<li>${escapeContractHtml(subclause.body)}</li>`,
                           )
                           .join("\n")}</ol>`
                     : "";
 
             return `<li>
-                <div class="clause-title">${escapeExternalContractHtml(clause.title)}</div>
+                <div class="clause-title">${escapeContractHtml(clause.title)}</div>
                 ${subclausesHtml}
             </li>`;
         })
         .join("\n")}</ol>`;
 }
 
-export async function generateExternalContractPdf(html) {
-    const output = join(tmpdir(), `external-contract-${Date.now()}.pdf`);
-    const htmlPath = join(tmpdir(), `external-contract-${Date.now()}.html`);
+export async function generateContractPdf(html) {
+    const output = join(tmpdir(), `contract-${Date.now()}.pdf`);
+    const htmlPath = join(tmpdir(), `contract-${Date.now()}.html`);
 
     writeFileSync(htmlPath, html);
 
@@ -102,8 +99,6 @@ export async function generateExternalContractPdf(html) {
             pageSize: "A4",
             enableLocalFileAccess: true,
             disableSmartShrinking: true,
-            // Top/bottom margins = breathing room on page 2+.
-            // Header uses -14mm top margin to sit flush on page 1.
             marginTop: "14mm",
             marginRight: "0",
             marginBottom: "14mm",

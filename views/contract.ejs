@@ -18,17 +18,14 @@
         <div class="mb-4">
             <p class="text-secondary small mb-1">
                 <a href="/app" class="text-decoration-none">App</a> /
-                <a href="/app/external-contracts" class="text-decoration-none">External Contracts</a> /
+                <a href="/app/contracts" class="text-decoration-none">Contracts</a> /
                 #<%= contract.id %>
             </p>
             <h1 class="h3 mb-1">Contract #<%= contract.id %></h1>
             <p class="text-secondary mb-0">
                 <%= contract.full_name %><% if (contract.company) { %> — <%= contract.company %><% } %>
-                <%
-                    const isSigned = contract.signature && contract.selfie && contract.identity;
-                %>
                 ·
-                <% if (isSigned) { %>
+                <% if (is_signed) { %>
                     <span class="badge text-bg-success">Signed</span>
                 <% } else { %>
                     <span class="badge text-bg-secondary">Unsigned</span>
@@ -36,14 +33,14 @@
             </p>
         </div>
 
-        <div id="external-contract-alert" class="alert d-none" role="alert"></div>
+        <div id="contract-alert" class="alert d-none" role="alert"></div>
 
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white border-0 pt-4 px-4">
                 <h2 class="h5 mb-0">Party details</h2>
             </div>
             <div class="card-body p-4">
-                <form id="external-contract-detail-form" data-contract-id="<%= contract.id %>" novalidate>
+                <form id="contract-detail-form" data-contract-id="<%= contract.id %>" novalidate>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="detail-company" class="form-label">Company <span class="text-secondary fw-normal">(optional)</span></label>
@@ -136,44 +133,92 @@
                                 <label class="form-check-label" for="detail-active">Active</label>
                             </div>
                         </div>
+                        <div class="col-12">
+                            <label class="form-label">Required attachments</label>
+                            <div class="row g-2">
+                                <%
+                                    const selectedAttachmentIds = (required_attachments || []).map(function (required) {
+                                        return Number(required.attachment_id);
+                                    });
+                                %>
+                                <% (attachments || []).forEach(function (attachment) { %>
+                                    <div class="col-md-4">
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input required-attachment-checkbox"
+                                                type="checkbox"
+                                                id="detail-required-attachment-<%= attachment.id %>"
+                                                value="<%= attachment.id %>"
+                                                <% if (selectedAttachmentIds.includes(Number(attachment.id))) { %>checked<% } %>
+                                            />
+                                            <label
+                                                class="form-check-label"
+                                                for="detail-required-attachment-<%= attachment.id %>"
+                                            >
+                                                <%= attachment.title %>
+                                            </label>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            </div>
+                        </div>
                     </div>
                     <div class="d-flex gap-2 mt-4 flex-wrap">
                         <button type="submit" class="btn btn-primary">Save details</button>
                         <button type="button" id="send-contract-invite-btn" class="btn btn-outline-primary">
                             Send invite
                         </button>
-                        <% if (isSigned) { %>
-                            <a
-                                href="/api/external-contracts/media/<%= contract.signature %>"
-                                class="btn btn-outline-secondary"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                View signature
-                            </a>
-                            <a
-                                href="/api/external-contracts/media/<%= contract.selfie %>"
-                                class="btn btn-outline-secondary"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                View selfie
-                            </a>
-                            <a
-                                href="/api/external-contracts/media/<%= contract.identity %>"
-                                class="btn btn-outline-secondary"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                View identity
-                            </a>
+                        <% if (is_signed) { %>
                             <button type="button" id="unsign-contract-btn" class="btn btn-outline-danger">
                                 Unsign
                             </button>
                         <% } %>
-                        <a href="/app/external-contracts" class="btn btn-outline-secondary">Back to list</a>
+                        <a href="/app/contracts" class="btn btn-outline-secondary">Back to list</a>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">Required attachment media</h2>
+            </div>
+            <div class="card-body p-4">
+                <% if (!required_attachments || required_attachments.length === 0) { %>
+                    <div class="text-center text-secondary py-3">
+                        No required attachments configured.
+                    </div>
+                <% } else { %>
+                    <div class="row g-3">
+                        <% required_attachments.forEach(function (attachment) { %>
+                            <div class="col-md-6">
+                                <label class="form-label" for="required-attachment-file-<%= attachment.id %>">
+                                    <%= attachment.title %>
+                                </label>
+                                <input
+                                    type="file"
+                                    class="form-control required-attachment-file"
+                                    id="required-attachment-file-<%= attachment.id %>"
+                                    data-required-attachment-id="<%= attachment.id %>"
+                                    accept="image/*,.pdf"
+                                />
+                                <div class="small mt-1">
+                                    <% if (attachment.media_id) { %>
+                                        <a
+                                            href="/api/contracts/media/<%= attachment.media_id %>"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            View attached
+                                        </a>
+                                    <% } else { %>
+                                        <span class="text-secondary">Not attached</span>
+                                    <% } %>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                <% } %>
             </div>
         </div>
 
@@ -369,5 +414,5 @@
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
-<script src="/public/external-contract.js" defer></script>
+<script src="/public/contract.js" defer></script>
 <%- include('common/footer') %>

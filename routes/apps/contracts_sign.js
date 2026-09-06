@@ -1,9 +1,10 @@
 import { t } from "elysia";
 import {
-    getExternalContract,
-    getExternalContractPdf,
-    signExternalContract,
-} from "../../services/external_contracts.js";
+    getContract,
+    getContractPdf,
+    signContract,
+    updateContractRequiredAttachmentMedia,
+} from "../../services/contracts.js";
 import { addMedia, getMedia } from "../../services/media.js";
 import { ERRORS } from "../../constants.js";
 
@@ -14,8 +15,8 @@ export default function (app) {
                 file: t.File({ error: ERRORS.FILE_REQUIRED }),
             }),
             detail: {
-                tags: ["External Contracts"],
-                summary: "Upload media for external contract signing",
+                tags: ["Contracts"],
+                summary: "Upload media for contract signing",
             },
         })
         .get("/media/:id", getMedia, {
@@ -23,26 +24,35 @@ export default function (app) {
                 id: t.Numeric({ minimum: 1 }),
             }),
             detail: {
-                tags: ["External Contracts"],
-                summary: "Get external contract media file",
+                tags: ["Contracts"],
+                summary: "Get contract media file",
             },
         })
-        .patch("/sign", signExternalContract, {
+        .patch("/required-attachments/:id", updateContractRequiredAttachmentMedia, {
+            params: t.Object({
+                id: t.Numeric(),
+            }),
+            body: t.Object({
+                media_id: t.Numeric({ minimum: 1 }),
+            }),
+            detail: {
+                tags: ["Contracts"],
+                summary: "Attach media to a required contract attachment while signing",
+            },
+        })
+        .patch("/sign", signContract, {
             body: t.Object({
                 signing_code: t.String({
                     minLength: 8,
                     maxLength: 8,
                 }),
-                signature: t.Numeric({ minimum: 1 }),
-                selfie: t.Numeric({ minimum: 1 }),
-                identity: t.Numeric({ minimum: 1 }),
             }),
             detail: {
-                tags: ["External Contracts"],
-                summary: "Sign external contract with uploaded media",
+                tags: ["Contracts"],
+                summary: "Confirm contract signing after all required attachments have media",
             },
         })
-        .get("/:signing_code/signed", getExternalContractPdf, {
+        .get("/:signing_code/signed", getContractPdf, {
             params: t.Object({
                 signing_code: t.String({
                     minLength: 8,
@@ -50,11 +60,11 @@ export default function (app) {
                 }),
             }),
             detail: {
-                tags: ["External Contracts"],
-                summary: "Download signed external contract PDF",
+                tags: ["Contracts"],
+                summary: "Download signed contract PDF",
             },
         })
-        .get("/sign/:signing_code", getExternalContract, {
+        .get("/sign/:signing_code", getContract, {
             params: t.Object({
                 signing_code: t.String({
                     minLength: 8,
@@ -62,8 +72,8 @@ export default function (app) {
                 }),
             }),
             detail: {
-                tags: ["External Contracts"],
-                summary: "Get external contract by signing code",
+                tags: ["Contracts"],
+                summary: "Get contract by signing code",
             },
         });
 }

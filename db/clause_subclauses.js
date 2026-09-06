@@ -113,19 +113,19 @@ export async function getClauseSubclausesByClauseId({ clause_id }) {
         });
 }
 
-export async function getClauseSubclausesByExternalContractId({ external_contract_id }) {
+export async function getClauseSubclausesByContractId({ contract_id }) {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT CLAUSE_SUBCLAUSES.*
             FROM CLAUSE_SUBCLAUSES
             INNER JOIN CONTRACT_CLAUSES ON CONTRACT_CLAUSES.id = CLAUSE_SUBCLAUSES.clause_id
-            WHERE CONTRACT_CLAUSES.external_contract_id = ${external_contract_id}
+            WHERE CONTRACT_CLAUSES.contract_id = ${contract_id}
             ORDER BY CLAUSE_SUBCLAUSES.clause_id ASC, CLAUSE_SUBCLAUSES.view_index ASC, CLAUSE_SUBCLAUSES.id ASC
         `,
     )
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
-            logger.error(`getClauseSubclausesByExternalContractId: ${error}`);
+            logger.error(`getClauseSubclausesByContractId: ${error}`);
             return [];
         });
 }
