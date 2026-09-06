@@ -12,6 +12,10 @@ import { SWAGGER } from "./constants.js";
 
 const { HEADERS } = hammerbyteUtils.CONSTANTS.SAAS;
 
+/** Bun default is 128MB — large internal docs need more. Override with MAX_REQUEST_BODY_SIZE (bytes). */
+const maxRequestBodySize = Number(Bun.env.MAX_REQUEST_BODY_SIZE) || 1024 * 1024 * 1024;
+const idleTimeout = Number(Bun.env.SERVER_IDLE_TIMEOUT) || 255;
+
 const app = new Elysia().use(
     cors({
         origin: true,
@@ -30,8 +34,17 @@ const app = new Elysia().use(
     }),
 );
 
-
 app.onRequest(middlewares.bun.requestLogger);
+
+app.onError(({ request, error, code, set }) => {
+    const message = error?.message || String(error);
+    logger.error(
+        `Request Error - ${request.method} ${request.url} | code=${code} | status=${set.status} | ${message}`,
+    );
+    if (error?.stack) {
+        logger.error(error.stack);
+    }
+});
 
 app.use(staticPlugin({ assets: "public", prefix: "/public" }));
 
@@ -43,16 +56,19 @@ app.decorate("render", async (template, data = {}) => {
     return new Response(html, { headers: { "Content-Type": "text/html" } });
 });
 
-
-
-
 // 3. Plugin the separated routes
 app.use(uiRoutes);
 app.use(apiRoutes);
 
-
 export async function allowTraffic() {
-    app.listen();
+    const port = Number(Bun.env.PORT) || 3000;
+    app.listen({
+        port,
+        maxRequestBodySize,
+        idleTimeout,
+    });
     const { server } = app;
-    logger.success(`App started at ${server.url}`);
+    logger.success(
+        `App started at ${server.url} | maxRequestBodySize=${maxRequestBodySize} idleTimeout=${idleTimeout}s`,
+    );
 }

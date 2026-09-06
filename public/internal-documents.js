@@ -119,7 +119,10 @@
                 try {
                     data = xhr.responseText ? JSON.parse(xhr.responseText) : {};
                 } catch {
-                    data = {};
+                    data = { error: xhr.responseText?.slice(0, 300) || "Invalid server response" };
+                }
+                if (!data.error && !(xhr.status >= 200 && xhr.status < 300)) {
+                    data.error = `Upload failed (HTTP ${xhr.status})`;
                 }
                 resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
             });
@@ -202,7 +205,7 @@
             body.append("file", uploadedFile);
             body.append("description", description);
 
-            const { ok, data } = await uploadWithProgress({
+            const { ok, status, data } = await uploadWithProgress({
                 url: isEdit ? `/api/internal-documents/${documentId}` : "/api/internal-documents",
                 method: isEdit ? "PATCH" : "POST",
                 body,
@@ -212,7 +215,10 @@
                 hideUploadProgress();
                 showAlert(
                     formAlert,
-                    data.error || (isEdit ? "Failed to update document." : "Failed to upload document."),
+                    data.error ||
+                        (isEdit
+                            ? `Failed to update document (HTTP ${status}).`
+                            : `Failed to upload document (HTTP ${status}).`),
                     "danger",
                 );
                 return;
