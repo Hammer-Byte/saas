@@ -22,6 +22,20 @@ export async function getMediaById({ id }) {
         });
 }
 
+export async function updateMediaById({ id, name, file }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE MEDIA
+            SET
+                name = ${name},
+                file = ${file}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateMediaById: ${error}`);
+    });
+}
+
 export async function deleteMediaById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM MEDIA WHERE id = ${id}`).catch((error) => {
         logger.error(`deleteMediaById: ${error}`);

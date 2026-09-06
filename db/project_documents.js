@@ -55,6 +55,18 @@ export async function getProjectDocumentsByProjectId({ project_id }) {
         });
 }
 
+export async function updateProjectDocumentById({ id, description = null }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE PROJECT_DOCUMENTS
+            SET description = ${description}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateProjectDocumentById: ${error}`);
+    });
+}
+
 export async function deleteProjectDocumentById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM PROJECT_DOCUMENTS WHERE id = ${id}`).catch(
         (error) => {
