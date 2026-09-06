@@ -10,6 +10,11 @@
     const tableBody = document.getElementById("documents-tbody");
     const emptyState = document.getElementById("documents-empty");
     const tableWrap = document.getElementById("documents-table-wrap");
+    const progressWrap = document.getElementById("document-upload-progress");
+    const progressBar = document.getElementById("document-upload-bar");
+    const progressBarHost = document.getElementById("document-upload-progressbar");
+    const progressStatus = document.getElementById("document-upload-status");
+    const progressPercent = document.getElementById("document-upload-percent");
 
     const idInput = form?.elements.namedItem("id");
     const fileInput = form?.elements.namedItem("file");
@@ -28,10 +33,28 @@
         target.textContent = "";
     }
 
+    function setUploadProgress(percent, statusText) {
+        const value = Math.max(0, Math.min(100, Math.round(percent)));
+        progressWrap?.classList.remove("d-none");
+        if (progressBar) progressBar.style.width = `${value}%`;
+        if (progressBarHost) progressBarHost.setAttribute("aria-valuenow", String(value));
+        if (progressPercent) progressPercent.textContent = `${value}%`;
+        if (progressStatus && statusText) progressStatus.textContent = statusText;
+    }
+
+    function hideUploadProgress() {
+        progressWrap?.classList.add("d-none");
+        if (progressBar) progressBar.style.width = "0%";
+        if (progressBarHost) progressBarHost.setAttribute("aria-valuenow", "0");
+        if (progressPercent) progressPercent.textContent = "0%";
+        if (progressStatus) progressStatus.textContent = "Uploading…";
+    }
+
     function resetForm() {
         form?.reset();
         if (idInput) idInput.value = "";
         hideAlert(formAlert);
+        hideUploadProgress();
     }
 
     function openAddModal() {
@@ -43,6 +66,7 @@
 
     function openEditModal(row) {
         hideAlert(formAlert);
+        hideUploadProgress();
         if (modalLabel) modalLabel.textContent = "Edit document";
         if (submitButton) submitButton.textContent = "Save";
         if (idInput) idInput.value = row.dataset.id || "";
@@ -69,6 +93,41 @@
         const hasVisible = rows.some((row) => !row.classList.contains("d-none"));
         emptyState?.classList.toggle("d-none", hasVisible);
         tableWrap?.classList.toggle("d-none", !hasVisible);
+    }
+
+    function uploadWithProgress({ url, method, body }) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open(method, url);
+            xhr.withCredentials = true;
+
+            xhr.upload.addEventListener("progress", (event) => {
+                if (!event.lengthComputable) {
+                    setUploadProgress(0, "Uploading…");
+                    return;
+                }
+                const percent = (event.loaded / event.total) * 100;
+                setUploadProgress(percent, "Uploading…");
+            });
+
+            xhr.upload.addEventListener("load", () => {
+                setUploadProgress(100, "Processing…");
+            });
+
+            xhr.addEventListener("load", () => {
+                let data = {};
+                try {
+                    data = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+                } catch {
+                    data = {};
+                }
+                resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
+            });
+
+            xhr.addEventListener("error", () => reject(new Error("Network error")));
+            xhr.addEventListener("abort", () => reject(new Error("Upload aborted")));
+            xhr.send(body);
+        });
     }
 
     openAddButton?.addEventListener("click", openAddModal);
@@ -133,22 +192,24 @@
         if (submitButton) {
             submitButton.disabled = true;
         }
+        if (fileInput) fileInput.disabled = true;
+        if (descriptionInput) descriptionInput.disabled = true;
+
+        setUploadProgress(0, "Uploading…");
 
         try {
             const body = new FormData();
             body.append("file", uploadedFile);
             body.append("description", description);
 
-            const response = await fetch(
-                isEdit ? `/api/internal-documents/${documentId}` : "/api/internal-documents",
-                {
-                    method: isEdit ? "PATCH" : "POST",
-                    credentials: "same-origin",
-                    body,
-                },
-            );
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
+            const { ok, data } = await uploadWithProgress({
+                url: isEdit ? `/api/internal-documents/${documentId}` : "/api/internal-documents",
+                method: isEdit ? "PATCH" : "POST",
+                body,
+            });
+
+            if (!ok) {
+                hideUploadProgress();
                 showAlert(
                     formAlert,
                     data.error || (isEdit ? "Failed to update document." : "Failed to upload document."),
@@ -157,15 +218,19 @@
                 return;
             }
 
+            setUploadProgress(100, "Done");
             window.location.reload();
         } catch (error) {
             console.error(error);
+            hideUploadProgress();
             showAlert(formAlert, "Failed to save document.", "danger");
             showAlert(pageAlert, "Failed to save document.", "danger");
         } finally {
             if (submitButton) {
                 submitButton.disabled = false;
             }
+            if (fileInput) fileInput.disabled = false;
+            if (descriptionInput) descriptionInput.disabled = false;
         }
     });
 })();
