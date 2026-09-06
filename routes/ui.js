@@ -26,6 +26,7 @@ import {
     getCustomerProjectsByCustomerId,
 } from "../db/customer_projects.js";
 import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
+import { getAllInternalDocuments } from "../db/internal_documents.js";
 import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
 import {
     getAllCustomerInvoices,
@@ -325,6 +326,13 @@ export const uiRoutes = new Elysia()
                     }),
                 });
             })
+            .get("/app/internal-documents", async ({ render, session }) =>
+                render("internal-documents", {
+                    title: "Internal Documents — HammerByte",
+                    username: session?.username,
+                    documents: await getAllInternalDocuments(),
+                }),
+            )
             .get("/app/expenses", async ({ render, session, query }) => {
                 const now = new Date();
                 const defaultStart = getReadableDate(
