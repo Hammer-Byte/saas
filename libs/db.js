@@ -393,6 +393,7 @@ export async function generateDBTables() {
         `CREATE TABLE IF NOT EXISTS GEM_TENDER_KEYWORDS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             keyword VARCHAR(255) NOT NULL,
+            exact_search BOOLEAN NOT NULL DEFAULT FALSE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_gem_tender_keyword (keyword)
         )`,

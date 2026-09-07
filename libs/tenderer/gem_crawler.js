@@ -171,7 +171,10 @@ export const processTender = async ({ tenderFile, keyword_id, tender_id }) => {
     }
 };
 
-export const searchTendersByKeyword = async (driver, { keyword, id: keyword_id }) => {
+export const searchTendersByKeyword = async (
+    driver,
+    { keyword, id: keyword_id, exact_search = false },
+) => {
     if (!keyword || !keyword_id) {
         logger.info("No keyword configured, skipping search.");
         return;
@@ -183,8 +186,13 @@ export const searchTendersByKeyword = async (driver, { keyword, id: keyword_id }
 
     await page.open();
 
-    await page.clickElement(await page.searchTypeDropdown());
-    await page.clickElement(await page.exactSearchOption());
+    if (exact_search) {
+        logger.info(`Exact search enabled for keyword: ${keyword}`);
+        await page.clickElement(await page.searchTypeDropdown());
+        await page.clickElement(await page.exactSearchOption());
+    } else {
+        logger.info(`Contains/default search for keyword: ${keyword}`);
+    }
 
     const searchInput = await page.searchInput();
     await searchInput.clear();

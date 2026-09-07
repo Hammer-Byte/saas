@@ -16,6 +16,7 @@ export function crawlGemForTenders({ keywords = [] } = {}) {
         .map((entry) => ({
             id: entry?.id,
             keyword: String(entry?.keyword || "").trim(),
+            exact_search: !!entry?.exact_search,
         }))
         .filter((entry) => entry.id && entry.keyword);
 

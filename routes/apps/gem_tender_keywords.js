@@ -5,6 +5,7 @@ import {
     getGemKeywordTenders,
     getGemTenderKeywords,
     startGemTenderScan,
+    updateGemTenderKeyword,
 } from "../../services/gem_tender_keywords.js";
 
 export default function (app) {
@@ -22,6 +23,7 @@ export default function (app) {
                     maxLength: 255,
                     error: "Keyword is required",
                 }),
+                exact_search: t.Boolean(),
             }),
             detail: {
                 tags: ["Gem Tender Keywords"],
@@ -32,6 +34,23 @@ export default function (app) {
             detail: {
                 tags: ["Gem Tender Keywords"],
                 summary: "Start GEM tender scan for all keywords",
+            },
+        })
+        .patch("/:id", updateGemTenderKeyword, {
+            params: t.Object({
+                id: t.Numeric(),
+            }),
+            body: t.Object({
+                keyword: t.String({
+                    minLength: 1,
+                    maxLength: 255,
+                    error: "Keyword is required",
+                }),
+                exact_search: t.Boolean(),
+            }),
+            detail: {
+                tags: ["Gem Tender Keywords"],
+                summary: "Update GEM tender keyword",
             },
         })
         .delete("/:id", deleteGemTenderKeyword, {

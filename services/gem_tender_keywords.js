@@ -4,9 +4,14 @@ import {
     getAllGemTenderKeywords,
     getGemTenderKeywordById,
     getGemTenderKeywordByKeyword,
+    updateGemTenderKeywordById,
 } from "../db/gem_tender_keywords.js";
 import { getGemKeywordTendersByKeywordId } from "../db/gem_keyword_tenders.js";
 import { crawlGemForTenders, processing } from "../libs/tenderer.js";
+
+function normalizeExactSearch(value) {
+    return !!value;
+}
 
 export async function addGemTenderKeyword({ body, set }) {
     const keyword = body.keyword.trim();
@@ -15,13 +20,15 @@ export async function addGemTenderKeyword({ body, set }) {
         return { error: "Keyword is required" };
     }
 
+    const exact_search = normalizeExactSearch(body.exact_search);
+
     const existingKeyword = await getGemTenderKeywordByKeyword({ keyword });
     if (existingKeyword) {
         set.status = 409;
         return { error: "Keyword already exists" };
     }
 
-    const id = await createGemTenderKeyword({ keyword });
+    const id = await createGemTenderKeyword({ keyword, exact_search });
     if (!id) {
         set.status = 400;
         return { error: "Failed to create keyword" };
@@ -31,6 +38,38 @@ export async function addGemTenderKeyword({ body, set }) {
 
     set.status = 201;
     return { message: "Keyword created", gemTenderKeyword };
+}
+
+export async function updateGemTenderKeyword({ params, body, set }) {
+    const existingKeyword = await getGemTenderKeywordById({ id: params.id });
+    if (!existingKeyword) {
+        set.status = 404;
+        return { error: "Keyword not found" };
+    }
+
+    const keyword = body.keyword.trim();
+    if (!keyword) {
+        set.status = 400;
+        return { error: "Keyword is required" };
+    }
+
+    const exact_search = normalizeExactSearch(body.exact_search);
+
+    const duplicate = await getGemTenderKeywordByKeyword({ keyword });
+    if (duplicate && Number(duplicate.id) !== Number(existingKeyword.id)) {
+        set.status = 409;
+        return { error: "Keyword already exists" };
+    }
+
+    await updateGemTenderKeywordById({
+        id: existingKeyword.id,
+        keyword,
+        exact_search,
+    });
+
+    const gemTenderKeyword = await getGemTenderKeywordById({ id: existingKeyword.id });
+    set.status = 200;
+    return { message: "Keyword updated", gemTenderKeyword };
 }
 
 export async function deleteGemTenderKeyword({ params, set }) {
