@@ -302,21 +302,22 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
             }
 
             if (applicationService.title === SERVICES.MAILER) {
-                const count = await getMailsByApplicationServiceIdForInvoice({
+                const usageQuantity = await getMailsByApplicationServiceIdForInvoice({
                     application_service_id: applicationService.id,
                     start_date,
                     end_date,
                 });
 
-                if (count <= 0) {
+                if (usageQuantity <= 0) {
                     continue;
                 }
 
+                const unitPrice = Number(service.cost);
                 await createInvoiceItem({
                     customer_invoice_id: existingInvoice.id,
                     item: `Service Usage - ${service.title.toUpperCase()}`,
-                    cost: service.cost,
-                    quantity: count,
+                    cost: unitPrice,
+                    quantity: Number(usageQuantity),
                 });
 
                 added += 1;
@@ -325,21 +326,22 @@ export async function addCustomerInvoiceServiceUsage({ params, set }) {
                     application_service_id: applicationService.id,
                 });
 
-                const totalSize = await getTotalFileSizeByApplicationServiceId({
+                const usageQuantity = await getTotalFileSizeByApplicationServiceId({
                     application_service_id: applicationService.id,
                     month,
                     year,
                 });
 
-                if (totalSize <= 0) {
+                if (usageQuantity <= 0) {
                     continue;
                 }
 
+                const unitPrice = Number(service.cost);
                 await createInvoiceItem({
                     customer_invoice_id: existingInvoice.id,
                     item: `Service Usage - ${service.title.toUpperCase()}`,
-                    cost: service.cost,
-                    quantity: totalSize,
+                    cost: unitPrice,
+                    quantity: Number(usageQuantity),
                 });
 
                 added += 1;

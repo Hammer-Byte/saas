@@ -44,8 +44,8 @@ export function buildInvoiceItemsHtml(items) {
             (row, index) => `<tr>
                 <td>${index + 1}</td>
                 <td class="description">${escapeInvoiceHtml(row.item)}</td>
-                <td>${formatCurrency(row.quantity)}</td>
-                <td><strong>${formatCurrency(row.cost)}</strong></td>
+                <td>${formatCurrency(row.cost)}</td>
+                <td><strong>${formatCurrency(row.quantity)}</strong></td>
                 <td><strong>${formatCurrency(row.amount)}</strong></td>
             </tr>`,
         )

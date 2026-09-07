@@ -4,13 +4,13 @@ import { executeSQLQuery } from "../libs/db.js";
 export async function createInvoiceItem({ customer_invoice_id, item, cost, quantity }) {
     return await executeSQLQuery(
         (sql) => sql`
-            INSERT INTO INVOICE_ITEMS ${sql(
-                { customer_invoice_id, item, cost, quantity },
-                "customer_invoice_id",
-                "item",
-                "cost",
-                "quantity",
-            )}
+            INSERT INTO INVOICE_ITEMS (customer_invoice_id, item, cost, quantity)
+            VALUES (
+                ${customer_invoice_id},
+                ${item},
+                ${cost},
+                ${quantity}
+            )
         `,
     )
         .then((result) => result.lastInsertRowid)
