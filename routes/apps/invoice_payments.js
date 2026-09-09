@@ -11,6 +11,12 @@ export default function (app) {
             body: t.Object({
                 customer_invoice_id: t.Numeric({ minimum: 1 }),
                 amount: t.Numeric({ minimum: 0 }),
+                created_on: t.Optional(
+                    t.String({
+                        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+                        error: "Payment date must be YYYY-MM-DD",
+                    }),
+                ),
                 note: t.Optional(t.String({ maxLength: 512 })),
             }),
             detail: {
@@ -24,6 +30,12 @@ export default function (app) {
             }),
             body: t.Object({
                 amount: t.Numeric({ minimum: 0 }),
+                created_on: t.Optional(
+                    t.String({
+                        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+                        error: "Payment date must be YYYY-MM-DD",
+                    }),
+                ),
                 note: t.Optional(t.String({ maxLength: 512 })),
             }),
             detail: {

@@ -268,6 +268,7 @@
                                                     data-id="<%= row.id %>"
                                                     data-amount="<%= row.amount %>"
                                                     data-gst="<%= row.gst %>"
+                                                    data-created-on="<%= row.created_on || '' %>"
                                                     data-note="<%= (row.note || '').replace(/"/g, '&quot;') %>"
                                                 >
                                                     Edit
@@ -351,6 +352,10 @@
                             <label for="invoice-payment-gst" class="form-label">GST (18%)</label>
                             <input type="text" class="form-control" id="invoice-payment-gst" value="0.00" disabled />
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="invoice-payment-date" class="form-label">Payment date</label>
+                        <input type="date" class="form-control" id="invoice-payment-date" name="created_on" required />
                     </div>
                     <div class="mb-0">
                         <label for="invoice-payment-note" class="form-label">Note <span class="text-secondary fw-normal">(optional)</span></label>

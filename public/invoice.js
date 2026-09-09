@@ -23,6 +23,7 @@
     const paymentAmountField = document.getElementById("invoice-payment-amount");
     const paymentGstField = document.getElementById("invoice-payment-gst");
     const paymentNoteField = document.getElementById("invoice-payment-note");
+    const paymentDateField = document.getElementById("invoice-payment-date");
     const openAddPaymentButton = document.getElementById("open-add-invoice-payment-btn");
     let dueDateSnapshot = "";
 
@@ -339,6 +340,7 @@
         if (paymentIdField) paymentIdField.value = "";
         if (paymentPaidField) paymentPaidField.value = "0";
         if (paymentNoteField) paymentNoteField.value = "";
+        if (paymentDateField) paymentDateField.value = getReadableDate("YYYY-MM-DD", new Date());
         updatePaymentSplit();
     });
 
@@ -353,6 +355,11 @@
                 );
             }
             if (paymentNoteField) paymentNoteField.value = button.dataset.note || "";
+            if (paymentDateField) {
+                paymentDateField.value =
+                    getReadableDate("YYYY-MM-DD", button.dataset.createdOn) ||
+                    getReadableDate("YYYY-MM-DD", new Date());
+            }
             updatePaymentSplit();
 
             const modalElement = document.getElementById("invoice-payment-modal");
@@ -405,13 +412,19 @@
         const paid = Number(paymentPaidField?.value || 0);
         const { amount } = splitPaid(paid);
         const note = paymentNoteField?.value?.trim() || "";
+        const created_on = paymentDateField?.value || "";
 
         if (paid < 0) {
             showAlert(paymentFormAlert, "Paid must be 0 or more.", "danger");
             return;
         }
 
-        const payload = { amount };
+        if (!created_on) {
+            showAlert(paymentFormAlert, "Payment date is required.", "danger");
+            return;
+        }
+
+        const payload = { amount, created_on };
         if (note) payload.note = note;
 
         const submitButton = paymentForm.querySelector('button[type="submit"]');

@@ -1,14 +1,26 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
+import { toDbDateTime } from "../libs/date.js";
 
-export async function createInvoicePayment({ customer_invoice_id, amount, note = null }) {
+export async function createInvoicePayment({
+    customer_invoice_id,
+    amount,
+    note = null,
+    created_on,
+}) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO INVOICE_PAYMENTS ${sql(
-                { customer_invoice_id, amount, note },
+                {
+                    customer_invoice_id,
+                    amount,
+                    note,
+                    created_on: toDbDateTime(created_on),
+                },
                 "customer_invoice_id",
                 "amount",
                 "note",
+                "created_on",
             )}
         `,
     )
@@ -18,13 +30,14 @@ export async function createInvoicePayment({ customer_invoice_id, amount, note =
         });
 }
 
-export async function updateInvoicePaymentById({ id, amount, note = null }) {
+export async function updateInvoicePaymentById({ id, amount, note = null, created_on }) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE INVOICE_PAYMENTS
             SET
                 amount = ${amount},
-                note = ${note}
+                note = ${note},
+                created_on = ${toDbDateTime(created_on)}
             WHERE id = ${id}
         `,
     ).catch((error) => {
@@ -61,7 +74,7 @@ export async function getInvoicePaymentsByCustomerInvoiceId({ customer_invoice_i
             SELECT *
             FROM INVOICE_PAYMENTS
             WHERE customer_invoice_id = ${customer_invoice_id}
-            ORDER BY id ASC
+            ORDER BY created_on ASC, id ASC
         `,
     )
         .then((result) => Array.from(result ?? []))

@@ -14,9 +14,10 @@ export async function addInvoicePayment({ body, set }) {
     }
 
     const id = await createInvoicePayment({
-        ...body,
         customer_invoice_id: invoice.id,
+        amount: body.amount,
         note: body.note?.trim() || null,
+        created_on: body.created_on || new Date(),
     });
 
     const payment = await getInvoicePaymentById({ id });
@@ -33,9 +34,10 @@ export async function updateInvoicePayment({ params, body, set }) {
     }
 
     await updateInvoicePaymentById({
-        ...body,
         id: existingPayment.id,
+        amount: body.amount,
         note: body.note?.trim() || null,
+        created_on: body.created_on || existingPayment.created_on || new Date(),
     });
 
     const payment = await getInvoicePaymentById({ id: existingPayment.id });
