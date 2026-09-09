@@ -6,7 +6,7 @@ export async function createInvoicePayment({
     customer_invoice_id,
     amount,
     note = null,
-    created_on,
+    created_on = new Date(),
 }) {
     return await executeSQLQuery(
         (sql) => sql`
@@ -30,7 +30,12 @@ export async function createInvoicePayment({
         });
 }
 
-export async function updateInvoicePaymentById({ id, amount, note = null, created_on }) {
+export async function updateInvoicePaymentById({
+    id,
+    amount,
+    note = null,
+    created_on = new Date(),
+}) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE INVOICE_PAYMENTS
