@@ -158,7 +158,7 @@ Same for passing args: prefer `{ ...body, title: body.title.trim() }` over listi
 
 - Admin UI under `/app/*` is session-guarded with `requireSession` — use `return redirect("/login")` (Elysia 1.4).
 - Admin JSON APIs use `requireApiSession` and return `401` JSON (not redirect).
-- Admin auth is email OTP via `/api/authentication-tokens` (POST create, PATCH verify). Cookie name: `authentication_token`, max-age **24 hours**. Guards must validate cookie token against `USER_AUTHENTICATION_TOKENS` where `active = TRUE`.
+- Admin auth is email OTP via `/api/user-authentication-tokens` (POST create, PATCH verify). Cookie name: `authentication_token`, max-age **24 hours**. Guards must validate cookie token against `USER_AUTHENTICATION_TOKENS` where `active = TRUE`.
 - Prefer **flat** resource paths — `/app/projects/:id`, `/app/invoices/:id`, `/app/applications/:id`, `/app/application-services/:id`. Avoid nested UI paths like `/app/customers/:id/projects/:projectId/...`.
 - Same for APIs: `/api/customer-projects`, `/api/invoice-items`, `/api/application-services` — parent ids go in the body, not nested URL segments.
 - Missing entities → redirect `/not-found` (UI) or `404` JSON (API).

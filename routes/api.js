@@ -5,7 +5,7 @@ import mailer from "./apps/mailer.js";
 import bucketizer from "./apps/bucketizer.js";
 import inquiries from "./apps/inquiries.js";
 import authentication from "./apps/authentication.js";
-import authenticationTokens from "./apps/authentication_tokens.js";
+import userAuthenticationTokens from "./apps/user_authentication_tokens.js";
 import customers from "./apps/customers.js";
 import customerProjects from "./apps/customer_projects.js";
 import projectApplications from "./apps/project_applications.js";
@@ -24,7 +24,7 @@ import contractsSign from "./apps/contracts_sign.js";
 import contractClauses from "./apps/contract_clauses.js";
 import clauseSubclauses from "./apps/clause_subclauses.js";
 import gemTenderKeywords from "./apps/gem_tender_keywords.js";
-import keywordTenders from "./apps/keyword_tenders.js";
+import gemKeywordTenders from "./apps/gem_keyword_tenders.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 import requireApiSession from "../middlewares/require_api_session.js";
@@ -35,7 +35,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
         runtime: "Bun",
     }))
     .group("/authentication", authentication)
-    .group("/authentication-tokens", authenticationTokens)
+    .group("/user-authentication-tokens", userAuthenticationTokens)
     .group("/inquiries", inquiries)
     .group("/contracts", contractsSign)
     .guard({ beforeHandle: [requireApiSession] }, (app) =>
@@ -57,7 +57,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/contract-clauses", contractClauses)
             .group("/clause-subclauses", clauseSubclauses)
             .group("/gem-tender-keywords", gemTenderKeywords)
-            .group("/keyword-tenders", keywordTenders),
+            .group("/gem-keyword-tenders", gemKeywordTenders),
     )
     .group("/services", (app) =>
         app

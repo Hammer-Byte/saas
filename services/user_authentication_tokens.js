@@ -10,7 +10,7 @@ import { setAuthenticationTokenCookie } from "../libs/authentication.js";
 import transporter from "../libs/transporter.js";
 import { ERRORS } from "../constants.js";
 
-export async function addAuthenticationToken({ body, set }) {
+export async function addUserAuthenticationToken({ body, set }) {
     const email = body.email.trim().toLowerCase();
     const user = await getUserByEmail({ email });
 
@@ -47,18 +47,24 @@ export async function addAuthenticationToken({ body, set }) {
     return { authentication_token: token };
 }
 
-export async function updateAuthenticationToken({ body, cookie, set }) {
+export async function updateUserAuthenticationToken({ body, cookie, set }) {
     const token = body.authentication_token.trim();
     const otp = body.otp.trim();
 
-    const existingAuthenticationToken = await getUserAuthenticationTokenByTokenAndOtp({ token, otp });
-    if (!existingAuthenticationToken) {
+    const existingUserAuthenticationToken = await getUserAuthenticationTokenByTokenAndOtp({
+        token,
+        otp,
+    });
+    if (!existingUserAuthenticationToken) {
         set.status = 401;
         return { error: ERRORS.INVALID_OTP };
     }
 
-    await updateUserAuthenticationTokenActiveById({ id: existingAuthenticationToken.id, active: true });
-    setAuthenticationTokenCookie(cookie, existingAuthenticationToken.token);
+    await updateUserAuthenticationTokenActiveById({
+        id: existingUserAuthenticationToken.id,
+        active: true,
+    });
+    setAuthenticationTokenCookie(cookie, existingUserAuthenticationToken.token);
 
     set.status = 200;
     return {

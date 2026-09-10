@@ -55,7 +55,7 @@
         getOtpButton.disabled = true;
 
         try {
-            const response = await fetch("/api/authentication-tokens", {
+            const response = await fetch("/api/user-authentication-tokens", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: {
@@ -107,7 +107,7 @@
         if (verifyOtpButton) verifyOtpButton.disabled = true;
 
         try {
-            const response = await fetch("/api/authentication-tokens", {
+            const response = await fetch("/api/user-authentication-tokens", {
                 method: "PATCH",
                 credentials: "same-origin",
                 headers: {

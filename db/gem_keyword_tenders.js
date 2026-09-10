@@ -5,6 +5,7 @@ import { toDbDateTime } from "../libs/date.js";
 export async function createGemKeywordTender({
     keyword_id,
     tender_id,
+    document = null,
     start_date_time = null,
     end_date_time = null,
     ministry = null,
@@ -26,6 +27,7 @@ export async function createGemKeywordTender({
                 {
                     keyword_id,
                     tender_id,
+                    document,
                     start_date_time: toDbDateTime(start_date_time),
                     end_date_time: toDbDateTime(end_date_time),
                     ministry,
@@ -43,6 +45,7 @@ export async function createGemKeywordTender({
                 },
                 "keyword_id",
                 "tender_id",
+                "document",
                 "start_date_time",
                 "end_date_time",
                 "ministry",
@@ -135,11 +138,21 @@ export async function getGemKeywordTenderById({ id }) {
         });
 }
 
-export async function updateGemKeywordTenderById({ id, hidden }) {
+export async function updateGemKeywordTenderById({
+    id,
+    hidden,
+    eligible,
+    filed,
+    quote,
+}) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE GEM_KEYWORD_TENDERS
-            SET hidden = ${!!hidden}
+            SET
+                hidden = ${!!hidden},
+                eligible = ${!!eligible},
+                filed = ${!!filed},
+                quote = ${quote}
             WHERE id = ${id}
         `,
     ).catch((error) => {

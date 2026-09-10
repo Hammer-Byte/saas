@@ -82,6 +82,22 @@
                                     <option value="">All</option>
                                 </select>
                             </div>
+                            <div class="col-6 col-md-3 col-lg-2">
+                                <label for="gem-filter-eligible" class="form-label">Eligible</label>
+                                <select class="form-select gem-tender-column-filter" id="gem-filter-eligible" data-column="eligible">
+                                    <option value="">All</option>
+                                    <option value="1">Yes</option>
+                                    <option value="0">No</option>
+                                </select>
+                            </div>
+                            <div class="col-6 col-md-3 col-lg-2">
+                                <label for="gem-filter-filed" class="form-label">Filed</label>
+                                <select class="form-select gem-tender-column-filter" id="gem-filter-filed" data-column="filed">
+                                    <option value="">All</option>
+                                    <option value="1">Yes</option>
+                                    <option value="0">No</option>
+                                </select>
+                            </div>
                         </div>
                         <p class="text-secondary small mb-0 mt-3" id="gem-tenders-filter-status" role="status"></p>
                     </div>
@@ -100,6 +116,9 @@
                                     <th scope="col">MSE Experience Relaxation</th>
                                     <th scope="col">MSE Turnover Relaxation</th>
                                     <th scope="col">Asked documents</th>
+                                    <th scope="col">Eligible</th>
+                                    <th scope="col">Filed</th>
+                                    <th scope="col">Quote</th>
                                     <th scope="col">Actions</th>
                                 </tr>
                             </thead>
@@ -110,6 +129,9 @@
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"
                                         data-mse-exp="<%= tender.mse_experience_relaxation || '' %>"
                                         data-mse-turnover="<%= tender.mse_turnover_relaxation || '' %>"
+                                        data-eligible="<%= tender.eligible ? '1' : '0' %>"
+                                        data-filed="<%= tender.filed ? '1' : '0' %>"
+                                        data-quote="<%= encodeURIComponent(tender.quote || '') %>"
                                     >
                                         <td><%= tender.tender_id %></td>
                                         <td>
@@ -127,12 +149,56 @@
                                         <td><%= tender.mse_turnover_relaxation || "-" %></td>
                                         <td><%= tender.asked_documents || "-" %></td>
                                         <td>
+                                            <div class="form-check mb-0">
+                                                <input
+                                                    class="form-check-input gem-tender-eligible-checkbox"
+                                                    type="checkbox"
+                                                    <%= tender.eligible ? "checked" : "" %>
+                                                    aria-label="Eligible"
+                                                />
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="form-check mb-0">
+                                                <input
+                                                    class="form-check-input gem-tender-filed-checkbox"
+                                                    type="checkbox"
+                                                    <%= tender.filed ? "checked" : "" %>
+                                                    aria-label="Filed"
+                                                />
+                                            </div>
+                                        </td>
+                                        <td>
                                             <button
                                                 type="button"
-                                                class="btn btn-sm btn-outline-secondary gem-tender-hidden-btn"
+                                                class="btn btn-link btn-sm text-start text-decoration-none p-0 gem-tender-quote-btn"
                                             >
-                                                Hide
+                                                <%= tender.quote
+                                                    ? (tender.quote.length > 48
+                                                        ? tender.quote.slice(0, 48) + "…"
+                                                        : tender.quote)
+                                                    : "Add quote" %>
                                             </button>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                <% if (tender.document) { %>
+                                                    <a
+                                                        href="<%= tender.document %>"
+                                                        class="btn btn-sm btn-outline-primary"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                    >
+                                                        View
+                                                    </a>
+                                                <% } %>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-secondary gem-tender-hidden-btn"
+                                                >
+                                                    Hide
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 <% }) %>
@@ -144,6 +210,36 @@
         </div>
     </div>
 </main>
+
+<div class="modal fade" id="gem-tender-quote-modal" tabindex="-1" aria-labelledby="gem-tender-quote-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="gem-tender-quote-form" novalidate>
+                <input type="hidden" id="gem-tender-quote-id" name="id" value="" />
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="gem-tender-quote-modal-label">Quote</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="gem-tender-quote-form-alert" class="alert d-none" role="alert"></div>
+                    <div class="mb-0">
+                        <label for="gem-tender-quote-text" class="form-label">Quote</label>
+                        <textarea
+                            class="form-control"
+                            id="gem-tender-quote-text"
+                            name="quote"
+                            rows="6"
+                        ></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="gem-tender-quote-save-btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script src="/public/app.js" defer></script>
 <script src="/public/gem-tender-keyword.js" defer></script>

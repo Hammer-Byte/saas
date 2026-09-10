@@ -46,12 +46,12 @@ async function ensureTenderStorage() {
 const downloadTender = async (driver, tender) => {
     const tenderId = (await tender.getText()).trim();
     const href = await tender.getAttribute("href");
-    const pdfUrl = new URL(href, GEM_URL).href;
+    const document = new URL(href, GEM_URL).href;
 
     const cookies = await driver.manage().getCookies();
     const cookieHeader = cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
 
-    const response = await fetch(pdfUrl, {
+    const response = await fetch(document, {
         headers: {
             Cookie: cookieHeader,
             "User-Agent": "Mozilla/5.0",
@@ -66,7 +66,7 @@ const downloadTender = async (driver, tender) => {
     const tenderFile = join(TENDERS_DIRECTORY, tenderFileName(tenderId));
     await writeFile(tenderFile, Buffer.from(await response.arrayBuffer()));
     logger.info(`Saved tender PDF: ${tenderId}`);
-    return tenderFile;
+    return { tenderFile, document };
 };
 
 const goToNextPage = async (driver, page) => {
@@ -154,7 +154,7 @@ const extractTenderDetails = (text) => {
     };
 };
 
-export const processTender = async ({ tenderFile, keyword_id, tender_id }) => {
+export const processTender = async ({ tenderFile, keyword_id, tender_id, document = null }) => {
     try {
         const pdfText = await readTenderText(tenderFile);
         const gemTenderDetails = extractTenderDetails(pdfText);
@@ -162,6 +162,7 @@ export const processTender = async ({ tenderFile, keyword_id, tender_id }) => {
         createGemKeywordTender({
             keyword_id,
             tender_id,
+            document,
             ...gemTenderDetails,
         });
 
@@ -228,8 +229,13 @@ export const searchTendersByKeyword = async (
             }
 
             try {
-                const tenderFile = await downloadTender(driver, tender);
-                await processTender({ tenderFile, keyword_id, tender_id: tenderId });
+                const { tenderFile, document } = await downloadTender(driver, tender);
+                await processTender({
+                    tenderFile,
+                    keyword_id,
+                    tender_id: tenderId,
+                    document,
+                });
             } catch (error) {
                 logger.error(`Failed download ${tenderId}: ${error}`);
             }

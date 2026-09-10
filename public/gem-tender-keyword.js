@@ -7,6 +7,12 @@
     const filterStatus = document.getElementById("gem-tenders-filter-status");
     const columnFilters = Array.from(document.querySelectorAll(".gem-tender-column-filter"));
     const pastExperienceFilter = document.getElementById("gem-filter-past-experience");
+    const quoteModalElement = document.getElementById("gem-tender-quote-modal");
+    const quoteForm = document.getElementById("gem-tender-quote-form");
+    const quoteFormAlert = document.getElementById("gem-tender-quote-form-alert");
+    const quoteIdInput = document.getElementById("gem-tender-quote-id");
+    const quoteTextInput = document.getElementById("gem-tender-quote-text");
+    const quoteSaveButton = document.getElementById("gem-tender-quote-save-btn");
 
     monthInput?.addEventListener("change", () => {
         if (!monthInput.value) return;
@@ -20,6 +26,37 @@
     if (!tableBody) return;
 
     let rows = Array.from(tableBody.querySelectorAll("tr"));
+
+    function showFormAlert(message, type) {
+        if (!quoteFormAlert) return;
+        quoteFormAlert.textContent = message;
+        quoteFormAlert.className = `alert alert-${type}`;
+        quoteFormAlert.classList.remove("d-none");
+    }
+
+    function hideFormAlert() {
+        if (!quoteFormAlert) return;
+        quoteFormAlert.classList.add("d-none");
+        quoteFormAlert.textContent = "";
+    }
+
+    function quotePreview(quote) {
+        const value = (quote || "").trim();
+        if (!value) return "Add quote";
+        return value.length > 48 ? `${value.slice(0, 48)}…` : value;
+    }
+
+    function readQuote(row) {
+        try {
+            return decodeURIComponent(row.dataset.quote || "");
+        } catch (error) {
+            return row.dataset.quote || "";
+        }
+    }
+
+    function writeQuote(row, quote) {
+        row.dataset.quote = encodeURIComponent(quote || "");
+    }
 
     function uniqueColumnValues(column) {
         const values = new Set();
@@ -35,6 +72,10 @@
     function fillColumnFilter(select) {
         const column = select.dataset.column;
         if (!column) return;
+
+        if (column === "eligible" || column === "filed") {
+            return;
+        }
 
         const current = select.value;
         select.replaceChildren();
@@ -124,27 +165,83 @@
         applyFilters();
     }
 
-    tableBody.addEventListener("click", async (event) => {
-        const button = event.target.closest(".gem-tender-hidden-btn");
-        if (!button) return;
+    async function patchTender(tenderId, payload) {
+        const response = await fetch(`/api/gem-keyword-tenders/${tenderId}`, {
+            method: "PATCH",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => ({}));
+        return { response, data };
+    }
 
-        const row = button.closest("tr[data-id]");
+    tableBody.addEventListener("change", async (event) => {
+        const checkbox = event.target.closest(
+            ".gem-tender-eligible-checkbox, .gem-tender-filed-checkbox",
+        );
+        if (!checkbox) return;
+
+        const row = checkbox.closest("tr[data-id]");
         const tenderId = Number(row?.dataset.id || 0);
         if (!tenderId) return;
 
-        button.disabled = true;
+        const field = checkbox.classList.contains("gem-tender-eligible-checkbox")
+            ? "eligible"
+            : "filed";
+        const value = checkbox.checked;
+        const previous = !value;
+
+        checkbox.disabled = true;
 
         try {
-            const response = await fetch(`/api/keyword-tenders/${tenderId}`, {
-                method: "PATCH",
-                credentials: "same-origin",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ hidden: true }),
-            });
-            const data = await response.json().catch(() => ({}));
+            const { response, data } = await patchTender(tenderId, { [field]: value });
 
             if (!response.ok) {
-                button.disabled = false;
+                checkbox.checked = previous;
+                window.alert(data.error || `Failed to update ${field}.`);
+                return;
+            }
+
+            row.dataset[field] = value ? "1" : "0";
+            applyFilters();
+        } catch (error) {
+            console.error(error);
+            checkbox.checked = previous;
+            window.alert(`Failed to update ${field}.`);
+        } finally {
+            checkbox.disabled = false;
+        }
+    });
+
+    tableBody.addEventListener("click", async (event) => {
+        const quoteButton = event.target.closest(".gem-tender-quote-btn");
+        if (quoteButton) {
+            const row = quoteButton.closest("tr[data-id]");
+            const tenderId = Number(row?.dataset.id || 0);
+            if (!tenderId || !quoteModalElement) return;
+
+            hideFormAlert();
+            if (quoteIdInput) quoteIdInput.value = tenderId;
+            if (quoteTextInput) quoteTextInput.value = readQuote(row);
+            window.bootstrap.Modal.getOrCreateInstance(quoteModalElement).show();
+            return;
+        }
+
+        const hideButton = event.target.closest(".gem-tender-hidden-btn");
+        if (!hideButton) return;
+
+        const row = hideButton.closest("tr[data-id]");
+        const tenderId = Number(row?.dataset.id || 0);
+        if (!tenderId) return;
+
+        hideButton.disabled = true;
+
+        try {
+            const { response, data } = await patchTender(tenderId, { hidden: true });
+
+            if (!response.ok) {
+                hideButton.disabled = false;
                 window.alert(data.error || "Failed to hide tender.");
                 return;
             }
@@ -153,8 +250,42 @@
             refreshRows();
         } catch (error) {
             console.error(error);
-            button.disabled = false;
+            hideButton.disabled = false;
             window.alert("Failed to hide tender.");
+        }
+    });
+
+    quoteForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const tenderId = Number(quoteIdInput?.value || 0);
+        if (!tenderId) return;
+
+        const quote = quoteTextInput?.value || "";
+        const row = tableBody.querySelector(`tr[data-id="${tenderId}"]`);
+        if (!row) return;
+
+        if (quoteSaveButton) quoteSaveButton.disabled = true;
+        hideFormAlert();
+
+        try {
+            const { response, data } = await patchTender(tenderId, { quote });
+
+            if (!response.ok) {
+                showFormAlert(data.error || "Failed to save quote.", "danger");
+                return;
+            }
+
+            writeQuote(row, quote);
+            const quoteButton = row.querySelector(".gem-tender-quote-btn");
+            if (quoteButton) quoteButton.textContent = quotePreview(quote);
+
+            window.bootstrap.Modal.getOrCreateInstance(quoteModalElement).hide();
+        } catch (error) {
+            console.error(error);
+            showFormAlert("Failed to save quote.", "danger");
+        } finally {
+            if (quoteSaveButton) quoteSaveButton.disabled = false;
         }
     });
 

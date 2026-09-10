@@ -1,12 +1,12 @@
 import { t } from "elysia";
 import {
-    addAuthenticationToken,
-    updateAuthenticationToken,
-} from "../../services/authentication_tokens.js";
+    addUserAuthenticationToken,
+    updateUserAuthenticationToken,
+} from "../../services/user_authentication_tokens.js";
 
 export default function (app) {
     return app
-        .post("/", addAuthenticationToken, {
+        .post("/", addUserAuthenticationToken, {
             body: t.Object({
                 email: t.String({
                     format: "email",
@@ -16,11 +16,11 @@ export default function (app) {
                 }),
             }),
             detail: {
-                tags: ["Authentication Tokens"],
+                tags: ["User Authentication Tokens"],
                 summary: "Create authentication token and OTP for email",
             },
         })
-        .patch("/", updateAuthenticationToken, {
+        .patch("/", updateUserAuthenticationToken, {
             body: t.Object({
                 authentication_token: t.String({
                     minLength: 32,
@@ -34,7 +34,7 @@ export default function (app) {
                 }),
             }),
             detail: {
-                tags: ["Authentication Tokens"],
+                tags: ["User Authentication Tokens"],
                 summary: "Verify OTP and activate authentication token",
             },
         });
