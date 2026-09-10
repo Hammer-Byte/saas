@@ -11,7 +11,7 @@ export default function (app) {
         body: t.Object({
             recipient: t.String({
                 format: "email",
-                maxLength: 32,
+                maxLength: 64,
                 error: ERRORS.RECIPIENT_REQUIRED,
             }),
             subject: t.String({ error: ERRORS.SUBJECT_REQUIRED }),
