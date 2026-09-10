@@ -12,7 +12,7 @@ export async function updateKeywordTender({ params, body, set }) {
 
     await updateGemKeywordTenderById({
         id: tender.id,
-        hide: !!body.hide,
+        hidden: !!body.hidden,
     });
 
     const keywordTender = await getGemKeywordTenderById({ id: tender.id });

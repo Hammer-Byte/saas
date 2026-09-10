@@ -7,7 +7,7 @@ export default function (app) {
             id: t.Numeric(),
         }),
         body: t.Object({
-            hide: t.Boolean(),
+            hidden: t.Boolean(),
         }),
         detail: {
             tags: ["Keyword Tenders"],

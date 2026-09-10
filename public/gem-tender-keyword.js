@@ -125,7 +125,7 @@
     }
 
     tableBody.addEventListener("click", async (event) => {
-        const button = event.target.closest(".gem-tender-hide-btn");
+        const button = event.target.closest(".gem-tender-hidden-btn");
         if (!button) return;
 
         const row = button.closest("tr[data-id]");
@@ -139,7 +139,7 @@
                 method: "PATCH",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ hide: true }),
+                body: JSON.stringify({ hidden: true }),
             });
             const data = await response.json().catch(() => ({}));
 

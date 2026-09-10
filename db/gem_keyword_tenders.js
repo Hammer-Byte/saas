@@ -112,7 +112,7 @@ export async function getGemKeywordTendersByKeywordId({ keyword_id, month }) {
             SELECT *
             FROM GEM_KEYWORD_TENDERS
             WHERE keyword_id = ${keyword_id}
-              AND hide = FALSE
+              AND hidden = FALSE
               AND end_date_time IS NOT NULL
               AND end_date_time >= ${range.start}
               AND end_date_time <= ${range.end}
@@ -135,11 +135,11 @@ export async function getGemKeywordTenderById({ id }) {
         });
 }
 
-export async function updateGemKeywordTenderById({ id, hide }) {
+export async function updateGemKeywordTenderById({ id, hidden }) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE GEM_KEYWORD_TENDERS
-            SET hide = ${!!hide}
+            SET hidden = ${!!hidden}
             WHERE id = ${id}
         `,
     ).catch((error) => {

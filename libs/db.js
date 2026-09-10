@@ -415,7 +415,7 @@ export async function generateDBTables() {
             mse_experience_relaxation VARCHAR(32) NULL,
             mse_turnover_relaxation VARCHAR(32) NULL,
             asked_documents TEXT NULL,
-            hide BOOLEAN NOT NULL DEFAULT FALSE,
+            hidden BOOLEAN NOT NULL DEFAULT FALSE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_gem_keyword_tender (keyword_id, tender_id),
             CONSTRAINT fk_gem_keyword_tenders_keyword
