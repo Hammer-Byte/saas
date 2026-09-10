@@ -164,6 +164,7 @@
                                                     class="form-check-input gem-tender-filed-checkbox"
                                                     type="checkbox"
                                                     <%= tender.filed ? "checked" : "" %>
+                                                    <%= !tender.eligible ? "disabled" : "" %>
                                                     aria-label="Filed"
                                                 />
                                             </div>
@@ -172,6 +173,7 @@
                                             <button
                                                 type="button"
                                                 class="btn btn-link btn-sm text-start text-decoration-none p-0 gem-tender-quote-btn"
+                                                <%= !tender.eligible ? "disabled" : "" %>
                                             >
                                                 <%= tender.quote
                                                     ? (tender.quote.length > 48
@@ -195,6 +197,7 @@
                                                 <button
                                                     type="button"
                                                     class="btn btn-sm btn-outline-secondary gem-tender-hidden-btn"
+                                                    <%= tender.eligible ? "disabled" : "" %>
                                                 >
                                                     Hide
                                                 </button>

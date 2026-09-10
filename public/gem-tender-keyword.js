@@ -58,6 +58,17 @@
         row.dataset.quote = encodeURIComponent(quote || "");
     }
 
+    function syncRowControls(row) {
+        const eligible = row.dataset.eligible === "1";
+        const filedCheckbox = row.querySelector(".gem-tender-filed-checkbox");
+        const quoteButton = row.querySelector(".gem-tender-quote-btn");
+        const hideButton = row.querySelector(".gem-tender-hidden-btn");
+
+        if (filedCheckbox) filedCheckbox.disabled = !eligible;
+        if (quoteButton) quoteButton.disabled = !eligible;
+        if (hideButton) hideButton.disabled = eligible;
+    }
+
     function uniqueColumnValues(column) {
         const values = new Set();
         for (const row of rows) {
@@ -189,6 +200,11 @@
         const field = checkbox.classList.contains("gem-tender-eligible-checkbox")
             ? "eligible"
             : "filed";
+        if (field === "filed" && row.dataset.eligible !== "1") {
+            checkbox.checked = false;
+            checkbox.disabled = true;
+            return;
+        }
         const value = checkbox.checked;
         const previous = !value;
 
@@ -204,22 +220,31 @@
             }
 
             row.dataset[field] = value ? "1" : "0";
+            if (field === "eligible") {
+                syncRowControls(row);
+            }
             applyFilters();
         } catch (error) {
             console.error(error);
             checkbox.checked = previous;
             window.alert(`Failed to update ${field}.`);
         } finally {
-            checkbox.disabled = false;
+            if (field === "eligible") {
+                checkbox.disabled = false;
+            } else {
+                checkbox.disabled = row.dataset.eligible !== "1";
+            }
         }
     });
 
     tableBody.addEventListener("click", async (event) => {
         const quoteButton = event.target.closest(".gem-tender-quote-btn");
         if (quoteButton) {
+            if (quoteButton.disabled) return;
+
             const row = quoteButton.closest("tr[data-id]");
             const tenderId = Number(row?.dataset.id || 0);
-            if (!tenderId || !quoteModalElement) return;
+            if (!tenderId || !quoteModalElement || row.dataset.eligible !== "1") return;
 
             hideFormAlert();
             if (quoteIdInput) quoteIdInput.value = tenderId;
@@ -230,10 +255,11 @@
 
         const hideButton = event.target.closest(".gem-tender-hidden-btn");
         if (!hideButton) return;
+        if (hideButton.disabled) return;
 
         const row = hideButton.closest("tr[data-id]");
         const tenderId = Number(row?.dataset.id || 0);
-        if (!tenderId) return;
+        if (!tenderId || row.dataset.eligible === "1") return;
 
         hideButton.disabled = true;
 
@@ -241,7 +267,7 @@
             const { response, data } = await patchTender(tenderId, { hidden: true });
 
             if (!response.ok) {
-                hideButton.disabled = false;
+                hideButton.disabled = row.dataset.eligible === "1";
                 window.alert(data.error || "Failed to hide tender.");
                 return;
             }
@@ -250,7 +276,7 @@
             refreshRows();
         } catch (error) {
             console.error(error);
-            hideButton.disabled = false;
+            hideButton.disabled = row.dataset.eligible === "1";
             window.alert("Failed to hide tender.");
         }
     });
@@ -264,6 +290,11 @@
         const quote = quoteTextInput?.value || "";
         const row = tableBody.querySelector(`tr[data-id="${tenderId}"]`);
         if (!row) return;
+
+        if (row.dataset.eligible !== "1") {
+            showFormAlert("Mark eligible before saving a quote.", "danger");
+            return;
+        }
 
         if (quoteSaveButton) quoteSaveButton.disabled = true;
         hideFormAlert();
@@ -297,5 +328,8 @@
     fillPastExperienceFilter();
     pastExperienceFilter?.addEventListener("change", applyFilters);
     searchInput?.addEventListener("input", applyFilters);
+    for (const row of rows) {
+        syncRowControls(row);
+    }
     applyFilters();
 })();
