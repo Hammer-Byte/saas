@@ -133,7 +133,19 @@
                                         data-filed="<%= tender.filed ? '1' : '0' %>"
                                         data-quote="<%= encodeURIComponent(tender.quote || '') %>"
                                     >
-                                        <td><%= tender.tender_id %></td>
+                                        <td>
+                                            <% if (tender.document) { %>
+                                                <a
+                                                    href="<%= tender.document %>"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    <%= tender.tender_id %>
+                                                </a>
+                                            <% } else { %>
+                                                <%= tender.tender_id %>
+                                            <% } %>
+                                        </td>
                                         <td>
                                             <%= tender.start_date_time || "-" %>
                                             <br />
@@ -183,25 +195,13 @@
                                             </button>
                                         </td>
                                         <td>
-                                            <div class="d-flex gap-2 flex-wrap">
-                                                <% if (tender.document) { %>
-                                                    <a
-                                                        href="<%= tender.document %>"
-                                                        class="btn btn-sm btn-outline-primary"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        View
-                                                    </a>
-                                                <% } %>
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-sm btn-outline-secondary gem-tender-hidden-btn"
-                                                    <%= tender.eligible ? "disabled" : "" %>
-                                                >
-                                                    Hide
-                                                </button>
-                                            </div>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary gem-tender-hidden-btn"
+                                                <%= tender.eligible ? "disabled" : "" %>
+                                            >
+                                                Hide
+                                            </button>
                                         </td>
                                     </tr>
                                 <% }) %>
