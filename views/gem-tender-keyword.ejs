@@ -100,11 +100,13 @@
                                     <th scope="col">MSE Experience Relaxation</th>
                                     <th scope="col">MSE Turnover Relaxation</th>
                                     <th scope="col">Asked documents</th>
+                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="gem-tenders-tbody">
                                 <% (tenders || []).forEach(function (tender) { %>
                                     <tr
+                                        data-id="<%= tender.id %>"
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"
                                         data-mse-exp="<%= tender.mse_experience_relaxation || '' %>"
                                         data-mse-turnover="<%= tender.mse_turnover_relaxation || '' %>"
@@ -124,6 +126,14 @@
                                         <td><%= tender.mse_experience_relaxation || "-" %></td>
                                         <td><%= tender.mse_turnover_relaxation || "-" %></td>
                                         <td><%= tender.asked_documents || "-" %></td>
+                                        <td>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary gem-tender-hide-btn"
+                                            >
+                                                Hide
+                                            </button>
+                                        </td>
                                     </tr>
                                 <% }) %>
                             </tbody>

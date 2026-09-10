@@ -2,6 +2,8 @@
     const monthInput = document.getElementById("gem-tenders-month");
     const searchInput = document.getElementById("gem-tenders-search");
     const tableBody = document.getElementById("gem-tenders-tbody");
+    const tableWrap = document.getElementById("gem-tenders-table-wrap");
+    const emptyState = document.getElementById("gem-tenders-empty");
     const filterStatus = document.getElementById("gem-tenders-filter-status");
     const columnFilters = Array.from(document.querySelectorAll(".gem-tender-column-filter"));
     const pastExperienceFilter = document.getElementById("gem-filter-past-experience");
@@ -17,7 +19,7 @@
 
     if (!tableBody) return;
 
-    const rows = Array.from(tableBody.querySelectorAll("tr"));
+    let rows = Array.from(tableBody.querySelectorAll("tr"));
 
     function uniqueColumnValues(column) {
         const values = new Set();
@@ -107,7 +109,54 @@
         if (filterStatus) {
             filterStatus.textContent = `Showing ${visibleCount} of ${rows.length} tenders`;
         }
+
+        const hasRows = rows.length > 0;
+        tableWrap?.classList.toggle("d-none", !hasRows);
+        emptyState?.classList.toggle("d-none", hasRows);
     }
+
+    function refreshRows() {
+        rows = Array.from(tableBody.querySelectorAll("tr"));
+        for (const select of columnFilters) {
+            fillColumnFilter(select);
+        }
+        fillPastExperienceFilter();
+        applyFilters();
+    }
+
+    tableBody.addEventListener("click", async (event) => {
+        const button = event.target.closest(".gem-tender-hide-btn");
+        if (!button) return;
+
+        const row = button.closest("tr[data-id]");
+        const tenderId = Number(row?.dataset.id || 0);
+        if (!tenderId) return;
+
+        button.disabled = true;
+
+        try {
+            const response = await fetch(`/api/keyword-tenders/${tenderId}`, {
+                method: "PATCH",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ hide: true }),
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                button.disabled = false;
+                window.alert(data.error || "Failed to hide tender.");
+                return;
+            }
+
+            row.remove();
+            refreshRows();
+        } catch (error) {
+            console.error(error);
+            button.disabled = false;
+            window.alert("Failed to hide tender.");
+        }
+    });
 
     for (const select of columnFilters) {
         fillColumnFilter(select);
