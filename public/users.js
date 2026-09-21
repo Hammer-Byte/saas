@@ -6,6 +6,11 @@
     const modalLabel = document.getElementById("user-modal-label");
     const openAddButton = document.getElementById("open-add-user-btn");
     const tableBody = document.getElementById("users-tbody");
+    const rolesModalElement = document.getElementById("user-roles-modal");
+    const rolesModalLabel = document.getElementById("user-roles-modal-label");
+    const rolesAlert = document.getElementById("user-roles-alert");
+    const rolesUserIdInput = document.getElementById("user-roles-user-id");
+    const roleCheckboxes = Array.from(document.querySelectorAll(".user-role-checkbox"));
 
     if (!form || !tableBody) {
         return;
@@ -14,6 +19,7 @@
     const idInput = form.elements.namedItem("id");
     const fullNameInput = form.elements.namedItem("full_name");
     const emailInput = form.elements.namedItem("email");
+    const userRoleIds = new Map();
 
     function showAlert(target, message, type) {
         if (!target) return;
@@ -60,6 +66,43 @@
             return;
         }
 
+        if (event.target.closest(".user-roles-btn")) {
+            const userId = Number(row.dataset.id);
+            if (!userId) return;
+            hideAlert(rolesAlert);
+            rolesUserIdInput.value = String(userId);
+            if (rolesModalLabel) {
+                rolesModalLabel.textContent = `Roles — ${row.dataset.fullName || row.dataset.email || userId}`;
+            }
+
+            try {
+                const response = await fetch(`/api/users/${userId}/roles`, {
+                    credentials: "same-origin",
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    showAlert(pageAlert, data.error || "Failed to load user roles.", "danger");
+                    return;
+                }
+
+                userRoleIds.clear();
+                for (const mapping of data.userRoles || []) {
+                    userRoleIds.set(Number(mapping.role_id), Number(mapping.id));
+                }
+
+                for (const checkbox of roleCheckboxes) {
+                    const roleId = Number(checkbox.dataset.roleId);
+                    checkbox.checked = userRoleIds.has(roleId);
+                }
+
+                window.bootstrap?.Modal?.getOrCreateInstance(rolesModalElement)?.show();
+            } catch (error) {
+                console.error(error);
+                showAlert(pageAlert, "Failed to load user roles.", "danger");
+            }
+            return;
+        }
+
         if (event.target.closest(".user-delete-btn")) {
             const confirmed = await showConfirm({
                 title: "Delete user?",
@@ -93,6 +136,55 @@
             }
         }
     });
+
+    for (const checkbox of roleCheckboxes) {
+        checkbox.addEventListener("change", async () => {
+            const userId = Number(rolesUserIdInput?.value || 0);
+            const roleId = Number(checkbox.dataset.roleId || 0);
+            if (!userId || !roleId) return;
+
+            checkbox.disabled = true;
+            hideAlert(rolesAlert);
+
+            try {
+                if (checkbox.checked) {
+                    const response = await fetch("/api/user-roles", {
+                        method: "POST",
+                        credentials: "same-origin",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ user_id: userId, role_id: roleId }),
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        checkbox.checked = false;
+                        showAlert(rolesAlert, data.error || "Failed to assign role.", "danger");
+                        return;
+                    }
+                    userRoleIds.set(roleId, Number(data.userRole?.id));
+                } else {
+                    const mappingId = userRoleIds.get(roleId);
+                    if (!mappingId) return;
+                    const response = await fetch(`/api/user-roles/${mappingId}`, {
+                        method: "DELETE",
+                        credentials: "same-origin",
+                    });
+                    if (!response.ok && response.status !== 204) {
+                        checkbox.checked = true;
+                        const data = await response.json().catch(() => ({}));
+                        showAlert(rolesAlert, data.error || "Failed to remove role.", "danger");
+                        return;
+                    }
+                    userRoleIds.delete(roleId);
+                }
+            } catch (error) {
+                console.error(error);
+                checkbox.checked = !checkbox.checked;
+                showAlert(rolesAlert, "Failed to update user role.", "danger");
+            } finally {
+                checkbox.disabled = false;
+            }
+        });
+    }
 
     form.addEventListener("submit", async (event) => {
         event.preventDefault();

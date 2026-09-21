@@ -3,6 +3,12 @@
     integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
     crossorigin="anonymous"
 ></script>
+<% if (typeof locals.authorities !== "undefined") { %>
+<script>
+    window.__AUTHORITIES__ = <%- JSON.stringify(authorities || []) %>;
+</script>
+<script src="/public/authorities.js"></script>
+<% } %>
 </body>
 
 </html>

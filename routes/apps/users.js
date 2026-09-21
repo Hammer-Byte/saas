@@ -1,5 +1,6 @@
 import { t } from "elysia";
 import { addUser, deleteUser, updateUser } from "../../services/users.js";
+import { getUserRoles } from "../../services/user_roles.js";
 
 export default function (app) {
     return app
@@ -40,6 +41,15 @@ export default function (app) {
             detail: {
                 tags: ["Users"],
                 summary: "Update user",
+            },
+        })
+        .get("/:id/roles", getUserRoles, {
+            params: t.Object({
+                id: t.Numeric(),
+            }),
+            detail: {
+                tags: ["Users"],
+                summary: "List roles for a user",
             },
         })
         .delete("/:id", deleteUser, {

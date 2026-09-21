@@ -182,4 +182,9 @@
         const format = element.dataset.dateFormat || "YYYY-MM-DD HH:mm:ss";
         element.textContent = getReadableDate(format, element.dataset.readableDate) || "-";
     });
+
+    window.hasRequiredAuthority = function hasRequiredAuthority(requiredAuthority) {
+        const authorities = Array.isArray(window.__AUTHORITIES__) ? window.__AUTHORITIES__ : [];
+        return authorities.includes(requiredAuthority);
+    };
 })();

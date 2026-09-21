@@ -1,4 +1,3 @@
-
 export const ERRORS = {
     UNAUTHORIZED: "Unauthorized",
     FILE_REQUIRED: "File name is required",
@@ -16,4 +15,46 @@ export const ERRORS = {
 
 export const SWAGGER = {
     APPLICATION: "Saas Mailer",
+};
+
+export const AUTHORITIES = {
+    USE_PAGE_PROJECTS: "USE_PAGE_PROJECTS",
+    USE_PAGE_EXPENSES: "USE_PAGE_EXPENSES",
+    USE_PAGE_REVENUE: "USE_PAGE_REVENUE",
+    USE_PAGE_CUSTOMERS: "USE_PAGE_CUSTOMERS",
+    USE_PAGE_INVOICES: "USE_PAGE_INVOICES",
+    USE_PAGE_INQUIRIES: "USE_PAGE_INQUIRIES",
+    USE_PAGE_CONTRACTS: "USE_PAGE_CONTRACTS",
+    USE_PAGE_INTERNAL_DOCUMENTS: "USE_PAGE_INTERNAL_DOCUMENTS",
+    USE_PAGE_GEM_TENDERS: "USE_PAGE_GEM_TENDERS",
+    USE_PAGE_APPLICATIONS: "USE_PAGE_APPLICATIONS",
+    USE_PAGE_SERVICES: "USE_PAGE_SERVICES",
+    USE_PAGE_USERS: "USE_PAGE_USERS",
+    USE_PAGE_ROLES: "USE_PAGE_ROLES",
+    USE_PAGE_AUTHORITIES: "USE_PAGE_AUTHORITIES",
+    MANAGE_ROLES: "MANAGE_ROLES",
+    MANAGE_AUTHORITIES: "MANAGE_AUTHORITIES",
+    MANAGE_ROLE_AUTHORITIES: "MANAGE_ROLE_AUTHORITIES",
+    MANAGE_USER_ROLES: "MANAGE_USER_ROLES",
+};
+
+export const AUTHORITY_DESCRIPTIONS = {
+    USE_PAGE_PROJECTS: "View Projects page",
+    USE_PAGE_EXPENSES: "View Expenses page",
+    USE_PAGE_REVENUE: "View Revenue page",
+    USE_PAGE_CUSTOMERS: "View Customers page",
+    USE_PAGE_INVOICES: "View Invoices page",
+    USE_PAGE_INQUIRIES: "View Inquiries page",
+    USE_PAGE_CONTRACTS: "View Contracts page",
+    USE_PAGE_INTERNAL_DOCUMENTS: "View Internal Documents page",
+    USE_PAGE_GEM_TENDERS: "View Gem Tenders Analyzer page",
+    USE_PAGE_APPLICATIONS: "View Applications page",
+    USE_PAGE_SERVICES: "View Services page",
+    USE_PAGE_USERS: "View Users page",
+    USE_PAGE_ROLES: "View Roles page",
+    USE_PAGE_AUTHORITIES: "View Authorities page",
+    MANAGE_ROLES: "Create, update, and delete roles",
+    MANAGE_AUTHORITIES: "Create and delete authorities",
+    MANAGE_ROLE_AUTHORITIES: "Assign authorities to roles",
+    MANAGE_USER_ROLES: "Assign roles to users",
 };

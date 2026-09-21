@@ -3,6 +3,9 @@ import { Elysia } from "elysia";
 import { CONSTANTS } from "@hammerbyte/utils";
 import requireSession from "../middlewares/require_session.js";
 import { getCurrentUser } from "../services/authentication.js";
+import { appPage } from "../libs/app_page.js";
+import { getAllRoles } from "../db/roles.js";
+import { getAllAuthorities } from "../db/authorities.js";
 import {
     getAllProjectApplications,
     getProjectApplicationById,
@@ -156,17 +159,15 @@ export const uiRoutes = new Elysia()
                 session: await getCurrentUser({ cookie }),
             }))
             .get("/app", ({ render, session }) =>
-                render("app", {
+                render("app", appPage(session, {
                     title: "App — HammerByte",
-                    username: session?.username,
-                }),
+                })),
             )
             .get("/app/applications", async ({ render, session }) =>
-                render("applications", {
+                render("applications", appPage(session, {
                     title: "Applications — HammerByte",
-                    username: session?.username,
                     applications: await getAllProjectApplications(),
-                }),
+                })),
             )
             .get("/app/applications/:id", async ({ render, session, params, redirect }) => {
                 const application = await getProjectApplicationById({ id: params.id });
@@ -184,14 +185,13 @@ export const uiRoutes = new Elysia()
                     (service) => !linkedServiceIds.has(service.id),
                 );
 
-                return render("application", {
+                return render("application", appPage(session, {
                     title: `Application — ${application.title}`,
-                    username: session?.username,
                     application,
                     customerProjects: await getAllCustomerProjects(),
                     services: linkedServices,
                     availableServices,
-                });
+                }));
             })
             .get(
                 "/app/application-services/:id",
@@ -250,9 +250,8 @@ export const uiRoutes = new Elysia()
                         });
                     }
 
-                    return render("application-service", {
+                    return render("application-service", appPage(session, {
                         title: `Usage — ${applicationService.title}`,
-                        username: session?.username,
                         application,
                         applicationService,
                         usage,
@@ -260,22 +259,20 @@ export const uiRoutes = new Elysia()
                         totalSize,
                         month,
                         year,
-                    });
+                    }));
                 },
             )
             .get("/app/services", async ({ render, session }) =>
-                render("services", {
+                render("services", appPage(session, {
                     title: "Services — HammerByte",
-                    username: session?.username,
                     services: await getAllServices(),
-                }),
+                })),
             )
             .get("/app/projects", async ({ render, session }) =>
-                render("projects", {
+                render("projects", appPage(session, {
                     title: "Projects — HammerByte",
-                    username: session?.username,
                     projects: await getAllCustomerProjects(),
-                }),
+                })),
             )
             .get("/app/projects/:id", async ({ render, session, params, redirect }) => {
                 const customerProject = await getCustomerProjectById({
@@ -290,9 +287,8 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
-                return render("project", {
+                return render("project", appPage(session, {
                     title: `Project — ${customerProject.title}`,
-                    username: session?.username,
                     customer,
                     customerProject,
                     applications: await getProjectApplicationsByProjectId({
@@ -301,7 +297,7 @@ export const uiRoutes = new Elysia()
                     invoices: await getCustomerInvoicesByProjectId({
                         project_id: customerProject.id,
                     }),
-                });
+                }));
             })
             .get("/app/project-documents/:projectId", async ({ render, session, params, redirect }) => {
                 const customerProject = await getCustomerProjectById({
@@ -316,22 +312,20 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
-                return render("project-documents", {
+                return render("project-documents", appPage(session, {
                     title: `Documents — ${customerProject.title}`,
-                    username: session?.username,
                     customer,
                     customerProject,
                     documents: await getProjectDocumentsByProjectId({
                         project_id: customerProject.id,
                     }),
-                });
+                }));
             })
             .get("/app/internal-documents", async ({ render, session }) =>
-                render("internal-documents", {
+                render("internal-documents", appPage(session, {
                     title: "Internal Documents — HammerByte",
-                    username: session?.username,
                     documents: await getAllInternalDocuments(),
-                }),
+                })),
             )
             .get("/app/expenses", async ({ render, session, query }) => {
                 const now = new Date();
@@ -367,16 +361,15 @@ export const uiRoutes = new Elysia()
                     }
                 }
 
-                return render("expenses", {
+                return render("expenses", appPage(session, {
                     title: "Expenses — HammerByte",
-                    username: session?.username,
                     expenses,
                     start: rangeStart,
                     end: rangeEnd,
                     nonLoanedAmount,
                     loanedAmount,
                     itemCount: expenses.length,
-                });
+                }));
             })
             .get("/app/revenue", async ({ render, session, query }) => {
                 const now = new Date();
@@ -415,9 +408,8 @@ export const uiRoutes = new Elysia()
                     0,
                 );
 
-                return render("revenue", {
+                return render("revenue", appPage(session, {
                     title: "Revenue — HammerByte",
-                    username: session?.username,
                     payments,
                     expenses,
                     start: rangeStart,
@@ -425,14 +417,13 @@ export const uiRoutes = new Elysia()
                     paymentsTotal,
                     expensesTotal,
                     net: paymentsTotal - expensesTotal,
-                });
+                }));
             })
             .get("/app/customers", async ({ render, session }) =>
-                render("customers", {
+                render("customers", appPage(session, {
                     title: "Customers — HammerByte",
-                    username: session?.username,
                     customers: await getAllCustomers(),
-                }),
+                })),
             )
             .get("/app/customers/:id", async ({ render, session, params, redirect }) => {
                 const customer = await getCustomerById({ id: params.id });
@@ -450,23 +441,21 @@ export const uiRoutes = new Elysia()
                     customer_id: customer.id,
                 });
 
-                return render("customer", {
+                return render("customer", appPage(session, {
                     title: `Customer — ${customer.full_name}`,
-                    username: session?.username,
                     customer,
                     customerPhones,
                     customerEmails,
                     customerProjects,
-                });
+                }));
             })
             .get("/app/invoices", async ({ render, session }) =>
-                render("invoices", {
+                render("invoices", appPage(session, {
                     title: "Invoices — HammerByte",
-                    username: session?.username,
                     invoices: await getAllCustomerInvoices(),
                     customers: await getAllCustomers(),
                     customerProjects: await getAllCustomerProjects(),
-                }),
+                })),
             )
             .get("/app/invoices/:id", async ({ render, session, params, redirect }) => {
                 const invoice = await getCustomerInvoiceById({ id: params.id });
@@ -474,9 +463,8 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
-                return render("invoice", {
+                return render("invoice", appPage(session, {
                     title: `Invoice #${invoice.id}`,
-                    username: session?.username,
                     invoice,
                     items: await getInvoiceItemsByCustomerInvoiceId({
                         customer_invoice_id: invoice.id,
@@ -487,22 +475,20 @@ export const uiRoutes = new Elysia()
                     customerEmails: await getCustomerEmailsByCustomerId({
                         customer_id: invoice.customer_id,
                     }),
-                });
+                }));
             })
             .get("/app/inquiries", async ({ render, session }) =>
-                render("inquiries", {
+                render("inquiries", appPage(session, {
                     title: "Inquiries — HammerByte",
-                    username: session?.username,
                     inquiries: await getAllInquiries(),
-                }),
+                })),
             )
             .get("/app/contracts", async ({ render, session }) =>
-                render("contracts", {
+                render("contracts", appPage(session, {
                     title: "Contracts — HammerByte",
-                    username: session?.username,
                     contracts: await getAllContracts(),
                     attachments: await getAllContractAttachments(),
-                }),
+                })),
             )
             .get("/app/contracts/:id", async ({ render, session, params, redirect }) => {
                 const contract = await getContractById({ id: params.id });
@@ -520,9 +506,8 @@ export const uiRoutes = new Elysia()
                     contract_id: contract.id,
                 });
 
-                return render("contract", {
+                return render("contract", appPage(session, {
                     title: `Contract #${contract.id} — HammerByte`,
-                    username: session?.username,
                     contract,
                     attachments: await getAllContractAttachments(),
                     required_attachments: requiredAttachments,
@@ -533,23 +518,35 @@ export const uiRoutes = new Elysia()
                             (subclause) => subclause.clause_id === clause.id,
                         ),
                     })),
-                });
+                }));
             })
             .get("/app/users", async ({ render, session }) =>
-                render("users", {
+                render("users", appPage(session, {
                     title: "Users — HammerByte",
-                    username: session?.username,
                     users: await getAllUsers(),
-                }),
+                    allRoles: await getAllRoles(),
+                })),
+            )
+            .get("/app/roles", async ({ render, session }) =>
+                render("roles", appPage(session, {
+                    title: "Roles — HammerByte",
+                    allRoles: await getAllRoles(),
+                    allAuthorities: await getAllAuthorities(),
+                })),
+            )
+            .get("/app/authorities", async ({ render, session }) =>
+                render("authorities", appPage(session, {
+                    title: "Authorities — HammerByte",
+                    allAuthorities: await getAllAuthorities(),
+                })),
             )
             .get("/app/gem-tender-keywords", async ({ render, session }) =>
-                render("gem-tenders", {
+                render("gem-tenders", appPage(session, {
                     title: "Gem Tenders Analyzer — HammerByte",
-                    username: session?.username,
                     keywords: await getAllGemTenderKeywords(),
                     processing: gemTendereProcessing,
                     month: getReadableDate("YYYY-MM", new Date()),
-                }),
+                })),
             )
             .get(
                 "/app/gem-tender-keywords/:id",
@@ -564,16 +561,15 @@ export const uiRoutes = new Elysia()
                             ? query.month
                             : getReadableDate("YYYY-MM", new Date());
 
-                    return render("gem-tender-keyword", {
+                    return render("gem-tender-keyword", appPage(session, {
                         title: `Tenders — ${keyword.keyword} — HammerByte`,
-                        username: session?.username,
                         keyword,
                         month,
                         tenders: await getGemKeywordTendersByKeywordId({
                             keyword_id: keyword.id,
                             month,
                         }),
-                    });
+                    }));
                 },
             ),
     );

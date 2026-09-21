@@ -1,6 +1,7 @@
 import { SQL } from "bun";
 import { logger, CONSTANTS } from "@hammerbyte/utils";
 import { fromDbDateTime } from "./date.js";
+import { AUTHORITIES, AUTHORITY_DESCRIPTIONS } from "../constants.js";
 
 export const dbConnection = new SQL({
     adapter: Bun.env.MYSQL_DIALECT,
@@ -128,6 +129,7 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             full_name VARCHAR(128) NOT NULL,
             email VARCHAR(48) NOT NULL,
+            super_admin BOOLEAN NOT NULL DEFAULT FALSE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY unique_user_email (email)
@@ -154,6 +156,34 @@ export async function generateDBTables() {
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY unique_user_application (user_id,application_id)
+        )`,
+        `CREATE TABLE IF NOT EXISTS ROLES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(36) NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_role_title (title)
+        )`,
+        `CREATE TABLE IF NOT EXISTS AUTHORITIES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(72) NOT NULL,
+            description VARCHAR(128) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_authority_title (title)
+        )`,
+        `CREATE TABLE IF NOT EXISTS ROLE_AUTHORITIES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            role_id INT NOT NULL,
+            authority_id INT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_role_authority (role_id, authority_id)
+        )`,
+        `CREATE TABLE IF NOT EXISTS USER_ROLES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            role_id INT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_user_role (user_id, role_id)
         )`,
         `CREATE TABLE IF NOT EXISTS SERVICES (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -431,8 +461,26 @@ export async function generateDBTables() {
 
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,
-        `INSERT IGNORE INTO USERS (full_name, email) VALUES ('Admin', 'support@hammerbyte.co.in');`,
+        `INSERT IGNORE INTO USERS (full_name, email, super_admin) VALUES ('Admin', 'support@hammerbyte.co.in', TRUE);`,
         `INSERT IGNORE INTO CONTRACT_ATTACHMENTS (title) VALUES ('Signature'), ('Selfie'), ('Aadhar'), ('PAN'), ('Passport');`,
+        `INSERT IGNORE INTO ROLES (title) VALUES ('ADMIN');`,
+        `INSERT IGNORE INTO AUTHORITIES (title, description) VALUES ${Object.values(AUTHORITIES)
+            .map((title) => {
+                const description = (AUTHORITY_DESCRIPTIONS[title] || title).replace(/'/g, "''");
+                return `('${title}', '${description}')`;
+            })
+            .join(", ")};`,
+        `INSERT IGNORE INTO ROLE_AUTHORITIES (role_id, authority_id)
+            SELECT ROLES.id, AUTHORITIES.id
+            FROM ROLES
+            CROSS JOIN AUTHORITIES
+            WHERE ROLES.title = 'ADMIN';`,
+        `UPDATE USERS SET super_admin = TRUE WHERE email = 'support@hammerbyte.co.in';`,
+        `INSERT IGNORE INTO USER_ROLES (user_id, role_id)
+            SELECT USERS.id, ROLES.id
+            FROM USERS
+            CROSS JOIN ROLES
+            WHERE USERS.super_admin = TRUE;`,
     ];
 
     for (const table of requiredTables) {
