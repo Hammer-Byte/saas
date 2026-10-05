@@ -93,10 +93,18 @@ export async function getAllCustomerInvoices() {
                 CUSTOMER_INVOICES.*,
                 CUSTOMERS.full_name AS customer_name,
                 CUSTOMERS.company AS customer_company,
-                CUSTOMER_PROJECTS.title AS project_title
+                CUSTOMER_PROJECTS.title AS project_title,
+                COALESCE(payments.paid_total, 0) AS paid_total
             FROM CUSTOMER_INVOICES
             INNER JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_INVOICES.customer_id
             INNER JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = CUSTOMER_INVOICES.project_id
+            LEFT JOIN (
+                SELECT
+                    customer_invoice_id,
+                    SUM(amount + gst) AS paid_total
+                FROM INVOICE_PAYMENTS
+                GROUP BY customer_invoice_id
+            ) payments ON payments.customer_invoice_id = CUSTOMER_INVOICES.id
             ORDER BY CUSTOMER_INVOICES.id DESC
         `,
     )
