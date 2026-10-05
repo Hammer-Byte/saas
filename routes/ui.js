@@ -407,6 +407,11 @@ export const uiRoutes = new Elysia()
                     (sum, expense) => sum + Number(expense.amount || 0),
                     0,
                 );
+                const loanedAmount = expenses.reduce(
+                    (sum, expense) =>
+                        expense.loaned ? sum + Number(expense.amount || 0) : sum,
+                    0,
+                );
 
                 return render("revenue", appPage(session, {
                     title: "Revenue — HammerByte",
@@ -416,6 +421,7 @@ export const uiRoutes = new Elysia()
                     end: rangeEnd,
                     paymentsTotal,
                     expensesTotal,
+                    loanedAmount,
                     net: paymentsTotal - expensesTotal,
                 }));
             })
