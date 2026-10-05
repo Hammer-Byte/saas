@@ -51,7 +51,7 @@
                                     <th scope="col">Project</th>
                                     <th scope="col">Due date</th>
                                     <th scope="col">Total</th>
-                                    <th scope="col">GST</th>
+                                    <th scope="col">Pending</th>
                                     <th scope="col">Status</th>
                                     <th scope="col">Actions</th>
                                 </tr>
@@ -61,6 +61,7 @@
                                     <%
                                         const grandTotal = Number(invoice.total) + Number(invoice.gst);
                                         const paidTotal = Number(invoice.paid_total || 0);
+                                        const pendingTotal = Math.max(grandTotal - paidTotal, 0);
                                         let billStatus = "Due";
                                         if (paidTotal >= grandTotal && grandTotal > 0) {
                                             billStatus = "Paid";
@@ -79,8 +80,8 @@
                                         <td><%= invoice.customer_name %></td>
                                         <td><%= invoice.project_title || "-" %></td>
                                         <td data-readable-date="<%= invoice.due_date %>" data-date-format="DD/MM/YYYY"></td>
-                                        <td><%= Number(invoice.total).toFixed(2) %></td>
-                                        <td><%= Number(invoice.gst).toFixed(2) %></td>
+                                        <td><%= grandTotal.toFixed(2) %></td>
+                                        <td><%= pendingTotal.toFixed(2) %></td>
                                         <td><%= billStatus %></td>
                                         <td>
                                             <button
