@@ -34,10 +34,9 @@
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th scope="col">ID</th>
-                                    <th scope="col">Customer</th>
                                     <th scope="col">Title</th>
                                     <th scope="col">Description</th>
+                                    <th scope="col">Customer</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -49,10 +48,9 @@
                                         data-href="/app/projects/<%= project.id %>"
                                         style="cursor: pointer"
                                     >
-                                        <td><%= project.id %></td>
-                                        <td><%= project.customer_name || "-" %></td>
                                         <td><%= project.title %></td>
                                         <td><%= project.description || "-" %></td>
+                                        <td><%= project.customer_name || "-" %></td>
                                     </tr>
                                 <% }) %>
                             </tbody>

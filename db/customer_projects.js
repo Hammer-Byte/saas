@@ -75,7 +75,7 @@ export async function getAllCustomerProjects() {
                 CUSTOMERS.full_name AS customer_name
             FROM CUSTOMER_PROJECTS
             INNER JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_PROJECTS.customer_id
-            ORDER BY CUSTOMERS.full_name ASC, CUSTOMER_PROJECTS.title ASC
+            ORDER BY CUSTOMER_PROJECTS.id DESC
         `,
     )
         .then((result) => Array.from(result ?? []))

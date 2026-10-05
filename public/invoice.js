@@ -35,7 +35,7 @@
     const createdOnField = document.getElementById("invoice-created-on");
     if (createdOnField?.dataset.date) {
         createdOnField.value =
-            getReadableDate("YYYY-MM-DD HH:mm:ss", createdOnField.dataset.date) || "-";
+            getReadableDate("DD/MM/YYYY", createdOnField.dataset.date) || "-";
     }
 
     function showAlert(target, message, type) {
