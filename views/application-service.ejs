@@ -100,7 +100,7 @@
                                         <td><%= row.subject %></td>
                                         <td
                                             data-readable-date="<%= row.created_on || '' %>"
-                                            data-date-format="YYYY-MM-DD HH:mm:ss"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
                                         ></td>
                                     </tr>
                                 <% }) %>
@@ -127,13 +127,13 @@
                                         <td><%= Number(row.size || 0).toFixed(8) %></td>
                                         <td
                                             data-readable-date="<%= row.created_on || '' %>"
-                                            data-date-format="YYYY-MM-DD HH:mm:ss"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
                                         ></td>
                                         <td>
                                             <% if (row.deleted_on) { %>
                                                 <span
                                                     data-readable-date="<%= row.deleted_on %>"
-                                                    data-date-format="YYYY-MM-DD HH:mm:ss"
+                                                    data-date-format="DD/MM/YYYY HH:mm:ss"
                                                 ></span>
                                             <% } else { %>
                                                 —

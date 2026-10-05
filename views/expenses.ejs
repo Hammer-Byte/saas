@@ -121,7 +121,7 @@
                                     data-expense-date="<%= expense.expense_date %>"
                                     data-loaned="<%= expense.loaned ? 'true' : 'false' %>"
                                 >
-                                    <td class="expense-date" data-readable-date="<%= expense.expense_date %>" data-date-format="YYYY-MM-DD"></td>
+                                    <td class="expense-date" data-readable-date="<%= expense.expense_date %>" data-date-format="DD/MM/YYYY"></td>
                                     <td class="expense-title"><%= expense.title %></td>
                                     <td class="expense-description"><%= expense.description || "-" %></td>
                                     <td class="expense-amount"><%= Number(expense.amount).toFixed(2) %></td>

@@ -66,7 +66,7 @@
                                     <tbody>
                                         <% payments.forEach(function (row) { %>
                                             <tr>
-                                                <td data-readable-date="<%= row.created_on %>" data-date-format="YYYY-MM-DD"></td>
+                                                <td data-readable-date="<%= row.created_on %>" data-date-format="DD/MM/YYYY"></td>
                                                 <td>
                                                     <a href="/app/invoices/<%= row.customer_invoice_id %>">
                                                         HBT-<%= String(row.customer_invoice_id).padStart(7, '0') %>
@@ -113,7 +113,7 @@
                                     <tbody>
                                         <% expenses.forEach(function (row) { %>
                                             <tr>
-                                                <td data-readable-date="<%= row.created_on %>" data-date-format="YYYY-MM-DD"></td>
+                                                <td data-readable-date="<%= row.created_on %>" data-date-format="DD/MM/YYYY"></td>
                                                 <td><%= row.title %></td>
                                                 <td><%= Number(row.amount).toFixed(2) %></td>
                                             </tr>

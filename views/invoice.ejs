@@ -255,7 +255,7 @@
                             <tbody>
                                 <% payments.forEach(function (row) { %>
                                     <tr>
-                                        <td data-readable-date="<%= row.created_on %>" data-date-format="YYYY-MM-DD"></td>
+                                        <td data-readable-date="<%= row.created_on %>" data-date-format="DD/MM/YYYY"></td>
                                         <td><%= row.note || "-" %></td>
                                         <td><%= Number(row.amount).toFixed(2) %></td>
                                         <td><%= Number(row.gst).toFixed(2) %></td>

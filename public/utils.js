@@ -179,7 +179,7 @@
     };
 
     document.querySelectorAll("[data-readable-date]").forEach((element) => {
-        const format = element.dataset.dateFormat || "YYYY-MM-DD HH:mm:ss";
+        const format = element.dataset.dateFormat || "DD/MM/YYYY HH:mm:ss";
         element.textContent = getReadableDate(format, element.dataset.readableDate) || "-";
     });
 

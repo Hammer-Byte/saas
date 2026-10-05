@@ -161,11 +161,11 @@
                                         <td><%= invoice.id %></td>
                                         <td
                                             data-readable-date="<%= invoice.created_on || '' %>"
-                                            data-date-format="YYYY-MM-DD HH:mm:ss"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
                                         ></td>
                                         <td
                                             data-readable-date="<%= invoice.due_date %>"
-                                            data-date-format="YYYY-MM"
+                                            data-date-format="DD/MM/YYYY"
                                         ></td>
                                         <td><%= Number(invoice.gst).toFixed(2) %></td>
                                         <td><%= Number(invoice.total).toFixed(2) %></td>

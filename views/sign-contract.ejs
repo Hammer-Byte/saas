@@ -295,7 +295,7 @@
                 <div class="party-sign-block">
                     <p class="party-sign-label">FIRST PART:</p>
                     <p class="party-sign-for">For <strong>HAMMERBYTE</strong></p>
-                    <p class="party-sign-date">Date: <%= contract.created_on %></p>
+                    <p class="party-sign-date">Date: <span data-readable-date="<%= contract.created_on || '' %>" data-date-format="DD/MM/YYYY"></span></p>
                     <div class="hb-signature-area">
                         <img class="stamp" src="<%= stamp_image_src %>" alt="HammerByte stamp" />
                         <img
@@ -311,7 +311,7 @@
                     <p class="party-sign-for">
                         For / By <strong>CONTRACTOR (<%= contract.contractor_name %>)</strong>
                     </p>
-                    <p class="party-sign-date">Date: <%= contract.created_on %></p>
+                    <p class="party-sign-date">Date: <span data-readable-date="<%= contract.created_on || '' %>" data-date-format="DD/MM/YYYY"></span></p>
                     <div class="contractor-media">
                         <% if (is_signed && contract.selfie_src && contract.signature_src) { %>
                             <img src="<%= contract.selfie_src %>" alt="Contractor selfie" />

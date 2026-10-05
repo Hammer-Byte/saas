@@ -78,7 +78,7 @@
                                         <td><%= invoice.id %></td>
                                         <td><%= invoice.customer_name %></td>
                                         <td><%= invoice.project_title || "-" %></td>
-                                        <td data-readable-date="<%= invoice.due_date %>" data-date-format="YYYY-MM-DD"></td>
+                                        <td data-readable-date="<%= invoice.due_date %>" data-date-format="DD/MM/YYYY"></td>
                                         <td><%= Number(invoice.total).toFixed(2) %></td>
                                         <td><%= Number(invoice.gst).toFixed(2) %></td>
                                         <td><%= billStatus %></td>
