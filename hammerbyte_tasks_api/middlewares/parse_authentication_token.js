@@ -1,4 +1,4 @@
-import { getUserByActiveAuthenticationToken } from "../entities/users.js";
+import { getUserByAuthenticationToken } from "../apis/authentication_token.js";
 import { HEADERS } from "../constants.js";
 
 const { logger } = require("@hammerbyte/utils");
@@ -10,7 +10,7 @@ export default async function ({ headers, query, set }) {
 
 	if (authenticationToken) {
 		try {
-			user = await getUserByActiveAuthenticationToken({
+			user = await getUserByAuthenticationToken({
 				authentication_token: authenticationToken,
 			});
 		} catch (exception) {

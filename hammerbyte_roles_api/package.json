@@ -17,7 +17,7 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
-		"@hammerbyte/lints": "0.1.15",
+		"@hammerbyte/lints": "0.1.18",
 		"eslint": "^9.37.0",
 		"eslint-plugin-import-x": "^4.17.1",
 		"globals": "^17.12.0"

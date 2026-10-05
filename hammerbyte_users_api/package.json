@@ -1,5 +1,5 @@
 {
-	"name": "hammerbyte_tasks_api",
+	"name": "hammerbyte_users_api",
 	"version": "1.0.0",
 	"type": "module",
 	"private": true,
