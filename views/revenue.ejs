@@ -108,6 +108,7 @@
                                             <th scope="col">Date</th>
                                             <th scope="col">Title</th>
                                             <th scope="col">Amount</th>
+                                            <th scope="col">Loaned</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -116,6 +117,7 @@
                                                 <td data-readable-date="<%= row.created_on %>" data-date-format="DD/MM/YYYY"></td>
                                                 <td><%= row.title %></td>
                                                 <td><%= Number(row.amount).toFixed(2) %></td>
+                                                <td><%= row.loaned ? "Loaned" : "Non-loaned" %></td>
                                             </tr>
                                         <% }) %>
                                     </tbody>
