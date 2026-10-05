@@ -97,7 +97,7 @@ export async function getAllCustomerInvoices() {
             FROM CUSTOMER_INVOICES
             INNER JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_INVOICES.customer_id
             INNER JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = CUSTOMER_INVOICES.project_id
-            ORDER BY CUSTOMER_INVOICES.created_on DESC
+            ORDER BY CUSTOMER_INVOICES.id DESC
         `,
     )
         .then((result) => Array.from(result ?? []))
