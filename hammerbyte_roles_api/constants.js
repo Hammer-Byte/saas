@@ -19,6 +19,7 @@ export const ERRORS = {
 		DESCRIPTION_REQUIRED: validationDetail("Description Required"),
 		ID_REQUIRED: validationDetail("Id Required"),
 		ACTIVE_REQUIRED: validationDetail("Active Required"),
+		ADMIN_REQUIRED: validationDetail("Admin Required"),
 		AUTHORITIES_INVALID: validationDetail("Invalid Authorities"),
 		AUTHORITY_ID_REQUIRED: validationDetail("Authority Id Required"),
 	},

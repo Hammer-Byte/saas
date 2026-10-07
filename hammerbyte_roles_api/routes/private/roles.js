@@ -33,6 +33,7 @@ export default function roles(app) {
 			body: t.Object({
 				title: t.String({ minLength: 1, error: ERRORS.VALIDATION.TITLE_REQUIRED }),
 				active: t.Optional(t.Boolean({ error: ERRORS.VALIDATION.ACTIVE_REQUIRED })),
+				admin: t.Optional(t.Boolean({ error: ERRORS.VALIDATION.ADMIN_REQUIRED })),
 				authorities: t.Optional(
 					t.Array(
 						t.Number({ minimum: 1, error: ERRORS.VALIDATION.AUTHORITY_ID_REQUIRED }),
@@ -54,6 +55,7 @@ export default function roles(app) {
 					t.String({ minLength: 1, error: ERRORS.VALIDATION.TITLE_REQUIRED }),
 				),
 				active: t.Optional(t.Boolean({ error: ERRORS.VALIDATION.ACTIVE_REQUIRED })),
+				admin: t.Optional(t.Boolean({ error: ERRORS.VALIDATION.ADMIN_REQUIRED })),
 				authorities: t.Optional(
 					t.Array(
 						t.Number({ minimum: 1, error: ERRORS.VALIDATION.AUTHORITY_ID_REQUIRED }),

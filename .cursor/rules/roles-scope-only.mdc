@@ -1,0 +1,43 @@
+---
+description: Strict write scope — only roles API and roles UI; all other repos are read-only (inactive — projects-scope-only is active)
+alwaysApply: false
+---
+
+# Roles-Only Write Scope (STRICT)
+
+This agent’s **write scope is limited to the roles stack only**.
+
+## Allowed write paths
+
+Writes, edits, deletes, renames, commits scoped to files, and codegen are permitted **only** under:
+
+- `hammerbyte_roles_api/**`
+- `hammerbyte_roles_ui/**` (if/when that package exists)
+
+Also allowed: this rule file under `.cursor/rules/` when updating roles-scope rules.
+
+## Banned write paths
+
+**Do not create, edit, delete, move, or commit changes** under any other path, including but not limited to:
+
+- `hammerbyte_users_api/**`
+- `hammerbyte_tasks_api/**`
+- `hammerbyte_projects_api/**`
+- `hammerbyte_utils/**`, `hammerbyte_lints/**`, or any non-roles package
+- Shared monorepo root files that are not inside an allowed path
+- Any other repo or directory outside the allowed paths above
+
+## Read policy
+
+- **Reading** any repo or file is allowed (for context, APIs, patterns, copy-reference).
+- **Writing** outside allowed paths is **forbidden**, even if the user asks casually, “for consistency,” or “while you’re there.”
+
+## Enforcement
+
+If a task requires changes outside roles API/UI:
+
+1. **Stop** — do not edit out-of-scope files.
+2. **Say** that the change is out of scope under this rule.
+3. **Offer** only what can be done inside `hammerbyte_roles_api` / `hammerbyte_roles_ui`, or ask the user to widen scope explicitly by updating this rule.
+
+Do not work around this rule via shell redirects, patches on other packages, or “temporary” edits outside the allowed paths.

@@ -9,12 +9,14 @@ const { logger } = require("@hammerbyte/utils");
 export async function createRole({
 	title,
 	active = true,
+	admin = false,
 	created_by = null,
 	updated_by = null,
 }) {
 	const role = {
 		title,
 		active: !!active,
+		admin: !!admin,
 		created_by,
 		updated_by,
 	};
@@ -69,6 +71,9 @@ export async function getAllRoles() {
 export async function updateRoleById({ id, ...role }) {
 	if (Object.hasOwn(role, "active")) {
 		role.active = !!role.active;
+	}
+	if (Object.hasOwn(role, "admin")) {
+		role.admin = !!role.admin;
 	}
 
 	return await executeSQLQuery({

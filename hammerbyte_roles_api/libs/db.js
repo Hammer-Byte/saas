@@ -10,6 +10,7 @@ const tables = [
 		id INT AUTO_INCREMENT PRIMARY KEY,
 		title VARCHAR(72) NOT NULL DEFAULT '',
 		active BOOLEAN NOT NULL DEFAULT TRUE,
+		admin BOOLEAN NOT NULL DEFAULT FALSE,
 		created_by INT NULL DEFAULT NULL,
 		updated_by INT NULL DEFAULT NULL,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -88,6 +89,18 @@ export async function generateDBTables() {
 	try {
 		for (const table of [...tables]) {
 			await dbConnection.unsafe(table);
+		}
+
+		try {
+			await dbConnection.unsafe(
+				`ALTER TABLE ROLES ADD COLUMN admin BOOLEAN NOT NULL DEFAULT FALSE`,
+			);
+		} catch (alterException) {
+			const message = String(alterException?.message || alterException);
+			if (!message.includes("Duplicate column name")) {
+				logger.error(alterException);
+				throw alterException;
+			}
 		}
 	} catch (exception) {
 		logger.error(exception);

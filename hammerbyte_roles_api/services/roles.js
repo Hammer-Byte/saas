@@ -42,6 +42,7 @@ export async function addRole({ body, user, set }) {
 	const role = await createRole({
 		title: body.title.trim(),
 		active: Object.hasOwn(body, "active") ? body.active : true,
+		admin: Object.hasOwn(body, "admin") ? body.admin : false,
 		created_by: user.id,
 		updated_by: user.id,
 	});
@@ -91,6 +92,9 @@ export async function updateRole({ params, body, user, set }) {
 	}
 	if (Object.hasOwn(roleFields, "active")) {
 		roleUpdate.active = roleFields.active;
+	}
+	if (Object.hasOwn(roleFields, "admin")) {
+		roleUpdate.admin = roleFields.admin;
 	}
 
 	await updateRoleById({

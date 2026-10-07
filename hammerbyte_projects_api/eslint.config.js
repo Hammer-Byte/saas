@@ -33,7 +33,6 @@ export default [
 		},
 		rules: {
 			...lints.configs.api.rules,
-			// Other hammerbyte_* packages stay empty — re-enable when scaffolding them
 			// Predefined import-x extras (do not re-implement under lints/)
 			"import-x/no-duplicates": "error",
 			"import-x/newline-after-import": "error",
@@ -89,13 +88,6 @@ export default [
 					message: "Do not use typeof … === \"undefined\"; use !!value.",
 				},
 			],
-		},
-	},
-	{
-		// lints/db requires readFileSync for seeders; that conflicts with lints/files
-		files: ["libs/db.js"],
-		rules: {
-			"lints/files": "off",
 		},
 	},
 ];
