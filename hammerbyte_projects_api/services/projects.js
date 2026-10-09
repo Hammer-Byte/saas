@@ -7,7 +7,11 @@ import {
 	updateProjectById,
 } from "../entities/projects.js";
 import { createProjectUser } from "../entities/project_users.js";
-import { removeProjectOnVolume } from "../libs/documents_volume.js";
+import { createProjectDirectory } from "../entities/project_directories.js";
+import {
+	createDirectoryOnVolume,
+	removeProjectOnVolume,
+} from "../libs/documents_volume.js";
 import { ERRORS } from "../constants.js";
 
 export async function getProjects({ query, user, set }) {
@@ -45,7 +49,21 @@ export async function addProject({ body, user, set }) {
 		updated_by: user.id,
 	});
 
+	const rootDirectory = await createProjectDirectory({
+		project_id: project.id,
+		parent_id: null,
+		title: project.title,
+		created_by: user.id,
+		updated_by: user.id,
+	});
+
+	await createDirectoryOnVolume({
+		project_id: rootDirectory.project_id,
+		directory_id: rootDirectory.id,
+	});
+
 	const createdProject = await getProjectById({ id: project.id });
+	createdProject.root_directory = rootDirectory;
 	set.status = 201;
 	return createdProject;
 }

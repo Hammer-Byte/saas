@@ -5,6 +5,7 @@ import {
 	getProjectDirectoriesByProjectId,
 	getProjectDirectoryById,
 	getProjectDirectoryDescendantIds,
+	getRootProjectDirectoryByProjectId,
 	updateProjectDirectoryById,
 } from "../entities/project_directories.js";
 import {
@@ -37,25 +38,50 @@ export async function getProjectDirectory({ params, set }) {
 	return projectDirectory;
 }
 
-export async function addProjectDirectory({ params, body, user, set }) {
+/** Create a directory under the project's root directory. */
+export async function addProjectRootDirectory({ params, body, user, set }) {
 	const project = await getProjectById({ id: params.id });
 	if (!project) {
 		set.status = 404;
 		return { error: ERRORS.PROJECT_NOT_FOUND };
 	}
 
-	if (body.parent_id) {
-		const parentDirectory = await getProjectDirectoryById({ id: body.parent_id });
-		if (!parentDirectory || parentDirectory.project_id !== params.id) {
-			set.status = 400;
-			return { error: ERRORS.INVALID_PARENT_DIRECTORY };
-		}
+	const rootDirectory = await getRootProjectDirectoryByProjectId({
+		project_id: params.id,
+	});
+	if (!rootDirectory) {
+		set.status = 404;
+		return { error: ERRORS.ROOT_DIRECTORY_NOT_FOUND };
 	}
 
 	const projectDirectory = await createProjectDirectory({
-		...body,
 		project_id: params.id,
-		parent_id: body.parent_id || null,
+		parent_id: rootDirectory.id,
+		title: body.title.trim(),
+		created_by: user.id,
+		updated_by: user.id,
+	});
+
+	await createDirectoryOnVolume({
+		project_id: projectDirectory.project_id,
+		directory_id: projectDirectory.id,
+	});
+
+	set.status = 201;
+	return projectDirectory;
+}
+
+/** Create a directory inside directories/:id (parent_id = :id). */
+export async function addChildDirectory({ params, body, user, set }) {
+	const parentDirectory = await getProjectDirectoryById({ id: params.id });
+	if (!parentDirectory) {
+		set.status = 404;
+		return { error: ERRORS.PROJECT_DIRECTORY_NOT_FOUND };
+	}
+
+	const projectDirectory = await createProjectDirectory({
+		project_id: parentDirectory.project_id,
+		parent_id: parentDirectory.id,
 		title: body.title.trim(),
 		created_by: user.id,
 		updated_by: user.id,
@@ -97,6 +123,11 @@ export async function deleteProjectDirectory({ params, set }) {
 	if (!existingDirectory) {
 		set.status = 404;
 		return { error: ERRORS.PROJECT_DIRECTORY_NOT_FOUND };
+	}
+
+	if (!(existingDirectory.parent_id > 0)) {
+		set.status = 400;
+		return { error: ERRORS.ROOT_DIRECTORY_CANNOT_BE_DELETED };
 	}
 
 	const descendantIds = await getProjectDirectoryDescendantIds({ id: params.id });

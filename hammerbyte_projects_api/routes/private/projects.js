@@ -11,7 +11,7 @@ import {
 	getProjectUsers,
 } from "../../services/project_users.js";
 import {
-	addProjectDirectory,
+	addProjectRootDirectory,
 	getProjectDirectories,
 } from "../../services/project_directories.js";
 import {
@@ -116,28 +116,22 @@ export default function projects(app) {
 		.get("/:id/directories", getProjectDirectories, {
 			params: projectIdParams,
 			detail: {
-				tags: ["Project Directories"],
+				tags: ["Directories"],
 				summary: "List directories",
 				description:
 					"Returns flat directories for a project. Build a tree via parent_id.",
 			},
 		})
-		.post("/:id/directories", addProjectDirectory, {
+		.post("/:id/directories", addProjectRootDirectory, {
 			params: projectIdParams,
 			body: t.Object({
-				parent_id: t.Optional(
-					t.Number({
-						minimum: 1,
-						error: ERRORS.VALIDATION.PARENT_ID_REQUIRED,
-					}),
-				),
 				title: t.String({ minLength: 1, error: ERRORS.VALIDATION.TITLE_REQUIRED }),
 			}),
 			detail: {
-				tags: ["Project Directories"],
-				summary: "Create directory",
+				tags: ["Directories"],
+				summary: "Create directory under project root",
 				description:
-					"Creates a directory row and a matching folder on the documents volume.",
+					"Creates a directory directly under the project's root directory (created with the project). For nested folders use POST /directories/:id/directory.",
 			},
 		})
 		.get("/:id/applications", getProjectApplications, {

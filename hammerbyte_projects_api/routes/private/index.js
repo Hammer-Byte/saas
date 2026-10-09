@@ -12,7 +12,7 @@ export function privateRoutes(app) {
 		.onBeforeHandle(requiresUser)
 		.group("/projects", projectsRoutes)
 		.group("/project-users", projectUsersRoutes)
-		.group("/project-directories", projectDirectoriesRoutes)
+		.group("/directories", projectDirectoriesRoutes)
 		.group("/directory-documents", directoryDocumentsRoutes)
 		.group("/project-applications", projectApplicationsRoutes)
 		.group("/project-invoices", projectInvoicesRoutes)

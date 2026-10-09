@@ -22,6 +22,8 @@ export const ERRORS = {
 	PROJECT_INVOICE_NOT_FOUND: "Project Invoice Not Found",
 	INVOICE_LINE_NOT_FOUND: "Invoice Line Not Found",
 	INVALID_PARENT_DIRECTORY: "Invalid Parent Directory",
+	ROOT_DIRECTORY_NOT_FOUND: "Root Directory Not Found",
+	ROOT_DIRECTORY_CANNOT_BE_DELETED: "Root Directory Cannot Be Deleted",
 	DOCUMENT_FILE_REQUIRED: "Document File Required",
 	DOCUMENT_FILE_NOT_FOUND: "Document File Not Found On Volume",
 	VALIDATION: {

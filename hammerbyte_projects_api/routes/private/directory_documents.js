@@ -15,7 +15,7 @@ export default function directoryDocuments(app) {
 		.get("/:id", getDirectoryDocument, {
 			params: documentIdParams,
 			detail: {
-				tags: ["Directory Documents"],
+				tags: ["Documents"],
 				summary: "Get document",
 				description: "Returns document metadata by id.",
 			},
@@ -23,7 +23,7 @@ export default function directoryDocuments(app) {
 		.get("/:id/download", downloadDirectoryDocument, {
 			params: documentIdParams,
 			detail: {
-				tags: ["Directory Documents"],
+				tags: ["Documents"],
 				summary: "Download document",
 				description: "Streams the file from the documents volume as an attachment.",
 			},
@@ -31,7 +31,7 @@ export default function directoryDocuments(app) {
 		.delete("/:id", deleteDirectoryDocument, {
 			params: documentIdParams,
 			detail: {
-				tags: ["Directory Documents"],
+				tags: ["Documents"],
 				summary: "Delete document",
 				description: "Deletes the file on volume and the metadata row.",
 			},

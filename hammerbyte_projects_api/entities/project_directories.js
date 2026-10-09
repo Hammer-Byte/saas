@@ -63,6 +63,25 @@ export async function getProjectDirectoriesByParentId({ parent_id }) {
 		.catch((error) => logger.error(`getProjectDirectoriesByParentId: ${error}`));
 }
 
+export async function getRootProjectDirectoryByProjectId({ project_id }) {
+	return await executeSQLQuery({
+		queryFunction: (sql) =>
+			sql`SELECT * FROM PROJECT_DIRECTORIES
+				WHERE project_id = ${project_id}
+					AND parent_id IS NULL
+				ORDER BY id ASC
+				LIMIT 1`,
+	})
+		.then((projectDirectories) => {
+			if (!projectDirectories.length) {
+				return;
+			}
+
+			return projectDirectories[0];
+		})
+		.catch((error) => logger.error(`getRootProjectDirectoryByProjectId: ${error}`));
+}
+
 export async function updateProjectDirectoryById({ id, ...projectDirectory }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) =>
