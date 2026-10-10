@@ -40,8 +40,7 @@ export async function addUser({ body, user, set }) {
 		...body,
 		email: body.email.trim().toLowerCase(),
 		password,
-		first_name: body.first_name.trim(),
-		last_name: body.last_name.trim(),
+		full_name: body.full_name.trim(),
 		active: Object.hasOwn(body, "active") ? body.active : true,
 		created_by: user.id,
 		updated_by: user.id,
@@ -66,11 +65,8 @@ export async function updateUser({ params, body, user, set }) {
 	if (body.password) {
 		userUpdate.password = await Bun.password.hash(body.password);
 	}
-	if (body.first_name) {
-		userUpdate.first_name = body.first_name.trim();
-	}
-	if (body.last_name) {
-		userUpdate.last_name = body.last_name.trim();
+	if (body.full_name) {
+		userUpdate.full_name = body.full_name.trim();
 	}
 	if (Object.hasOwn(body, "active")) {
 		userUpdate.active = body.active;

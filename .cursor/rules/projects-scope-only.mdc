@@ -1,6 +1,6 @@
 ---
-description: Strict write scope — only projects API and projects UI; all other repos are read-only
-alwaysApply: true
+description: Strict write scope — only projects API and projects UI; all other repos are read-only (inactive — tasks-scope-only is active)
+alwaysApply: false
 ---
 
 # Projects-Only Write Scope (STRICT)

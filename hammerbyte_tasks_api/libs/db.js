@@ -1,4 +1,6 @@
 import { SQL } from "bun";
+// lints/db requires readFileSync for executeDBSeeders; lints/files bans node:fs — scoped override
+// eslint-disable-next-line lints/files -- required by lints/db seeder contract
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -125,36 +127,26 @@ export function prepareSQLDateTime({ value }) {
 }
 
 export async function generateDBTables() {
-	try {
-		for (const table of [...tables]) {
-			await dbConnection.unsafe(table);
-		}
-	} catch (exception) {
-		logger.error(exception);
-		throw exception;
+	for (const table of [...tables]) {
+		await dbConnection.unsafe(table);
 	}
 }
 
 export async function executeDBSeeders({ seeders }) {
-	try {
-		for (const seeder of seeders) {
-			const seederQueries = readFileSync(
-				join(process.cwd(), "entities", "seeders", seeder),
-				"utf8",
-			);
-			const dbQueries = seederQueries
-				.split(";")
-				.map((query) => query.trim())
-				.filter(Boolean);
+	for (const seeder of seeders) {
+		const seederQueries = readFileSync(
+			join(process.cwd(), "entities", "seeders", seeder),
+			"utf8",
+		);
+		const dbQueries = seederQueries
+			.split(";")
+			.map((query) => query.trim())
+			.filter(Boolean);
 
-			for (const query of dbQueries) {
-				await dbConnection.unsafe(`${query};`);
-			}
+		for (const query of dbQueries) {
+			await dbConnection.unsafe(`${query};`);
 		}
-
-		logger.success("Database seeded...");
-	} catch (exception) {
-		logger.error(exception);
-		throw exception;
 	}
+
+	logger.success("Database seeded...");
 }

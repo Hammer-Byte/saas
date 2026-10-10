@@ -33,7 +33,6 @@ export default [
 		},
 		rules: {
 			...lints.configs.api.rules,
-			// Tasks-only phase: other hammerbyte_* packages stay empty — re-enable when scaffolding them
 			// Predefined import-x extras (do not re-implement under lints/)
 			"import-x/no-duplicates": "error",
 			"import-x/newline-after-import": "error",

@@ -1,4 +1,6 @@
 import { SQL } from "bun";
+// lints/db requires readFileSync for executeDBSeeders; lints/files bans node:fs — scoped override
+// eslint-disable-next-line lints/files -- required by lints/db seeder contract
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -10,8 +12,7 @@ const tables = [
 		id INT AUTO_INCREMENT PRIMARY KEY,
 		email VARCHAR(128) NOT NULL DEFAULT '',
 		password VARCHAR(255) NOT NULL DEFAULT '',
-		first_name VARCHAR(72) NOT NULL DEFAULT '',
-		last_name VARCHAR(72) NOT NULL DEFAULT '',
+		full_name VARCHAR(144) NOT NULL DEFAULT '',
 		active BOOLEAN NOT NULL DEFAULT TRUE,
 		created_by INT NULL DEFAULT NULL,
 		updated_by INT NULL DEFAULT NULL,
@@ -76,36 +77,26 @@ export function prepareSQLDateTime({ value }) {
 }
 
 export async function generateDBTables() {
-	try {
-		for (const table of [...tables]) {
-			await dbConnection.unsafe(table);
-		}
-	} catch (exception) {
-		logger.error(exception);
-		throw exception;
+	for (const table of [...tables]) {
+		await dbConnection.unsafe(table);
 	}
 }
 
 export async function executeDBSeeders({ seeders }) {
-	try {
-		for (const seeder of seeders) {
-			const seederQueries = readFileSync(
-				join(process.cwd(), "entities", "seeders", seeder),
-				"utf8",
-			);
-			const dbQueries = seederQueries
-				.split(";")
-				.map((query) => query.trim())
-				.filter(Boolean);
+	for (const seeder of seeders) {
+		const seederQueries = readFileSync(
+			join(process.cwd(), "entities", "seeders", seeder),
+			"utf8",
+		);
+		const dbQueries = seederQueries
+			.split(";")
+			.map((query) => query.trim())
+			.filter(Boolean);
 
-			for (const query of dbQueries) {
-				await dbConnection.unsafe(`${query};`);
-			}
+		for (const query of dbQueries) {
+			await dbConnection.unsafe(`${query};`);
 		}
-
-		logger.success("Database seeded...");
-	} catch (exception) {
-		logger.error(exception);
-		throw exception;
 	}
+
+	logger.success("Database seeded...");
 }

@@ -33,20 +33,16 @@ export default function users(app) {
 			body: t.Object({
 				email: t.String({ minLength: 1, error: ERRORS.VALIDATION.EMAIL_REQUIRED }),
 				password: t.String({ minLength: 1, error: ERRORS.VALIDATION.PASSWORD_REQUIRED }),
-				first_name: t.String({
+				full_name: t.String({
 					minLength: 1,
-					error: ERRORS.VALIDATION.FIRST_NAME_REQUIRED,
-				}),
-				last_name: t.String({
-					minLength: 1,
-					error: ERRORS.VALIDATION.LAST_NAME_REQUIRED,
+					error: ERRORS.VALIDATION.FULL_NAME_REQUIRED,
 				}),
 				active: t.Optional(t.Boolean({ error: ERRORS.VALIDATION.ACTIVE_REQUIRED })),
 			}),
 			detail: {
 				tags: ["Users"],
 				summary: "Create user",
-				description: "Creates a new user. email, password, first_name, and last_name are required.",
+				description: "Creates a new user. email, password, and full_name are required.",
 			},
 		})
 		.patch("/:id", updateUser, {
@@ -58,11 +54,8 @@ export default function users(app) {
 				password: t.Optional(
 					t.String({ minLength: 1, error: ERRORS.VALIDATION.PASSWORD_REQUIRED }),
 				),
-				first_name: t.Optional(
-					t.String({ minLength: 1, error: ERRORS.VALIDATION.FIRST_NAME_REQUIRED }),
-				),
-				last_name: t.Optional(
-					t.String({ minLength: 1, error: ERRORS.VALIDATION.LAST_NAME_REQUIRED }),
+				full_name: t.Optional(
+					t.String({ minLength: 1, error: ERRORS.VALIDATION.FULL_NAME_REQUIRED }),
 				),
 				active: t.Optional(t.Boolean({ error: ERRORS.VALIDATION.ACTIVE_REQUIRED })),
 			}),

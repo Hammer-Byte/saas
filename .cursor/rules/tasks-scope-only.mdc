@@ -1,29 +1,29 @@
 ---
-description: Strict write scope — only roles API and roles UI; all other repos are read-only (inactive — tasks-scope-only is active)
-alwaysApply: false
+description: Strict write scope — only tasks API and tasks UI; all other repos are read-only
+alwaysApply: true
 ---
 
-# Roles-Only Write Scope (STRICT)
+# Tasks-Only Write Scope (STRICT)
 
-This agent’s **write scope is limited to the roles stack only**.
+This agent’s **write scope is limited to the tasks stack only**.
 
 ## Allowed write paths
 
 Writes, edits, deletes, renames, commits scoped to files, and codegen are permitted **only** under:
 
-- `hammerbyte_roles_api/**`
-- `hammerbyte_roles_ui/**` (if/when that package exists)
+- `hammerbyte_tasks_api/**`
+- `hammerbyte_tasks_ui/**` (if/when that package exists)
 
-Also allowed: this rule file under `.cursor/rules/` when updating roles-scope rules.
+Also allowed: this rule file under `.cursor/rules/` when updating tasks-scope rules.
 
 ## Banned write paths
 
 **Do not create, edit, delete, move, or commit changes** under any other path, including but not limited to:
 
 - `hammerbyte_users_api/**`
-- `hammerbyte_tasks_api/**`
+- `hammerbyte_roles_api/**`
 - `hammerbyte_projects_api/**`
-- `hammerbyte_utils/**`, `hammerbyte_lints/**`, or any non-roles package
+- `hammerbyte_utils/**`, `hammerbyte_lints/**`, or any non-tasks package
 - Shared monorepo root files that are not inside an allowed path
 - Any other repo or directory outside the allowed paths above
 
@@ -34,10 +34,10 @@ Also allowed: this rule file under `.cursor/rules/` when updating roles-scope ru
 
 ## Enforcement
 
-If a task requires changes outside roles API/UI:
+If a task requires changes outside tasks API/UI:
 
 1. **Stop** — do not edit out-of-scope files.
 2. **Say** that the change is out of scope under this rule.
-3. **Offer** only what can be done inside `hammerbyte_roles_api` / `hammerbyte_roles_ui`, or ask the user to widen scope explicitly by updating this rule.
+3. **Offer** only what can be done inside `hammerbyte_tasks_api` / `hammerbyte_tasks_ui`, or ask the user to widen scope explicitly by updating this rule.
 
 Do not work around this rule via shell redirects, patches on other packages, or “temporary” edits outside the allowed paths.

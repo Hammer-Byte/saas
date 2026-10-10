@@ -17,8 +17,7 @@ export const ERRORS = {
 	VALIDATION: {
 		EMAIL_REQUIRED: validationDetail("Email Required"),
 		PASSWORD_REQUIRED: validationDetail("Password Required"),
-		FIRST_NAME_REQUIRED: validationDetail("First Name Required"),
-		LAST_NAME_REQUIRED: validationDetail("Last Name Required"),
+		FULL_NAME_REQUIRED: validationDetail("Full Name Required"),
 		ID_REQUIRED: validationDetail("Id Required"),
 		ACTIVE_REQUIRED: validationDetail("Active Required"),
 		USER_ID_REQUIRED: validationDetail("User Id Required"),

@@ -86,48 +86,38 @@ export function prepareSQLDateTime({ value }) {
 }
 
 export async function generateDBTables() {
-	try {
-		for (const table of [...tables]) {
-			await dbConnection.unsafe(table);
-		}
+	for (const table of [...tables]) {
+		await dbConnection.unsafe(table);
+	}
 
-		try {
-			await dbConnection.unsafe(
-				`ALTER TABLE ROLES ADD COLUMN admin BOOLEAN NOT NULL DEFAULT FALSE`,
-			);
-		} catch (alterException) {
-			const message = String(alterException?.message || alterException);
-			if (!message.includes("Duplicate column name")) {
-				logger.error(alterException);
-				throw alterException;
-			}
-		}
-	} catch (exception) {
-		logger.error(exception);
-		throw exception;
+	const adminColumns = await dbConnection.unsafe(
+		`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE()
+			AND TABLE_NAME = 'ROLES'
+			AND COLUMN_NAME = 'admin'`,
+	);
+	if (!adminColumns.length) {
+		await dbConnection.unsafe(
+			`ALTER TABLE ROLES ADD COLUMN admin BOOLEAN NOT NULL DEFAULT FALSE`,
+		);
 	}
 }
 
 export async function executeDBSeeders({ seeders }) {
-	try {
-		for (const seeder of seeders) {
-			const seederQueries = readFileSync(
-				join(process.cwd(), "entities", "seeders", seeder),
-				"utf8",
-			);
-			const dbQueries = seederQueries
-				.split(";")
-				.map((query) => query.trim())
-				.filter(Boolean);
+	for (const seeder of seeders) {
+		const seederQueries = readFileSync(
+			join(process.cwd(), "entities", "seeders", seeder),
+			"utf8",
+		);
+		const dbQueries = seederQueries
+			.split(";")
+			.map((query) => query.trim())
+			.filter(Boolean);
 
-			for (const query of dbQueries) {
-				await dbConnection.unsafe(`${query};`);
-			}
+		for (const query of dbQueries) {
+			await dbConnection.unsafe(`${query};`);
 		}
-
-		logger.success("Database seeded...");
-	} catch (exception) {
-		logger.error(exception);
-		throw exception;
 	}
+
+	logger.success("Database seeded...");
 }
