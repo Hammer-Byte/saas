@@ -4,14 +4,16 @@ const { logger } = require("@hammerbyte/utils");
 
 export async function createAuthenticationToken({
 	user_id,
+	otp,
 	token,
-	active = true,
+	active = false,
 	validity,
 	created_by = null,
 	updated_by = null,
 }) {
 	const authenticationToken = {
 		user_id,
+		otp,
 		token,
 		active: !!active,
 		validity: prepareSQLDateTime({ value: validity }),
@@ -73,6 +75,34 @@ export async function getActiveAuthenticationTokenByToken({ token }) {
 			return authenticationTokens[0];
 		})
 		.catch((error) => logger.error(`getActiveAuthenticationTokenByToken: ${error}`));
+}
+
+export async function getInactiveAuthenticationTokenByTokenAndOtp({ token, otp }) {
+	return await executeSQLQuery({
+		queryFunction: (sql) =>
+			sql`SELECT * FROM AUTHENTICATION_TOKENS
+				WHERE token = ${token}
+					AND otp = ${otp}
+					AND active = false
+					AND validity > CURRENT_TIMESTAMP`,
+	})
+		.then((authenticationTokens) => {
+			if (!authenticationTokens.length) {
+				return;
+			}
+
+			return authenticationTokens[0];
+		})
+		.catch((error) => logger.error(`getInactiveAuthenticationTokenByTokenAndOtp: ${error}`));
+}
+
+export async function activateAuthenticationTokenByToken({ token, updated_by = null }) {
+	return await executeSQLQuery({
+		queryFunction: (sql) =>
+			sql`UPDATE AUTHENTICATION_TOKENS SET active = true, updated_by = ${updated_by} WHERE token = ${token}`,
+	})
+		.then(() => getActiveAuthenticationTokenByToken({ token }))
+		.catch((error) => logger.error(`activateAuthenticationTokenByToken: ${error}`));
 }
 
 export async function getAllAuthenticationTokens() {

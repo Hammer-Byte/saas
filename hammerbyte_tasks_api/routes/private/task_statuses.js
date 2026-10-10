@@ -1,11 +1,5 @@
 import { t } from "elysia";
-import {
-	addTaskStatus,
-	deleteTaskStatus,
-	getTaskStatus,
-	getTaskStatuses,
-	updateTaskStatus,
-} from "../../services/task_statuses.js";
+import { addTaskStatus, deleteTaskStatus, getTaskStatus, getTaskStatuses, updateTaskStatus } from "../../services/task_statuses.js";
 import { ERRORS } from "../../constants.js";
 
 const taskStatusIdParams = t.Object({

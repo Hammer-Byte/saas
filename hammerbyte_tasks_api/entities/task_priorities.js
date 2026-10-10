@@ -27,23 +27,17 @@ export async function getTaskPriorityById({ id }) {
 export async function getAllTaskPriorities() {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM TASK_PRIORITIES ORDER BY id ASC`,
-	})
-		.then((taskPriorities) => taskPriorities)
-		.catch((error) => logger.error(`getAllTaskPriorities: ${error}`));
+	}).catch((error) => logger.error(`getAllTaskPriorities: ${error}`));
 }
 
 export async function updateTaskPriorityById({ id, ...taskPriority }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`UPDATE TASK_PRIORITIES SET ${sql(taskPriority)} WHERE id = ${id}`,
-	})
-		.then(() => getTaskPriorityById({ id }))
-		.catch((error) => logger.error(`updateTaskPriorityById: ${error}`));
+	}).catch((error) => logger.error(`updateTaskPriorityById: ${error}`));
 }
 
 export async function deleteTaskPriorityById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM TASK_PRIORITIES WHERE id = ${id}`,
-	})
-		.then((taskPriorityDeleted) => taskPriorityDeleted)
-		.catch((error) => logger.error(`deleteTaskPriorityById: ${error}`));
+	}).catch((error) => logger.error(`deleteTaskPriorityById: ${error}`));
 }

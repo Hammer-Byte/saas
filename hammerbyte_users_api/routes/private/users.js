@@ -18,7 +18,7 @@ export default function users(app) {
 			detail: {
 				tags: ["Users"],
 				summary: "List users",
-				description: "Returns all users (password omitted).",
+				description: "Returns all users.",
 			},
 		})
 		.get("/:id", getUser, {
@@ -26,13 +26,12 @@ export default function users(app) {
 			detail: {
 				tags: ["Users"],
 				summary: "Get user",
-				description: "Returns a single user by id (password omitted).",
+				description: "Returns a single user by id.",
 			},
 		})
 		.post("/", addUser, {
 			body: t.Object({
 				email: t.String({ minLength: 1, error: ERRORS.VALIDATION.EMAIL_REQUIRED }),
-				password: t.String({ minLength: 1, error: ERRORS.VALIDATION.PASSWORD_REQUIRED }),
 				full_name: t.String({
 					minLength: 1,
 					error: ERRORS.VALIDATION.FULL_NAME_REQUIRED,
@@ -42,7 +41,7 @@ export default function users(app) {
 			detail: {
 				tags: ["Users"],
 				summary: "Create user",
-				description: "Creates a new user. email, password, and full_name are required.",
+				description: "Creates a new user. email and full_name are required.",
 			},
 		})
 		.patch("/:id", updateUser, {
@@ -50,9 +49,6 @@ export default function users(app) {
 			body: t.Object({
 				email: t.Optional(
 					t.String({ minLength: 1, error: ERRORS.VALIDATION.EMAIL_REQUIRED }),
-				),
-				password: t.Optional(
-					t.String({ minLength: 1, error: ERRORS.VALIDATION.PASSWORD_REQUIRED }),
 				),
 				full_name: t.Optional(
 					t.String({ minLength: 1, error: ERRORS.VALIDATION.FULL_NAME_REQUIRED }),

@@ -1,15 +1,6 @@
 import { getTaskById } from "../entities/tasks.js";
-import {
-	createTaskComment,
-	deleteTaskCommentById,
-	getTaskCommentById,
-	getTaskCommentsByTaskId,
-	updateTaskCommentById,
-} from "../entities/task_comments.js";
-import {
-	createTaskCommentAttachment,
-	deleteTaskCommentAttachmentsByTaskCommentId,
-} from "../entities/task_comment_attachments.js";
+import { createTaskComment, deleteTaskCommentById, getTaskCommentById, getTaskCommentsByTaskId, updateTaskCommentById } from "../entities/task_comments.js";
+import { createTaskCommentAttachment, deleteTaskCommentAttachmentsByTaskCommentId } from "../entities/task_comment_attachments.js";
 import { ERRORS } from "../constants.js";
 
 export async function getTaskComments({ params, set }) {

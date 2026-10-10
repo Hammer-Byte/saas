@@ -1,8 +1,5 @@
 import { executeSQLQuery } from "../libs/db.js";
-import {
-	getTaskCommentAttachmentsByTaskCommentId,
-	getTaskCommentAttachmentsByTaskId,
-} from "./task_comment_attachments.js";
+import { getTaskCommentAttachmentsByTaskCommentId, getTaskCommentAttachmentsByTaskId } from "./task_comment_attachments.js";
 
 const { logger } = require("@hammerbyte/utils");
 
@@ -72,17 +69,13 @@ export async function getTaskCommentsByTaskId({ task_id }) {
 }
 
 export async function updateTaskCommentById({ id, ...taskComment }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`UPDATE TASK_COMMENTS SET ${sql(taskComment)} WHERE id = ${id}`,
-	})
-		.then(() => getTaskCommentById({ id }))
-		.catch((error) => logger.error(`updateTaskCommentById: ${error}`));
+	}).catch((error) => logger.error(`updateTaskCommentById: ${error}`));
 }
 
 export async function deleteTaskCommentById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM TASK_COMMENTS WHERE id = ${id}`,
-	})
-		.then((taskCommentDeleted) => taskCommentDeleted)
-		.catch((error) => logger.error(`deleteTaskCommentById: ${error}`));
+	}).catch((error) => logger.error(`deleteTaskCommentById: ${error}`));
 }

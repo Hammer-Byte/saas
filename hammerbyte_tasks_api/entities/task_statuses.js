@@ -27,23 +27,17 @@ export async function getTaskStatusById({ id }) {
 export async function getAllTaskStatuses() {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM TASK_STATUSES ORDER BY id ASC`,
-	})
-		.then((taskStatuses) => taskStatuses)
-		.catch((error) => logger.error(`getAllTaskStatuses: ${error}`));
+	}).catch((error) => logger.error(`getAllTaskStatuses: ${error}`));
 }
 
 export async function updateTaskStatusById({ id, ...taskStatus }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`UPDATE TASK_STATUSES SET ${sql(taskStatus)} WHERE id = ${id}`,
-	})
-		.then(() => getTaskStatusById({ id }))
-		.catch((error) => logger.error(`updateTaskStatusById: ${error}`));
+	}).catch((error) => logger.error(`updateTaskStatusById: ${error}`));
 }
 
 export async function deleteTaskStatusById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM TASK_STATUSES WHERE id = ${id}`,
-	})
-		.then((taskStatusDeleted) => taskStatusDeleted)
-		.catch((error) => logger.error(`deleteTaskStatusById: ${error}`));
+	}).catch((error) => logger.error(`deleteTaskStatusById: ${error}`));
 }

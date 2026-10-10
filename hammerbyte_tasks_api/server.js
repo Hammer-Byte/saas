@@ -48,7 +48,5 @@ export async function allowTraffic(app) {
 
 	app.listen(process.env.PORT);
 
-	const { server } = app;
-
-	logger.success(`Server listening on ${server.url}`);
+	logger.success(`Server listening on ${app?.server?.url}`);
 }

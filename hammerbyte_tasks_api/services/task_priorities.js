@@ -1,10 +1,4 @@
-import {
-	createTaskPriority,
-	deleteTaskPriorityById,
-	getAllTaskPriorities,
-	getTaskPriorityById,
-	updateTaskPriorityById,
-} from "../entities/task_priorities.js";
+import { createTaskPriority, deleteTaskPriorityById, getAllTaskPriorities, getTaskPriorityById, updateTaskPriorityById } from "../entities/task_priorities.js";
 import { ERRORS } from "../constants.js";
 
 export async function getTaskPriorities({ set }) {
@@ -45,7 +39,8 @@ export async function updateTaskPriority({ params, body, user, set }) {
 		taskPriorityUpdate.title = body.title.trim();
 	}
 
-	const taskPriority = await updateTaskPriorityById({ id: params.id, ...taskPriorityUpdate });
+	await updateTaskPriorityById({ id: params.id, ...taskPriorityUpdate });
+	const taskPriority = await getTaskPriorityById(params);
 	set.status = 200;
 	return taskPriority;
 }

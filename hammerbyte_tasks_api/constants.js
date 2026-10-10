@@ -9,7 +9,6 @@ export const HEADERS = {
 };
 
 export const ERRORS = {
-	UNAUTHORIZED: "Unauthorized",
 	MISSING_INVALID_AUTHENTICATION_TOKEN: "Missing or Invalid Authentication Token",
 	TASK_NOT_FOUND: "Task Not Found",
 	TASK_STATUS_NOT_FOUND: "Task Status Not Found",

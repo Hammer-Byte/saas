@@ -1,8 +1,5 @@
 import { executeSQLQuery, prepareSQLDateTime } from "../libs/db.js";
-import {
-	getTaskAttachmentsByCreatedAtRange,
-	getTaskAttachmentsByTaskId,
-} from "./task_attachments.js";
+import { getTaskAttachmentsByCreatedAtRange, getTaskAttachmentsByTaskId } from "./task_attachments.js";
 
 const { logger } = require("@hammerbyte/utils");
 
@@ -83,17 +80,13 @@ export async function updateTaskById({ id, ...task }) {
 		task.due_at = prepareSQLDateTime({ value: task.due_at });
 	}
 
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`UPDATE TASKS SET ${sql(task)} WHERE id = ${id}`,
-	})
-		.then(() => getTaskById({ id }))
-		.catch((error) => logger.error(`updateTaskById: ${error}`));
+	}).catch((error) => logger.error(`updateTaskById: ${error}`));
 }
 
 export async function deleteTaskById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM TASKS WHERE id = ${id}`,
-	})
-		.then((taskDeleted) => taskDeleted)
-		.catch((error) => logger.error(`deleteTaskById: ${error}`));
+	}).catch((error) => logger.error(`deleteTaskById: ${error}`));
 }

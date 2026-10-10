@@ -39,9 +39,7 @@ export async function getTaskCommentAttachmentsByTaskCommentId({ task_comment_id
 			sql`SELECT * FROM TASK_COMMENT_ATTACHMENTS
 				WHERE task_comment_id = ${task_comment_id}
 				ORDER BY id ASC`,
-	})
-		.then((taskCommentAttachments) => taskCommentAttachments)
-		.catch((error) => logger.error(`getTaskCommentAttachmentsByTaskCommentId: ${error}`));
+	}).catch((error) => logger.error(`getTaskCommentAttachmentsByTaskCommentId: ${error}`));
 }
 
 export async function getTaskCommentAttachmentsByTaskId({ task_id }) {
@@ -53,24 +51,18 @@ export async function getTaskCommentAttachmentsByTaskId({ task_id }) {
 					ON TASK_COMMENTS.id = TASK_COMMENT_ATTACHMENTS.task_comment_id
 				WHERE TASK_COMMENTS.task_id = ${task_id}
 				ORDER BY TASK_COMMENT_ATTACHMENTS.id ASC`,
-	})
-		.then((taskCommentAttachments) => taskCommentAttachments)
-		.catch((error) => logger.error(`getTaskCommentAttachmentsByTaskId: ${error}`));
+	}).catch((error) => logger.error(`getTaskCommentAttachmentsByTaskId: ${error}`));
 }
 
 export async function deleteTaskCommentAttachmentsByTaskCommentId({ task_comment_id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`DELETE FROM TASK_COMMENT_ATTACHMENTS WHERE task_comment_id = ${task_comment_id}`,
-	})
-		.then((taskCommentAttachmentsDeleted) => taskCommentAttachmentsDeleted)
-		.catch((error) => logger.error(`deleteTaskCommentAttachmentsByTaskCommentId: ${error}`));
+	}).catch((error) => logger.error(`deleteTaskCommentAttachmentsByTaskCommentId: ${error}`));
 }
 
 export async function deleteTaskCommentAttachmentById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM TASK_COMMENT_ATTACHMENTS WHERE id = ${id}`,
-	})
-		.then((taskCommentAttachmentDeleted) => taskCommentAttachmentDeleted)
-		.catch((error) => logger.error(`deleteTaskCommentAttachmentById: ${error}`));
+	}).catch((error) => logger.error(`deleteTaskCommentAttachmentById: ${error}`));
 }

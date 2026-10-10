@@ -4,7 +4,6 @@ const { logger } = require("@hammerbyte/utils");
 
 export async function createUser({
 	email,
-	password,
 	full_name,
 	active = true,
 	created_by = null,
@@ -12,7 +11,6 @@ export async function createUser({
 }) {
 	const user = {
 		email,
-		password,
 		full_name,
 		active: !!active,
 		created_by,

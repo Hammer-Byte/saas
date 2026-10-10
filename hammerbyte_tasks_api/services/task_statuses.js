@@ -1,10 +1,4 @@
-import {
-	createTaskStatus,
-	deleteTaskStatusById,
-	getAllTaskStatuses,
-	getTaskStatusById,
-	updateTaskStatusById,
-} from "../entities/task_statuses.js";
+import { createTaskStatus, deleteTaskStatusById, getAllTaskStatuses, getTaskStatusById, updateTaskStatusById } from "../entities/task_statuses.js";
 import { ERRORS } from "../constants.js";
 
 export async function getTaskStatuses({ set }) {
@@ -45,7 +39,8 @@ export async function updateTaskStatus({ params, body, user, set }) {
 		taskStatusUpdate.title = body.title.trim();
 	}
 
-	const taskStatus = await updateTaskStatusById({ id: params.id, ...taskStatusUpdate });
+	await updateTaskStatusById({ id: params.id, ...taskStatusUpdate });
+	const taskStatus = await getTaskStatusById(params);
 	set.status = 200;
 	return taskStatus;
 }

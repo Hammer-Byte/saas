@@ -1,9 +1,5 @@
 import { t } from "elysia";
-import {
-	deleteTaskComment,
-	getTaskComment,
-	updateTaskComment,
-} from "../../services/task_comments.js";
+import { deleteTaskComment, getTaskComment, updateTaskComment } from "../../services/task_comments.js";
 import { ERRORS } from "../../constants.js";
 
 const taskCommentIdParams = t.Object({

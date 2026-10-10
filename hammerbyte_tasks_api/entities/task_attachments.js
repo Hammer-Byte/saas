@@ -36,9 +36,7 @@ export async function getTaskAttachmentsByTaskId({ task_id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`SELECT * FROM TASK_ATTACHMENTS WHERE task_id = ${task_id} ORDER BY id ASC`,
-	})
-		.then((taskAttachments) => taskAttachments)
-		.catch((error) => logger.error(`getTaskAttachmentsByTaskId: ${error}`));
+	}).catch((error) => logger.error(`getTaskAttachmentsByTaskId: ${error}`));
 }
 
 export async function getTaskAttachmentsByCreatedAtRange({ start, end }) {
@@ -50,23 +48,17 @@ export async function getTaskAttachmentsByCreatedAtRange({ start, end }) {
 				WHERE TASKS.created_at >= ${prepareSQLDateTime({ value: start })}
 					AND TASKS.created_at <= ${prepareSQLDateTime({ value: end })}
 				ORDER BY TASK_ATTACHMENTS.id ASC`,
-	})
-		.then((taskAttachments) => taskAttachments)
-		.catch((error) => logger.error(`getTaskAttachmentsByCreatedAtRange: ${error}`));
+	}).catch((error) => logger.error(`getTaskAttachmentsByCreatedAtRange: ${error}`));
 }
 
 export async function deleteTaskAttachmentsByTaskId({ task_id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM TASK_ATTACHMENTS WHERE task_id = ${task_id}`,
-	})
-		.then((taskAttachmentsDeleted) => taskAttachmentsDeleted)
-		.catch((error) => logger.error(`deleteTaskAttachmentsByTaskId: ${error}`));
+	}).catch((error) => logger.error(`deleteTaskAttachmentsByTaskId: ${error}`));
 }
 
 export async function deleteTaskAttachmentById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM TASK_ATTACHMENTS WHERE id = ${id}`,
-	})
-		.then((taskAttachmentDeleted) => taskAttachmentDeleted)
-		.catch((error) => logger.error(`deleteTaskAttachmentById: ${error}`));
+	}).catch((error) => logger.error(`deleteTaskAttachmentById: ${error}`));
 }

@@ -7,20 +7,10 @@ import {
 } from "../entities/users.js";
 import { ERRORS } from "../constants.js";
 
-function publicUser({ user }) {
-	if (!user) {
-		return;
-	}
-
-	const { password, ...safeUser } = user;
-	void password;
-	return safeUser;
-}
-
 export async function getUsers({ set }) {
 	const users = await getAllUsers();
 	set.status = 200;
-	return users.map((user) => publicUser({ user }));
+	return users;
 }
 
 export async function getUser({ params, set }) {
@@ -30,16 +20,13 @@ export async function getUser({ params, set }) {
 		return { error: ERRORS.USER_NOT_FOUND };
 	}
 	set.status = 200;
-	return publicUser({ user });
+	return user;
 }
 
 export async function addUser({ body, user, set }) {
-	const password = await Bun.password.hash(body.password);
-
 	const createdUser = await createUser({
 		...body,
 		email: body.email.trim().toLowerCase(),
-		password,
 		full_name: body.full_name.trim(),
 		active: Object.hasOwn(body, "active") ? body.active : true,
 		created_by: user.id,
@@ -47,7 +34,7 @@ export async function addUser({ body, user, set }) {
 	});
 
 	set.status = 201;
-	return publicUser({ user: createdUser });
+	return createdUser;
 }
 
 export async function updateUser({ params, body, user, set }) {
@@ -62,9 +49,6 @@ export async function updateUser({ params, body, user, set }) {
 	if (body.email) {
 		userUpdate.email = body.email.trim().toLowerCase();
 	}
-	if (body.password) {
-		userUpdate.password = await Bun.password.hash(body.password);
-	}
 	if (body.full_name) {
 		userUpdate.full_name = body.full_name.trim();
 	}
@@ -78,7 +62,7 @@ export async function updateUser({ params, body, user, set }) {
 	});
 
 	set.status = 200;
-	return publicUser({ user: updatedUser });
+	return updatedUser;
 }
 
 export async function deleteUser({ params, set }) {

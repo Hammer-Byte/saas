@@ -1,6 +1,5 @@
 import { t } from "elysia";
 import {
-	addAuthenticationToken,
 	deleteAuthenticationToken,
 	getAuthenticationToken,
 	getAuthenticationTokens,
@@ -27,28 +26,6 @@ export default function authenticationTokens(app) {
 				tags: ["Authentication Tokens"],
 				summary: "Get authentication token",
 				description: "Returns a single authentication token by id.",
-			},
-		})
-		.post("/", addAuthenticationToken, {
-			body: t.Object({
-				user_id: t.Number({
-					minimum: 1,
-					error: ERRORS.VALIDATION.USER_ID_REQUIRED,
-				}),
-				token: t.Optional(
-					t.String({ minLength: 1, error: ERRORS.VALIDATION.TOKEN_REQUIRED }),
-				),
-				active: t.Optional(t.Boolean({ error: ERRORS.VALIDATION.ACTIVE_REQUIRED })),
-				validity: t.String({
-					minLength: 1,
-					error: ERRORS.VALIDATION.VALIDITY_REQUIRED,
-				}),
-			}),
-			detail: {
-				tags: ["Authentication Tokens"],
-				summary: "Create authentication token",
-				description:
-					"Creates a new authentication token. user_id and validity are required; token is optional and generated when omitted.",
 			},
 		})
 		.patch("/:id", updateAuthenticationToken, {

@@ -1,11 +1,5 @@
 import { t } from "elysia";
-import {
-	addTaskPriority,
-	deleteTaskPriority,
-	getTaskPriorities,
-	getTaskPriority,
-	updateTaskPriority,
-} from "../../services/task_priorities.js";
+import { addTaskPriority, deleteTaskPriority, getTaskPriorities, getTaskPriority, updateTaskPriority } from "../../services/task_priorities.js";
 import { ERRORS } from "../../constants.js";
 
 const taskPriorityIdParams = t.Object({
