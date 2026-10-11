@@ -2,12 +2,7 @@ import { executeSQLQuery } from "../libs/db.js";
 
 const { logger } = require("@hammerbyte/utils");
 
-export async function createEmailCc({
-	email_id,
-	cc,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createEmailCc({ email_id, cc, created_by = null, updated_by = null }) {
 	const emailCc = { email_id, cc, created_by, updated_by };
 
 	return await executeSQLQuery({

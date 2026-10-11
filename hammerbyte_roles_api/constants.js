@@ -1,15 +1,14 @@
 import { validationDetail } from "elysia";
 
+const { CONSTANTS } = require("@hammerbyte/utils");
+
 export const SWAGGER = {
 	APPLICATION: "HammerByte Roles API",
 };
 
-export const HEADERS = {
-	AUTHENTICATION_TOKEN: "authentication-token",
-};
+export const HEADERS = { ...CONSTANTS.HEADERS };
 
 export const ERRORS = {
-	MISSING_INVALID_AUTHENTICATION_TOKEN: "Missing or Invalid Authentication Token",
 	ROLE_NOT_FOUND: "Role Not Found",
 	AUTHORITY_NOT_FOUND: "Authority Not Found",
 	INVALID_AUTHORITY: "Invalid Authority",

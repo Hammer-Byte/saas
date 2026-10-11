@@ -3,13 +3,7 @@ import { getAllEmails, getEmailsByBatchId } from "./emails.js";
 
 const { logger } = require("@hammerbyte/utils");
 
-export async function createEmailBatch({
-	interval,
-	template_id,
-	active = true,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createEmailBatch({ interval, template_id, active = true, created_by = null, updated_by = null }) {
 	const emailBatch = {
 		interval,
 		template_id,

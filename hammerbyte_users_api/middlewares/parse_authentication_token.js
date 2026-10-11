@@ -1,4 +1,4 @@
-import { getUserByActiveAuthenticationToken } from "../entities/users.js";
+import { getUserByActiveAuthenticationToken } from "../entities/authentication_tokens.js";
 import { HEADERS } from "../constants.js";
 
 const { logger } = require("@hammerbyte/utils");
@@ -21,5 +21,5 @@ export default async function ({ headers, query, set }) {
 	void query;
 	void set;
 
-	return { user };
+	return { user, authentication_token: authenticationToken };
 }

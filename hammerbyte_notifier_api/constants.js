@@ -1,12 +1,13 @@
 import { validationDetail } from "elysia";
 
+const { CONSTANTS } = require("@hammerbyte/utils");
+
 export const SWAGGER = {
 	APPLICATION: "HammerByte Notifier API",
 };
 
-export const HEADERS = {
-	AUTHENTICATION_TOKEN: "authentication-token",
-};
+/** Re-export shared auth header — do not redeclare keys that live in @hammerbyte/utils CONSTANTS. */
+export const { HEADERS } = CONSTANTS;
 
 export const STORAGE_PATH = Bun.env.STORAGE_PATH || "/var/www/storage";
 
@@ -16,7 +17,6 @@ export const STORAGE_DIRS = {
 };
 
 export const ERRORS = {
-	MISSING_INVALID_AUTHENTICATION_TOKEN: "Missing or Invalid Authentication Token",
 	TEMPLATE_NOT_FOUND: "Template Not Found",
 	PLACEHOLDER_NOT_FOUND: "Placeholder Not Found",
 	EMAIL_BATCH_NOT_FOUND: "Email Batch Not Found",

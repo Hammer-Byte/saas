@@ -2,12 +2,7 @@ import { executeSQLQuery } from "../libs/db.js";
 
 const { logger } = require("@hammerbyte/utils");
 
-export async function createRoleAuthority({
-	role_id,
-	authority_id,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createRoleAuthority({ role_id, authority_id, created_by = null, updated_by = null }) {
 	const roleAuthority = {
 		role_id,
 		authority_id,

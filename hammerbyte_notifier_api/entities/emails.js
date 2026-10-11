@@ -24,13 +24,7 @@ function groupByEmailId({ rows }) {
 	return byEmailId;
 }
 
-function attachEmailRelations({
-	email,
-	recipientsByEmailId,
-	ccsByEmailId,
-	bccsByEmailId,
-	attachmentsByEmailId,
-}) {
+function attachEmailRelations({ email, recipientsByEmailId, ccsByEmailId, bccsByEmailId, attachmentsByEmailId }) {
 	email.recipients = recipientsByEmailId.get(email.id) || [];
 	email.ccs = ccsByEmailId.get(email.id) || [];
 	email.bccs = bccsByEmailId.get(email.id) || [];
@@ -39,14 +33,7 @@ function attachEmailRelations({
 	return email;
 }
 
-export async function createEmail({
-	batch_id,
-	subject,
-	inject = {},
-	sent = false,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createEmail({ batch_id, subject, inject = {}, sent = false, created_by = null, updated_by = null }) {
 	const email = {
 		batch_id,
 		subject,

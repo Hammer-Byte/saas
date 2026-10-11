@@ -27,14 +27,7 @@ export async function initTransporter() {
 	transporter = created;
 }
 
-export async function transportEmail({
-	recipients,
-	ccs = [],
-	bccs = [],
-	subject,
-	html,
-	attachments = [],
-}) {
+export async function transportEmail({ recipients, ccs = [], bccs = [], subject, html, attachments = [] }) {
 	if (!transporter) {
 		throw new Error("SMTP transporter is not initialized");
 	}

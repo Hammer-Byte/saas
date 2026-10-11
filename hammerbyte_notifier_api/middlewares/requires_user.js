@@ -1,8 +1,8 @@
-import { ERRORS } from "../constants.js";
+const { CONSTANTS } = require("@hammerbyte/utils");
 
 export default function requiresUser({ user, set }) {
 	if (!user) {
 		set.status = 401;
-		return { error: ERRORS.MISSING_INVALID_AUTHENTICATION_TOKEN };
+		return { error: CONSTANTS.ERRORS.MISSING_INVALID_AUTHENTICATION_TOKEN };
 	}
 }

@@ -9,28 +9,31 @@ import { removeStorageFile, writeAttachmentFile } from "../libs/storage.js";
 import { transportEmail } from "../libs/transporter.js";
 import { ERRORS } from "../constants.js";
 import { sleep } from "../util.js";
+import { populateAuditAttributesDeep } from "./populate_audit_attributes.js";
 
 const { filer, logger } = require("@hammerbyte/utils");
 
 const ATTACHMENT_FIELD = /^attachment_(\d+)_(\d+)$/;
 
-export async function getEmailBatches({ set }) {
+export async function getEmailBatches({ set, authentication_token }) {
 	const emailBatches = await getAllEmailBatches();
+	await populateAuditAttributesDeep({ value: emailBatches, authentication_token });
 	set.status = 200;
 	return emailBatches;
 }
 
-export async function getEmailBatch({ params, set }) {
+export async function getEmailBatch({ params, set, authentication_token }) {
 	const emailBatch = await getEmailBatchById({ id: params.id });
 	if (!emailBatch) {
 		set.status = 404;
 		return { error: ERRORS.EMAIL_BATCH_NOT_FOUND };
 	}
+	await populateAuditAttributesDeep({ value: emailBatch, authentication_token });
 	set.status = 200;
 	return emailBatch;
 }
 
-export async function addEmailBatch({ body, user, set }) {
+export async function addEmailBatch({ body, user, set, authentication_token }) {
 	const templateId = Number(body.template_id);
 	const interval = Number(body.interval);
 
@@ -197,11 +200,13 @@ export async function addEmailBatch({ body, user, set }) {
 	});
 
 	const completedBatch = await getEmailBatchById({ id: emailBatch.id });
+	const response = { ...completedBatch, send_results: sendResults };
+	await populateAuditAttributesDeep({ value: response, authentication_token });
 	set.status = 201;
-	return { ...completedBatch, send_results: sendResults };
+	return response;
 }
 
-export async function updateEmailBatch({ params, body, user, set }) {
+export async function updateEmailBatch({ params, body, user, set, authentication_token }) {
 	const emailBatch = await getEmailBatchById({ id: params.id });
 	if (!emailBatch) {
 		set.status = 404;
@@ -214,6 +219,10 @@ export async function updateEmailBatch({ params, body, user, set }) {
 		updated_by: user.id,
 	});
 	const updatedEmailBatch = await getEmailBatchById({ id: params.id });
+	await populateAuditAttributesDeep({
+		value: updatedEmailBatch,
+		authentication_token,
+	});
 
 	set.status = 200;
 	return updatedEmailBatch;
@@ -253,12 +262,13 @@ export async function deleteEmail({ params, set }) {
 	set.status = 204;
 }
 
-export async function getEmail({ params, set }) {
+export async function getEmail({ params, set, authentication_token }) {
 	const email = await getEmailById({ id: params.id });
 	if (!email) {
 		set.status = 404;
 		return { error: ERRORS.EMAIL_NOT_FOUND };
 	}
+	await populateAuditAttributesDeep({ value: email, authentication_token });
 	set.status = 200;
 	return email;
 }

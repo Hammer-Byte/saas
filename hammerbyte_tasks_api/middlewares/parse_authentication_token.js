@@ -21,5 +21,5 @@ export default async function ({ headers, query, set }) {
 	void query;
 	void set;
 
-	return { user };
+	return { user, authentication_token: authenticationToken };
 }

@@ -2,15 +2,7 @@ import { executeSQLQuery, prepareSQLDateTime } from "../libs/db.js";
 
 const { logger } = require("@hammerbyte/utils");
 
-export async function createAuthenticationToken({
-	user_id,
-	otp,
-	token,
-	active = false,
-	validity,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createAuthenticationToken({ user_id, otp, token, active = false, validity, created_by = null, updated_by = null }) {
 	const authenticationToken = {
 		user_id,
 		otp,
@@ -35,13 +27,7 @@ export async function getAuthenticationTokenById({ id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM AUTHENTICATION_TOKENS WHERE id = ${id}`,
 	})
-		.then((authenticationTokens) => {
-			if (!authenticationTokens.length) {
-				return;
-			}
-
-			return authenticationTokens[0];
-		})
+		.then((authenticationTokens) => authenticationTokens[0])
 		.catch((error) => logger.error(`getAuthenticationTokenById: ${error}`));
 }
 
@@ -49,13 +35,7 @@ export async function getAuthenticationTokenByToken({ token }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM AUTHENTICATION_TOKENS WHERE token = ${token}`,
 	})
-		.then((authenticationTokens) => {
-			if (!authenticationTokens.length) {
-				return;
-			}
-
-			return authenticationTokens[0];
-		})
+		.then((authenticationTokens) => authenticationTokens[0])
 		.catch((error) => logger.error(`getAuthenticationTokenByToken: ${error}`));
 }
 
@@ -67,13 +47,7 @@ export async function getActiveAuthenticationTokenByToken({ token }) {
 					AND active = true
 					AND validity > CURRENT_TIMESTAMP`,
 	})
-		.then((authenticationTokens) => {
-			if (!authenticationTokens.length) {
-				return;
-			}
-
-			return authenticationTokens[0];
-		})
+		.then((authenticationTokens) => authenticationTokens[0])
 		.catch((error) => logger.error(`getActiveAuthenticationTokenByToken: ${error}`));
 }
 
@@ -86,14 +60,21 @@ export async function getInactiveAuthenticationTokenByTokenAndOtp({ token, otp }
 					AND active = false
 					AND validity > CURRENT_TIMESTAMP`,
 	})
-		.then((authenticationTokens) => {
-			if (!authenticationTokens.length) {
-				return;
-			}
-
-			return authenticationTokens[0];
-		})
+		.then((authenticationTokens) => authenticationTokens[0])
 		.catch((error) => logger.error(`getInactiveAuthenticationTokenByTokenAndOtp: ${error}`));
+}
+
+export async function getUserByActiveAuthenticationToken({ authentication_token }) {
+	return await executeSQLQuery({
+		queryFunction: (sql) =>
+			sql`SELECT USERS.* FROM AUTHENTICATION_TOKENS
+				LEFT JOIN USERS ON AUTHENTICATION_TOKENS.user_id = USERS.id
+				WHERE AUTHENTICATION_TOKENS.token = ${authentication_token}
+					AND AUTHENTICATION_TOKENS.active = true
+					AND AUTHENTICATION_TOKENS.validity > CURRENT_TIMESTAMP`,
+	})
+		.then((users) => users[0])
+		.catch((error) => logger.error(`getUserByActiveAuthenticationToken: ${error}`));
 }
 
 export async function getAllAuthenticationTokens() {

@@ -2,12 +2,7 @@ import { executeSQLQuery } from "../libs/db.js";
 
 const { logger } = require("@hammerbyte/utils");
 
-export async function createTemplatePlaceHolder({
-	template_id,
-	place_holder,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createTemplatePlaceHolder({ template_id, place_holder, created_by = null, updated_by = null }) {
 	const templatePlaceHolder = {
 		template_id,
 		place_holder,

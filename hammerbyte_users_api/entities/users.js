@@ -2,13 +2,7 @@ import { executeSQLQuery } from "../libs/db.js";
 
 const { logger } = require("@hammerbyte/utils");
 
-export async function createUser({
-	email,
-	full_name,
-	active = true,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createUser({ email, full_name, active = true, created_by = null, updated_by = null }) {
 	const user = {
 		email,
 		full_name,
@@ -28,13 +22,7 @@ export async function getUserById({ id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM USERS WHERE id = ${id}`,
 	})
-		.then((users) => {
-			if (!users.length) {
-				return;
-			}
-
-			return users[0];
-		})
+		.then((users) => users[0])
 		.catch((error) => logger.error(`getUserById: ${error}`));
 }
 
@@ -42,13 +30,7 @@ export async function getUserByEmail({ email }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM USERS WHERE email = ${email}`,
 	})
-		.then((users) => {
-			if (!users.length) {
-				return;
-			}
-
-			return users[0];
-		})
+		.then((users) => users[0])
 		.catch((error) => logger.error(`getUserByEmail: ${error}`));
 }
 
@@ -58,24 +40,14 @@ export async function getAllUsers() {
 	}).catch((error) => logger.error(`getAllUsers: ${error}`));
 }
 
-export async function getUserByActiveAuthenticationToken({ authentication_token }) {
-	return await executeSQLQuery({
-		queryFunction: (sql) =>
-			sql`SELECT USERS.* FROM AUTHENTICATION_TOKENS
-				LEFT JOIN USERS ON AUTHENTICATION_TOKENS.user_id = USERS.id
-				WHERE AUTHENTICATION_TOKENS.token = ${authentication_token}
-					AND AUTHENTICATION_TOKENS.active = true
-					AND AUTHENTICATION_TOKENS.validity > CURRENT_TIMESTAMP`,
-	})
-		.then((users) => {
-			if (!users.length) {
-				logger.error("getUserByActiveAuthenticationToken: no matching user");
-				return;
-			}
+export async function getUsersByIds({ ids }) {
+	if (!ids.length) {
+		return [];
+	}
 
-			return users[0];
-		})
-		.catch((error) => logger.error(`getUserByActiveAuthenticationToken: ${error}`));
+	return await executeSQLQuery({
+		queryFunction: (sql) => sql`SELECT * FROM USERS WHERE id IN ${sql(ids)} ORDER BY id ASC`,
+	}).catch((error) => logger.error(`getUsersByIds: ${error}`));
 }
 
 export async function updateUserById({ id, ...user }) {

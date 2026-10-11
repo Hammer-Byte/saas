@@ -1,15 +1,17 @@
 import { validationDetail } from "elysia";
 
+const { CONSTANTS } = require("@hammerbyte/utils");
+
 export const SWAGGER = {
 	APPLICATION: "HammerByte Tasks API",
 };
 
-export const HEADERS = {
-	AUTHENTICATION_TOKEN: "authentication-token",
-};
+// Re-export for lints/middlewares + lints/server (must import HEADERS from constants.js).
+// Literal HEADERS.AUTHENTICATION_TOKEN is banned by lints/microservice.
+// eslint-disable-next-line lints/style -- required bridge export for middleware/server imports
+export const HEADERS = CONSTANTS.HEADERS;
 
 export const ERRORS = {
-	MISSING_INVALID_AUTHENTICATION_TOKEN: "Missing or Invalid Authentication Token",
 	TASK_NOT_FOUND: "Task Not Found",
 	TASK_STATUS_NOT_FOUND: "Task Status Not Found",
 	TASK_PRIORITY_NOT_FOUND: "Task Priority Not Found",

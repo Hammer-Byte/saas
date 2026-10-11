@@ -10,12 +10,7 @@ async function populateTemplatePlaceHolders({ template }) {
 	return template;
 }
 
-export async function createTemplate({
-	title,
-	file,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createTemplate({ title, file, created_by = null, updated_by = null }) {
 	const template = { title, file, created_by, updated_by };
 
 	return await executeSQLQuery({

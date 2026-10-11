@@ -2,12 +2,7 @@ import { executeSQLQuery } from "../libs/db.js";
 
 const { logger } = require("@hammerbyte/utils");
 
-export async function createAuthority({
-	title,
-	description,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createAuthority({ title, description, created_by = null, updated_by = null }) {
 	const authority = {
 		title,
 		description,

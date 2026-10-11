@@ -1,7 +1,8 @@
 import { createAuthenticationToken, deleteAuthenticationTokenById, getAllAuthenticationTokens, getAuthenticationTokenById, getAuthenticationTokenByToken, getInactiveAuthenticationTokenByTokenAndOtp, updateAuthenticationTokenById } from "../entities/authentication_tokens.js";
 import { getUserByEmail, getUserById } from "../entities/users.js";
 import { AUTH_TOKEN_VALIDITY_MS, ERRORS } from "../constants.js";
-import { generateOTP, generateToken } from "../util.js";
+
+const { CONSTANTS, generator } = require("@hammerbyte/utils");
 
 export async function getValidAuthenticationToken({ params, set }) {
 	const authenticationToken = await getAuthenticationTokenByToken({
@@ -17,7 +18,7 @@ export async function getValidAuthenticationToken({ params, set }) {
 		const user = await getUserById({ id: authenticationToken.user_id });
 		if (!user) {
 			set.status = 401;
-			return { error: ERRORS.MISSING_INVALID_AUTHENTICATION_TOKEN };
+			return { error: CONSTANTS.ERRORS.MISSING_INVALID_AUTHENTICATION_TOKEN };
 		}
 
 		set.status = 200;
@@ -25,7 +26,7 @@ export async function getValidAuthenticationToken({ params, set }) {
 	}
 
 	set.status = 401;
-	return { error: ERRORS.MISSING_INVALID_AUTHENTICATION_TOKEN };
+	return { error: CONSTANTS.ERRORS.MISSING_INVALID_AUTHENTICATION_TOKEN };
 }
 
 export async function requestAuthenticationToken({ body, set }) {
@@ -37,8 +38,8 @@ export async function requestAuthenticationToken({ body, set }) {
 		return { error: ERRORS.USER_NOT_FOUND };
 	}
 
-	const token = generateToken();
-	const otp = generateOTP();
+	const token = generator.generateToken();
+	const otp = generator.generateOTP();
 
 	await createAuthenticationToken({
 		user_id: user.id,

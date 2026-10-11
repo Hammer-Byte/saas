@@ -3,13 +3,7 @@ import { getAllRoleAuthorities, getRoleAuthoritiesByRoleId } from "./role_author
 
 const { logger } = require("@hammerbyte/utils");
 
-export async function createRole({
-	title,
-	active = true,
-	admin = false,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createRole({ title, active = true, admin = false, created_by = null, updated_by = null }) {
 	const role = {
 		title,
 		active: !!active,

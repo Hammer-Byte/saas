@@ -9,10 +9,14 @@ const userIdParams = t.Object({
 export default function users(app) {
 	return app
 		.get("/", getUsers, {
+			query: t.Object({
+				ids: t.String({ minLength: 1, error: ERRORS.VALIDATION.IDS_REQUIRED }),
+			}),
 			detail: {
 				tags: ["Users"],
-				summary: "List users",
-				description: "Returns all users.",
+				summary: "Get users by ids",
+				description:
+					"Returns users matching the required comma-separated ids query (e.g. ?ids=1,2,3). Duplicate ids are ignored; missing ids are omitted.",
 			},
 		})
 		.get("/:id", getUser, {

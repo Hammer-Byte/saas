@@ -2,13 +2,7 @@ import { executeSQLQuery } from "../libs/db.js";
 
 const { logger } = require("@hammerbyte/utils");
 
-export async function createEmailAttachment({
-	email_id,
-	file,
-	name,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createEmailAttachment({ email_id, file, name, created_by = null, updated_by = null }) {
 	const emailAttachment = { email_id, file, name, created_by, updated_by };
 
 	return await executeSQLQuery({
