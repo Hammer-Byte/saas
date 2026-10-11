@@ -1,13 +1,4 @@
-import {
-	activateAuthenticationTokenByToken,
-	createAuthenticationToken,
-	deleteAuthenticationTokenById,
-	getAllAuthenticationTokens,
-	getAuthenticationTokenById,
-	getAuthenticationTokenByToken,
-	getInactiveAuthenticationTokenByTokenAndOtp,
-	updateAuthenticationTokenById,
-} from "../entities/authentication_tokens.js";
+import { createAuthenticationToken, deleteAuthenticationTokenById, getAllAuthenticationTokens, getAuthenticationTokenById, getAuthenticationTokenByToken, getInactiveAuthenticationTokenByTokenAndOtp, updateAuthenticationTokenById } from "../entities/authentication_tokens.js";
 import { getUserByEmail, getUserById } from "../entities/users.js";
 import { AUTH_TOKEN_VALIDITY_MS, ERRORS } from "../constants.js";
 import { generateOTP, generateToken } from "../util.js";
@@ -74,8 +65,9 @@ export async function verifyAuthenticationTokenOtp({ body, set }) {
 		return { error: ERRORS.INVALID_OTP };
 	}
 
-	await activateAuthenticationTokenByToken({
-		token: body.authentication_token,
+	await updateAuthenticationTokenById({
+		id: authenticationToken.id,
+		active: true,
 		updated_by: authenticationToken.user_id,
 	});
 
@@ -135,11 +127,12 @@ export async function updateAuthenticationToken({ params, body, user, set }) {
 		authenticationTokenUpdate.validity = body.validity;
 	}
 
-	const authenticationToken = await updateAuthenticationTokenById({
+	await updateAuthenticationTokenById({
 		id: params.id,
 		...authenticationTokenUpdate,
 	});
 
+	const authenticationToken = await getAuthenticationTokenById(params);
 	set.status = 200;
 	return authenticationToken;
 }

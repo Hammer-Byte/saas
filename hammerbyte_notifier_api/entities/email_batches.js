@@ -71,9 +71,7 @@ export async function getEmailBatchesByTemplateId({ template_id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`SELECT * FROM EMAIL_BATCHES WHERE template_id = ${template_id}`,
-	})
-		.then((emailBatches) => emailBatches)
-		.catch((error) => logger.error(`getEmailBatchesByTemplateId: ${error}`));
+	}).catch((error) => logger.error(`getEmailBatchesByTemplateId: ${error}`));
 }
 
 export async function updateEmailBatchById({ id, ...emailBatch }) {
@@ -81,18 +79,14 @@ export async function updateEmailBatchById({ id, ...emailBatch }) {
 		emailBatch.active = !!emailBatch.active;
 	}
 
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`UPDATE EMAIL_BATCHES SET ${sql(emailBatch)} WHERE id = ${id}`,
-	})
-		.then(() => getEmailBatchById({ id }))
-		.catch((error) => logger.error(`updateEmailBatchById: ${error}`));
+	}).catch((error) => logger.error(`updateEmailBatchById: ${error}`));
 }
 
 export async function deleteEmailBatchById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM EMAIL_BATCHES WHERE id = ${id}`,
-	})
-		.then((emailBatchDeleted) => emailBatchDeleted)
-		.catch((error) => logger.error(`deleteEmailBatchById: ${error}`));
+	}).catch((error) => logger.error(`deleteEmailBatchById: ${error}`));
 }

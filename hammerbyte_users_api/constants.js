@@ -12,7 +12,6 @@ export const HEADERS = {
 export const AUTH_TOKEN_VALIDITY_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const ERRORS = {
-	UNAUTHORIZED: "Unauthorized",
 	MISSING_INVALID_AUTHENTICATION_TOKEN: "Missing or Invalid Authentication Token",
 	USER_NOT_FOUND: "User Not Found",
 	AUTHENTICATION_TOKEN_NOT_FOUND: "Authentication Token Not Found",

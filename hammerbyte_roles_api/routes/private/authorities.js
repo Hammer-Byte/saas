@@ -1,11 +1,5 @@
 import { t } from "elysia";
-import {
-	addAuthority,
-	deleteAuthority,
-	getAuthorities,
-	getAuthority,
-	updateAuthority,
-} from "../../services/authorities.js";
+import { addAuthority, deleteAuthority, getAuthorities, getAuthority, updateAuthority } from "../../services/authorities.js";
 import { ERRORS } from "../../constants.js";
 
 const authorityIdParams = t.Object({

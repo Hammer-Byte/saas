@@ -96,30 +96,17 @@ export async function getInactiveAuthenticationTokenByTokenAndOtp({ token, otp }
 		.catch((error) => logger.error(`getInactiveAuthenticationTokenByTokenAndOtp: ${error}`));
 }
 
-export async function activateAuthenticationTokenByToken({ token, updated_by = null }) {
-	return await executeSQLQuery({
-		queryFunction: (sql) =>
-			sql`UPDATE AUTHENTICATION_TOKENS SET active = true, updated_by = ${updated_by} WHERE token = ${token}`,
-	})
-		.then(() => getActiveAuthenticationTokenByToken({ token }))
-		.catch((error) => logger.error(`activateAuthenticationTokenByToken: ${error}`));
-}
-
 export async function getAllAuthenticationTokens() {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM AUTHENTICATION_TOKENS ORDER BY id ASC`,
-	})
-		.then((authenticationTokens) => authenticationTokens)
-		.catch((error) => logger.error(`getAllAuthenticationTokens: ${error}`));
+	}).catch((error) => logger.error(`getAllAuthenticationTokens: ${error}`));
 }
 
 export async function getAuthenticationTokensByUserId({ user_id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`SELECT * FROM AUTHENTICATION_TOKENS WHERE user_id = ${user_id} ORDER BY id ASC`,
-	})
-		.then((authenticationTokens) => authenticationTokens)
-		.catch((error) => logger.error(`getAuthenticationTokensByUserId: ${error}`));
+	}).catch((error) => logger.error(`getAuthenticationTokensByUserId: ${error}`));
 }
 
 export async function updateAuthenticationTokenById({ id, ...authenticationToken }) {
@@ -133,27 +120,21 @@ export async function updateAuthenticationTokenById({ id, ...authenticationToken
 		});
 	}
 
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`UPDATE AUTHENTICATION_TOKENS SET ${sql(authenticationToken)} WHERE id = ${id}`,
-	})
-		.then(() => getAuthenticationTokenById({ id }))
-		.catch((error) => logger.error(`updateAuthenticationTokenById: ${error}`));
+	}).catch((error) => logger.error(`updateAuthenticationTokenById: ${error}`));
 }
 
 export async function deleteAuthenticationTokenById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM AUTHENTICATION_TOKENS WHERE id = ${id}`,
-	})
-		.then((authenticationTokenDeleted) => authenticationTokenDeleted)
-		.catch((error) => logger.error(`deleteAuthenticationTokenById: ${error}`));
+	}).catch((error) => logger.error(`deleteAuthenticationTokenById: ${error}`));
 }
 
 export async function deleteAuthenticationTokensByUserId({ user_id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`DELETE FROM AUTHENTICATION_TOKENS WHERE user_id = ${user_id}`,
-	})
-		.then((authenticationTokensDeleted) => authenticationTokensDeleted)
-		.catch((error) => logger.error(`deleteAuthenticationTokensByUserId: ${error}`));
+	}).catch((error) => logger.error(`deleteAuthenticationTokensByUserId: ${error}`));
 }

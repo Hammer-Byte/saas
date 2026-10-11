@@ -1,11 +1,5 @@
 import { t } from "elysia";
-import {
-	addRole,
-	deleteRole,
-	getRole,
-	getRoles,
-	updateRole,
-} from "../../services/roles.js";
+import { addRole, deleteRole, getRole, getRoles, updateRole } from "../../services/roles.js";
 import { ERRORS } from "../../constants.js";
 
 const roleIdParams = t.Object({

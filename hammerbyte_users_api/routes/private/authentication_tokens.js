@@ -1,10 +1,5 @@
 import { t } from "elysia";
-import {
-	deleteAuthenticationToken,
-	getAuthenticationToken,
-	getAuthenticationTokens,
-	updateAuthenticationToken,
-} from "../../services/authentication_tokens.js";
+import { deleteAuthenticationToken, getAuthenticationToken, getAuthenticationTokens, updateAuthenticationToken } from "../../services/authentication_tokens.js";
 import { ERRORS } from "../../constants.js";
 
 const authenticationTokenIdParams = t.Object({

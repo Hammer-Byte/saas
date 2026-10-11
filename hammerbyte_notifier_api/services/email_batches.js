@@ -208,11 +208,12 @@ export async function updateEmailBatch({ params, body, user, set }) {
 		return { error: ERRORS.EMAIL_BATCH_NOT_FOUND };
 	}
 
-	const updatedEmailBatch = await updateEmailBatchById({
+	await updateEmailBatchById({
 		id: params.id,
 		active: body.active,
 		updated_by: user.id,
 	});
+	const updatedEmailBatch = await getEmailBatchById({ id: params.id });
 
 	set.status = 200;
 	return updatedEmailBatch;

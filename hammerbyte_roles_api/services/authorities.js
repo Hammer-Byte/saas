@@ -1,10 +1,4 @@
-import {
-	createAuthority,
-	deleteAuthorityById,
-	getAllAuthorities,
-	getAuthorityById,
-	updateAuthorityById,
-} from "../entities/authorities.js";
+import { createAuthority, deleteAuthorityById, getAllAuthorities, getAuthorityById, updateAuthorityById } from "../entities/authorities.js";
 import { ERRORS } from "../constants.js";
 
 export async function getAuthorities({ set }) {
@@ -49,7 +43,8 @@ export async function updateAuthority({ params, body, user, set }) {
 		authorityUpdate.description = body.description.trim();
 	}
 
-	const authority = await updateAuthorityById({ id: params.id, ...authorityUpdate });
+	await updateAuthorityById({ id: params.id, ...authorityUpdate });
+	const authority = await getAuthorityById(params);
 	set.status = 200;
 	return authority;
 }

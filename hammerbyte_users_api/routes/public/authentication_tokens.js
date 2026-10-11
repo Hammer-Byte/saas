@@ -1,9 +1,5 @@
 import { t } from "elysia";
-import {
-	getValidAuthenticationToken,
-	requestAuthenticationToken,
-	verifyAuthenticationTokenOtp,
-} from "../../services/authentication_tokens.js";
+import { getValidAuthenticationToken, requestAuthenticationToken, verifyAuthenticationTokenOtp } from "../../services/authentication_tokens.js";
 import { ERRORS } from "../../constants.js";
 
 export function authenticationTokens(app) {

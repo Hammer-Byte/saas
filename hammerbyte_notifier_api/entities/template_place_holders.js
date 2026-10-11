@@ -30,12 +30,7 @@ export async function getTemplatePlaceHolderById({ id }) {
 		queryFunction: (sql) =>
 			sql`SELECT * FROM PLACE_HOLDERS WHERE id = ${id}`,
 	})
-		.then((templatePlaceHolders) => {
-			if (!templatePlaceHolders.length) {
-				return;
-			}
-			return templatePlaceHolders[0];
-		})
+		.then((templatePlaceHolders) => templatePlaceHolders[0])
 		.catch((error) => logger.error(`getTemplatePlaceHolderById: ${error}`));
 }
 
@@ -45,24 +40,18 @@ export async function getTemplatePlaceHoldersByTemplateId({ template_id }) {
 			sql`SELECT * FROM PLACE_HOLDERS
 				WHERE template_id = ${template_id}
 				ORDER BY id ASC`,
-	})
-		.then((templatePlaceHolders) => templatePlaceHolders)
-		.catch((error) => logger.error(`getTemplatePlaceHoldersByTemplateId: ${error}`));
+	}).catch((error) => logger.error(`getTemplatePlaceHoldersByTemplateId: ${error}`));
 }
 
 export async function updateTemplatePlaceHolderById({ id, ...templatePlaceHolder }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`UPDATE PLACE_HOLDERS SET ${sql(templatePlaceHolder)} WHERE id = ${id}`,
-	})
-		.then(() => getTemplatePlaceHolderById({ id }))
-		.catch((error) => logger.error(`updateTemplatePlaceHolderById: ${error}`));
+	}).catch((error) => logger.error(`updateTemplatePlaceHolderById: ${error}`));
 }
 
 export async function deleteTemplatePlaceHolderById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM PLACE_HOLDERS WHERE id = ${id}`,
-	})
-		.then((templatePlaceHolderDeleted) => templatePlaceHolderDeleted)
-		.catch((error) => logger.error(`deleteTemplatePlaceHolderById: ${error}`));
+	}).catch((error) => logger.error(`deleteTemplatePlaceHolderById: ${error}`));
 }

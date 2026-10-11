@@ -23,12 +23,7 @@ export async function getEmailRecipientById({ id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM EMAIL_RECIPIENTS WHERE id = ${id}`,
 	})
-		.then((emailRecipients) => {
-			if (!emailRecipients.length) {
-				return;
-			}
-			return emailRecipients[0];
-		})
+		.then((emailRecipients) => emailRecipients[0])
 		.catch((error) => logger.error(`getEmailRecipientById: ${error}`));
 }
 
@@ -36,15 +31,11 @@ export async function getEmailRecipientsByEmailId({ email_id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`SELECT * FROM EMAIL_RECIPIENTS WHERE email_id = ${email_id} ORDER BY id ASC`,
-	})
-		.then((emailRecipients) => emailRecipients)
-		.catch((error) => logger.error(`getEmailRecipientsByEmailId: ${error}`));
+	}).catch((error) => logger.error(`getEmailRecipientsByEmailId: ${error}`));
 }
 
 export async function getAllEmailRecipients() {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM EMAIL_RECIPIENTS ORDER BY id ASC`,
-	})
-		.then((emailRecipients) => emailRecipients)
-		.catch((error) => logger.error(`getAllEmailRecipients: ${error}`));
+	}).catch((error) => logger.error(`getAllEmailRecipients: ${error}`));
 }

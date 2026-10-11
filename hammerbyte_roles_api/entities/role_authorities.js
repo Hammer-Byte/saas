@@ -49,9 +49,7 @@ export async function getRoleAuthoritiesByRoleId({ role_id }) {
 			INNER JOIN AUTHORITIES ON AUTHORITIES.id = ROLE_AUTHORITIES.authority_id
 			WHERE ROLE_AUTHORITIES.role_id = ${role_id}
 			ORDER BY AUTHORITIES.title ASC`,
-	})
-		.then((roleAuthorities) => roleAuthorities)
-		.catch((error) => logger.error(`getRoleAuthoritiesByRoleId: ${error}`));
+	}).catch((error) => logger.error(`getRoleAuthoritiesByRoleId: ${error}`));
 }
 
 export async function getAllRoleAuthorities() {
@@ -70,23 +68,17 @@ export async function getAllRoleAuthorities() {
 			FROM ROLE_AUTHORITIES
 			INNER JOIN AUTHORITIES ON AUTHORITIES.id = ROLE_AUTHORITIES.authority_id
 			ORDER BY ROLE_AUTHORITIES.role_id ASC, AUTHORITIES.title ASC`,
-	})
-		.then((roleAuthorities) => roleAuthorities)
-		.catch((error) => logger.error(`getAllRoleAuthorities: ${error}`));
+	}).catch((error) => logger.error(`getAllRoleAuthorities: ${error}`));
 }
 
 export async function deleteRoleAuthoritiesByRoleId({ role_id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM ROLE_AUTHORITIES WHERE role_id = ${role_id}`,
-	})
-		.then((roleAuthoritiesDeleted) => roleAuthoritiesDeleted)
-		.catch((error) => logger.error(`deleteRoleAuthoritiesByRoleId: ${error}`));
+	}).catch((error) => logger.error(`deleteRoleAuthoritiesByRoleId: ${error}`));
 }
 
 export async function deleteRoleAuthorityById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM ROLE_AUTHORITIES WHERE id = ${id}`,
-	})
-		.then((roleAuthorityDeleted) => roleAuthorityDeleted)
-		.catch((error) => logger.error(`deleteRoleAuthorityById: ${error}`));
+	}).catch((error) => logger.error(`deleteRoleAuthorityById: ${error}`));
 }

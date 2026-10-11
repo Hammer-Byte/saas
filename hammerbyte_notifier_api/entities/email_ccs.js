@@ -21,12 +21,7 @@ export async function getEmailCcById({ id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM EMAIL_CCS WHERE id = ${id}`,
 	})
-		.then((emailCcs) => {
-			if (!emailCcs.length) {
-				return;
-			}
-			return emailCcs[0];
-		})
+		.then((emailCcs) => emailCcs[0])
 		.catch((error) => logger.error(`getEmailCcById: ${error}`));
 }
 
@@ -34,15 +29,11 @@ export async function getEmailCcsByEmailId({ email_id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`SELECT * FROM EMAIL_CCS WHERE email_id = ${email_id} ORDER BY id ASC`,
-	})
-		.then((emailCcs) => emailCcs)
-		.catch((error) => logger.error(`getEmailCcsByEmailId: ${error}`));
+	}).catch((error) => logger.error(`getEmailCcsByEmailId: ${error}`));
 }
 
 export async function getAllEmailCcs() {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM EMAIL_CCS ORDER BY id ASC`,
-	})
-		.then((emailCcs) => emailCcs)
-		.catch((error) => logger.error(`getAllEmailCcs: ${error}`));
+	}).catch((error) => logger.error(`getAllEmailCcs: ${error}`));
 }

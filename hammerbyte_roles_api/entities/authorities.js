@@ -33,23 +33,17 @@ export async function getAuthorityById({ id }) {
 export async function getAllAuthorities() {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM AUTHORITIES ORDER BY title ASC`,
-	})
-		.then((authorities) => authorities)
-		.catch((error) => logger.error(`getAllAuthorities: ${error}`));
+	}).catch((error) => logger.error(`getAllAuthorities: ${error}`));
 }
 
 export async function updateAuthorityById({ id, ...authority }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`UPDATE AUTHORITIES SET ${sql(authority)} WHERE id = ${id}`,
-	})
-		.then(() => getAuthorityById({ id }))
-		.catch((error) => logger.error(`updateAuthorityById: ${error}`));
+	}).catch((error) => logger.error(`updateAuthorityById: ${error}`));
 }
 
 export async function deleteAuthorityById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM AUTHORITIES WHERE id = ${id}`,
-	})
-		.then((authorityDeleted) => authorityDeleted)
-		.catch((error) => logger.error(`deleteAuthorityById: ${error}`));
+	}).catch((error) => logger.error(`deleteAuthorityById: ${error}`));
 }

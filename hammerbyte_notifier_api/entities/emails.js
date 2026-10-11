@@ -152,17 +152,13 @@ export async function updateEmailById({ id, ...email }) {
 		email.inject = JSON.stringify(email.inject || {});
 	}
 
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`UPDATE EMAILS SET ${sql(email)} WHERE id = ${id}`,
-	})
-		.then(() => getEmailById({ id }))
-		.catch((error) => logger.error(`updateEmailById: ${error}`));
+	}).catch((error) => logger.error(`updateEmailById: ${error}`));
 }
 
 export async function deleteEmailById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM EMAILS WHERE id = ${id}`,
-	})
-		.then((emailDeleted) => emailDeleted)
-		.catch((error) => logger.error(`deleteEmailById: ${error}`));
+	}).catch((error) => logger.error(`deleteEmailById: ${error}`));
 }

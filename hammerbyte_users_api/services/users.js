@@ -1,10 +1,4 @@
-import {
-	createUser,
-	deleteUserById,
-	getAllUsers,
-	getUserById,
-	updateUserById,
-} from "../entities/users.js";
+import { createUser, deleteUserById, getAllUsers, getUserById, updateUserById } from "../entities/users.js";
 import { ERRORS } from "../constants.js";
 
 export async function getUsers({ set }) {
@@ -56,11 +50,12 @@ export async function updateUser({ params, body, user, set }) {
 		userUpdate.active = body.active;
 	}
 
-	const updatedUser = await updateUserById({
+	await updateUserById({
 		id: params.id,
 		...userUpdate,
 	});
 
+	const updatedUser = await getUserById(params);
 	set.status = 200;
 	return updatedUser;
 }

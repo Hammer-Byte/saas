@@ -25,12 +25,7 @@ export async function getEmailAttachmentById({ id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM EMAIL_ATTACHMENTS WHERE id = ${id}`,
 	})
-		.then((emailAttachments) => {
-			if (!emailAttachments.length) {
-				return;
-			}
-			return emailAttachments[0];
-		})
+		.then((emailAttachments) => emailAttachments[0])
 		.catch((error) => logger.error(`getEmailAttachmentById: ${error}`));
 }
 
@@ -38,17 +33,13 @@ export async function getEmailAttachmentsByEmailId({ email_id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`SELECT * FROM EMAIL_ATTACHMENTS WHERE email_id = ${email_id} ORDER BY id ASC`,
-	})
-		.then((emailAttachments) => emailAttachments)
-		.catch((error) => logger.error(`getEmailAttachmentsByEmailId: ${error}`));
+	}).catch((error) => logger.error(`getEmailAttachmentsByEmailId: ${error}`));
 }
 
 export async function getAllEmailAttachments() {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM EMAIL_ATTACHMENTS ORDER BY id ASC`,
-	})
-		.then((emailAttachments) => emailAttachments)
-		.catch((error) => logger.error(`getAllEmailAttachments: ${error}`));
+	}).catch((error) => logger.error(`getAllEmailAttachments: ${error}`));
 }
 
 export async function getEmailAttachmentsByBatchId({ batch_id }) {
@@ -58,7 +49,5 @@ export async function getEmailAttachmentsByBatchId({ batch_id }) {
 				FROM EMAIL_ATTACHMENTS
 				INNER JOIN EMAILS ON EMAILS.id = EMAIL_ATTACHMENTS.email_id
 				WHERE EMAILS.batch_id = ${batch_id}`,
-	})
-		.then((emailAttachments) => emailAttachments)
-		.catch((error) => logger.error(`getEmailAttachmentsByBatchId: ${error}`));
+	}).catch((error) => logger.error(`getEmailAttachmentsByBatchId: ${error}`));
 }

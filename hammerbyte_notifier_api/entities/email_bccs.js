@@ -23,12 +23,7 @@ export async function getEmailBccById({ id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM EMAIL_BCCS WHERE id = ${id}`,
 	})
-		.then((emailBccs) => {
-			if (!emailBccs.length) {
-				return;
-			}
-			return emailBccs[0];
-		})
+		.then((emailBccs) => emailBccs[0])
 		.catch((error) => logger.error(`getEmailBccById: ${error}`));
 }
 
@@ -36,15 +31,11 @@ export async function getEmailBccsByEmailId({ email_id }) {
 	return await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`SELECT * FROM EMAIL_BCCS WHERE email_id = ${email_id} ORDER BY id ASC`,
-	})
-		.then((emailBccs) => emailBccs)
-		.catch((error) => logger.error(`getEmailBccsByEmailId: ${error}`));
+	}).catch((error) => logger.error(`getEmailBccsByEmailId: ${error}`));
 }
 
 export async function getAllEmailBccs() {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM EMAIL_BCCS ORDER BY id ASC`,
-	})
-		.then((emailBccs) => emailBccs)
-		.catch((error) => logger.error(`getAllEmailBccs: ${error}`));
+	}).catch((error) => logger.error(`getAllEmailBccs: ${error}`));
 }

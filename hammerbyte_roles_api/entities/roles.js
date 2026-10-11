@@ -1,8 +1,5 @@
 import { executeSQLQuery } from "../libs/db.js";
-import {
-	getAllRoleAuthorities,
-	getRoleAuthoritiesByRoleId,
-} from "./role_authorities.js";
+import { getAllRoleAuthorities, getRoleAuthoritiesByRoleId } from "./role_authorities.js";
 
 const { logger } = require("@hammerbyte/utils");
 
@@ -76,17 +73,13 @@ export async function updateRoleById({ id, ...role }) {
 		role.admin = !!role.admin;
 	}
 
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`UPDATE ROLES SET ${sql(role)} WHERE id = ${id}`,
-	})
-		.then(() => getRoleById({ id }))
-		.catch((error) => logger.error(`updateRoleById: ${error}`));
+	}).catch((error) => logger.error(`updateRoleById: ${error}`));
 }
 
 export async function deleteRoleById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM ROLES WHERE id = ${id}`,
-	})
-		.then((roleDeleted) => roleDeleted)
-		.catch((error) => logger.error(`deleteRoleById: ${error}`));
+	}).catch((error) => logger.error(`deleteRoleById: ${error}`));
 }

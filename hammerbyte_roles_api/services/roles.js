@@ -1,14 +1,5 @@
-import {
-	createRole,
-	deleteRoleById,
-	getAllRoles,
-	getRoleById,
-	updateRoleById,
-} from "../entities/roles.js";
-import {
-	createRoleAuthority,
-	deleteRoleAuthoritiesByRoleId,
-} from "../entities/role_authorities.js";
+import { createRole, deleteRoleById, getAllRoles, getRoleById, updateRoleById } from "../entities/roles.js";
+import { createRoleAuthority, deleteRoleAuthoritiesByRoleId } from "../entities/role_authorities.js";
 import { getAuthorityById } from "../entities/authorities.js";
 import { ERRORS } from "../constants.js";
 

@@ -55,17 +55,13 @@ export async function getAllTemplates() {
 }
 
 export async function updateTemplateById({ id, ...template }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`UPDATE EMAIL_TEMPLATES SET ${sql(template)} WHERE id = ${id}`,
-	})
-		.then(() => getTemplateById({ id }))
-		.catch((error) => logger.error(`updateTemplateById: ${error}`));
+	}).catch((error) => logger.error(`updateTemplateById: ${error}`));
 }
 
 export async function deleteTemplateById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM EMAIL_TEMPLATES WHERE id = ${id}`,
-	})
-		.then((templateDeleted) => templateDeleted)
-		.catch((error) => logger.error(`deleteTemplateById: ${error}`));
+	}).catch((error) => logger.error(`deleteTemplateById: ${error}`));
 }

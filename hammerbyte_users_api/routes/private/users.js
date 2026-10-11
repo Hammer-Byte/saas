@@ -1,11 +1,5 @@
 import { t } from "elysia";
-import {
-	addUser,
-	deleteUser,
-	getUser,
-	getUsers,
-	updateUser,
-} from "../../services/users.js";
+import { addUser, deleteUser, getUser, getUsers, updateUser } from "../../services/users.js";
 import { ERRORS } from "../../constants.js";
 
 const userIdParams = t.Object({

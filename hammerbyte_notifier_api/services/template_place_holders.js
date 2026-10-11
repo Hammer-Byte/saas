@@ -49,10 +49,13 @@ export async function updatePlaceHolder({ params, body, user, set }) {
 		return { error: ERRORS.PLACEHOLDER_NOT_FOUND };
 	}
 
-	const updatedPlaceholder = await updateTemplatePlaceHolderById({
+	await updateTemplatePlaceHolderById({
 		id: params.placeholderId,
 		place_holder: String(body.place_holder).trim(),
 		updated_by: user.id,
+	});
+	const updatedPlaceholder = await getTemplatePlaceHolderById({
+		id: params.placeholderId,
 	});
 
 	set.status = 200;

@@ -52,10 +52,11 @@ export async function updateTemplate({ params, body, user, set }) {
 		templateUpdate.file = filePath;
 	}
 
-	const updatedTemplate = await updateTemplateById({
+	await updateTemplateById({
 		id: params.id,
 		...templateUpdate,
 	});
+	const updatedTemplate = await getTemplateById({ id: params.id });
 
 	set.status = 200;
 	return updatedTemplate;

@@ -55,9 +55,7 @@ export async function getUserByEmail({ email }) {
 export async function getAllUsers() {
 	return await executeSQLQuery({
 		queryFunction: (sql) => sql`SELECT * FROM USERS ORDER BY id ASC`,
-	})
-		.then((users) => users)
-		.catch((error) => logger.error(`getAllUsers: ${error}`));
+	}).catch((error) => logger.error(`getAllUsers: ${error}`));
 }
 
 export async function getUserByActiveAuthenticationToken({ authentication_token }) {
@@ -85,17 +83,13 @@ export async function updateUserById({ id, ...user }) {
 		user.active = !!user.active;
 	}
 
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`UPDATE USERS SET ${sql(user)} WHERE id = ${id}`,
-	})
-		.then(() => getUserById({ id }))
-		.catch((error) => logger.error(`updateUserById: ${error}`));
+	}).catch((error) => logger.error(`updateUserById: ${error}`));
 }
 
 export async function deleteUserById({ id }) {
-	return await executeSQLQuery({
+	await executeSQLQuery({
 		queryFunction: (sql) => sql`DELETE FROM USERS WHERE id = ${id}`,
-	})
-		.then((userDeleted) => userDeleted)
-		.catch((error) => logger.error(`deleteUserById: ${error}`));
+	}).catch((error) => logger.error(`deleteUserById: ${error}`));
 }
