@@ -1,14 +1,5 @@
-import { createUser, deleteUserById, getUserById, getUsersByIds, updateUserById } from "../entities/users.js";
+import { createUser, deleteUserById, getUserById, updateUserById } from "../entities/users.js";
 import { ERRORS } from "../constants.js";
-
-const { generator } = require("@hammerbyte/utils");
-
-export async function getUsers({ query, set }) {
-	const ids = generator.generateUniques({ values: query.ids });
-	const users = await getUsersByIds({ ids });
-	set.status = 200;
-	return users;
-}
 
 export async function getUser({ params, set }) {
 	const user = await getUserById(params);

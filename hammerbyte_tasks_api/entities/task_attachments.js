@@ -1,13 +1,8 @@
-import { executeSQLQuery, prepareSQLDateTime } from "../libs/db.js";
+import { executeSQLQuery } from "../libs/db.js";
 
-const { logger } = require("@hammerbyte/utils");
+const { logger, sql } = require("@hammerbyte/utils");
 
-export async function createTaskAttachment({
-	task_id,
-	media_id,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createTaskAttachment({ task_id, media_id, created_by = null, updated_by = null }) {
 	const taskAttachment = {
 		task_id,
 		media_id,
@@ -40,13 +35,16 @@ export async function getTaskAttachmentsByTaskId({ task_id }) {
 }
 
 export async function getTaskAttachmentsByCreatedAtRange({ start, end }) {
+	const createdAtStart = sql.prepareSQLDateTime({ value: start });
+	const createdAtEnd = sql.prepareSQLDateTime({ value: end });
+
 	return await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`SELECT TASK_ATTACHMENTS.*
 				FROM TASK_ATTACHMENTS
 				INNER JOIN TASKS ON TASKS.id = TASK_ATTACHMENTS.task_id
-				WHERE TASKS.created_at >= ${prepareSQLDateTime({ value: start })}
-					AND TASKS.created_at <= ${prepareSQLDateTime({ value: end })}
+				WHERE TASKS.created_at >= ${createdAtStart}
+					AND TASKS.created_at <= ${createdAtEnd}
 				ORDER BY TASK_ATTACHMENTS.id ASC`,
 	}).catch((error) => logger.error(`getTaskAttachmentsByCreatedAtRange: ${error}`));
 }

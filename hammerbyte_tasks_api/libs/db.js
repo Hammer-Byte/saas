@@ -38,7 +38,9 @@ const tables = [
 		description VARCHAR(2048) NOT NULL DEFAULT '',
 		status_id INT NOT NULL DEFAULT 1,
 		priority_id INT NOT NULL DEFAULT 1,
-		due_at DATETIME NOT NULL,
+		due_at DATE NOT NULL,
+		start TIME NOT NULL,
+		end TIME NOT NULL,
 		handler_id INT NULL DEFAULT NULL,
 		created_by INT NULL DEFAULT NULL,
 		updated_by INT NULL DEFAULT NULL,
@@ -119,12 +121,6 @@ export const executeSQLQuery = async ({ queryFunction }) => {
 		throw exception;
 	}
 };
-
-/** Format an ISO/Date value as local wall-clock MySQL DATETIME (matches CURRENT_TIMESTAMP). */
-export function prepareSQLDateTime({ value }) {
-	const date = value instanceof Date ? value : new Date(value);
-	return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()} ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;
-}
 
 export async function generateDBTables() {
 	for (const table of [...tables]) {

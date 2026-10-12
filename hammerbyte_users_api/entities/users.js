@@ -40,16 +40,6 @@ export async function getAllUsers() {
 	}).catch((error) => logger.error(`getAllUsers: ${error}`));
 }
 
-export async function getUsersByIds({ ids }) {
-	if (!ids.length) {
-		return [];
-	}
-
-	return await executeSQLQuery({
-		queryFunction: (sql) => sql`SELECT * FROM USERS WHERE id IN ${sql(ids)} ORDER BY id ASC`,
-	}).catch((error) => logger.error(`getUsersByIds: ${error}`));
-}
-
 export async function updateUserById({ id, ...user }) {
 	if (Object.hasOwn(user, "active")) {
 		user.active = !!user.active;

@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { addUser, deleteUser, getUser, getUsers, updateUser } from "../../services/users.js";
+import { addUser, deleteUser, getUser, updateUser } from "../../services/users.js";
 import { ERRORS } from "../../constants.js";
 
 const userIdParams = t.Object({
@@ -8,17 +8,6 @@ const userIdParams = t.Object({
 
 export default function users(app) {
 	return app
-		.get("/", getUsers, {
-			query: t.Object({
-				ids: t.String({ minLength: 1, error: ERRORS.VALIDATION.IDS_REQUIRED }),
-			}),
-			detail: {
-				tags: ["Users"],
-				summary: "Get users by ids",
-				description:
-					"Returns users matching the required comma-separated ids query (e.g. ?ids=1,2,3). Duplicate ids are ignored; missing ids are omitted.",
-			},
-		})
 		.get("/:id", getUser, {
 			params: userIdParams,
 			detail: {

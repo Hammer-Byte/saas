@@ -1,9 +1,8 @@
 import { getTemplateById } from "../entities/templates.js";
 import { createTemplatePlaceHolder, deleteTemplatePlaceHolderById, getTemplatePlaceHolderById, getTemplatePlaceHoldersByTemplateId, updateTemplatePlaceHolderById } from "../entities/template_place_holders.js";
 import { ERRORS } from "../constants.js";
-import { populateAuditAttributes, populateAuditAttributesList } from "./populate_audit_attributes.js";
 
-export async function getPlaceHolders({ params, set, authentication_token }) {
+export async function getPlaceHolders({ params, set }) {
 	const template = await getTemplateById({ id: params.id });
 	if (!template) {
 		set.status = 404;
@@ -13,12 +12,11 @@ export async function getPlaceHolders({ params, set, authentication_token }) {
 	const placeholders = await getTemplatePlaceHoldersByTemplateId({
 		template_id: params.id,
 	});
-	await populateAuditAttributesList({ entities: placeholders, authentication_token });
 	set.status = 200;
 	return placeholders;
 }
 
-export async function addPlaceHolder({ params, body, user, set, authentication_token }) {
+export async function addPlaceHolder({ params, body, user, set }) {
 	const template = await getTemplateById({ id: params.id });
 	if (!template) {
 		set.status = 404;
@@ -32,12 +30,11 @@ export async function addPlaceHolder({ params, body, user, set, authentication_t
 		updated_by: user.id,
 	});
 
-	await populateAuditAttributes({ entity: placeholder, authentication_token });
 	set.status = 201;
 	return placeholder;
 }
 
-export async function updatePlaceHolder({ params, body, user, set, authentication_token }) {
+export async function updatePlaceHolder({ params, body, user, set }) {
 	const template = await getTemplateById({ id: params.id });
 	if (!template) {
 		set.status = 404;
@@ -60,7 +57,6 @@ export async function updatePlaceHolder({ params, body, user, set, authenticatio
 	const updatedPlaceholder = await getTemplatePlaceHolderById({
 		id: params.placeholderId,
 	});
-	await populateAuditAttributes({ entity: updatedPlaceholder, authentication_token });
 
 	set.status = 200;
 	return updatedPlaceholder;

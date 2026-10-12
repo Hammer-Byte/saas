@@ -73,6 +73,8 @@ export default function tasks(app) {
 					t.Number({ minimum: 1, error: ERRORS.VALIDATION.HANDLER_ID_REQUIRED }),
 				),
 				due_at: t.String({ minLength: 1, error: ERRORS.VALIDATION.DUE_AT_REQUIRED }),
+				start: t.String({ minLength: 1, error: ERRORS.VALIDATION.START_REQUIRED }),
+				end: t.String({ minLength: 1, error: ERRORS.VALIDATION.END_REQUIRED }),
 				attachments: t.Optional(
 					t.Array(
 						t.Number({ minimum: 1, error: ERRORS.VALIDATION.MEDIA_ID_REQUIRED }),
@@ -84,7 +86,7 @@ export default function tasks(app) {
 				tags: ["Tasks"],
 				summary: "Create task",
 				description:
-					"Creates a new task. title, description, and due_at are required. attachments is an optional list of media ids.",
+					"Creates a new task. title, description, due_at (date), start (time), and end (time) are required. attachments is an optional list of media ids.",
 			},
 		})
 		.patch("/:id", updateTask, {
@@ -108,6 +110,12 @@ export default function tasks(app) {
 				due_at: t.Optional(
 					t.String({ minLength: 1, error: ERRORS.VALIDATION.DUE_AT_REQUIRED }),
 				),
+				start: t.Optional(
+					t.String({ minLength: 1, error: ERRORS.VALIDATION.START_REQUIRED }),
+				),
+				end: t.Optional(
+					t.String({ minLength: 1, error: ERRORS.VALIDATION.END_REQUIRED }),
+				),
 				attachments: t.Optional(
 					t.Array(
 						t.Number({ minimum: 1, error: ERRORS.VALIDATION.MEDIA_ID_REQUIRED }),
@@ -119,7 +127,7 @@ export default function tasks(app) {
 				tags: ["Tasks"],
 				summary: "Update task",
 				description:
-					"Updates an existing task. When title, description, or due_at are sent they must be non-empty. When attachments is provided, it replaces the set.",
+					"Updates an existing task. When title, description, due_at, start, or end are sent they must be non-empty. When attachments is provided, it replaces the set.",
 			},
 		})
 		.delete("/:id", deleteTask, {

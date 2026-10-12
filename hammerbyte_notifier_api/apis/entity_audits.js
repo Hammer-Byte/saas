@@ -4,40 +4,42 @@ const { logger } = require("@hammerbyte/utils");
 
 const SERVICE_USERS = process.env.SERVICE_USERS || "localhost:3000";
 
-export async function getUserById({ id, authentication_token }) {
-	const url = `${SERVICE_USERS}/users/${id}`;
+export async function getEntityAudit({ entity, authentication_token }) {
+	const url = `${SERVICE_USERS}/entity-audits`;
 
 	try {
 		const response = await fetch(url, {
+			method: "PATCH",
 			headers: {
+				"Content-Type": "application/json",
 				[HEADERS.AUTHENTICATION_TOKEN]: authentication_token,
 			},
+			body: JSON.stringify(entity),
 		});
 		if (response.status === 200) {
 			return await response.json();
 		}
 	} catch (error) {
-		logger.error(`getUserById: ${error}`);
+		logger.error(`getEntityAudit: ${error}`);
 	}
 }
 
-export async function getUserByIds({ ids = [], authentication_token }) {
-	if (!ids.length) {
-		return [];
-	}
-
-	const url = `${SERVICE_USERS}/users?ids=${ids.join(",")}`;
+export async function getEntitiesBatchAudit({ entities, authentication_token }) {
+	const url = `${SERVICE_USERS}/entity-audits/batch`;
 
 	try {
 		const response = await fetch(url, {
+			method: "PATCH",
 			headers: {
+				"Content-Type": "application/json",
 				[HEADERS.AUTHENTICATION_TOKEN]: authentication_token,
 			},
+			body: JSON.stringify(entities),
 		});
 		if (response.status === 200) {
 			return await response.json();
 		}
 	} catch (error) {
-		logger.error(`getUserByIds: ${error}`);
+		logger.error(`getEntitiesBatchAudit: ${error}`);
 	}
 }

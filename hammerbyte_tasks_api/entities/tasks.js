@@ -1,24 +1,17 @@
-import { executeSQLQuery, prepareSQLDateTime } from "../libs/db.js";
+import { executeSQLQuery } from "../libs/db.js";
 import { getTaskAttachmentsByCreatedAtRange, getTaskAttachmentsByTaskId } from "./task_attachments.js";
 
-const { logger } = require("@hammerbyte/utils");
+const { logger, sql } = require("@hammerbyte/utils");
 
-export async function createTask({
-	title,
-	description,
-	status_id,
-	priority_id,
-	due_at,
-	handler_id = null,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createTask({ title, description, status_id, priority_id, due_at, start, end, handler_id = null, created_by = null, updated_by = null }) {
 	const task = {
 		title,
 		description,
 		status_id,
 		priority_id,
-		due_at: prepareSQLDateTime({ value: due_at }),
+		due_at: sql.prepareSQLDate({ value: due_at }),
+		start: sql.prepareSQLTime({ value: start }),
+		end: sql.prepareSQLTime({ value: end }),
 		handler_id,
 		created_by,
 		updated_by,
@@ -48,11 +41,14 @@ export async function getTaskById({ id }) {
 }
 
 export async function getAllTasksByCreatedAtRange({ start, end }) {
+	const createdAtStart = sql.prepareSQLDateTime({ value: start });
+	const createdAtEnd = sql.prepareSQLDateTime({ value: end });
+
 	return await executeSQLQuery({
 		queryFunction: (sql) =>
 			sql`SELECT * FROM TASKS
-				WHERE created_at >= ${prepareSQLDateTime({ value: start })}
-					AND created_at <= ${prepareSQLDateTime({ value: end })}
+				WHERE created_at >= ${createdAtStart}
+					AND created_at <= ${createdAtEnd}
 				ORDER BY id DESC`,
 	})
 		.then(async (tasks) => {
@@ -77,7 +73,13 @@ export async function getAllTasksByCreatedAtRange({ start, end }) {
 
 export async function updateTaskById({ id, ...task }) {
 	if (task.due_at) {
-		task.due_at = prepareSQLDateTime({ value: task.due_at });
+		task.due_at = sql.prepareSQLDate({ value: task.due_at });
+	}
+	if (task.start) {
+		task.start = sql.prepareSQLTime({ value: task.start });
+	}
+	if (task.end) {
+		task.end = sql.prepareSQLTime({ value: task.end });
 	}
 
 	await executeSQLQuery({

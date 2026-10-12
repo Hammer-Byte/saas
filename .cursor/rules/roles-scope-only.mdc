@@ -1,5 +1,5 @@
 ---
-description: Strict write scope — only roles API and roles UI; all other repos are read-only (inactive — tasks-scope-only is active)
+description: Strict write scope — only roles API and roles UI; all other repos are read-only (inactive — users-scope-only is active)
 alwaysApply: false
 ---
 

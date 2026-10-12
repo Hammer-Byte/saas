@@ -6,10 +6,8 @@ export const SWAGGER = {
 	APPLICATION: "HammerByte Tasks API",
 };
 
-// Re-export for lints/middlewares + lints/server (must import HEADERS from constants.js).
-// Literal HEADERS.AUTHENTICATION_TOKEN is banned by lints/microservice.
-// eslint-disable-next-line lints/style -- required bridge export for middleware/server imports
-export const HEADERS = CONSTANTS.HEADERS;
+/** Re-export shared auth header — do not redeclare keys that live in @hammerbyte/utils CONSTANTS. */
+export const { HEADERS } = CONSTANTS;
 
 export const ERRORS = {
 	TASK_NOT_FOUND: "Task Not Found",

@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { addTemplate, deleteTemplate, getTemplate, getTemplates, updateTemplate } from "../../services/templates.js";
+import { addTemplate, deleteTemplate, getTemplate, getTemplates, populateAuditAttributes, updateTemplate } from "../../services/templates.js";
 import { addPlaceHolder, deletePlaceHolder, getPlaceHolders, updatePlaceHolder } from "../../services/template_place_holders.js";
 import { ERRORS } from "../../constants.js";
 
@@ -30,6 +30,19 @@ export default function templates(app) {
 		})
 		.get("/:id", getTemplate, {
 			params: templateIdParams,
+			afterHandle: async ({ response, authentication_token }) => {
+				if (!response?.id) {
+					return;
+				}
+				const { created_by, updated_by } = response;
+				await populateAuditAttributes({
+					entity: response,
+					created_by,
+					updated_by,
+					authentication_token,
+				});
+				return response;
+			},
 			detail: {
 				tags: ["Templates"],
 				summary: "Get template",

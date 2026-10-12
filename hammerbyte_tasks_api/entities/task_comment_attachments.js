@@ -2,12 +2,7 @@ import { executeSQLQuery } from "../libs/db.js";
 
 const { logger } = require("@hammerbyte/utils");
 
-export async function createTaskCommentAttachment({
-	task_comment_id,
-	media_id,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createTaskCommentAttachment({ task_comment_id, media_id, created_by = null, updated_by = null }) {
 	const taskCommentAttachment = {
 		task_comment_id,
 		media_id,

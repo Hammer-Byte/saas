@@ -3,12 +3,7 @@ import { getTaskCommentAttachmentsByTaskCommentId, getTaskCommentAttachmentsByTa
 
 const { logger } = require("@hammerbyte/utils");
 
-export async function createTaskComment({
-	task_id,
-	comment,
-	created_by = null,
-	updated_by = null,
-}) {
+export async function createTaskComment({ task_id, comment, created_by = null, updated_by = null }) {
 	const taskComment = {
 		task_id,
 		comment,

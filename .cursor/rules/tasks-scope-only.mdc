@@ -1,5 +1,5 @@
 ---
-description: Strict write scope — only tasks API and tasks UI; all other repos are read-only (inactive — notifier-scope-only is active)
+description: Strict write scope — only tasks API and tasks UI; all other repos are read-only (inactive — users-scope-only is active)
 alwaysApply: false
 ---
 

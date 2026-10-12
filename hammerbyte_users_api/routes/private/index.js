@@ -1,12 +1,14 @@
 import requiresUser from "../../middlewares/requires_user.js";
 import usersRoutes from "./users.js";
 import authenticationTokensRoutes from "./authentication_tokens.js";
+import entityAuditsRoutes from "./entity_audits.js";
 
 export function privateRoutes(app) {
 	return app
 		.onBeforeHandle(requiresUser)
 		.group("/users", usersRoutes)
-		.group("/authentication-tokens", authenticationTokensRoutes);
+		.group("/authentication-tokens", authenticationTokensRoutes)
+		.group("/entity-audits", entityAuditsRoutes);
 }
 
 export default privateRoutes;

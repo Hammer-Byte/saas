@@ -1,5 +1,5 @@
 ---
-description: Strict write scope — only users API and users UI; all other repos are read-only (inactive — tasks-scope-only is active)
+description: Strict write scope — only users API and users UI; all other repos are read-only (inactive — notifier-scope-only is active)
 alwaysApply: false
 ---
 
@@ -23,6 +23,7 @@ Also allowed: this rule file under `.cursor/rules/` when updating users-scope ru
 - `hammerbyte_roles_api/**`
 - `hammerbyte_tasks_api/**`
 - `hammerbyte_projects_api/**`
+- `hammerbyte_notifier_api/**`
 - `hammerbyte_utils/**`, `hammerbyte_lints/**`, or any non-users package
 - Shared monorepo root files that are not inside an allowed path
 - Any other repo or directory outside the allowed paths above

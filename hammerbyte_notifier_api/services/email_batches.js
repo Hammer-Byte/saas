@@ -1,5 +1,6 @@
 import { createEmailBatch, deleteEmailBatchById, getAllEmailBatches, getEmailBatchById, updateEmailBatchById } from "../entities/email_batches.js";
 import { getTemplateById } from "../entities/templates.js";
+import { getTemplatePlaceHoldersByTemplateId } from "../entities/template_place_holders.js";
 import { createEmail, deleteEmailById, getEmailById, updateEmailById } from "../entities/emails.js";
 import { createEmailAttachment, getEmailAttachmentsByBatchId } from "../entities/email_attachments.js";
 import { createEmailRecipient } from "../entities/email_recipients.js";
@@ -9,31 +10,28 @@ import { removeStorageFile, writeAttachmentFile } from "../libs/storage.js";
 import { transportEmail } from "../libs/transporter.js";
 import { ERRORS } from "../constants.js";
 import { sleep } from "../util.js";
-import { populateAuditAttributesDeep } from "./populate_audit_attributes.js";
 
 const { filer, logger } = require("@hammerbyte/utils");
 
 const ATTACHMENT_FIELD = /^attachment_(\d+)_(\d+)$/;
 
-export async function getEmailBatches({ set, authentication_token }) {
+export async function getEmailBatches({ set }) {
 	const emailBatches = await getAllEmailBatches();
-	await populateAuditAttributesDeep({ value: emailBatches, authentication_token });
 	set.status = 200;
 	return emailBatches;
 }
 
-export async function getEmailBatch({ params, set, authentication_token }) {
+export async function getEmailBatch({ params, set }) {
 	const emailBatch = await getEmailBatchById({ id: params.id });
 	if (!emailBatch) {
 		set.status = 404;
 		return { error: ERRORS.EMAIL_BATCH_NOT_FOUND };
 	}
-	await populateAuditAttributesDeep({ value: emailBatch, authentication_token });
 	set.status = 200;
 	return emailBatch;
 }
 
-export async function addEmailBatch({ body, user, set, authentication_token }) {
+export async function addEmailBatch({ body, user, set }) {
 	const templateId = Number(body.template_id);
 	const interval = Number(body.interval);
 
@@ -42,6 +40,10 @@ export async function addEmailBatch({ body, user, set, authentication_token }) {
 		set.status = 404;
 		return { error: ERRORS.TEMPLATE_NOT_FOUND };
 	}
+
+	const placeholders = await getTemplatePlaceHoldersByTemplateId({
+		template_id: templateId,
+	});
 
 	let emails;
 	try {
@@ -59,7 +61,7 @@ export async function addEmailBatch({ body, user, set, authentication_token }) {
 
 	for (const email of emails) {
 		const inject = email.inject && typeof email.inject === "object" ? email.inject : {};
-		for (const placeholder of template.placeholders || []) {
+		for (const placeholder of placeholders || []) {
 			if (!Object.hasOwn(inject, placeholder.place_holder)) {
 				set.status = 400;
 				return {
@@ -200,13 +202,11 @@ export async function addEmailBatch({ body, user, set, authentication_token }) {
 	});
 
 	const completedBatch = await getEmailBatchById({ id: emailBatch.id });
-	const response = { ...completedBatch, send_results: sendResults };
-	await populateAuditAttributesDeep({ value: response, authentication_token });
 	set.status = 201;
-	return response;
+	return { ...completedBatch, send_results: sendResults };
 }
 
-export async function updateEmailBatch({ params, body, user, set, authentication_token }) {
+export async function updateEmailBatch({ params, body, user, set }) {
 	const emailBatch = await getEmailBatchById({ id: params.id });
 	if (!emailBatch) {
 		set.status = 404;
@@ -219,10 +219,6 @@ export async function updateEmailBatch({ params, body, user, set, authentication
 		updated_by: user.id,
 	});
 	const updatedEmailBatch = await getEmailBatchById({ id: params.id });
-	await populateAuditAttributesDeep({
-		value: updatedEmailBatch,
-		authentication_token,
-	});
 
 	set.status = 200;
 	return updatedEmailBatch;
@@ -262,13 +258,12 @@ export async function deleteEmail({ params, set }) {
 	set.status = 204;
 }
 
-export async function getEmail({ params, set, authentication_token }) {
+export async function getEmail({ params, set }) {
 	const email = await getEmailById({ id: params.id });
 	if (!email) {
 		set.status = 404;
 		return { error: ERRORS.EMAIL_NOT_FOUND };
 	}
-	await populateAuditAttributesDeep({ value: email, authentication_token });
 	set.status = 200;
 	return email;
 }
