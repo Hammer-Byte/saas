@@ -148,12 +148,6 @@ export const executeSQLQuery = async ({ queryFunction }) => {
 	}
 };
 
-/** Format an ISO/Date value as local wall-clock MySQL DATETIME (matches CURRENT_TIMESTAMP). */
-export function prepareSQLDateTime({ value }) {
-	const date = value instanceof Date ? value : new Date(value);
-	return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()} ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;
-}
-
 export async function generateDBTables() {
 	for (const table of [...tables]) {
 		await dbConnection.unsafe(table);

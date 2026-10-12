@@ -1,6 +1,6 @@
 ---
-description: Strict write scope — only notifier API and notifier UI; all other repos are read-only
-alwaysApply: true
+description: Strict write scope — only notifier API and notifier UI; all other repos are read-only (inactive — media-scope-only is active)
+alwaysApply: false
 ---
 
 # Notifier-Only Write Scope (STRICT)
@@ -24,6 +24,7 @@ Also allowed: this rule file under `.cursor/rules/` when updating notifier-scope
 - `hammerbyte_roles_api/**`
 - `hammerbyte_projects_api/**`
 - `hammerbyte_tasks_api/**`
+- `hammerbyte_media_api/**`
 - `hammerbyte_utils/**`, `hammerbyte_lints/**`, or any non-notifier package
 - Shared monorepo root files that are not inside an allowed path
 - Any other repo or directory outside the allowed paths above
