@@ -8,7 +8,7 @@ export async function addMedia({ body, user, set }) {
 	const name = String(body.name).trim();
 	const file = join(STORAGE_PATH, STORAGE_DIRS.MEDIA, String(Date.now()));
 
-	await writeFile({ file, data: body.data });
+	await writeFile({ file, binary: body.binary });
 
 	const media = await createMedia({
 		name,
@@ -28,17 +28,17 @@ export async function getMedia({ params, set }) {
 		return { error: ERRORS.MEDIA_NOT_FOUND };
 	}
 
-	const data = await readFile({ file: media.file });
-	if (!data) {
+	const binary = await readFile({ file: media.file });
+	if (!binary) {
 		set.status = 404;
 		return { error: ERRORS.MEDIA_FILE_NOT_FOUND };
 	}
 
 	set.status = 200;
-	set.headers["Content-Type"] = data.type || "application/octet-stream";
+	set.headers["Content-Type"] = binary.type || "application/octet-stream";
 	set.headers["Content-Disposition"] =
 		`attachment; filename="${String(media.name).replace(/"/g, "")}"`;
-	return data;
+	return binary;
 }
 
 export async function deleteMedia({ params, set }) {

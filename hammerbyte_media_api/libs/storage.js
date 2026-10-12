@@ -5,19 +5,19 @@ const { logger } = require("@hammerbyte/utils");
 
 export async function readFile({ file }) {
 	try {
-		const data = Bun.file(file);
-		if (!(await data.exists())) {
+		const binary = Bun.file(file);
+		if (!(await binary.exists())) {
 			return;
 		}
-		return data;
+		return binary;
 	} catch (error) {
 		logger.error(`readFile: ${error}`);
 	}
 }
 
-export async function writeFile({ file, data }) {
+export async function writeFile({ file, binary }) {
 	try {
-		await Bun.write(file, data);
+		await Bun.write(file, binary);
 	} catch (error) {
 		logger.error(`writeFile: ${error}`);
 	}

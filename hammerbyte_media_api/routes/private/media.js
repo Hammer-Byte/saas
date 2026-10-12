@@ -12,13 +12,13 @@ export default function media(app) {
 			type: "multipart/form-data",
 			body: t.Object({
 				name: t.String({ minLength: 1, error: ERRORS.VALIDATION.NAME_REQUIRED }),
-				data: t.File({ error: ERRORS.VALIDATION.DATA_REQUIRED }),
+				binary: t.File({ error: ERRORS.VALIDATION.BINARY_REQUIRED }),
 			}),
 			detail: {
 				tags: ["Media"],
 				summary: "Upload media",
 				description:
-					"Multipart upload: name + data (binary). Persists name and stores data under a unix-timestamp filename on the media volume.",
+					"Multipart upload: name + binary. Persists name and stores binary under a unix-timestamp filename on the media volume.",
 			},
 		})
 		.get("/:id", getMedia, {

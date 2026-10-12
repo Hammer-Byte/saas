@@ -21,7 +21,7 @@ export const ERRORS = {
 	VALIDATION: {
 		ID_REQUIRED: validationDetail("Id Required"),
 		NAME_REQUIRED: validationDetail("Name Required"),
-		DATA_REQUIRED: validationDetail("Data Required"),
+		BINARY_REQUIRED: validationDetail("Binary Required"),
 		PRIVATE_REQUIRED: validationDetail("Private Required"),
 	},
 };
