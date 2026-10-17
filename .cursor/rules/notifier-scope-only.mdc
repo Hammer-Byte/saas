@@ -1,20 +1,20 @@
 ---
-description: Strict write scope — only notifier API and notifier UI; all other repos are read-only (inactive — media-scope-only is active)
+description: Strict write scope — only mailer API and mailer UI; all other repos are read-only (inactive — templates-scope-only is active)
 alwaysApply: false
 ---
 
-# Notifier-Only Write Scope (STRICT)
+# Mailer-Only Write Scope (STRICT)
 
-This agent’s **write scope is limited to the notifier stack only**.
+This agent’s **write scope is limited to the mailer stack only**.
 
 ## Allowed write paths
 
 Writes, edits, deletes, renames, commits scoped to files, and codegen are permitted **only** under:
 
-- `hammerbyte_notifier_api/**`
-- `hammerbyte_notifier_ui/**` (if/when that package exists)
+- `hammerbyte_mailer_api/**`
+- `hammerbyte_mailer_ui/**` (if/when that package exists)
 
-Also allowed: this rule file under `.cursor/rules/` when updating notifier-scope rules.
+Also allowed: this rule file under `.cursor/rules/` when updating mailer-scope rules.
 
 ## Banned write paths
 
@@ -25,7 +25,8 @@ Also allowed: this rule file under `.cursor/rules/` when updating notifier-scope
 - `hammerbyte_projects_api/**`
 - `hammerbyte_tasks_api/**`
 - `hammerbyte_media_api/**`
-- `hammerbyte_utils/**`, `hammerbyte_lints/**`, or any non-notifier package
+- `hammerbyte_templates_api/**`
+- `hammerbyte_utils/**`, `hammerbyte_lints/**`, or any non-mailer package
 - Shared monorepo root files that are not inside an allowed path
 - Any other repo or directory outside the allowed paths above
 
@@ -36,10 +37,10 @@ Also allowed: this rule file under `.cursor/rules/` when updating notifier-scope
 
 ## Enforcement
 
-If a task requires changes outside notifier API/UI:
+If a task requires changes outside mailer API/UI:
 
 1. **Stop** — do not edit out-of-scope files.
 2. **Say** that the change is out of scope under this rule.
-3. **Offer** only what can be done inside `hammerbyte_notifier_api` / `hammerbyte_notifier_ui`, or ask the user to widen scope explicitly by updating this rule.
+3. **Offer** only what can be done inside `hammerbyte_mailer_api` / `hammerbyte_mailer_ui`, or ask the user to widen scope explicitly by updating this rule.
 
 Do not work around this rule via shell redirects, patches on other packages, or “temporary” edits outside the allowed paths.

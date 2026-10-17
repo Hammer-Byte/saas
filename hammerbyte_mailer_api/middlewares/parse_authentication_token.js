@@ -1,0 +1,26 @@
+import { getUserByAuthenticationToken } from "../apis/authentication_token.js";
+import { HEADERS } from "../constants.js";
+
+const { logger } = require("@hammerbyte/utils");
+
+export default async function ({ headers, query, set }) {
+	const authenticationToken = headers[HEADERS.AUTHENTICATION_TOKEN];
+
+	let user = null;
+
+	if (authenticationToken) {
+		try {
+			const body = await getUserByAuthenticationToken({
+				authentication_token: authenticationToken,
+			});
+			user = body?.user;
+		} catch (exception) {
+			logger.error(`parseAuthenticationToken: ${exception}`);
+		}
+	}
+
+	void query;
+	void set;
+
+	return { user, authentication_token: authenticationToken };
+}
