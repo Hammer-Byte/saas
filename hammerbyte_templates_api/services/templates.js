@@ -1,7 +1,11 @@
+import { join } from "node:path";
 import { createTemplate, deleteTemplateById, getTemplateById, getTemplatesByServiceId, updateTemplateById } from "../entities/templates.js";
 import { getTemplateTypeById } from "../entities/template_types.js";
 import { getEntityAudit } from "../apis/entity_audits.js";
-import { ERRORS } from "../constants.js";
+import { getMediaById } from "../apis/media.js";
+import { ERRORS, TEMPLATE_INJECTION_DIRECTORY } from "../constants.js";
+
+const { filer, logger } = require("@hammerbyte/utils");
 
 export async function populateAuditAttributes({ entity, authentication_token }) {
 	return await getEntityAudit({ entity, authentication_token });
@@ -23,6 +27,49 @@ export async function getTemplate({ params, set }) {
 	}
 	set.status = 200;
 	return template;
+}
+
+export async function getInjected({ params, body, set, authentication_token }) {
+	const template = await getTemplateById({ id: params.id });
+	if (!template) {
+		set.status = 404;
+		return { error: ERRORS.TEMPLATE_NOT_FOUND };
+	}
+
+	for (const placeholder of template.place_holders || []) {
+		if (!Object.hasOwn(body.injects, placeholder.place_holder)) {
+			set.status = 400;
+			return {
+				error: ERRORS.MISSING_PLACEHOLDER_INJECT,
+				place_holder: placeholder.place_holder,
+			};
+		}
+	}
+
+	const media = await getMediaById({
+		id: template.media_id,
+		authentication_token,
+	});
+	if (!media || !media.content) {
+		set.status = 400;
+		return { error: ERRORS.MEDIA_NOT_FOUND };
+	}
+
+	const tempPath = join(TEMPLATE_INJECTION_DIRECTORY, `${Date.now()}.html`);
+	await Bun.write(tempPath, media.content);
+	try {
+		const preparedTemplate = filer.prepareTemplated(tempPath, body.injects);
+		set.status = 200;
+		return { injected: preparedTemplate };
+	} catch (exception) {
+		logger.error(`getInjected: ${exception}`);
+		set.status = 400;
+		return { error: ERRORS.TEMPLATE_INJECTION_FAILED };
+	} finally {
+		await Bun.file(tempPath)
+			.unlink()
+			.catch((exception) => logger.error(`getInjected unlink: ${exception}`));
+	}
 }
 
 export async function addTemplate({ body, user, set }) {

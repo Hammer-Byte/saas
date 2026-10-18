@@ -1,8 +1,10 @@
+import { getInjectedTemplate } from "../apis/templates.js";
 import { createAuthenticationToken, deleteAuthenticationTokenById, getAllAuthenticationTokens, getAuthenticationTokenById, getAuthenticationTokenByToken, getInactiveAuthenticationTokenByTokenAndOtp, updateAuthenticationTokenById } from "../entities/authentication_tokens.js";
+import { getConfigByKey } from "../entities/configs.js";
 import { getUserByEmail, getUserById } from "../entities/users.js";
-import { AUTH_TOKEN_VALIDITY_MS, ERRORS } from "../constants.js";
+import { AUTH_TOKEN_VALIDITY_MS, CONFIGS, ERRORS } from "../constants.js";
 
-const { CONSTANTS, generator } = require("@hammerbyte/utils");
+const { CONSTANTS, generator, logger, mailer } = require("@hammerbyte/utils");
 
 export async function getValidAuthenticationToken({ params, set }) {
 	const authenticationToken = await getAuthenticationTokenByToken({
@@ -50,6 +52,43 @@ export async function requestAuthenticationToken({ body, set }) {
 		created_by: user.id,
 		updated_by: user.id,
 	});
+
+	try {
+		const authenticationToken = process.env.SERVICE_INTERNAL_AUTHENTICATION_TOKEN;
+		if (!authenticationToken) {
+			logger.error("requestAuthenticationToken mail: SERVICE_INTERNAL_AUTHENTICATION_TOKEN is missing");
+		} else {
+			const config = await getConfigByKey({
+				key: CONFIGS.AUTHENTICATION_TOKEN_MAIL_TEMPLATE_ID,
+			});
+			const configuredTemplate = config && config.value;
+			if (!configuredTemplate) {
+				logger.error(
+					"requestAuthenticationToken mail: authentication_token_mail_template_id config is missing",
+				);
+			} else {
+				const { injected = false } = await getInjectedTemplate({
+					id: Number(configuredTemplate),
+					injects: { otp },
+					authentication_token: authenticationToken,
+				});
+				if (!injected) {
+					logger.error(
+						`requestAuthenticationToken mail: injected template ${configuredTemplate} not found`,
+					);
+				} else {
+					await mailer.send({
+						recipient: email,
+						subject: "Authentication OTP",
+						body: injected,
+						html_enabled: true,
+					});
+				}
+			}
+		}
+	} catch (error) {
+		logger.error(`requestAuthenticationToken mail: ${error}`);
+	}
 
 	set.status = 201;
 	return { authentication_token: token };

@@ -1,6 +1,6 @@
 ---
-description: Strict write scope — only templates API and templates UI; all other repos are read-only
-alwaysApply: true
+description: Strict write scope — only templates API and templates UI; all other repos are read-only (inactive — users-scope-only is active)
+alwaysApply: false
 ---
 
 # Templates-Only Write Scope (STRICT)

@@ -12,7 +12,7 @@ export function authenticationTokens(app) {
 				tags: ["Authentication Tokens"],
 				summary: "Request authentication token by email",
 				description:
-					"Creates an inactive authentication token with OTP for an existing user. Returns the token only; OTP is stored in the database.",
+					"Creates an inactive authentication token with OTP for an existing user, emails the OTP using the configured mail template, and returns the authentication token.",
 			},
 		})
 		.patch("/", verifyAuthenticationTokenOtp, {

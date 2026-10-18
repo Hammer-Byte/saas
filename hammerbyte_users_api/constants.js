@@ -14,6 +14,11 @@ export const HEADERS = CONSTANTS.HEADERS;
 /** Session token lifetime after email OTP request (sahas auth_token_validity default: 30 days). */
 export const AUTH_TOKEN_VALIDITY_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** Config `key` values stored in CONFIGS (values are always strings in the table). */
+export const CONFIGS = {
+	AUTHENTICATION_TOKEN_MAIL_TEMPLATE_ID: "authentication_token_mail_template_id",
+};
+
 export const ERRORS = {
 	USER_NOT_FOUND: "User Not Found",
 	AUTHENTICATION_TOKEN_NOT_FOUND: "Authentication Token Not Found",

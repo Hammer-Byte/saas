@@ -1,0 +1,27 @@
+{
+	"name": "hammerbyte_users_ui",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "bun --hot app.js",
+		"build": "bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='\"production\"' --env='BUN_PUBLIC_*'",
+		"start": "NODE_ENV=production bun app.js",
+		"lint": "eslint ."
+	},
+	"dependencies": {
+		"@hammerbyte/utils": "0.0.36",
+		"primeflex": "3.3.1",
+		"primeicons": "^7.0.0",
+		"primereact": "^10.9.7",
+		"react": "^19",
+		"react-dom": "^19"
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"eslint": "^9.37.0",
+		"eslint-plugin-react": "^7.37.5",
+		"eslint-plugin-react-hooks": "^7.1.1",
+		"globals": "^17.12.0"
+	}
+}

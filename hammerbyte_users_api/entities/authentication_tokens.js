@@ -1,6 +1,6 @@
-import { executeSQLQuery, prepareSQLDateTime } from "../libs/db.js";
+import { executeSQLQuery } from "../libs/db.js";
 
-const { logger } = require("@hammerbyte/utils");
+const { logger, sql } = require("@hammerbyte/utils");
 
 export async function createAuthenticationToken({ user_id, otp, token, active = false, validity, created_by = null, updated_by = null }) {
 	const authenticationToken = {
@@ -8,7 +8,7 @@ export async function createAuthenticationToken({ user_id, otp, token, active = 
 		otp,
 		token,
 		active: !!active,
-		validity: prepareSQLDateTime({ value: validity }),
+		validity: sql.prepareSQLDateTime({ value: validity }),
 		created_by,
 		updated_by,
 	};
@@ -96,7 +96,7 @@ export async function updateAuthenticationTokenById({ id, ...authenticationToken
 	}
 
 	if (Object.hasOwn(authenticationToken, "validity")) {
-		authenticationToken.validity = prepareSQLDateTime({
+		authenticationToken.validity = sql.prepareSQLDateTime({
 			value: authenticationToken.validity,
 		});
 	}

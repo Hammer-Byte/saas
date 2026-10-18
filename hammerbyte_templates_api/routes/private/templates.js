@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { addTemplate, deleteTemplate, getTemplate, getTemplates, populateAuditAttributes, updateTemplate } from "../../services/templates.js";
+import { addTemplate, deleteTemplate, getInjected, getTemplate, getTemplates, populateAuditAttributes, updateTemplate } from "../../services/templates.js";
 import { addPlaceHolder, deletePlaceHolder, getPlaceHolders, updatePlaceHolder } from "../../services/template_place_holders.js";
 import { ERRORS } from "../../constants.js";
 
@@ -49,6 +49,20 @@ export default function templates(app) {
 				tags: ["Templates"],
 				summary: "Get template",
 				description: "Returns a single template by id, including placeholders.",
+			},
+		})
+		.post("/:id/injected", getInjected, {
+			params: templateIdParams,
+			body: t.Object({
+				injects: t.Record(t.String(), t.Any(), {
+					error: ERRORS.VALIDATION.INJECTS_REQUIRED,
+				}),
+			}),
+			detail: {
+				tags: ["Templates"],
+				summary: "Inject template placeholders",
+				description:
+					"Fetches the template HTML from media, substitutes injects for registered placeholders, and returns the prepared content.",
 			},
 		})
 		.post("/", addTemplate, {

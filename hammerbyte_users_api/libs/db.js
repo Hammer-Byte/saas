@@ -38,6 +38,18 @@ const tables = [
 		FOREIGN KEY (user_id) REFERENCES USERS(id) ON DELETE CASCADE
 	)
 	`,
+	`
+	CREATE TABLE IF NOT EXISTS CONFIGS (
+		\`key\` VARCHAR(128) NOT NULL,
+		\`value\` VARCHAR(512) NOT NULL DEFAULT '',
+		created_by INT NULL DEFAULT NULL,
+		updated_by INT NULL DEFAULT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			ON UPDATE CURRENT_TIMESTAMP,
+		PRIMARY KEY (\`key\`)
+	)
+	`,
 ];
 
 export const dbConnection = new SQL({
@@ -69,12 +81,6 @@ export const executeSQLQuery = async ({ queryFunction }) => {
 		throw exception;
 	}
 };
-
-/** Format an ISO/Date value as local wall-clock MySQL DATETIME (matches CURRENT_TIMESTAMP). */
-export function prepareSQLDateTime({ value }) {
-	const date = value instanceof Date ? value : new Date(value);
-	return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()} ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;
-}
 
 export async function generateDBTables() {
 	for (const table of [...tables]) {

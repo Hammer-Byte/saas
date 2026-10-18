@@ -1,7 +1,8 @@
 import { executeDBSeeders, generateDBTables } from "./libs/db.js";
 import { allowTraffic, createApp } from "./server.js";
+import { TEMPLATE_INJECTION_DIRECTORY } from "./constants.js";
 
-const { mailer, bucketizer, logger } = require("@hammerbyte/utils");
+const { mailer, bucketizer, filer, logger } = require("@hammerbyte/utils");
 
 try {
 	logger.init();
@@ -18,6 +19,9 @@ try {
 		applicationToken: Bun.env.APPLICATION_TOKEN,
 	});
 	logger.success("Bucketizer Ready");
+
+	filer.prepareDirectories([TEMPLATE_INJECTION_DIRECTORY]);
+	logger.success("Template Injection Directory Ready");
 
 	await generateDBTables();
 	logger.success("Tables Ready");
