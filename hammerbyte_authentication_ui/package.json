@@ -1,5 +1,5 @@
 {
-	"name": "hammerbyte_users_ui",
+	"name": "hammerbyte_authentication_ui",
 	"version": "1.0.0",
 	"private": true,
 	"type": "module",
@@ -11,11 +11,14 @@
 	},
 	"dependencies": {
 		"@hammerbyte/utils": "0.0.36",
+		"@reduxjs/toolkit": "^2.13.0",
 		"primeflex": "3.3.1",
 		"primeicons": "^7.0.0",
 		"primereact": "^10.9.7",
 		"react": "^19",
-		"react-dom": "^19"
+		"react-dom": "^19",
+		"react-redux": "^9.3.0",
+		"react-router-dom": "^7.18.4"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

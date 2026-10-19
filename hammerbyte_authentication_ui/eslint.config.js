@@ -10,7 +10,7 @@ export default [
 	},
 	js.configs.recommended,
 	{
-		files: ["app.js"],
+		files: ["app.js", "constants.js"],
 		languageOptions: {
 			ecmaVersion: "latest",
 			sourceType: "module",
@@ -33,6 +33,7 @@ export default [
 			globals: {
 				...globals.browser,
 				...globals.es2021,
+				process: "readonly",
 			},
 		},
 		plugins: {
@@ -48,6 +49,7 @@ export default [
 			...react.configs.flat.recommended.rules,
 			...reactHooks.configs.recommended.rules,
 			"react/react-in-jsx-scope": "off",
+			"react/prop-types": "off",
 			"no-unused-vars": [
 				"error",
 				{
@@ -58,3 +60,4 @@ export default [
 		},
 	},
 ];
+

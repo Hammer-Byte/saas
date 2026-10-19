@@ -7,6 +7,7 @@ try {
 	logger.init();
 
 	const server = serve({
+		port: Number(process.env.PORT) || 3000,
 		routes: {
 			"/*": index,
 		},
