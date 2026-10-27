@@ -46,7 +46,8 @@
                                     <th scope="col">Status</th>
                                     <th scope="col">Limit</th>
                                     <th scope="col">Designations</th>
-                                    <th scope="col">Accounts</th>
+                                    <th scope="col">Account</th>
+                                    <th scope="col">Connects</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -68,15 +69,21 @@
                                             <%= designationNames.length ? designationNames.join(", ") : "—" %>
                                         </td>
                                         <td>
-                                            <% (run.accounts || []).forEach(function (account) { %>
-                                                <div>
-                                                    <%= account.user_name %>:
-                                                    <%= account.sent_count %>
-                                                    (<%= account.status %>)
-                                                </div>
-                                            <% }) %>
                                             <% if (!run.accounts || !run.accounts.length) { %>
                                                 —
+                                            <% } else { %>
+                                                <% run.accounts.forEach(function (account) { %>
+                                                    <div><%= account.user_name %></div>
+                                                <% }) %>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <% if (!run.accounts || !run.accounts.length) { %>
+                                                —
+                                            <% } else { %>
+                                                <% run.accounts.forEach(function (account) { %>
+                                                    <div><%= account.sent_count %></div>
+                                                <% }) %>
                                             <% } %>
                                         </td>
                                     </tr>
