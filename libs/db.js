@@ -460,6 +460,50 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
+        `CREATE TABLE IF NOT EXISTS LINKEDIN_USERS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            cookie TEXT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_linkedin_user_name (name)
+        )`,
+        `CREATE TABLE IF NOT EXISTS LINKEDIN_DESIGNATIONS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_linkedin_designation_name (name)
+        )`,
+        `CREATE TABLE IF NOT EXISTS LINKEDIN_GROW_RUNS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            status VARCHAR(32) NOT NULL DEFAULT 'running',
+            per_account_limit INT NOT NULL,
+            error_message TEXT NULL,
+            started_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            finished_on DATETIME NULL
+        )`,
+        `CREATE TABLE IF NOT EXISTS LINKEDIN_GROW_RUN_ACCOUNTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            run_id INT NOT NULL,
+            linkedin_user_id INT NULL,
+            user_name VARCHAR(255) NOT NULL,
+            sent_count INT NOT NULL DEFAULT 0,
+            status VARCHAR(32) NOT NULL DEFAULT 'pending',
+            CONSTRAINT fk_linkedin_grow_run_accounts_run
+                FOREIGN KEY (run_id)
+                REFERENCES LINKEDIN_GROW_RUNS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS LINKEDIN_GROW_RUN_DESIGNATIONS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            run_id INT NOT NULL,
+            designation_name VARCHAR(255) NOT NULL,
+            CONSTRAINT fk_linkedin_grow_run_designations_run
+                FOREIGN KEY (run_id)
+                REFERENCES LINKEDIN_GROW_RUNS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
 
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,

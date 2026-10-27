@@ -49,7 +49,15 @@ import { getAllContractAttachments } from "../db/contract_attachments.js";
 import { getContractRequiredAttachmentsByContractId } from "../db/contract_required_attachments.js";
 import { getAllGemTenderKeywords, getGemTenderKeywordById } from "../db/gem_tender_keywords.js";
 import { getGemKeywordTendersByKeywordId } from "../db/gem_keyword_tenders.js";
+import { getAllLinkedinUsers } from "../db/linkedin_users.js";
+import { getAllLinkedinDesignations } from "../db/linkedin_designations.js";
+import {
+    getAllLinkedinGrowRunAccounts,
+    getAllLinkedinGrowRunDesignations,
+    getAllLinkedinGrowRuns,
+} from "../db/linkedin_grow_runs.js";
 import { processing as gemTendereProcessing } from "../libs/tenderer.js";
+import { processing as linkedinGrowProcessing } from "../libs/linkedin_connects.js";
 import { getReadableDate } from "../libs/date.js";
 import { formatContractCreatedOn } from "../libs/contractor.js";
 import { isContractSigned } from "../services/contracts.js";
@@ -584,5 +592,59 @@ export const uiRoutes = new Elysia()
                         }),
                     }));
                 },
+            )
+            .get("/app/linkedin", ({ render, session }) =>
+                render("linkedin", appPage(session, {
+                    title: "LinkedIn — HammerByte",
+                })),
+            )
+            .get("/app/linkedin-users", async ({ render, session }) =>
+                render("linkedin-users", appPage(session, {
+                    title: "LinkedIn Users — HammerByte",
+                    linkedinUsers: await getAllLinkedinUsers(),
+                })),
+            )
+            .get("/app/linkedin-grow-network", async ({ render, session }) =>
+                render("linkedin-grow-network", appPage(session, {
+                    title: "GrowNetwork — HammerByte",
+                    designations: await getAllLinkedinDesignations(),
+                    linkedinUsers: await getAllLinkedinUsers(),
+                    processing: linkedinGrowProcessing,
+                })),
+            )
+            .get("/app/linkedin-grow-network-history", async ({ render, session }) => {
+                const growRuns = await getAllLinkedinGrowRuns();
+                const growRunAccounts = await getAllLinkedinGrowRunAccounts();
+                const growRunDesignations = await getAllLinkedinGrowRunDesignations();
+
+                const accountsByRunId = new Map();
+                for (const growRunAccount of growRunAccounts) {
+                    const list = accountsByRunId.get(growRunAccount.run_id) || [];
+                    list.push(growRunAccount);
+                    accountsByRunId.set(growRunAccount.run_id, list);
+                }
+
+                const designationsByRunId = new Map();
+                for (const growRunDesignation of growRunDesignations) {
+                    const list = designationsByRunId.get(growRunDesignation.run_id) || [];
+                    list.push(growRunDesignation);
+                    designationsByRunId.set(growRunDesignation.run_id, list);
+                }
+
+                const runs = growRuns.map((growRun) => ({
+                    ...growRun,
+                    accounts: accountsByRunId.get(growRun.id) || [],
+                    designations: designationsByRunId.get(growRun.id) || [],
+                }));
+
+                return render("linkedin-grow-network-history", appPage(session, {
+                    title: "GrowNetwork History — HammerByte",
+                    runs,
+                }));
+            })
+            .get("/app/linkedin-search-network", ({ render, session }) =>
+                render("linkedin-search-network", appPage(session, {
+                    title: "SearchNetwork — HammerByte",
+                })),
             ),
     );

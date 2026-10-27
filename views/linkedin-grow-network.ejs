@@ -1,0 +1,177 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/linkedin" class="text-decoration-none">LinkedIn</a> /
+                    GrowNetwork
+                </p>
+                <h1 class="h3 mb-1">GrowNetwork</h1>
+                <p class="text-secondary mb-0">Select designations and LinkedIn users, then start connect requests.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="/app/linkedin-grow-network-history" class="btn btn-outline-secondary">History</a>
+                <button
+                    type="button"
+                    class="btn btn-success"
+                    id="linkedin-grow-start-btn"
+                    <% if (processing) { %>disabled<% } %>
+                >
+                    <% if (processing) { %>
+                        Running…
+                    <% } else { %>
+                        Start
+                    <% } %>
+                </button>
+            </div>
+        </div>
+
+        <div id="linkedin-grow-alert" class="alert d-none" role="alert"></div>
+
+        <div class="row g-4">
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <h2 class="h5 mb-3">Designations</h2>
+                        <form id="linkedin-designation-form" class="row g-2 align-items-end mb-3" novalidate>
+                            <div class="col">
+                                <label for="linkedin-designation-name" class="form-label">Add designation</label>
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    id="linkedin-designation-name"
+                                    name="name"
+                                    maxlength="255"
+                                    placeholder="e.g. CEO"
+                                    required
+                                />
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-primary" id="linkedin-designation-submit-btn">
+                                    Add
+                                </button>
+                            </div>
+                        </form>
+
+                        <div
+                            id="linkedin-designations-empty"
+                            class="text-secondary <%= designations && designations.length ? 'd-none' : '' %>"
+                        >
+                            No designations yet.
+                        </div>
+                        <div id="linkedin-designations-list" class="<%= !designations || !designations.length ? 'd-none' : '' %>">
+                            <% (designations || []).forEach(function (designation) { %>
+                                <div
+                                    class="d-flex align-items-center justify-content-between gap-2 py-2 border-bottom linkedin-designation-row"
+                                    data-id="<%= designation.id %>"
+                                >
+                                    <div class="form-check mb-0">
+                                        <input
+                                            class="form-check-input linkedin-designation-check"
+                                            type="checkbox"
+                                            value="<%= designation.id %>"
+                                            id="designation-<%= designation.id %>"
+                                        />
+                                        <label class="form-check-label" for="designation-<%= designation.id %>">
+                                            <%= designation.name %>
+                                        </label>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-danger linkedin-designation-delete-btn"
+                                        data-id="<%= designation.id %>"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            <% }) %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <h2 class="h5 mb-3">Accounts</h2>
+                        <div
+                            id="linkedin-grow-users-empty"
+                            class="text-secondary <%= linkedinUsers && linkedinUsers.length ? 'd-none' : '' %>"
+                        >
+                            No LinkedIn users yet.
+                            <a href="/app/linkedin-users">Add users</a>
+                            first.
+                        </div>
+                        <div id="linkedin-grow-users-list" class="<%= !linkedinUsers || !linkedinUsers.length ? 'd-none' : '' %>">
+                            <% (linkedinUsers || []).forEach(function (linkedinUser) { %>
+                                <div class="form-check py-2 border-bottom">
+                                    <input
+                                        class="form-check-input linkedin-user-check"
+                                        type="checkbox"
+                                        value="<%= linkedinUser.id %>"
+                                        id="grow-user-<%= linkedinUser.id %>"
+                                    />
+                                    <label class="form-check-label" for="grow-user-<%= linkedinUser.id %>">
+                                        <%= linkedinUser.name %>
+                                    </label>
+                                </div>
+                            <% }) %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="linkedin-grow-limit-modal" tabindex="-1" aria-labelledby="linkedin-grow-limit-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="linkedin-grow-limit-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="linkedin-grow-limit-modal-label">Per-account connect limit</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="linkedin-grow-limit-input" class="form-label">Connect requests per account</label>
+                    <input
+                        type="number"
+                        class="form-control"
+                        id="linkedin-grow-limit-input"
+                        name="per_account_limit"
+                        min="1"
+                        step="1"
+                        value="25"
+                        required
+                    />
+                    <div id="linkedin-grow-limit-form-alert" class="alert d-none mt-3 mb-0" role="alert"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success" id="linkedin-grow-limit-submit-btn">Start run</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/linkedin-grow-network.js" defer></script>
+<%- include('common/footer') %>

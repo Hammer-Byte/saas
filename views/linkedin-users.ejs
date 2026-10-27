@@ -1,0 +1,129 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/linkedin" class="text-decoration-none">LinkedIn</a> /
+                Users
+            </p>
+            <h1 class="h3 mb-1">LinkedIn Users</h1>
+            <p class="text-secondary mb-0">Add LinkedIn accounts with name and li_at cookie for login.</p>
+        </div>
+
+        <div id="linkedin-users-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <form id="linkedin-user-form" class="row g-3 align-items-end" novalidate>
+                    <input type="hidden" id="linkedin-user-id" name="id" value="" />
+                    <div class="col-md-4">
+                        <label for="linkedin-user-name" class="form-label">Name</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="linkedin-user-name"
+                            name="name"
+                            maxlength="255"
+                            placeholder="e.g. Acc1"
+                            required
+                        />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="linkedin-user-cookie" class="form-label">Cookie (li_at)</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="linkedin-user-cookie"
+                            name="cookie"
+                            placeholder="Paste li_at cookie value"
+                            required
+                        />
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100" id="linkedin-user-submit-btn">
+                            Add user
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div
+                    id="linkedin-users-empty"
+                    class="p-4 p-md-5 text-center text-secondary <%= linkedinUsers && linkedinUsers.length ? 'd-none' : '' %>"
+                >
+                    No LinkedIn users yet. Add one above.
+                </div>
+                <div
+                    class="table-responsive <%= !linkedinUsers || !linkedinUsers.length ? 'd-none' : '' %>"
+                    id="linkedin-users-table-wrap"
+                >
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">Cookie</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="linkedin-users-tbody">
+                            <% (linkedinUsers || []).forEach(function (linkedinUser) { %>
+                                <tr
+                                    data-id="<%= linkedinUser.id %>"
+                                    data-name="<%= linkedinUser.name %>"
+                                    data-cookie="<%= linkedinUser.cookie %>"
+                                >
+                                    <td><%= linkedinUser.id %></td>
+                                    <td><%= linkedinUser.name %></td>
+                                    <td class="text-truncate" style="max-width: 280px;">
+                                        <%= linkedinUser.cookie %>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-primary linkedin-user-edit-btn"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger linkedin-user-delete-btn"
+                                                data-id="<%= linkedinUser.id %>"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/linkedin-users.js" defer></script>
+<%- include('common/footer') %>
