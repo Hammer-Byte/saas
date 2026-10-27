@@ -1,15 +1,13 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createLinkedinSearchRun({ per_account_limit, page_count }) {
+export async function createLinkedinSearchRun({ page_count }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO LINKEDIN_SEARCH_RUNS ${sql(
                 {
-                    per_account_limit,
                     page_count,
                 },
-                "per_account_limit",
                 "page_count",
             )}
         `,

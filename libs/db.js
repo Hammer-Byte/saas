@@ -507,7 +507,6 @@ export async function generateDBTables() {
         `CREATE TABLE IF NOT EXISTS LINKEDIN_SEARCH_RUNS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             status VARCHAR(32) NOT NULL DEFAULT 'running',
-            per_account_limit INT NOT NULL,
             page_count INT NOT NULL,
             error_message TEXT NULL,
             started_on DATETIME DEFAULT CURRENT_TIMESTAMP,

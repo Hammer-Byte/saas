@@ -37,9 +37,6 @@ export default function (app) {
                 designation_ids: t.Array(t.Numeric({ minimum: 1 }), {
                     minItems: 1,
                 }),
-                per_account_limit: t.Numeric({
-                    minimum: 1,
-                }),
                 page_count: t.Numeric({
                     minimum: 1,
                 }),

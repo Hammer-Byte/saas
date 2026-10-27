@@ -40,7 +40,6 @@ export async function startLinkedinSearchNetwork({ body, set }) {
     }
 
     const runId = await createLinkedinSearchRun({
-        per_account_limit: body.per_account_limit,
         page_count: body.page_count,
     });
     if (!runId) {
@@ -78,7 +77,6 @@ export async function startLinkedinSearchNetwork({ body, set }) {
         runId,
         accounts: runAccounts,
         designationKeywords: linkedinDesignations.map((designation) => designation.name),
-        perAccountLimit: body.per_account_limit,
         pageCount: body.page_count,
     });
 

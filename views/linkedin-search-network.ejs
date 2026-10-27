@@ -124,19 +124,6 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="linkedin-search-limit-input" class="form-label">Connect requests per account</label>
-                        <input
-                            type="number"
-                            class="form-control"
-                            id="linkedin-search-limit-input"
-                            name="per_account_limit"
-                            min="1"
-                            step="1"
-                            value="25"
-                            required
-                        />
-                    </div>
                     <div class="mb-0">
                         <label for="linkedin-search-pages-input" class="form-label">Pages per designation</label>
                         <input
@@ -146,9 +133,12 @@
                             name="page_count"
                             min="1"
                             step="1"
-                            value="3"
+                            value="4"
                             required
                         />
+                        <div class="form-text">
+                            Walk this many result pages and send a connect to every available person.
+                        </div>
                     </div>
                     <div id="linkedin-search-start-form-alert" class="alert d-none mt-3 mb-0" role="alert"></div>
                 </div>

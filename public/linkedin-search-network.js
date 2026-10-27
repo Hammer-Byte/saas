@@ -2,7 +2,6 @@
     const pageAlert = document.getElementById("linkedin-search-alert");
     const startButton = document.getElementById("linkedin-search-start-btn");
     const startForm = document.getElementById("linkedin-search-start-form");
-    const limitInput = document.getElementById("linkedin-search-limit-input");
     const pagesInput = document.getElementById("linkedin-search-pages-input");
     const startFormAlert = document.getElementById("linkedin-search-start-form-alert");
     const startSubmitButton = document.getElementById("linkedin-search-start-submit-btn");
@@ -55,8 +54,7 @@
             return;
         }
 
-        if (limitInput) limitInput.value = "25";
-        if (pagesInput) pagesInput.value = "3";
+        if (pagesInput) pagesInput.value = "4";
         startModal?.show();
     });
 
@@ -67,13 +65,8 @@
 
         const designationIds = selectedIds(".linkedin-designation-check");
         const linkedinUserIds = selectedIds(".linkedin-user-check");
-        const perAccountLimit = Number(limitInput?.value || 0);
         const pageCount = Number(pagesInput?.value || 0);
 
-        if (!Number.isInteger(perAccountLimit) || perAccountLimit < 1) {
-            showAlert(startFormAlert, "Enter a whole number of 1 or more for connect limit.", "danger");
-            return;
-        }
         if (!Number.isInteger(pageCount) || pageCount < 1) {
             showAlert(startFormAlert, "Enter a whole number of 1 or more for pages.", "danger");
             return;
@@ -90,7 +83,6 @@
                 body: JSON.stringify({
                     designation_ids: designationIds,
                     linkedin_user_ids: linkedinUserIds,
-                    per_account_limit: perAccountLimit,
                     page_count: pageCount,
                 }),
             });

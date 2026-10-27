@@ -19,7 +19,6 @@ export function startLinkedinSearchConnects({
     runId,
     accounts = [],
     designationKeywords = [],
-    perAccountLimit,
     pageCount,
 } = {}) {
     if (!acquireLinkedinProcessing()) {
@@ -39,12 +38,7 @@ export function startLinkedinSearchConnects({
         .map((keyword) => String(keyword || "").trim())
         .filter(Boolean);
 
-    if (
-        !accountList.length ||
-        !keywords.length ||
-        !(perAccountLimit >= 1) ||
-        !(pageCount >= 1)
-    ) {
+    if (!accountList.length || !keywords.length || !(pageCount >= 1)) {
         releaseLinkedinProcessing();
         return false;
     }
@@ -68,7 +62,6 @@ export function startLinkedinSearchConnects({
                     const result = await connectPeopleFromSearch({
                         driver,
                         designationKeywords: keywords,
-                        maxConnectsPerAccount: perAccountLimit,
                         pageCount,
                         runAccountId: account.runAccountId,
                     });

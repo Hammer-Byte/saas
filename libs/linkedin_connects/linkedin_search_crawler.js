@@ -7,7 +7,6 @@ const DELAY_MS = 5000;
 export async function connectPeopleFromSearch({
     driver,
     designationKeywords,
-    maxConnectsPerAccount,
     pageCount,
     runAccountId,
 }) {
@@ -16,10 +15,6 @@ export async function connectPeopleFromSearch({
     const seen = new Set();
 
     for (const keyword of designationKeywords) {
-        if (sent >= maxConnectsPerAccount) {
-            break;
-        }
-
         logger.info(`linkedin search opening people results for "${keyword}"`);
         await LinkedinSearchPage.openPeopleSearch(driver, keyword);
         const resultCount = await LinkedinSearchPage.waitForResults(driver);
@@ -41,13 +36,9 @@ export async function connectPeopleFromSearch({
         }
 
         for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
-            if (sent >= maxConnectsPerAccount) {
-                break;
-            }
-
             logger.info(`linkedin search "${keyword}" page ${pageNumber}/${pageCount}`);
 
-            while (sent < maxConnectsPerAccount) {
+            while (true) {
                 const cards = await LinkedinSearchPage.readCards(driver);
                 const next = cards.find(
                     (card) => card.profileUrl && !seen.has(card.profileUrl),
@@ -89,7 +80,7 @@ export async function connectPeopleFromSearch({
 
                 sent += 1;
                 logger.info(
-                    `linkedin search sent ${next.name || "unknown"} (${sent}/${maxConnectsPerAccount})`,
+                    `linkedin search sent ${next.name || "unknown"} (page ${pageNumber}/${pageCount}, total ${sent})`,
                 );
                 await updateLinkedinSearchRunAccountById({
                     id: runAccountId,
@@ -99,7 +90,7 @@ export async function connectPeopleFromSearch({
                 await LinkedinSearchPage.sleep(DELAY_MS);
             }
 
-            if (pageNumber >= pageCount || sent >= maxConnectsPerAccount) {
+            if (pageNumber >= pageCount) {
                 break;
             }
 

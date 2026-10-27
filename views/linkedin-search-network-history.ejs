@@ -44,7 +44,6 @@
                                     <th scope="col">Started</th>
                                     <th scope="col">Finished</th>
                                     <th scope="col">Status</th>
-                                    <th scope="col">Limit</th>
                                     <th scope="col">Pages</th>
                                     <th scope="col">Designations</th>
                                     <th scope="col">Account</th>
@@ -64,7 +63,6 @@
                                             data-date-format="DD/MM/YYYY HH:mm:ss"
                                         ></td>
                                         <td><%= run.status %></td>
-                                        <td><%= run.per_account_limit %></td>
                                         <td><%= run.page_count %></td>
                                         <td>
                                             <% const designationNames = (run.designations || []).map(function (designation) { return designation.designation_name; }); %>
