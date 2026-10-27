@@ -237,8 +237,10 @@ export async function generateDBTables() {
             due_date DATE NOT NULL DEFAULT ((CURRENT_DATE + INTERVAL 7 DAY)),
             total DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
             gst DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+            hbt_sequence INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_customer_invoices_hbt_sequence (hbt_sequence),
             CONSTRAINT fk_customer_invoices_customer
                 FOREIGN KEY (customer_id)
                 REFERENCES CUSTOMERS(id)

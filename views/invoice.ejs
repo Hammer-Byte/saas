@@ -15,13 +15,20 @@
 
 <main class="bg-light min-vh-100">
     <div class="container py-5">
+        <%
+            const invoiceLabel = resolveInvoiceNumber({
+                hbt_sequence: invoice.hbt_sequence,
+                id: invoice.id,
+            });
+            const isFullyPaid = invoice.hbt_sequence != null;
+        %>
         <div class="mb-4">
             <p class="text-secondary small mb-1">
                 <a href="/app" class="text-decoration-none">App</a> /
                 <a href="/app/invoices" class="text-decoration-none">Invoices</a> /
-                #<%= invoice.id %>
+                <%= invoiceLabel %>
             </p>
-            <h1 class="h3 mb-1">Invoice #<%= invoice.id %></h1>
+            <h1 class="h3 mb-1">Invoice <%= invoiceLabel %></h1>
             <p class="text-secondary mb-0">
                 <%= invoice.customer_name %> — <%= invoice.project_title %>
             </p>
@@ -223,15 +230,17 @@
                         }, 0);
                     %>
                     <span class="text-secondary small">Total paid <%= paymentsPaidTotal.toFixed(2) %></span>
-                    <button
-                        type="button"
-                        class="btn btn-sm btn-primary"
-                        data-bs-toggle="modal"
-                        data-bs-target="#invoice-payment-modal"
-                        id="open-add-invoice-payment-btn"
-                    >
-                        Add payment
-                    </button>
+                    <% if (!isFullyPaid) { %>
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-primary"
+                            data-bs-toggle="modal"
+                            data-bs-target="#invoice-payment-modal"
+                            id="open-add-invoice-payment-btn"
+                        >
+                            Add payment
+                        </button>
+                    <% } %>
                 </div>
             </div>
             <div class="card-body p-0">
@@ -249,7 +258,9 @@
                                     <th scope="col">Amount</th>
                                     <th scope="col">GST</th>
                                     <th scope="col">Paid</th>
-                                    <th scope="col">Actions</th>
+                                    <% if (!isFullyPaid) { %>
+                                        <th scope="col">Actions</th>
+                                    <% } %>
                                 </tr>
                             </thead>
                             <tbody>
@@ -260,28 +271,30 @@
                                         <td><%= Number(row.amount).toFixed(2) %></td>
                                         <td><%= Number(row.gst).toFixed(2) %></td>
                                         <td><%= (Number(row.amount) + Number(row.gst)).toFixed(2) %></td>
-                                        <td>
-                                            <div class="d-flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-sm btn-outline-primary invoice-payment-edit-btn"
-                                                    data-id="<%= row.id %>"
-                                                    data-amount="<%= row.amount %>"
-                                                    data-gst="<%= row.gst %>"
-                                                    data-created-on="<%= row.created_on || '' %>"
-                                                    data-note="<%= (row.note || '').replace(/"/g, '&quot;') %>"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-sm btn-outline-danger invoice-payment-delete-btn"
-                                                    data-id="<%= row.id %>"
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </td>
+                                        <% if (!isFullyPaid) { %>
+                                            <td>
+                                                <div class="d-flex gap-2">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-outline-primary invoice-payment-edit-btn"
+                                                        data-id="<%= row.id %>"
+                                                        data-amount="<%= row.amount %>"
+                                                        data-gst="<%= row.gst %>"
+                                                        data-created-on="<%= row.created_on || '' %>"
+                                                        data-note="<%= (row.note || '').replace(/"/g, '&quot;') %>"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-outline-danger invoice-payment-delete-btn"
+                                                        data-id="<%= row.id %>"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        <% } %>
                                     </tr>
                                 <% }) %>
                             </tbody>

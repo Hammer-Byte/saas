@@ -469,8 +469,7 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
-                return render("invoice", appPage(session, {
-                    title: `Invoice #${invoice.id}`,
+                const invoicePage = appPage(session, {
                     invoice,
                     items: await getInvoiceItemsByCustomerInvoiceId({
                         customer_invoice_id: invoice.id,
@@ -481,7 +480,15 @@ export const uiRoutes = new Elysia()
                     customerEmails: await getCustomerEmailsByCustomerId({
                         customer_id: invoice.customer_id,
                     }),
-                }));
+                });
+
+                return render("invoice", {
+                    ...invoicePage,
+                    title: `Invoice ${invoicePage.resolveInvoiceNumber({
+                        hbt_sequence: invoice.hbt_sequence,
+                        id: invoice.id,
+                    })}`,
+                });
             })
             .get("/app/inquiries", async ({ render, session }) =>
                 render("inquiries", appPage(session, {

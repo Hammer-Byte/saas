@@ -5,8 +5,9 @@ import {
     buildInvoiceBillStatusHtml,
     buildInvoiceCustomerDetailsHtml,
     buildInvoiceItemsHtml,
-    formatInvoiceNumber,
     generateInvoicePdf,
+    resolveInvoiceNumber,
+    resolveInvoicePdfFileName,
     resolveInvoiceTemplateAssets,
 } from "../libs/invoicer.js";
 import { formatCurrency } from "../libs/utils.js";
@@ -77,8 +78,13 @@ export async function getCustomerInvoiceHtml({ id }) {
         billStatus = "partial";
     }
 
+    const invoiceNumber = resolveInvoiceNumber({
+        hbt_sequence: invoice.hbt_sequence,
+        id: invoice.id,
+    });
+
     const html = filer.prepareTemplated("templates/invoice.html", {
-        invoice_number: formatInvoiceNumber({ id: invoice.id }),
+        invoice_number: invoiceNumber,
         customer_details: buildInvoiceCustomerDetailsHtml({
             name: customer?.company || customer?.full_name,
             phone: customerPhones.join(", "),
@@ -100,6 +106,12 @@ export async function getCustomerInvoiceHtml({ id }) {
 }
 
 export async function getCustomerInvoicePdf({ params, set }) {
+    const invoice = await getCustomerInvoiceById({ id: params.id });
+    if (!invoice) {
+        set.status = 404;
+        return { error: "Invoice not found" };
+    }
+
     const html = await getCustomerInvoiceHtml({ id: params.id });
     if (!html) {
         set.status = 404;
@@ -107,7 +119,10 @@ export async function getCustomerInvoicePdf({ params, set }) {
     }
 
     const pdf = await generateInvoicePdf(html);
-    const fileName = `${formatInvoiceNumber({ id: params.id })}.pdf`;
+    const fileName = resolveInvoicePdfFileName({
+        hbt_sequence: invoice.hbt_sequence,
+        id: invoice.id,
+    });
 
     set.headers["Content-Type"] = "application/pdf";
     set.headers["Content-Disposition"] = `attachment; filename="${fileName}"`;
@@ -134,7 +149,14 @@ export async function createCustomerInvoiceReminder({ params, set }) {
     const html = await getCustomerInvoiceHtml({ id: invoice.id });
 
     const pdf = await generateInvoicePdf(html);
-    const invoiceNumber = formatInvoiceNumber({ id: invoice.id });
+    const invoiceNumber = resolveInvoiceNumber({
+        hbt_sequence: invoice.hbt_sequence,
+        id: invoice.id,
+    });
+    const pdfFileName = resolveInvoicePdfFileName({
+        hbt_sequence: invoice.hbt_sequence,
+        id: invoice.id,
+    });
     const grandTotal = Number(invoice.total || 0) + Number(invoice.gst || 0);
     const reminderHtml = filer.prepareTemplated("templates/invoice_reminder.html", {
         invoice_number: invoiceNumber,
@@ -153,7 +175,7 @@ export async function createCustomerInvoiceReminder({ params, set }) {
             html_enabled: true,
             attachments: [
                 {
-                    filename: `${invoiceNumber}.pdf`,
+                    filename: pdfFileName,
                     content: pdf,
                     contentType: "application/pdf",
                 },

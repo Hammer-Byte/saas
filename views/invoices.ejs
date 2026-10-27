@@ -76,7 +76,12 @@
                                         data-href="/app/invoices/<%= invoice.id %>"
                                         style="cursor: pointer;"
                                     >
-                                        <td><%= invoice.id %></td>
+                                        <td>
+                                            <%= resolveInvoiceNumber({
+                                                hbt_sequence: invoice.hbt_sequence,
+                                                id: invoice.id,
+                                            }) %>
+                                        </td>
                                         <td><%= invoice.customer_name %></td>
                                         <td><%= invoice.project_title || "-" %></td>
                                         <td data-readable-date="<%= invoice.due_date %>" data-date-format="DD/MM/YYYY"></td>

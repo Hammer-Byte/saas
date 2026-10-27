@@ -84,7 +84,10 @@
                                                 <td data-readable-date="<%= row.created_on %>" data-date-format="DD/MM/YYYY"></td>
                                                 <td>
                                                     <a href="/app/invoices/<%= row.customer_invoice_id %>">
-                                                        HBT-<%= String(row.customer_invoice_id).padStart(7, '0') %>
+                                                        <%= resolveInvoiceNumber({
+                                                            hbt_sequence: row.hbt_sequence,
+                                                            id: row.customer_invoice_id,
+                                                        }) %>
                                                     </a>
                                                 </td>
                                                 <td><%= row.note || "-" %></td>

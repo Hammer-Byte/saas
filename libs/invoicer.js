@@ -13,6 +13,36 @@ export function formatInvoiceNumber({ id }) {
     return `HBT-${`${id}`.padStart(7, "0")}`;
 }
 
+export function getHbtLegacyMaxInvoiceId() {
+    const raw = Bun.env.HBT_LEGACY_MAX_INVOICE_ID;
+    if (raw == null || raw === "") {
+        return 0;
+    }
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
+export function isLegacyInvoice({ id }) {
+    return Number(id) <= getHbtLegacyMaxInvoiceId();
+}
+
+export function resolveInvoiceNumber({ hbt_sequence, id }) {
+    if (isLegacyInvoice({ id })) {
+        return formatInvoiceNumber({ id });
+    }
+    if (hbt_sequence != null) {
+        return formatInvoiceNumber({ id: hbt_sequence });
+    }
+    return `#${id}`;
+}
+
+export function resolveInvoicePdfFileName({ hbt_sequence, id }) {
+    if (isLegacyInvoice({ id }) || hbt_sequence != null) {
+        return `${resolveInvoiceNumber({ hbt_sequence, id })}.pdf`;
+    }
+    return `invoice-${id}.pdf`;
+}
+
 export function escapeInvoiceHtml(value) {
     return String(value ?? "")
         .replaceAll("&", "&amp;")

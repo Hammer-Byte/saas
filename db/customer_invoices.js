@@ -57,6 +57,36 @@ export async function updateCustomerInvoiceTotalById({ id, total, gst }) {
     });
 }
 
+export async function assignNextHbtSequence({ id, legacyMaxId = 0 }) {
+    const maxRow = await executeSQLQuery(
+        (sql) => sql`
+            SELECT COALESCE(MAX(hbt_sequence), 0) AS max_seq
+            FROM CUSTOMER_INVOICES
+        `,
+    )
+        .then((result) => (result.length ? result[0] : { max_seq: 0 }))
+        .catch((error) => {
+            logger.error(`assignNextHbtSequence max: ${error}`);
+        });
+
+    if (!maxRow) {
+        return;
+    }
+
+    const nextSequence = Math.max(Number(maxRow.max_seq ?? 0), Number(legacyMaxId)) + 1;
+
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE CUSTOMER_INVOICES
+            SET hbt_sequence = ${nextSequence}
+            WHERE id = ${id}
+              AND hbt_sequence IS NULL
+        `,
+    ).catch((error) => {
+        logger.error(`assignNextHbtSequence: ${error}`);
+    });
+}
+
 export async function deleteCustomerInvoiceById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM CUSTOMER_INVOICES WHERE id = ${id}`).catch(
         (error) => {

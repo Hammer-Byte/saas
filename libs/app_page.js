@@ -1,4 +1,5 @@
 import { AUTHORITIES } from "../constants.js";
+import { resolveInvoiceNumber } from "./invoicer.js";
 
 export function appPage(session, extra = {}) {
     return {
@@ -7,6 +8,7 @@ export function appPage(session, extra = {}) {
         roles: session?.roles ?? [],
         super_admin: !!session?.super_admin,
         AUTHORITIES,
+        resolveInvoiceNumber,
         ...extra,
     };
 }

@@ -107,10 +107,15 @@ export async function getInvoicePaymentsTotalByCustomerInvoiceId({ customer_invo
 export async function getInvoicePaymentsByCreatedOnRange({ start, end }) {
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT *
+            SELECT
+                INVOICE_PAYMENTS.*,
+                CUSTOMER_INVOICES.hbt_sequence
             FROM INVOICE_PAYMENTS
-            WHERE DATE(created_on) >= ${start} AND DATE(created_on) <= ${end}
-            ORDER BY created_on DESC, id DESC
+            INNER JOIN CUSTOMER_INVOICES
+                ON CUSTOMER_INVOICES.id = INVOICE_PAYMENTS.customer_invoice_id
+            WHERE DATE(INVOICE_PAYMENTS.created_on) >= ${start}
+              AND DATE(INVOICE_PAYMENTS.created_on) <= ${end}
+            ORDER BY INVOICE_PAYMENTS.created_on DESC, INVOICE_PAYMENTS.id DESC
         `,
     )
         .then((result) => Array.from(result ?? []))
