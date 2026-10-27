@@ -1,9 +1,5 @@
 (() => {
     const pageAlert = document.getElementById("linkedin-grow-alert");
-    const designationForm = document.getElementById("linkedin-designation-form");
-    const designationNameInput = designationForm?.elements.namedItem("name");
-    const designationSubmitButton = document.getElementById("linkedin-designation-submit-btn");
-    const designationsList = document.getElementById("linkedin-designations-list");
     const startButton = document.getElementById("linkedin-grow-start-btn");
     const limitForm = document.getElementById("linkedin-grow-limit-form");
     const limitInput = document.getElementById("linkedin-grow-limit-input");
@@ -40,82 +36,6 @@
             .map((input) => Number(input.value))
             .filter((id) => Number.isInteger(id) && id > 0);
     }
-
-    designationForm?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        hideAlert(pageAlert);
-
-        const name = designationNameInput?.value?.trim() || "";
-        if (!name) {
-            showAlert(pageAlert, "Designation is required.", "danger");
-            return;
-        }
-
-        if (designationSubmitButton) designationSubmitButton.disabled = true;
-
-        try {
-            const response = await fetch("/api/linkedin-designations", {
-                method: "POST",
-                credentials: "same-origin",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name }),
-            });
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                showAlert(pageAlert, data.error || "Failed to add designation.", "danger");
-                return;
-            }
-
-            window.location.reload();
-        } catch (error) {
-            console.error(error);
-            showAlert(pageAlert, "Failed to add designation.", "danger");
-        } finally {
-            if (designationSubmitButton) designationSubmitButton.disabled = false;
-        }
-    });
-
-    designationsList?.addEventListener("click", async (event) => {
-        const deleteButton = event.target.closest(".linkedin-designation-delete-btn");
-        if (!deleteButton) return;
-
-        const designationId = Number(deleteButton.dataset.id);
-        if (!designationId) return;
-
-        const confirmed = await showConfirm({
-            title: "Delete designation?",
-            description: "This removes the designation from future GrowNetwork runs.",
-            choices: [
-                { label: "Cancel", variant: "secondary", value: false },
-                { label: "Delete", variant: "danger", value: true },
-            ],
-        });
-        if (!confirmed) return;
-
-        deleteButton.disabled = true;
-        hideAlert(pageAlert);
-
-        try {
-            const response = await fetch(`/api/linkedin-designations/${designationId}`, {
-                method: "DELETE",
-                credentials: "same-origin",
-            });
-
-            if (!response.ok && response.status !== 204) {
-                const data = await response.json().catch(() => ({}));
-                showAlert(pageAlert, data.error || "Failed to delete designation.", "danger");
-                deleteButton.disabled = false;
-                return;
-            }
-
-            window.location.reload();
-        } catch (error) {
-            console.error(error);
-            showAlert(pageAlert, "Failed to delete designation.", "danger");
-            deleteButton.disabled = false;
-        }
-    });
 
     startButton?.addEventListener("click", () => {
         if (startButton.disabled) return;

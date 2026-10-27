@@ -1,0 +1,101 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/linkedin" class="text-decoration-none">LinkedIn</a> /
+                Designations
+            </p>
+            <h1 class="h3 mb-1">LinkedIn Designations</h1>
+            <p class="text-secondary mb-0">Manage designations used by GrowNetwork and SearchNetwork.</p>
+        </div>
+
+        <div id="linkedin-designations-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <form id="linkedin-designation-form" class="row g-3 align-items-end" novalidate>
+                    <div class="col-md-10">
+                        <label for="linkedin-designation-name" class="form-label">Designation</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="linkedin-designation-name"
+                            name="name"
+                            maxlength="255"
+                            placeholder="e.g. CEO"
+                            required
+                        />
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100" id="linkedin-designation-submit-btn">
+                            Add designation
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div
+                    id="linkedin-designations-empty"
+                    class="p-4 p-md-5 text-center text-secondary <%= designations && designations.length ? 'd-none' : '' %>"
+                >
+                    No designations yet. Add one above.
+                </div>
+                <div
+                    class="table-responsive <%= !designations || !designations.length ? 'd-none' : '' %>"
+                    id="linkedin-designations-table-wrap"
+                >
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="linkedin-designations-tbody">
+                            <% (designations || []).forEach(function (designation) { %>
+                                <tr data-id="<%= designation.id %>">
+                                    <td><%= designation.id %></td>
+                                    <td><%= designation.name %></td>
+                                    <td>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-danger linkedin-designation-delete-btn"
+                                            data-id="<%= designation.id %>"
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/linkedin-designations.js" defer></script>
+<%- include('common/footer') %>

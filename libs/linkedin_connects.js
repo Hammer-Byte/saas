@@ -1,17 +1,19 @@
-import { Builder, Browser } from "selenium-webdriver";
-import firefox from "selenium-webdriver/firefox.js";
 import { logger } from "@hammerbyte/utils";
 import { toDbDateTime } from "./date.js";
-import { LinkedinGrowPage } from "./linkedin_connects/linkedin_pom.js";
+import {
+    acquireLinkedinProcessing,
+    loginLinkedinWithCookie,
+    openFirefox,
+    processing,
+    releaseLinkedinProcessing,
+} from "./linkedin_browser.js";
 import { connectMatchingPeople } from "./linkedin_connects/linkedin_crawler.js";
 import {
     updateLinkedinGrowRunAccountById,
     updateLinkedinGrowRunById,
 } from "../db/linkedin_grow_runs.js";
 
-export let processing = false;
-
-const FIREFOX_BINARY = "/usr/bin/firefox";
+export { processing };
 
 export function startLinkedinGrowConnects({
     runId,
@@ -19,7 +21,7 @@ export function startLinkedinGrowConnects({
     designationKeywords = [],
     perAccountLimit,
 } = {}) {
-    if (processing) {
+    if (!acquireLinkedinProcessing()) {
         return false;
     }
 
@@ -37,10 +39,9 @@ export function startLinkedinGrowConnects({
         .filter(Boolean);
 
     if (!accountList.length || !keywords.length || !(perAccountLimit >= 1)) {
+        releaseLinkedinProcessing();
         return false;
     }
-
-    processing = true;
 
     (async () => {
         let runFailedMessage = null;
@@ -56,19 +57,8 @@ export function startLinkedinGrowConnects({
                         status: "running",
                     });
 
-                    const options = new firefox.Options()
-                        .setBinary(FIREFOX_BINARY)
-                        .setPageLoadStrategy("eager")
-                        .windowSize({ width: 1440, height: 1000 });
-
-                    driver = await new Builder()
-                        .forBrowser(Browser.FIREFOX)
-                        .setFirefoxOptions(options)
-                        .build();
-
-                    await driver.manage().setTimeouts({ implicit: 0, pageLoad: 20_000 });
-
-                    await LinkedinGrowPage.loginWithCookie(driver, account.cookie);
+                    driver = await openFirefox();
+                    await loginLinkedinWithCookie(driver, account.cookie);
                     const result = await connectMatchingPeople({
                         driver,
                         designationKeywords: keywords,
@@ -118,7 +108,7 @@ export function startLinkedinGrowConnects({
             logger.error(`linkedin grow orchestrator failed: ${error}`);
         })
         .finally(() => {
-            processing = false;
+            releaseLinkedinProcessing();
         });
 
     return true;

@@ -103,7 +103,7 @@
 
         const confirmed = await showConfirm({
             title: "Delete LinkedIn user?",
-            description: "This removes the account cookie used for GrowNetwork runs.",
+            description: "This removes the account cookie used for GrowNetwork and SearchNetwork runs.",
             choices: [
                 { label: "Cancel", variant: "secondary", value: false },
                 { label: "Delete", variant: "danger", value: true },

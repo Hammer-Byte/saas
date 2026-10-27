@@ -49,56 +49,31 @@
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body p-4">
                         <h2 class="h5 mb-3">Designations</h2>
-                        <form id="linkedin-designation-form" class="row g-2 align-items-end mb-3" novalidate>
-                            <div class="col">
-                                <label for="linkedin-designation-name" class="form-label">Add designation</label>
-                                <input
-                                    type="text"
-                                    class="form-control"
-                                    id="linkedin-designation-name"
-                                    name="name"
-                                    maxlength="255"
-                                    placeholder="e.g. CEO"
-                                    required
-                                />
-                            </div>
-                            <div class="col-auto">
-                                <button type="submit" class="btn btn-primary" id="linkedin-designation-submit-btn">
-                                    Add
-                                </button>
-                            </div>
-                        </form>
-
+                        <p class="small text-secondary mb-3">
+                            Manage designations on the
+                            <a href="/app/linkedin-designations">Designations</a>
+                            page.
+                        </p>
                         <div
                             id="linkedin-designations-empty"
                             class="text-secondary <%= designations && designations.length ? 'd-none' : '' %>"
                         >
                             No designations yet.
+                            <a href="/app/linkedin-designations">Add designations</a>
+                            first.
                         </div>
                         <div id="linkedin-designations-list" class="<%= !designations || !designations.length ? 'd-none' : '' %>">
                             <% (designations || []).forEach(function (designation) { %>
-                                <div
-                                    class="d-flex align-items-center justify-content-between gap-2 py-2 border-bottom linkedin-designation-row"
-                                    data-id="<%= designation.id %>"
-                                >
-                                    <div class="form-check mb-0">
-                                        <input
-                                            class="form-check-input linkedin-designation-check"
-                                            type="checkbox"
-                                            value="<%= designation.id %>"
-                                            id="designation-<%= designation.id %>"
-                                        />
-                                        <label class="form-check-label" for="designation-<%= designation.id %>">
-                                            <%= designation.name %>
-                                        </label>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-outline-danger linkedin-designation-delete-btn"
-                                        data-id="<%= designation.id %>"
-                                    >
-                                        Delete
-                                    </button>
+                                <div class="form-check py-2 border-bottom">
+                                    <input
+                                        class="form-check-input linkedin-designation-check"
+                                        type="checkbox"
+                                        value="<%= designation.id %>"
+                                        id="grow-designation-<%= designation.id %>"
+                                    />
+                                    <label class="form-check-label" for="grow-designation-<%= designation.id %>">
+                                        <%= designation.name %>
+                                    </label>
                                 </div>
                             <% }) %>
                         </div>

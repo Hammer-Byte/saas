@@ -1,3 +1,9 @@
+import {
+    finishLinkedinInvite,
+    linkedinSleep,
+    openLinkedinUrl,
+} from "../linkedin_browser.js";
+
 const GROW_URL = "https://www.linkedin.com/mynetwork/grow/";
 
 const PAGE_HELPERS = `
@@ -100,56 +106,11 @@ export class LinkedinGrowPage {
     static path = GROW_URL;
 
     static async openUrl(driver, url) {
-        try {
-            await driver.get(url);
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            if (!/timeout/i.test(message)) {
-                throw error;
-            }
-        }
+        await openLinkedinUrl(driver, url);
     }
 
     static async open(driver) {
-        await LinkedinGrowPage.openUrl(driver, GROW_URL);
-    }
-
-    static async loginWithCookie(driver, cookie) {
-        await LinkedinGrowPage.openUrl(driver, "https://www.linkedin.com");
-        await driver.manage().addCookie({
-            name: "li_at",
-            value: cookie,
-            domain: ".linkedin.com",
-            path: "/",
-            secure: true,
-            httpOnly: true,
-            sameSite: "None",
-        });
-        await LinkedinGrowPage.openUrl(driver, "https://www.linkedin.com/feed/");
-        await LinkedinGrowPage.waitForLogin(driver);
-    }
-
-    static async waitForLogin(driver) {
-        const deadline = Date.now() + 20_000;
-
-        while (Date.now() < deadline) {
-            const url = await driver.getCurrentUrl();
-            if (LinkedinGrowPage.isLoggedIn(url)) {
-                return;
-            }
-            if (/login|checkpoint|challenge|authwall|uas\/login/i.test(url)) {
-                break;
-            }
-            await LinkedinGrowPage.sleep(1000);
-        }
-
-        throw new Error(
-            "LinkedIn did not accept this li_at cookie. Export a new one while that account is still logged in, and do not log out afterwards.",
-        );
-    }
-
-    static isLoggedIn(url) {
-        return /https:\/\/([a-z]{2,3}\.)?linkedin\.com\/(feed|search|mynetwork|in)\b/.test(url);
+        await openLinkedinUrl(driver, GROW_URL);
     }
 
     static async waitForInviteButtons(driver) {
@@ -163,7 +124,7 @@ export class LinkedinGrowPage {
             if (count > 0) {
                 return;
             }
-            await LinkedinGrowPage.sleep(500);
+            await linkedinSleep(500);
         }
     }
 
@@ -238,7 +199,7 @@ export class LinkedinGrowPage {
         }
 
         if (click === "more") {
-            await LinkedinGrowPage.sleep(600);
+            await linkedinSleep(600);
             const opened = await driver.executeScript(`
                 const items = [...document.querySelectorAll('[role="menuitem"], [role="menu"] button, [role="menu"] [role="button"], .artdeco-dropdown__content button, .artdeco-dropdown__content li, .artdeco-dropdown__content span')];
                 const item = items.find((entry) => (entry.innerText || "").trim().toLowerCase() === "connect");
@@ -251,72 +212,12 @@ export class LinkedinGrowPage {
             }
         }
 
-        await LinkedinGrowPage.sleep(800);
-        return LinkedinGrowPage.finishInvite(driver, name);
-    }
-
-    static async finishInvite(driver, name) {
-        const outcome = await driver.executeScript(`
-            const bodyText = document.body.innerText || "";
-            if (/weekly invitation limit|invitation limit/i.test(bodyText)) return "limit";
-            const dialog = document.querySelector('div[role="dialog"]');
-            if (!dialog) return "none";
-            const text = dialog.innerText || "";
-            if (/enter their email to connect/i.test(text)) return "email";
-            const buttons = [...dialog.querySelectorAll("button")];
-            const labelOf = (button) => ((button.getAttribute("aria-label") || "") + " " + (button.innerText || "")).replace(/\\s+/g, " ").trim();
-            const sendWithout = buttons.find((button) => /send without a note/i.test(labelOf(button)));
-            const send = buttons.find((button) => /^(send|send now|send invitation)$/i.test(labelOf(button)));
-            const target = sendWithout || send;
-            if (!target) return "none";
-            target.click();
-            return "sent";
-        `);
-
-        if (outcome === "limit") {
-            return "limit";
-        }
-        if (outcome === "email") {
-            await LinkedinGrowPage.dismissDialog(driver);
-            return "skipped";
-        }
-        if (outcome === "sent") {
-            return "sent";
-        }
-        if (await LinkedinGrowPage.invitationIsPending(driver, name)) {
-            return "sent";
-        }
-        await LinkedinGrowPage.dismissDialog(driver);
-        return "skipped";
-    }
-
-    static async invitationIsPending(driver, name) {
-        return await driver.executeScript(
-            `
-                const name = (arguments[0] || "").toLowerCase();
-                return [...document.querySelectorAll("a, button")].some((el) => {
-                    const label = ((el.getAttribute("aria-label") || "") + " " + (el.innerText || "")).replace(/\\s+/g, " ").trim().toLowerCase();
-                    return label.includes("pending") && name && label.includes(name);
-                });
-            `,
-            name,
-        );
-    }
-
-    static async dismissDialog(driver) {
-        await driver.executeScript(`
-            const dialog = document.querySelector('div[role="dialog"]');
-            if (!dialog) return;
-            const close = [...dialog.querySelectorAll("button")].find((button) => {
-                const label = ((button.getAttribute("aria-label") || "") + " " + (button.innerText || "")).toLowerCase();
-                return label.includes("dismiss") || label.includes("close");
-            });
-            if (close) close.click();
-        `);
+        await linkedinSleep(800);
+        return finishLinkedinInvite(driver, name);
     }
 
     static sleep(ms) {
-        return new Promise((resolve) => setTimeout(resolve, ms));
+        return linkedinSleep(ms);
     }
 }
 

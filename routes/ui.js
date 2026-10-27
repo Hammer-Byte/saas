@@ -56,8 +56,13 @@ import {
     getAllLinkedinGrowRunDesignations,
     getAllLinkedinGrowRuns,
 } from "../db/linkedin_grow_runs.js";
+import {
+    getAllLinkedinSearchRunAccounts,
+    getAllLinkedinSearchRunDesignations,
+    getAllLinkedinSearchRuns,
+} from "../db/linkedin_search_runs.js";
 import { processing as gemTendereProcessing } from "../libs/tenderer.js";
-import { processing as linkedinGrowProcessing } from "../libs/linkedin_connects.js";
+import { processing as linkedinProcessing } from "../libs/linkedin_browser.js";
 import { getReadableDate } from "../libs/date.js";
 import { formatContractCreatedOn } from "../libs/contractor.js";
 import { isContractSigned } from "../services/contracts.js";
@@ -609,7 +614,13 @@ export const uiRoutes = new Elysia()
                     title: "GrowNetwork — HammerByte",
                     designations: await getAllLinkedinDesignations(),
                     linkedinUsers: await getAllLinkedinUsers(),
-                    processing: linkedinGrowProcessing,
+                    processing: linkedinProcessing,
+                })),
+            )
+            .get("/app/linkedin-designations", async ({ render, session }) =>
+                render("linkedin-designations", appPage(session, {
+                    title: "LinkedIn Designations — HammerByte",
+                    designations: await getAllLinkedinDesignations(),
                 })),
             )
             .get("/app/linkedin-grow-network-history", async ({ render, session }) => {
@@ -642,9 +653,42 @@ export const uiRoutes = new Elysia()
                     runs,
                 }));
             })
-            .get("/app/linkedin-search-network", ({ render, session }) =>
+            .get("/app/linkedin-search-network", async ({ render, session }) =>
                 render("linkedin-search-network", appPage(session, {
                     title: "SearchNetwork — HammerByte",
+                    designations: await getAllLinkedinDesignations(),
+                    linkedinUsers: await getAllLinkedinUsers(),
+                    processing: linkedinProcessing,
                 })),
-            ),
+            )
+            .get("/app/linkedin-search-network-history", async ({ render, session }) => {
+                const searchRuns = await getAllLinkedinSearchRuns();
+                const searchRunAccounts = await getAllLinkedinSearchRunAccounts();
+                const searchRunDesignations = await getAllLinkedinSearchRunDesignations();
+
+                const accountsByRunId = new Map();
+                for (const searchRunAccount of searchRunAccounts) {
+                    const list = accountsByRunId.get(searchRunAccount.run_id) || [];
+                    list.push(searchRunAccount);
+                    accountsByRunId.set(searchRunAccount.run_id, list);
+                }
+
+                const designationsByRunId = new Map();
+                for (const searchRunDesignation of searchRunDesignations) {
+                    const list = designationsByRunId.get(searchRunDesignation.run_id) || [];
+                    list.push(searchRunDesignation);
+                    designationsByRunId.set(searchRunDesignation.run_id, list);
+                }
+
+                const runs = searchRuns.map((searchRun) => ({
+                    ...searchRun,
+                    accounts: accountsByRunId.get(searchRun.id) || [],
+                    designations: designationsByRunId.get(searchRun.id) || [],
+                }));
+
+                return render("linkedin-search-network-history", appPage(session, {
+                    title: "SearchNetwork History — HammerByte",
+                    runs,
+                }));
+            }),
     );

@@ -1,0 +1,104 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/linkedin" class="text-decoration-none">LinkedIn</a> /
+                    <a href="/app/linkedin-search-network" class="text-decoration-none">SearchNetwork</a> /
+                    History
+                </p>
+                <h1 class="h3 mb-1">SearchNetwork History</h1>
+                <p class="text-secondary mb-0">Past SearchNetwork runs and per-account connect counts.</p>
+            </div>
+            <a href="/app/linkedin-search-network" class="btn btn-outline-secondary">Back</a>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <% if (!runs || !runs.length) { %>
+                    <div class="p-4 p-md-5 text-center text-secondary">
+                        No SearchNetwork runs yet.
+                    </div>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Started</th>
+                                    <th scope="col">Finished</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Limit</th>
+                                    <th scope="col">Pages</th>
+                                    <th scope="col">Designations</th>
+                                    <th scope="col">Account</th>
+                                    <th scope="col">Connects</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% runs.forEach(function (run) { %>
+                                    <tr>
+                                        <td><%= run.id %></td>
+                                        <td
+                                            data-readable-date="<%= run.started_on || '' %>"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                                        ></td>
+                                        <td
+                                            data-readable-date="<%= run.finished_on || '' %>"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                                        ></td>
+                                        <td><%= run.status %></td>
+                                        <td><%= run.per_account_limit %></td>
+                                        <td><%= run.page_count %></td>
+                                        <td>
+                                            <% const designationNames = (run.designations || []).map(function (designation) { return designation.designation_name; }); %>
+                                            <%= designationNames.length ? designationNames.join(", ") : "—" %>
+                                        </td>
+                                        <td>
+                                            <% if (!run.accounts || !run.accounts.length) { %>
+                                                —
+                                            <% } else { %>
+                                                <% run.accounts.forEach(function (account) { %>
+                                                    <div><%= account.user_name %></div>
+                                                <% }) %>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <% if (!run.accounts || !run.accounts.length) { %>
+                                                —
+                                            <% } else { %>
+                                                <% run.accounts.forEach(function (account) { %>
+                                                    <div><%= account.sent_count %></div>
+                                                <% }) %>
+                                            <% } %>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<%- include('common/footer') %>

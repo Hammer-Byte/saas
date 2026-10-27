@@ -11,7 +11,8 @@ import {
     getLinkedinGrowRunById,
     getLinkedinGrowRunDesignationsByRunId,
 } from "../db/linkedin_grow_runs.js";
-import { processing, startLinkedinGrowConnects } from "../libs/linkedin_connects.js";
+import { processing } from "../libs/linkedin_browser.js";
+import { startLinkedinGrowConnects } from "../libs/linkedin_connects.js";
 
 export async function getLinkedinGrowNetworkStatus({ set }) {
     set.status = 200;
@@ -21,7 +22,7 @@ export async function getLinkedinGrowNetworkStatus({ set }) {
 export async function startLinkedinGrowNetwork({ body, set }) {
     if (processing) {
         set.status = 409;
-        return { error: "GrowNetwork already in progress", processing: true };
+        return { error: "LinkedIn automation already in progress", processing: true };
     }
 
     const linkedinUsers = await getLinkedinUsersByIds({ ids: body.linkedin_user_ids });
@@ -81,7 +82,7 @@ export async function startLinkedinGrowNetwork({ body, set }) {
 
     if (!started) {
         set.status = 409;
-        return { error: "GrowNetwork already in progress", processing: true };
+        return { error: "LinkedIn automation already in progress", processing: true };
     }
 
     set.status = 202;
