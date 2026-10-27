@@ -12,6 +12,7 @@ import {
     updateLinkedinSearchRunAccountById,
     updateLinkedinSearchRunById,
 } from "../db/linkedin_search_runs.js";
+import { notifyLinkedinSearchRunComplete } from "./linkedin_notify.js";
 
 export { processing };
 
@@ -103,6 +104,8 @@ export function startLinkedinSearchConnects({
                 finished_on: toDbDateTime(new Date()),
             });
         }
+
+        await notifyLinkedinSearchRunComplete({ runId });
     })()
         .catch((error) => {
             logger.error(`linkedin search orchestrator failed: ${error}`);

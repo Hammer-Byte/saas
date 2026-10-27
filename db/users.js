@@ -77,3 +77,19 @@ export async function getAllUsers() {
             return [];
         });
 }
+
+export async function getAllSuperAdminUsers() {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *
+            FROM USERS
+            WHERE super_admin = TRUE
+            ORDER BY id ASC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getAllSuperAdminUsers: ${error}`);
+            return [];
+        });
+}

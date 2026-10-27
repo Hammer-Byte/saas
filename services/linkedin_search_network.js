@@ -13,16 +13,23 @@ import {
 } from "../db/linkedin_search_runs.js";
 import { processing } from "../libs/linkedin_browser.js";
 import { startLinkedinSearchConnects } from "../libs/linkedin_search.js";
+import { getCurrentUser } from "./authentication.js";
 
 export async function getLinkedinSearchNetworkStatus({ set }) {
     set.status = 200;
     return { processing };
 }
 
-export async function startLinkedinSearchNetwork({ body, set }) {
+export async function startLinkedinSearchNetwork({ body, set, cookie }) {
     if (processing) {
         set.status = 409;
         return { error: "LinkedIn automation already in progress", processing: true };
+    }
+
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized", processing: false };
     }
 
     const linkedinUsers = await getLinkedinUsersByIds({ ids: body.linkedin_user_ids });
@@ -41,6 +48,7 @@ export async function startLinkedinSearchNetwork({ body, set }) {
 
     const runId = await createLinkedinSearchRun({
         page_count: body.page_count,
+        created_by: currentUser.id,
     });
     if (!runId) {
         set.status = 400;

@@ -12,6 +12,7 @@ import {
     updateLinkedinGrowRunAccountById,
     updateLinkedinGrowRunById,
 } from "../db/linkedin_grow_runs.js";
+import { notifyLinkedinGrowRunComplete } from "./linkedin_notify.js";
 
 export { processing };
 
@@ -103,6 +104,8 @@ export function startLinkedinGrowConnects({
                 finished_on: toDbDateTime(new Date()),
             });
         }
+
+        await notifyLinkedinGrowRunComplete({ runId });
     })()
         .catch((error) => {
             logger.error(`linkedin grow orchestrator failed: ${error}`);

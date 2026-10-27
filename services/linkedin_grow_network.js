@@ -13,16 +13,23 @@ import {
 } from "../db/linkedin_grow_runs.js";
 import { processing } from "../libs/linkedin_browser.js";
 import { startLinkedinGrowConnects } from "../libs/linkedin_connects.js";
+import { getCurrentUser } from "./authentication.js";
 
 export async function getLinkedinGrowNetworkStatus({ set }) {
     set.status = 200;
     return { processing };
 }
 
-export async function startLinkedinGrowNetwork({ body, set }) {
+export async function startLinkedinGrowNetwork({ body, set, cookie }) {
     if (processing) {
         set.status = 409;
         return { error: "LinkedIn automation already in progress", processing: true };
+    }
+
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized", processing: false };
     }
 
     const linkedinUsers = await getLinkedinUsersByIds({ ids: body.linkedin_user_ids });
@@ -41,6 +48,7 @@ export async function startLinkedinGrowNetwork({ body, set }) {
 
     const runId = await createLinkedinGrowRun({
         per_account_limit: body.per_account_limit,
+        created_by: currentUser.id,
     });
     if (!runId) {
         set.status = 400;

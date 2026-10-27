@@ -1,14 +1,16 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createLinkedinGrowRun({ per_account_limit }) {
+export async function createLinkedinGrowRun({ per_account_limit, created_by = null }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO LINKEDIN_GROW_RUNS ${sql(
                 {
                     per_account_limit,
+                    created_by,
                 },
                 "per_account_limit",
+                "created_by",
             )}
         `,
     )

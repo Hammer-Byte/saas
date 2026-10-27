@@ -477,6 +477,7 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             status VARCHAR(32) NOT NULL DEFAULT 'running',
             per_account_limit INT NOT NULL,
+            created_by INT NULL,
             error_message TEXT NULL,
             started_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             finished_on DATETIME NULL
@@ -508,6 +509,7 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             status VARCHAR(32) NOT NULL DEFAULT 'running',
             page_count INT NOT NULL,
+            created_by INT NULL,
             error_message TEXT NULL,
             started_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             finished_on DATETIME NULL
