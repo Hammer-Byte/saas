@@ -86,36 +86,50 @@ async function waitForLinkedinLogin(driver) {
 }
 
 export async function finishLinkedinInvite(driver, name) {
-    const outcome = await driver.executeScript(`
-        const bodyText = document.body.innerText || "";
-        if (/weekly invitation limit|invitation limit/i.test(bodyText)) return "limit";
-        const dialog = document.querySelector('div[role="dialog"]');
-        if (!dialog) return "none";
-        const text = dialog.innerText || "";
-        if (/enter their email to connect/i.test(text)) return "email";
-        const buttons = [...dialog.querySelectorAll("button")];
-        const labelOf = (button) => ((button.getAttribute("aria-label") || "") + " " + (button.innerText || "")).replace(/\\s+/g, " ").trim();
-        const sendWithout = buttons.find((button) => /send without a note/i.test(labelOf(button)));
-        const send = buttons.find((button) => /^(send|send now|send invitation)$/i.test(labelOf(button)));
-        const target = sendWithout || send;
-        if (!target) return "none";
-        target.click();
-        return "sent";
-    `);
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const outcome = await driver.executeScript(`
+            const bodyText = document.body.innerText || "";
+            if (/weekly invitation limit|invitation limit/i.test(bodyText)) return "limit";
+            if (/invitation sent|invite sent/i.test(bodyText)) return "sent";
+            const dialog = document.querySelector('div[role="dialog"]');
+            if (!dialog) return "none";
+            const text = dialog.innerText || "";
+            if (/enter their email to connect/i.test(text)) return "email";
+            const buttons = [...dialog.querySelectorAll("button, [role='button'], a")];
+            const labelOf = (button) => ((button.getAttribute("aria-label") || "") + " " + (button.innerText || "")).replace(/\\s+/g, " ").trim();
+            const sendWithout = buttons.find((button) => /send without a note/i.test(labelOf(button)));
+            const send = buttons.find((button) => {
+                const label = labelOf(button).toLowerCase();
+                if (/send without a note/.test(label)) return false;
+                return /^(send|send now|send invitation)$/i.test(label) ||
+                    label === "send" ||
+                    label.includes("send invitation") ||
+                    label.includes("send now");
+            });
+            const target = sendWithout || send;
+            if (!target) return "none";
+            target.click();
+            return "sent";
+        `);
 
-    if (outcome === "limit") {
-        return "limit";
+        if (outcome === "limit") {
+            return "limit";
+        }
+        if (outcome === "email") {
+            await dismissLinkedinDialog(driver);
+            return "skipped";
+        }
+        if (outcome === "sent") {
+            return "sent";
+        }
+
+        if (await invitationIsPending(driver, name)) {
+            return "sent";
+        }
+
+        await linkedinSleep(500);
     }
-    if (outcome === "email") {
-        await dismissLinkedinDialog(driver);
-        return "skipped";
-    }
-    if (outcome === "sent") {
-        return "sent";
-    }
-    if (await invitationIsPending(driver, name)) {
-        return "sent";
-    }
+
     await dismissLinkedinDialog(driver);
     return "skipped";
 }

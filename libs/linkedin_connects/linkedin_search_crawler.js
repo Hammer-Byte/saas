@@ -22,17 +22,30 @@ export async function connectPeopleFromSearch({
 
         logger.info(`linkedin search opening people results for "${keyword}"`);
         await LinkedinSearchPage.openPeopleSearch(driver, keyword);
-        await LinkedinSearchPage.waitForResults(driver);
-        await LinkedinSearchPage.sleep(1000);
+        const resultCount = await LinkedinSearchPage.waitForResults(driver);
+        const inviteCount = await LinkedinSearchPage.hydrateInviteLinks(driver);
+
+        const diagnosis = await LinkedinSearchPage.diagnosePage(driver);
+        logger.info(
+            `linkedin search "${keyword}" diagnosis cards=${diagnosis?.cardCount || 0} connectable=${diagnosis?.connectableCount || 0} invites=${inviteCount} waited=${resultCount}`,
+        );
+        if (diagnosis?.sample?.length) {
+            logger.info(
+                `linkedin search "${keyword}" sample=${JSON.stringify(diagnosis.sample)}`,
+            );
+        }
+
+        if (!(diagnosis?.cardCount > 0)) {
+            logger.info(`linkedin search no people cards for "${keyword}" at ${await driver.getCurrentUrl()}`);
+            continue;
+        }
 
         for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
             if (sent >= maxConnectsPerAccount) {
                 break;
             }
 
-            logger.info(
-                `linkedin search "${keyword}" page ${pageNumber}/${pageCount}`,
-            );
+            logger.info(`linkedin search "${keyword}" page ${pageNumber}/${pageCount}`);
 
             while (sent < maxConnectsPerAccount) {
                 const cards = await LinkedinSearchPage.readCards(driver);
@@ -46,7 +59,9 @@ export async function connectPeopleFromSearch({
                 seen.add(next.profileUrl);
 
                 if (!next.canConnect) {
-                    logger.info(`linkedin search skip ${next.name || "unknown"} — no Connect button`);
+                    logger.info(
+                        `linkedin search skip ${next.name || "unknown"} — no Connect button (${(next.actionLabels || []).join(" | ")})`,
+                    );
                     continue;
                 }
 
@@ -88,9 +103,11 @@ export async function connectPeopleFromSearch({
                 break;
             }
 
-            const moved = await LinkedinSearchPage.goToNextPage(driver);
+            const moved = await LinkedinSearchPage.goToNextPage(driver, pageNumber);
             if (!moved) {
-                logger.info(`linkedin search no next page for "${keyword}" after page ${pageNumber}`);
+                logger.info(
+                    `linkedin search no next page for "${keyword}" after page ${pageNumber}`,
+                );
                 break;
             }
         }
