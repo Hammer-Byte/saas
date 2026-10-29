@@ -40,22 +40,45 @@
             paidSum = Math.round(paidSum * 100) / 100;
             grandTotalSum = Math.round(grandTotalSum * 100) / 100;
             const leftSum = Math.max(Math.round((grandTotalSum - paidSum) * 100) / 100, 0);
+            const invoiceCount = (invoices || []).length;
         %>
+        <form class="card border-0 shadow-sm mb-4" method="get" action="/app/projects/<%= customerProject.id %>">
+            <div class="card-body p-4">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label for="start" class="form-label">Start date</label>
+                        <input type="date" class="form-control" id="start" name="start" value="<%= start %>" required />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="end" class="form-label">End date</label>
+                        <input type="date" class="form-control" id="end" name="end" value="<%= end %>" required />
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-outline-primary w-100">Apply range</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white border-0 pt-4 px-4">
                 <h2 class="h5 mb-0">Project details</h2>
             </div>
             <div class="card-body p-4">
                 <div class="row g-3 mb-4">
-                    <div class="col-sm-4">
+                    <div class="col-sm-6 col-lg-3">
+                        <p class="text-secondary small mb-1">Invoices</p>
+                        <p class="h5 mb-0"><%= invoiceCount %></p>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
                         <p class="text-secondary small mb-1">Paid</p>
                         <p class="h5 mb-0"><%= paidSum.toFixed(2) %></p>
                     </div>
-                    <div class="col-sm-4">
+                    <div class="col-sm-6 col-lg-3">
                         <p class="text-secondary small mb-1">Left</p>
                         <p class="h5 mb-0"><%= leftSum.toFixed(2) %></p>
                     </div>
-                    <div class="col-sm-4">
+                    <div class="col-sm-6 col-lg-3">
                         <p class="text-secondary small mb-1">Total</p>
                         <p class="h5 mb-0"><%= grandTotalSum.toFixed(2) %></p>
                     </div>
@@ -160,7 +183,7 @@
             <div class="card-body p-0">
                 <% if (!invoices || invoices.length === 0) { %>
                     <div class="p-4 text-center text-secondary">
-                        No invoices for this project.
+                        No invoices for this project in the selected date range.
                     </div>
                 <% } else { %>
                     <div class="table-responsive">

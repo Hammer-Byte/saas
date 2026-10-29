@@ -288,7 +288,7 @@ export const uiRoutes = new Elysia()
                     projects: await getAllCustomerProjects(),
                 })),
             )
-            .get("/app/projects/:id", async ({ render, session, params, redirect }) => {
+            .get("/app/projects/:id", async ({ render, session, params, query, redirect }) => {
                 const customerProject = await getCustomerProjectById({
                     id: params.id,
                 });
@@ -301,6 +301,25 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
+                const now = new Date();
+                const defaultStart = getReadableDate(
+                    "YYYY-MM-DD",
+                    new Date(now.getFullYear(), now.getMonth(), 1),
+                );
+                const defaultEnd = getReadableDate("YYYY-MM-DD", now);
+
+                const start =
+                    query.start && /^\d{4}-\d{2}-\d{2}$/.test(query.start)
+                        ? query.start
+                        : defaultStart;
+                const end =
+                    query.end && /^\d{4}-\d{2}-\d{2}$/.test(query.end)
+                        ? query.end
+                        : defaultEnd;
+
+                const rangeStart = start <= end ? start : end;
+                const rangeEnd = start <= end ? end : start;
+
                 return render("project", appPage(session, {
                     title: `Project — ${customerProject.title}`,
                     customer,
@@ -310,7 +329,11 @@ export const uiRoutes = new Elysia()
                     }),
                     invoices: await getCustomerInvoicesByProjectId({
                         project_id: customerProject.id,
+                        start: rangeStart,
+                        end: rangeEnd,
                     }),
+                    start: rangeStart,
+                    end: rangeEnd,
                 }));
             })
             .get("/app/project-documents/:projectId", async ({ render, session, params, redirect }) => {

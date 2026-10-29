@@ -145,7 +145,11 @@ export async function getAllCustomerInvoices() {
         });
 }
 
-export async function getCustomerInvoicesByProjectId({ project_id }) {
+export async function getCustomerInvoicesByProjectId({
+    project_id,
+    start = null,
+    end = null,
+}) {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT
@@ -165,6 +169,8 @@ export async function getCustomerInvoicesByProjectId({ project_id }) {
                 GROUP BY customer_invoice_id
             ) payments ON payments.customer_invoice_id = CUSTOMER_INVOICES.id
             WHERE CUSTOMER_INVOICES.project_id = ${project_id}
+              AND (${start} IS NULL OR DATE(CUSTOMER_INVOICES.created_on) >= ${start})
+              AND (${end} IS NULL OR DATE(CUSTOMER_INVOICES.created_on) <= ${end})
             ORDER BY CUSTOMER_INVOICES.created_on DESC
         `,
     )
