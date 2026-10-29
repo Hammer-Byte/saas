@@ -17,8 +17,25 @@ export async function messageNewConnections({
     runAccountId,
 }) {
     await LinkedinMessagePage.open(driver);
-    await LinkedinMessagePage.waitForCards(driver);
+    const cardsReady = await LinkedinMessagePage.waitForCards(driver);
     await LinkedinMessagePage.sleep(1000);
+
+    if (!cardsReady) {
+        const diagnosis = await LinkedinMessagePage.diagnose(driver);
+        logger.info(`linkedin message page diagnose: ${JSON.stringify(diagnosis)}`);
+        logger.info(`linkedin message no connection cards at ${await driver.getCurrentUrl()}`);
+        await updateLinkedinMessageRunAccountById({
+            id: runAccountId,
+            sent_count: 0,
+            status: "completed",
+        });
+        return { sent: 0, status: "completed" };
+    }
+
+    const firstCards = await LinkedinMessagePage.readCards(driver);
+    logger.info(
+        `linkedin message found ${firstCards.length} connection card(s) on first load`,
+    );
 
     const seen = new Set();
     let sent = 0;
