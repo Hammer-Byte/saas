@@ -196,7 +196,15 @@ export const LinkedinMessagePage = {
         if (!url) {
             return false;
         }
-        await openLinkedinUrl(driver, url);
+        try {
+            await openLinkedinUrl(driver, url);
+        } catch (error) {
+            // LinkedIn messaging often keeps loading after the composer is usable.
+            const message = error instanceof Error ? error.message : String(error);
+            if (!/timeout/i.test(message)) {
+                throw error;
+            }
+        }
         return true;
     },
 
@@ -226,7 +234,14 @@ export const LinkedinMessagePage = {
 
     async closeDialog(driver) {
         // Compose is a full messaging page now — return to connections list.
-        await openLinkedinUrl(driver, CONNECTIONS_URL);
+        try {
+            await openLinkedinUrl(driver, CONNECTIONS_URL);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (!/timeout/i.test(message)) {
+                throw error;
+            }
+        }
         await linkedinSleep(1500);
     },
 
@@ -266,7 +281,18 @@ export const LinkedinMessagePage = {
         }
         await compose.sendKeys(Key.chord(Key.CONTROL, "a"));
         await compose.sendKeys(Key.BACK_SPACE);
-        await compose.sendKeys(text);
+
+        // LinkedIn contenteditable collapses plain \\n from sendKeys.
+        // Use Shift+Enter between lines (Enter alone can send the message).
+        const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+        for (let index = 0; index < lines.length; index++) {
+            if (lines[index].length) {
+                await compose.sendKeys(lines[index]);
+            }
+            if (index < lines.length - 1) {
+                await compose.sendKeys(Key.chord(Key.SHIFT, Key.ENTER));
+            }
+        }
         await linkedinSleep(600);
 
         const sendButtons = await driver.findElements(
