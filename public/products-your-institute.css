@@ -61,8 +61,7 @@ a:hover {
     justify-content: space-between;
     gap: 1rem;
     padding: 0.9rem 1.25rem;
-    background: rgba(243, 247, 244, 0.82);
-    backdrop-filter: blur(12px);
+    background: #f3f7f4;
     border-bottom: 1px solid var(--yi-line);
 }
 
@@ -111,7 +110,6 @@ a:hover {
         linear-gradient(180deg, rgba(243, 247, 244, 0.15) 0%, rgba(16, 36, 31, 0.55) 72%, rgba(16, 36, 31, 0.82) 100%),
         radial-gradient(ellipse 80% 55% at 70% 35%, rgba(13, 122, 95, 0.45), transparent 60%),
         linear-gradient(135deg, #1a4a3d 0%, #0d2a24 42%, #163a32 100%);
-    animation: yi-plane-shift 18s var(--yi-ease) infinite alternate;
 }
 
 .yi-hero-plane::after {
@@ -123,7 +121,7 @@ a:hover {
         linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
     background-size: 72px 72px;
     mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 85%);
-    animation: yi-grid-drift 28s linear infinite;
+    opacity: 0.85;
 }
 
 .yi-hero-inner {
@@ -455,26 +453,6 @@ a:hover {
     transform: none;
 }
 
-@keyframes yi-plane-shift {
-    from {
-        filter: saturate(1) brightness(1);
-        transform: scale(1);
-    }
-    to {
-        filter: saturate(1.08) brightness(1.04);
-        transform: scale(1.04);
-    }
-}
-
-@keyframes yi-grid-drift {
-    from {
-        background-position: 0 0, 0 0;
-    }
-    to {
-        background-position: 72px 36px, 36px 72px;
-    }
-}
-
 @media (max-width: 900px) {
     .yi-plan-row,
     .yi-inquiry-wrap {
@@ -506,10 +484,7 @@ a:hover {
         scroll-behavior: auto;
     }
 
-    .yi-hero-plane,
-    .yi-hero-plane::after,
     [data-reveal] {
-        animation: none !important;
         transition: none !important;
         opacity: 1;
         transform: none;

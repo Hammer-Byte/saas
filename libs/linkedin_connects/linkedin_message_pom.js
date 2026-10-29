@@ -4,166 +4,89 @@ import { linkedinSleep, openLinkedinUrl } from "../linkedin_browser.js";
 export const CONNECTIONS_URL =
     "https://www.linkedin.com/mynetwork/invite-connect/connections/";
 
+/**
+ * Current LinkedIn Connections UI (hashed classes):
+ *   <a aria-label="Send a message to Jane Doe"
+ *      href="/messaging/compose/?profileUrn=...&recipient=...&interop=msgOverlay">Message</a>
+ * Opening that href loads Messaging with:
+ *   .msg-form__contenteditable[aria-label="Write a message…"]
+ *   button.msg-form__send-button
+ */
 const PAGE_HELPERS = `
 function normalize(text) {
   return String(text || "").replace(/\\s+/g, " ").trim();
 }
 
-function isMessengerChrome(el) {
-  return Boolean(
-    el &&
-      el.closest(
-        ".msg-overlay-list-bubble, .msg-overlay-conversation-bubble, .msg-overlay-bubble-header, aside.msg-overlay-list-bubble-search"
-      )
-  );
+function messageAnchors() {
+  return [...document.querySelectorAll("a[href*='/messaging/compose']")].filter((a) => {
+    const aria = (a.getAttribute("aria-label") || "").toLowerCase();
+    return aria.includes("send a message to") || aria.includes("send message to");
+  });
 }
 
-function controlLabel(el) {
-  return normalize(
-    (el.getAttribute("aria-label") || "") +
-      " " +
-      (el.getAttribute("title") || "") +
-      " " +
-      (el.innerText || "") +
-      " " +
-      (el.textContent || "")
-  ).toLowerCase();
+function nameFromAria(aria) {
+  const match =
+    String(aria || "").match(/send(?:\\s+a)?\\s+message\\s+to\\s+(.+)$/i);
+  return match ? normalize(match[1]) : "";
 }
 
-function isMessageControl(el) {
-  if (!el || isMessengerChrome(el)) return false;
-  const className = String(el.className || "").toLowerCase();
-  if (className.includes("message-anywhere")) return true;
-  const label = controlLabel(el);
-  if (!label) return false;
-  if (label === "message") return true;
-  if (/^message\\b/.test(label)) return true;
-  if (label.includes("send a message")) return true;
-  if (label.includes("message ") && !label.includes("messaging")) return true;
-  return false;
-}
-
-function messageControls(root) {
-  const scope = root || document;
-  return [...scope.querySelectorAll("button, a, [role='button']")].filter(isMessageControl);
-}
-
-function connectionCardNodes() {
-  const selectors = [
-    ".mn-connection-card",
-    "li.mn-connection-card",
-    "[class*='mn-connection-card']",
-    "li.artdeco-list__item",
-    ".scaffold-finite-scroll__content li",
-    "main ul li",
-  ];
-  const nodes = [];
-  const seen = new Set();
-  for (const selector of selectors) {
-    for (const node of document.querySelectorAll(selector)) {
-      if (seen.has(node) || isMessengerChrome(node)) continue;
-      if (!node.querySelector('a[href*="/in/"]')) continue;
-      if (!messageControls(node).length) continue;
-      seen.add(node);
-      nodes.push(node);
-    }
-  }
-  return nodes;
-}
-
-function cardForControl(control) {
-  const known = control.closest(
-    ".mn-connection-card, [class*='mn-connection-card'], li.artdeco-list, li"
-  );
-  if (known && known.querySelector('a[href*="/in/"]')) return known;
-
-  const root = document.querySelector("main") || document.body;
-  let node = control.parentElement;
-  let card = node;
-  for (let depth = 0; depth < 16 && node && node !== root; depth++) {
-    const text = node.innerText || "";
-    if (
-      node.querySelector('a[href*="/in/"]') &&
-      text.length > 20 &&
-      text.length < 1600 &&
-      /message/i.test(text)
-    ) {
-      card = node;
+function rowForAnchor(anchor) {
+  let node = anchor.parentElement;
+  for (let depth = 0; depth < 10 && node; depth++) {
+    if (node.querySelector && node.querySelector('a[href*="/in/"]')) {
+      return node;
     }
     node = node.parentElement;
   }
-  return card;
+  return anchor.parentElement;
 }
 
-function profileUrlOf(card) {
-  const link = card.querySelector('a[href*="/in/"]');
-  if (!link || !link.href) return "";
-  return link.href.split("?")[0];
-}
+function parseCardFromAnchor(anchor) {
+  const aria = anchor.getAttribute("aria-label") || "";
+  const name = nameFromAria(aria);
+  const composeUrl = anchor.href || "";
+  const row = rowForAnchor(anchor);
+  const profileLink = [...(row ? row.querySelectorAll('a[href*="/in/"]') : [])].find(
+    (link) => normalize(link.innerText || "").length > 0
+  );
+  const profileUrl = profileLink ? profileLink.href.split("?")[0] : "";
+  const profileText = normalize((profileLink && profileLink.innerText) || "");
 
-function parseCard(card) {
-  const profileUrl = profileUrlOf(card);
-  const nameNode =
-    card.querySelector(".mn-connection-card__name") ||
-    card.querySelector('a[href*="/in/"] span[aria-hidden="true"]') ||
-    card.querySelector('a[href*="/in/"] span') ||
-    card.querySelector('a[href*="/in/"]');
-  const name = normalize((nameNode && (nameNode.innerText || nameNode.textContent)) || "")
-    .split("\\n")[0]
-    .replace(/\\s*[•·]\\s*(1st|2nd|3rd)\\+?.*$/i, "")
-    .trim();
+  let headline = profileText;
+  if (name && headline.toLowerCase().startsWith(name.toLowerCase())) {
+    headline = normalize(headline.slice(name.length));
+  }
 
-  const occupation =
-    card.querySelector(".mn-connection-card__occupation") ||
-    card.querySelector('[class*="occupation"]') ||
-    card.querySelector('[class*="headline"]') ||
-    card.querySelector(".entity-result__primary-subtitle");
-
-  let headline = occupation ? normalize(occupation.innerText || occupation.textContent || "") : "";
-
-  if (!headline) {
-    const lines = String(card.innerText || "")
+  if (!headline && row) {
+    const lines = String(row.innerText || "")
       .split(/\\n+/)
       .map((line) => normalize(line))
       .filter(Boolean);
     for (const line of lines) {
-      if (!line || line.toLowerCase() === "message") continue;
+      if (!line) continue;
       if (name && line.toLowerCase() === name.toLowerCase()) continue;
+      if (/^message$/i.test(line)) continue;
       if (/^connected on /i.test(line)) continue;
-      if (/^(1st|2nd|3rd)\\+?$/i.test(line)) continue;
-      if (/^\\d[,\\d]* connections?$/i.test(line)) continue;
       headline = line;
       break;
     }
   }
 
   return {
-    profileUrl,
     name,
     headline,
-    hasMessage: messageControls(card).length > 0,
+    profileUrl,
+    composeUrl,
+    messageAriaLabel: aria,
   };
 }
 
 function getCards() {
   const cards = [];
   const seen = new Set();
-
-  for (const node of connectionCardNodes()) {
-    const parsed = parseCard(node);
-    const key = parsed.profileUrl || (parsed.name + "|" + parsed.headline);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    cards.push(parsed);
-  }
-
-  if (cards.length) return cards;
-
-  for (const control of messageControls(document)) {
-    const card = cardForControl(control);
-    if (!card) continue;
-    const parsed = parseCard(card);
-    const key = parsed.profileUrl || (parsed.name + "|" + parsed.headline);
+  for (const anchor of messageAnchors()) {
+    const parsed = parseCardFromAnchor(anchor);
+    const key = parsed.composeUrl || parsed.profileUrl || parsed.messageAriaLabel;
     if (!key || seen.has(key)) continue;
     seen.add(key);
     cards.push(parsed);
@@ -173,148 +96,52 @@ function getCards() {
 
 function diagnoseConnectionsPage() {
   const cards = getCards();
-  const sampleButtons = messageControls(document).slice(0, 8).map((el) => ({
-    tag: el.tagName,
-    className: String(el.className || "").slice(0, 120),
-    label: controlLabel(el).slice(0, 120),
-  }));
   return {
     url: location.href,
-    connectionCardCount: document.querySelectorAll(".mn-connection-card, [class*='mn-connection-card']").length,
-    messageControlCount: messageControls(document).length,
+    messageAnchorCount: messageAnchors().length,
     parsedCardCount: cards.length,
     sampleCards: cards.slice(0, 5),
-    sampleButtons,
-    bodySnippet: normalize(document.body && document.body.innerText).slice(0, 240),
+    sampleAnchors: messageAnchors().slice(0, 3).map((a) => ({
+      aria: a.getAttribute("aria-label") || "",
+      href: a.getAttribute("href") || "",
+      text: normalize(a.innerText),
+    })),
   };
 }
 
-function clickMessageForProfile(profileUrl, name) {
-  const wantedUrl = (profileUrl || "").split("?")[0];
-  const wantedName = (name || "").toLowerCase();
-
-  for (const node of connectionCardNodes()) {
-    const parsed = parseCard(node);
-    if (wantedUrl && parsed.profileUrl === wantedUrl) {
-      const control = messageControls(node)[0];
-      if (control) {
-        control.click();
-        return true;
-      }
-    }
-    if (!wantedUrl && wantedName && parsed.name.toLowerCase() === wantedName) {
-      const control = messageControls(node)[0];
-      if (control) {
-        control.click();
-        return true;
-      }
-    }
+function inspectComposer() {
+  const compose =
+    document.querySelector(".msg-form__contenteditable") ||
+    document.querySelector("[contenteditable='true'][role='textbox']") ||
+    document.querySelector("[contenteditable='true']");
+  if (!compose) {
+    return { open: false, isNew: false, title: "", headline: "", eventCount: 0 };
   }
 
-  for (const control of messageControls(document)) {
-    const card = cardForControl(control);
-    if (!card) continue;
-    const parsed = parseCard(card);
-    if (wantedUrl && parsed.profileUrl === wantedUrl) {
-      control.click();
-      return true;
-    }
-    if (!wantedUrl && wantedName && parsed.name.toLowerCase() === wantedName) {
-      control.click();
-      return true;
-    }
-  }
-  return false;
-}
-
-function findMessageDialog() {
-  const dialogs = [
-    ...document.querySelectorAll(
-      ".msg-overlay-conversation-bubble, div[role='dialog'], .msg-form"
-    ),
-  ];
-  for (const dialog of dialogs) {
-    const text = normalize(dialog.innerText || "");
-    if (
-      /write a message/i.test(text) ||
-      /new message/i.test(text) ||
-      dialog.querySelector(".msg-form__contenteditable, textarea, [role='textbox']")
-    ) {
-      return dialog;
-    }
-  }
-  return (
-    document.querySelector(".msg-overlay-conversation-bubble") ||
-    document.querySelector("div[role='dialog']")
+  const events = document.querySelectorAll(
+    ".msg-s-event-listitem, .msg-s-message-list__event, li.msg-s-message-list__event, .msg-s-message-group"
   );
-}
+  const titleNode =
+    document.querySelector(".msg-overlay-bubble-header__title") ||
+    document.querySelector(".msg-entity-lockup__entity-title") ||
+    document.querySelector("h2.msg-title");
+  const title = normalize((titleNode && titleNode.innerText) || "");
+  const isNew = events.length === 0 || /new message/i.test(title);
 
-function dialogTitle(dialog) {
-  if (!dialog) return "";
-  const heading = dialog.querySelector(
-    "h2, h3, .msg-overlay-bubble-header__title, [class*='msg-overlay-bubble-header']"
-  );
-  return normalize((heading && heading.innerText) || "");
-}
-
-function isNewConversation(dialog) {
-  if (!dialog) return false;
-  const title = dialogTitle(dialog).toLowerCase();
-  if (title.includes("new message")) return true;
-
-  const eventItems = dialog.querySelectorAll(
-    ".msg-s-event-listitem, .msg-s-message-group, .msg-s-message-list__event, [class*='msg-s-event']"
-  );
-  if (eventItems.length > 0) return false;
-
-  return Boolean(
-    dialog.querySelector(
-      ".msg-form__contenteditable, textarea, [role='textbox'], [placeholder*='Write a message']"
-    )
-  );
-}
-
-function dialogHeadline(dialog) {
-  if (!dialog) return "";
-  const profileBits = [...dialog.querySelectorAll("p, span, div")]
-    .map((node) => normalize(node.innerText))
-    .filter((text) => text.length > 12 && text.length < 220);
-  for (const text of profileBits) {
-    if (/^new message$/i.test(text)) continue;
-    if (/write a message/i.test(text)) continue;
-    if (/^send$/i.test(text)) continue;
-    if (/messaging/i.test(text)) continue;
-    return text;
-  }
-  return "";
-}
-
-function closeMessageDialog(dialog) {
-  const root = dialog || findMessageDialog() || document;
-  const close = [...root.querySelectorAll("button")].find((button) => {
-    const label = controlLabel(button);
-    return label.includes("close") || label.includes("dismiss");
-  });
-  if (close) {
-    close.click();
-    return true;
-  }
-  return false;
-}
-
-function findSendButton(dialog) {
-  if (!dialog) return null;
-  return [...dialog.querySelectorAll("button")].find((button) => {
-    const label = controlLabel(button);
-    return label === "send" || label.includes("send message");
-  });
+  return {
+    open: true,
+    isNew,
+    title,
+    headline: "",
+    eventCount: events.length,
+  };
 }
 `;
 
 export const LinkedinMessagePage = {
     async open(driver) {
         await openLinkedinUrl(driver, CONNECTIONS_URL);
-        await linkedinSleep(1500);
+        await linkedinSleep(2500);
     },
 
     async sleep(ms) {
@@ -326,11 +153,7 @@ export const LinkedinMessagePage = {
         while (Date.now() < deadline) {
             const count = await driver.executeScript(`
                 ${PAGE_HELPERS}
-                return Math.max(
-                  getCards().length,
-                  document.querySelectorAll(".mn-connection-card, [class*='mn-connection-card']").length,
-                  messageControls(document).length
-                );
+                return messageAnchors().length;
             `);
             if (count > 0) {
                 return true;
@@ -357,43 +180,39 @@ export const LinkedinMessagePage = {
 
     async scrollConnections(driver) {
         await driver.executeScript(`
-            const lastCard =
-              document.querySelector(".mn-connection-card:last-of-type, [class*='mn-connection-card']:last-of-type") ||
-              document.querySelector("main li:last-of-type");
-            if (lastCard) lastCard.scrollIntoView({ block: "end", behavior: "instant" });
+            const anchors = [...document.querySelectorAll("a[href*='/messaging/compose']")];
+            const last = anchors[anchors.length - 1];
+            if (last) last.scrollIntoView({ block: "end", behavior: "instant" });
             const scroller =
-              document.querySelector(".scaffold-finite-scroll__content") ||
               document.querySelector("main") ||
               document.scrollingElement;
-            if (scroller) {
-              scroller.scrollTop = scroller.scrollHeight;
-            }
-            window.scrollBy(0, Math.max(900, window.innerHeight));
+            if (scroller) scroller.scrollTop = scroller.scrollHeight;
+            window.scrollBy(0, Math.max(1000, window.innerHeight));
         `);
     },
 
-    async openMessageForProfile(driver, profileUrl, name) {
-        return await driver.executeScript(
-            `
-            ${PAGE_HELPERS}
-            return clickMessageForProfile(arguments[0], arguments[1]);
-            `,
-            profileUrl,
-            name,
-        );
+    async openComposeUrl(driver, composeUrl) {
+        const url = String(composeUrl || "").trim();
+        if (!url) {
+            return false;
+        }
+        await openLinkedinUrl(driver, url);
+        return true;
     },
 
-    async waitForMessageDialog(driver, timeoutMs = 10000) {
+    async waitForMessageDialog(driver, timeoutMs = 20000) {
         const deadline = Date.now() + timeoutMs;
         while (Date.now() < deadline) {
             const ready = await driver.executeScript(`
-                ${PAGE_HELPERS}
-                return Boolean(findMessageDialog());
+                return Boolean(
+                  document.querySelector(".msg-form__contenteditable") ||
+                  document.querySelector("[contenteditable='true'][role='textbox']")
+                );
             `);
             if (ready) {
                 return true;
             }
-            await linkedinSleep(300);
+            await linkedinSleep(500);
         }
         return false;
     },
@@ -401,25 +220,14 @@ export const LinkedinMessagePage = {
     async inspectOpenDialog(driver) {
         return await driver.executeScript(`
             ${PAGE_HELPERS}
-            const dialog = findMessageDialog();
-            if (!dialog) {
-              return { open: false, isNew: false, title: "", headline: "" };
-            }
-            return {
-              open: true,
-              isNew: isNewConversation(dialog),
-              title: dialogTitle(dialog),
-              headline: dialogHeadline(dialog),
-            };
+            return inspectComposer();
         `);
     },
 
     async closeDialog(driver) {
-        await driver.executeScript(`
-            ${PAGE_HELPERS}
-            closeMessageDialog(findMessageDialog());
-        `);
-        await linkedinSleep(400);
+        // Compose is a full messaging page now — return to connections list.
+        await openLinkedinUrl(driver, CONNECTIONS_URL);
+        await linkedinSleep(1500);
     },
 
     async typeAndSend(driver, message) {
@@ -430,17 +238,15 @@ export const LinkedinMessagePage = {
 
         const composeSelectors = [
             ".msg-form__contenteditable",
-            ".msg-overlay-conversation-bubble [role='textbox']",
-            "div[role='dialog'] [role='textbox']",
-            "div[role='dialog'] textarea",
-            "[placeholder*='Write a message']",
+            "[contenteditable='true'][role='textbox']",
+            "[contenteditable='true']",
         ];
 
         let compose = null;
         for (const selector of composeSelectors) {
             const elements = await driver.findElements(By.css(selector));
             if (elements.length) {
-                compose = elements[0];
+                compose = elements[elements.length - 1];
                 break;
             }
         }
@@ -448,22 +254,50 @@ export const LinkedinMessagePage = {
             return "no-compose";
         }
 
-        await compose.click();
+        await driver.executeScript(
+            "arguments[0].scrollIntoView({block:'center'}); arguments[0].focus();",
+            compose,
+        );
+        await linkedinSleep(200);
+        try {
+            await compose.click();
+        } catch {
+            // focused
+        }
         await compose.sendKeys(Key.chord(Key.CONTROL, "a"));
         await compose.sendKeys(Key.BACK_SPACE);
         await compose.sendKeys(text);
-        await linkedinSleep(400);
+        await linkedinSleep(600);
+
+        const sendButtons = await driver.findElements(
+            By.css("button.msg-form__send-button"),
+        );
+        if (sendButtons.length) {
+            const send = sendButtons[sendButtons.length - 1];
+            try {
+                await send.click();
+            } catch {
+                await driver.executeScript("arguments[0].click();", send);
+            }
+            await linkedinSleep(800);
+            return "sent";
+        }
 
         const clicked = await driver.executeScript(`
-            ${PAGE_HELPERS}
-            const dialog = findMessageDialog();
-            const send = findSendButton(dialog);
+            const send = [...document.querySelectorAll("button")].find((button) => {
+              const label = ((button.getAttribute("aria-label") || "") + " " + (button.innerText || ""))
+                .replace(/\\s+/g, " ")
+                .trim()
+                .toLowerCase();
+              return label === "send" || label.includes("send");
+            });
             if (!send) return false;
-            if (send.disabled) send.removeAttribute("disabled");
+            send.disabled = false;
+            send.removeAttribute("disabled");
             send.click();
             return true;
         `);
-
+        await linkedinSleep(800);
         return clicked ? "sent" : "no-send";
     },
 };
