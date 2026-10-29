@@ -11,6 +11,11 @@ import {
     getLinkedinSearchRunAccountsByRunId,
     getLinkedinSearchRunDesignationsByRunId,
 } from "../db/linkedin_search_runs.js";
+import {
+    getLinkedinMessageRunById,
+    getLinkedinMessageRunAccountsByRunId,
+    getLinkedinMessageRunDesignationsByRunId,
+} from "../db/linkedin_message_runs.js";
 import { getReadableDate } from "./date.js";
 
 function formatDateTime(value) {
@@ -27,7 +32,7 @@ function buildAccountsText(accounts) {
     return accounts
         .map(
             (account) =>
-                `${account.user_name}: ${account.sent_count} connects (${account.status})`,
+                `${account.user_name}: ${account.sent_count} sent (${account.status})`,
         )
         .join("\n");
 }
@@ -179,5 +184,41 @@ export async function notifyLinkedinSearchRunComplete({ runId }) {
         });
     } catch (error) {
         logger.error(`notifyLinkedinSearchRunComplete: ${error}`);
+    }
+}
+
+export async function notifyLinkedinMessageRunComplete({ runId }) {
+    try {
+        const run = await getLinkedinMessageRunById({ id: runId });
+        if (!run) {
+            return;
+        }
+
+        const accounts = await getLinkedinMessageRunAccountsByRunId({ run_id: runId });
+        const designations = await getLinkedinMessageRunDesignationsByRunId({ run_id: runId });
+        const createdByUser = run.created_by
+            ? await getUserById({ id: run.created_by })
+            : null;
+        const recipients = await resolveRecipients({ created_by: run.created_by });
+
+        if (!recipients.length) {
+            logger.info(`linkedin message run #${runId} finished with no email recipients`);
+            return;
+        }
+
+        sendRunCompleteEmail({
+            recipients,
+            networkName: "MessageNetwork",
+            run,
+            accounts,
+            designations,
+            configLabel: "Per-account limit",
+            configValue: run.per_account_limit,
+            triggeredBy: createdByUser
+                ? `${createdByUser.full_name || "User"} <${createdByUser.email}>`
+                : "Unknown",
+        });
+    } catch (error) {
+        logger.error(`notifyLinkedinMessageRunComplete: ${error}`);
     }
 }

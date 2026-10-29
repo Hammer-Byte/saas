@@ -1,0 +1,126 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/linkedin" class="text-decoration-none">LinkedIn</a> /
+                Messages
+            </p>
+            <h1 class="h3 mb-1">LinkedIn Messages</h1>
+            <p class="text-secondary mb-0">
+                Store one or more message templates per designation for MessageNetwork.
+            </p>
+        </div>
+
+        <div id="linkedin-messages-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <form id="linkedin-message-form" class="row g-3 align-items-end" novalidate>
+                    <div class="col-md-4">
+                        <label for="linkedin-message-designation" class="form-label">Designation</label>
+                        <select
+                            class="form-select"
+                            id="linkedin-message-designation"
+                            name="designation_id"
+                            required
+                        >
+                            <option value="">Select designation</option>
+                            <% (designations || []).forEach(function (designation) { %>
+                                <option value="<%= designation.id %>"><%= designation.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="linkedin-message-text" class="form-label">Message</label>
+                        <textarea
+                            class="form-control"
+                            id="linkedin-message-text"
+                            name="message"
+                            rows="2"
+                            maxlength="8000"
+                            placeholder="Template message for this designation"
+                            required
+                        ></textarea>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100" id="linkedin-message-submit-btn">
+                            Add message
+                        </button>
+                    </div>
+                </form>
+                <% if (!designations || !designations.length) { %>
+                    <p class="small text-secondary mb-0 mt-3">
+                        No designations yet.
+                        <a href="/app/linkedin-designations">Add designations</a>
+                        first.
+                    </p>
+                <% } %>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div
+                    id="linkedin-messages-empty"
+                    class="p-4 p-md-5 text-center text-secondary <%= messages && messages.length ? 'd-none' : '' %>"
+                >
+                    No messages yet. Add one above.
+                </div>
+                <div
+                    class="table-responsive <%= !messages || !messages.length ? 'd-none' : '' %>"
+                    id="linkedin-messages-table-wrap"
+                >
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Designation</th>
+                                <th scope="col">Message</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="linkedin-messages-tbody">
+                            <% (messages || []).forEach(function (row) { %>
+                                <tr data-id="<%= row.id %>">
+                                    <td><%= row.id %></td>
+                                    <td><%= row.designation_name %></td>
+                                    <td class="text-break" style="max-width: 36rem;"><%= row.message %></td>
+                                    <td>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-danger linkedin-message-delete-btn"
+                                            data-id="<%= row.id %>"
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/linkedin-messages.js" defer></script>
+<%- include('common/footer') %>

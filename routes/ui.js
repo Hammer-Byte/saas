@@ -51,6 +51,7 @@ import { getAllGemTenderKeywords, getGemTenderKeywordById } from "../db/gem_tend
 import { getGemKeywordTendersByKeywordId } from "../db/gem_keyword_tenders.js";
 import { getAllLinkedinUsers } from "../db/linkedin_users.js";
 import { getAllLinkedinDesignations } from "../db/linkedin_designations.js";
+import { getAllLinkedinDesignationMessages } from "../db/linkedin_designation_messages.js";
 import {
     getAllLinkedinGrowRunAccounts,
     getAllLinkedinGrowRunDesignations,
@@ -61,6 +62,11 @@ import {
     getAllLinkedinSearchRunDesignations,
     getAllLinkedinSearchRuns,
 } from "../db/linkedin_search_runs.js";
+import {
+    getAllLinkedinMessageRunAccounts,
+    getAllLinkedinMessageRunDesignations,
+    getAllLinkedinMessageRuns,
+} from "../db/linkedin_message_runs.js";
 import { processing as gemTendereProcessing } from "../libs/tenderer.js";
 import { processing as linkedinProcessing } from "../libs/linkedin_browser.js";
 import { getReadableDate } from "../libs/date.js";
@@ -712,6 +718,59 @@ export const uiRoutes = new Elysia()
 
                 return render("linkedin-search-network-history", appPage(session, {
                     title: "SearchNetwork History — HammerByte",
+                    runs,
+                }));
+            })
+            .get("/app/linkedin-messages", async ({ render, session }) =>
+                render("linkedin-messages", appPage(session, {
+                    title: "LinkedIn Messages — HammerByte",
+                    designations: await getAllLinkedinDesignations(),
+                    messages: await getAllLinkedinDesignationMessages(),
+                })),
+            )
+            .get("/app/linkedin-message-network", async ({ render, session }) => {
+                const designations = await getAllLinkedinDesignations();
+                const messages = await getAllLinkedinDesignationMessages();
+                const messageCounts = {};
+                for (const row of messages) {
+                    messageCounts[row.designation_id] = (messageCounts[row.designation_id] || 0) + 1;
+                }
+
+                return render("linkedin-message-network", appPage(session, {
+                    title: "MessageNetwork — HammerByte",
+                    designations,
+                    linkedinUsers: await getAllLinkedinUsers(),
+                    messageCounts,
+                    processing: linkedinProcessing,
+                }));
+            })
+            .get("/app/linkedin-message-network-history", async ({ render, session }) => {
+                const messageRuns = await getAllLinkedinMessageRuns();
+                const messageRunAccounts = await getAllLinkedinMessageRunAccounts();
+                const messageRunDesignations = await getAllLinkedinMessageRunDesignations();
+
+                const accountsByRunId = new Map();
+                for (const messageRunAccount of messageRunAccounts) {
+                    const list = accountsByRunId.get(messageRunAccount.run_id) || [];
+                    list.push(messageRunAccount);
+                    accountsByRunId.set(messageRunAccount.run_id, list);
+                }
+
+                const designationsByRunId = new Map();
+                for (const messageRunDesignation of messageRunDesignations) {
+                    const list = designationsByRunId.get(messageRunDesignation.run_id) || [];
+                    list.push(messageRunDesignation);
+                    designationsByRunId.set(messageRunDesignation.run_id, list);
+                }
+
+                const runs = messageRuns.map((messageRun) => ({
+                    ...messageRun,
+                    accounts: accountsByRunId.get(messageRun.id) || [],
+                    designations: designationsByRunId.get(messageRun.id) || [],
+                }));
+
+                return render("linkedin-message-network-history", appPage(session, {
+                    title: "MessageNetwork History — HammerByte",
                     runs,
                 }));
             }),

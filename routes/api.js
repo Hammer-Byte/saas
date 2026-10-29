@@ -29,6 +29,8 @@ import linkedinUsers from "./apps/linkedin_users.js";
 import linkedinDesignations from "./apps/linkedin_designations.js";
 import linkedinGrowNetwork from "./apps/linkedin_grow_network.js";
 import linkedinSearchNetwork from "./apps/linkedin_search_network.js";
+import linkedinDesignationMessages from "./apps/linkedin_designation_messages.js";
+import linkedinMessageNetwork from "./apps/linkedin_message_network.js";
 import roles from "./apps/roles.js";
 import authorities from "./apps/authorities.js";
 import roleAuthorities from "./apps/role_authorities.js";
@@ -70,6 +72,8 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/linkedin-designations", linkedinDesignations)
             .group("/linkedin-grow-network", linkedinGrowNetwork)
             .group("/linkedin-search-network", linkedinSearchNetwork)
+            .group("/linkedin-designation-messages", linkedinDesignationMessages)
+            .group("/linkedin-message-network", linkedinMessageNetwork)
             .group("/roles", roles)
             .group("/authorities", authorities)
             .group("/role-authorities", roleAuthorities)
