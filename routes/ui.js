@@ -79,6 +79,7 @@ async function getSharedAssetDataUri({ fileName, mimeType }) {
 
 export const uiRoutes = new Elysia()
     .get("/", ({ render }) => render("index"))
+    .get("/products/your-institute", ({ render }) => render("products-your-institute"))
     .get("/robots.txt", () => Bun.file(join(import.meta.dir, "../public/robots.txt")))
     .get("/sitemap.xml", () => Bun.file(join(import.meta.dir, "../public/sitemap.xml")))
     .get("/llms.txt", () => Bun.file(join(import.meta.dir, "../public/llms.txt")))

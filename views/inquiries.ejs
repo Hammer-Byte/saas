@@ -35,9 +35,12 @@
                             <thead class="table-light">
                                 <tr>
                                     <th scope="col">ID</th>
+                                    <th scope="col">Source</th>
                                     <th scope="col">Full Name</th>
                                     <th scope="col">Phone</th>
                                     <th scope="col">Email</th>
+                                    <th scope="col">Institute</th>
+                                    <th scope="col">City</th>
                                     <th scope="col">Created On</th>
                                 </tr>
                             </thead>
@@ -45,9 +48,12 @@
                                 <% inquiries.forEach(function (inquiry) { %>
                                     <tr>
                                         <td><%= inquiry.id %></td>
-                                        <td><%= inquiry.full_name %></td>
+                                        <td><%= inquiry.source || "website" %></td>
+                                        <td><%= inquiry.full_name || "-" %></td>
                                         <td><%= inquiry.phone %></td>
                                         <td><%= inquiry.email || "-" %></td>
+                                        <td><%= inquiry.institute_name || "-" %></td>
+                                        <td><%= inquiry.city || "-" %></td>
                                         <td
                                             data-readable-date="<%= inquiry.created_on || '' %>"
                                             data-date-format="DD/MM/YYYY HH:mm:ss"

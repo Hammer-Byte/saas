@@ -225,9 +225,12 @@ export async function generateDBTables() {
         )`,
         `CREATE TABLE IF NOT EXISTS INQUIRIES (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            full_name VARCHAR(128) NOT NULL,
+            full_name VARCHAR(128) NULL,
             phone VARCHAR(13) NOT NULL,
             email VARCHAR(255) NULL,
+            source VARCHAR(64) NULL,
+            institute_name VARCHAR(128) NULL,
+            city VARCHAR(64) NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP
         )`,
         `CREATE TABLE IF NOT EXISTS CUSTOMER_INVOICES (

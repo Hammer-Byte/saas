@@ -5,16 +5,20 @@ import { ERRORS } from "../../constants.js";
 export default function (app) {
     return app.post("/", addInquiry, {
         body: t.Object({
-            full_name: t.String({
-                minLength: 1,
-                maxLength: 128,
-                error: ERRORS.FULL_NAME_REQUIRED,
-            }),
             phone: t.String({
                 minLength: 1,
                 maxLength: 13,
                 error: ERRORS.PHONE_REQUIRED,
             }),
+            full_name: t.Optional(
+                t.Union([
+                    t.String({
+                        maxLength: 128,
+                    }),
+                    t.Literal(""),
+                    t.Null(),
+                ]),
+            ),
             email: t.Optional(
                 t.Union([
                     t.String({
@@ -26,11 +30,42 @@ export default function (app) {
                     t.Null(),
                 ]),
             ),
+            source: t.Optional(
+                t.Union([
+                    t.String({
+                        minLength: 1,
+                        maxLength: 64,
+                    }),
+                    t.Literal(""),
+                    t.Null(),
+                ]),
+            ),
+            institute_name: t.Optional(
+                t.Union([
+                    t.String({
+                        minLength: 1,
+                        maxLength: 128,
+                    }),
+                    t.Literal(""),
+                    t.Null(),
+                ]),
+            ),
+            city: t.Optional(
+                t.Union([
+                    t.String({
+                        minLength: 1,
+                        maxLength: 64,
+                    }),
+                    t.Literal(""),
+                    t.Null(),
+                ]),
+            ),
         }),
         detail: {
             tags: ["Inquiries"],
             summary: "Submit a contact inquiry",
-            description: "Stores a website inquiry. Email is optional; full_name and phone are required.",
+            description:
+                "Stores a website inquiry. Phone is required; full_name, email, source, institute_name, and city are optional.",
         },
     });
 }
