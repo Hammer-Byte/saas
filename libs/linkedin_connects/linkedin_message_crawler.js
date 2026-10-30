@@ -6,49 +6,26 @@ import {
 } from "./linkedin_message_pom.js";
 import { updateLinkedinMessageRunAccountById } from "../../db/linkedin_message_runs.js";
 
-const MAX_SCROLLS = 20;
+const MAX_EMPTY_SCROLLS = 8;
+const MAX_SCROLLS = 80;
 const SCROLL_WAIT_MS = 2000;
 const DELAY_MS = 2500;
 
-async function collectConnectionCards(driver, maxNeeded) {
-    const byKey = new Map();
+function cardKey(card) {
+    return card?.composeUrl || card?.profileUrl || card?.messageAriaLabel || "";
+}
 
-    for (let pass = 0; pass <= MAX_SCROLLS; pass++) {
-        const cards = await LinkedinMessagePage.readCards(driver);
-        for (const card of cards) {
-            const key = card.composeUrl || card.profileUrl || card.messageAriaLabel;
-            if (!key || byKey.has(key)) {
-                continue;
-            }
-            byKey.set(key, card);
-        }
+async function findNextUnseenCard(driver, seen) {
+    const cards = await LinkedinMessagePage.readCards(driver);
+    return cards.find((card) => {
+        const key = cardKey(card);
+        return key && !seen.has(key);
+    }) || null;
+}
 
-        if (byKey.size >= maxNeeded) {
-            break;
-        }
-        if (pass === MAX_SCROLLS) {
-            break;
-        }
-
-        const before = byKey.size;
-        await LinkedinMessagePage.scrollConnections(driver);
-        await LinkedinMessagePage.sleep(SCROLL_WAIT_MS);
-        if (byKey.size === before) {
-            // one more read after scroll settling
-            const more = await LinkedinMessagePage.readCards(driver);
-            for (const card of more) {
-                const key = card.composeUrl || card.profileUrl || card.messageAriaLabel;
-                if (key && !byKey.has(key)) {
-                    byKey.set(key, card);
-                }
-            }
-            if (byKey.size === before) {
-                break;
-            }
-        }
-    }
-
-    return [...byKey.values()];
+async function returnToConnections(driver) {
+    await LinkedinMessagePage.closeDialog(driver);
+    await LinkedinMessagePage.waitForCards(driver);
 }
 
 export async function messageNewConnections({
@@ -73,36 +50,58 @@ export async function messageNewConnections({
         return { sent: 0, status: "completed" };
     }
 
-    // Collect more cards than the send limit so designation/new filters still have room.
-    const harvestTarget = Math.max(maxMessagesPerAccount * 8, 40);
-    const cards = await collectConnectionCards(driver, harvestTarget);
-    logger.info(`linkedin message harvested ${cards.length} connection card(s)`);
-
+    const seen = new Set();
     let sent = 0;
+    let emptyScrolls = 0;
+    let totalScrolls = 0;
     const accountStatus = "completed";
 
-    for (const card of cards) {
-        if (sent >= maxMessagesPerAccount) {
-            break;
+    logger.info(
+        `linkedin message scrolling until ${maxMessagesPerAccount} send(s) (no pre-harvest batch)`,
+    );
+
+    while (sent < maxMessagesPerAccount && totalScrolls <= MAX_SCROLLS) {
+        const next = await findNextUnseenCard(driver, seen);
+
+        if (!next) {
+            if (emptyScrolls >= MAX_EMPTY_SCROLLS) {
+                logger.info(
+                    `linkedin message stopping — no new cards after ${emptyScrolls} empty scroll(s)`,
+                );
+                break;
+            }
+
+            totalScrolls += 1;
+            emptyScrolls += 1;
+            logger.info(
+                `linkedin message scroll ${totalScrolls} — looking for more cards (${sent}/${maxMessagesPerAccount} sent)`,
+            );
+            await LinkedinMessagePage.scrollConnections(driver);
+            await LinkedinMessagePage.sleep(SCROLL_WAIT_MS);
+            continue;
         }
 
-        const personLabel = card.name || card.headline || "unknown";
-        if (!card.composeUrl) {
+        emptyScrolls = 0;
+        const key = cardKey(next);
+        seen.add(key);
+
+        const personLabel = next.name || next.headline || "unknown";
+        if (!next.composeUrl) {
             logger.info(`linkedin message skip ${personLabel} — missing compose url`);
             continue;
         }
 
-        const opened = await LinkedinMessagePage.openComposeUrl(driver, card.composeUrl);
+        const opened = await LinkedinMessagePage.openComposeUrl(driver, next.composeUrl);
         if (!opened) {
             logger.info(`linkedin message skip ${personLabel} — could not open compose`);
+            await returnToConnections(driver);
             continue;
         }
 
         const dialogReady = await LinkedinMessagePage.waitForMessageDialog(driver);
         if (!dialogReady) {
             logger.info(`linkedin message skip ${personLabel} — compose box did not appear`);
-            await LinkedinMessagePage.closeDialog(driver);
-            await LinkedinMessagePage.waitForCards(driver);
+            await returnToConnections(driver);
             continue;
         }
 
@@ -113,32 +112,28 @@ export async function messageNewConnections({
             logger.info(
                 `linkedin message skip ${personLabel} — existing conversation (events=${dialog?.eventCount ?? "?"})`,
             );
-            await LinkedinMessagePage.closeDialog(driver);
-            await LinkedinMessagePage.waitForCards(driver);
+            await returnToConnections(driver);
             continue;
         }
 
-        const headline = card.headline || "";
+        const headline = next.headline || "";
         const pool = matchDesignationPool(headline, designationPools);
         if (!pool) {
             logger.info(
                 `linkedin message skip ${personLabel} — no designation includes match for "${headline}"`,
             );
-            await LinkedinMessagePage.closeDialog(driver);
-            await LinkedinMessagePage.waitForCards(driver);
+            await returnToConnections(driver);
             continue;
         }
 
         const message = pickRandomMessage(pool.messages);
         if (!message) {
-            await LinkedinMessagePage.closeDialog(driver);
-            await LinkedinMessagePage.waitForCards(driver);
+            await returnToConnections(driver);
             continue;
         }
 
         const result = await LinkedinMessagePage.typeAndSend(driver, message);
-        await LinkedinMessagePage.closeDialog(driver);
-        await LinkedinMessagePage.waitForCards(driver);
+        await returnToConnections(driver);
 
         if (result !== "sent") {
             logger.info(`linkedin message skip ${personLabel} — send failed (${result})`);
