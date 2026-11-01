@@ -1,6 +1,8 @@
 /**
  * HammerByte Server Supervisor — parent process.
- * Usage: run supervisor.exe as Administrator once to register boot task.
+ * Usage: run supervisor.exe as Administrator once.
+ * Installs itself to %ProgramData%\HammerByte\ServerMonitor and registers a boot task.
+ * After reboot it runs as SYSTEM (no window) — check supervisor.log in that folder.
  */
 
 import {
@@ -11,9 +13,10 @@ import {
     rename,
     unlink,
     access,
+    copyFile,
     constants as fsConstants,
 } from "node:fs/promises";
-import { dirname, join, basename } from "node:path";
+import { dirname, join, basename, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 
 const HOST = "https://hammerbyte.co.in";
@@ -22,16 +25,22 @@ const TASK_NAME = "HammerByteServerMonitor";
 const TAG_FILE = ".server-tag";
 const AGENT_FILE = "agent.exe";
 const LOG_FILE = "supervisor.log";
-const TASK_XML_FILE = "hammerbyte-monitor-task.xml";
+const TASK_PS1_FILE = "hammerbyte-register-task.ps1";
+const SUPERVISOR_FILE = "supervisor.exe";
 
 let logDirectory = null;
 
-function installDirectory() {
-    const executableName = basename(process.execPath).toLowerCase();
-    if (executableName === "supervisor.exe" || executableName === "supervisor") {
-        return dirname(process.execPath);
-    }
-    return import.meta.dir;
+function targetInstallDirectory() {
+    const programData = process.env.PROGRAMDATA || "C:\\ProgramData";
+    return join(programData, "HammerByte", "ServerMonitor");
+}
+
+function normalizePath(path) {
+    return resolve(path).replaceAll("/", "\\").toLowerCase();
+}
+
+function isSameDirectory(left, right) {
+    return normalizePath(left) === normalizePath(right);
 }
 
 async function log(message) {
@@ -93,63 +102,119 @@ async function isElevated() {
     }
 }
 
-function escapeXml(value) {
-    return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&apos;");
+function psSingleQuote(value) {
+    return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-function buildTaskXml({ supervisorPath, directory }) {
-    const command = escapeXml(supervisorPath);
-    const workingDirectory = escapeXml(directory);
-    // Boot + 60s delay so networking is usually up; restart if the process dies.
-    return `<?xml version="1.0" encoding="UTF-16"?>
-<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo>
-    <Description>HammerByte Server Monitor Supervisor</Description>
-  </RegistrationInfo>
-  <Triggers>
-    <BootTrigger>
-      <Enabled>true</Enabled>
-      <Delay>PT1M</Delay>
-    </BootTrigger>
-  </Triggers>
-  <Principals>
-    <Principal id="Author">
-      <UserId>S-1-5-18</UserId>
-      <RunLevel>HighestAvailable</RunLevel>
-    </Principal>
-  </Principals>
-  <Settings>
-    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
-    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-    <AllowHardTerminate>true</AllowHardTerminate>
-    <StartWhenAvailable>true</StartWhenAvailable>
-    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
-    <AllowStartOnDemand>true</AllowStartOnDemand>
-    <Enabled>true</Enabled>
-    <Hidden>false</Hidden>
-    <RunOnlyIfIdle>false</RunOnlyIfIdle>
-    <WakeToRun>false</WakeToRun>
-    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
-    <Priority>7</Priority>
-    <RestartOnFailure>
-      <Interval>PT1M</Interval>
-      <Count>999</Count>
-    </RestartOnFailure>
-  </Settings>
-  <Actions Context="Author">
-    <Exec>
-      <Command>${command}</Command>
-      <WorkingDirectory>${workingDirectory}</WorkingDirectory>
-    </Exec>
-  </Actions>
-</Task>
-`;
+async function runCaptured(command, args) {
+    const processResult = Bun.spawn([command, ...args], {
+        stdout: "pipe",
+        stderr: "pipe",
+    });
+    const exitCode = await processResult.exited;
+    const stdout = (await new Response(processResult.stdout).text()).trim();
+    const stderr = (await new Response(processResult.stderr).text()).trim();
+    return { exitCode, stdout, stderr };
+}
+
+async function queryScheduledTask() {
+    const result = await runCaptured("schtasks", [
+        "/Query",
+        "/TN",
+        TASK_NAME,
+        "/V",
+        "/FO",
+        "LIST",
+    ]);
+    if (result.exitCode !== 0) {
+        await log(`task query: NOT FOUND (${result.stderr || result.stdout || `exit ${result.exitCode}`})`);
+        return false;
+    }
+
+    const lines = result.stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) =>
+            /^(TaskName|Status|Last Run Time|Last Result|Next Run Time|Task To Run|Run As User):/i.test(
+                line,
+            ),
+        );
+    for (const line of lines) {
+        await log(`task query: ${line}`);
+    }
+    return true;
+}
+
+async function stopScheduledTask() {
+    await runCaptured("schtasks", ["/End", "/TN", TASK_NAME]);
+}
+
+async function copySupervisorToInstallDir({ sourceExe, targetExe }) {
+    try {
+        await copyFile(sourceExe, targetExe);
+        return true;
+    } catch (error) {
+        const stagingPath = `${targetExe}.new`;
+        try {
+            await copyFile(sourceExe, stagingPath);
+            await stopScheduledTask();
+            await Bun.sleep(1500);
+            try {
+                if (await fileExists(targetExe)) {
+                    await unlink(targetExe);
+                }
+            } catch {
+                // ignore
+            }
+            await rename(stagingPath, targetExe);
+            return true;
+        } catch (innerError) {
+            throw new Error(
+                `failed to install supervisor.exe: ${innerError?.message || error?.message || innerError}`,
+            );
+        }
+    }
+}
+
+/**
+ * If launched from Downloads (or anywhere else), copy into ProgramData and
+ * re-launch from there so the stable install dir owns tag/agent/logs/task.
+ */
+async function ensureInstalledLocation() {
+    const targetDir = targetInstallDirectory();
+    const sourceDir = dirname(process.execPath);
+    const sourceExe = process.execPath;
+    const targetExe = join(targetDir, SUPERVISOR_FILE);
+
+    await mkdir(targetDir, { recursive: true });
+
+    if (isSameDirectory(sourceDir, targetDir)) {
+        return targetDir;
+    }
+
+    console.log(`[supervisor] installing to ${targetDir}`);
+    await copySupervisorToInstallDir({ sourceExe, targetExe });
+
+    const sourceTag = join(sourceDir, TAG_FILE);
+    const targetTag = join(targetDir, TAG_FILE);
+    if ((await fileExists(sourceTag)) && !(await fileExists(targetTag))) {
+        await copyFile(sourceTag, targetTag);
+        console.log("[supervisor] migrated server tag to install directory");
+    }
+
+    console.log("[supervisor] launching installed copy");
+    Bun.spawn([targetExe], {
+        cwd: targetDir,
+        stdout: "ignore",
+        stderr: "ignore",
+        stdin: "ignore",
+        windowsHide: false,
+    });
+
+    console.log(`[supervisor] installed at ${targetDir}`);
+    console.log("[supervisor] you can delete the Downloads copy; use the ProgramData install from now on");
+    await Bun.sleep(1000);
+    process.exit(0);
 }
 
 async function ensureScheduledTask({ directory }) {
@@ -161,46 +226,86 @@ async function ensureScheduledTask({ directory }) {
     const elevated = await isElevated();
     if (!elevated) {
         await log(
-            "not elevated; Task Scheduler NOT registered — re-run supervisor.exe as Administrator once",
+            "WARNING: not elevated — boot task will NOT be registered. Right-click supervisor.exe → Run as administrator once.",
         );
+        await queryScheduledTask();
         return;
     }
 
-    const supervisorPath = join(directory, "supervisor.exe");
+    const supervisorPath = join(directory, SUPERVISOR_FILE);
     if (!(await fileExists(supervisorPath))) {
         await log(`cannot register task; missing ${supervisorPath}`);
         return;
     }
 
-    const xmlPath = join(directory, TASK_XML_FILE);
-    const xml = buildTaskXml({ supervisorPath, directory });
-    // schtasks expects UTF-16 LE with BOM for /XML
-    await writeFile(xmlPath, Buffer.from(`\ufeff${xml}`, "utf16le"));
+    const scriptPath = join(directory, TASK_PS1_FILE);
+    const script = `
+$ErrorActionPreference = 'Stop'
+$taskName = ${psSingleQuote(TASK_NAME)}
+$exe = ${psSingleQuote(supervisorPath)}
+$dir = ${psSingleQuote(directory)}
+$action = New-ScheduledTaskAction -Execute $exe -WorkingDirectory $dir
+$trigger = New-ScheduledTaskTrigger -AtStartup
+$trigger.Delay = 'PT1M'
+$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+$settings = New-ScheduledTaskSettingsSet \`
+  -AllowStartIfOnBatteries \`
+  -DontStopIfGoingOnBatteries \`
+  -StartWhenAvailable \`
+  -RestartCount 999 \`
+  -RestartInterval (New-TimeSpan -Minutes 1) \`
+  -ExecutionTimeLimit ([TimeSpan]::Zero) \`
+  -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+Write-Output 'registered'
+`;
+    await writeFile(scriptPath, script, "utf8");
 
-    const processResult = Bun.spawn(
-        ["schtasks", "/Create", "/TN", TASK_NAME, "/XML", xmlPath, "/F"],
-        {
-            stdout: "pipe",
-            stderr: "pipe",
-        },
-    );
-    const exitCode = await processResult.exited;
-    const stdout = (await new Response(processResult.stdout).text()).trim();
-    const stderr = (await new Response(processResult.stderr).text()).trim();
-
-    if (exitCode === 0) {
-        await log("task scheduler registered/updated (boot + 60s, SYSTEM, restart on failure)");
-    } else {
-        await log(
-            `task scheduler registration failed: ${stderr || stdout || `exit ${exitCode}`}`,
-        );
-    }
+    const ps = await runCaptured("powershell.exe", [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        scriptPath,
+    ]);
 
     try {
-        await unlink(xmlPath);
+        await unlink(scriptPath);
     } catch {
-        // keep xml if unlink fails; harmless
+        // ignore
     }
+
+    if (ps.exitCode === 0) {
+        await log("task scheduler registered (AtStartup + 60s delay, SYSTEM, restart on failure)");
+    } else {
+        await log(
+            `PowerShell task registration failed: ${ps.stderr || ps.stdout || `exit ${ps.exitCode}`}`,
+        );
+        await log("falling back to schtasks ONSTART");
+        const fallback = await runCaptured("schtasks", [
+            "/Create",
+            "/TN",
+            TASK_NAME,
+            "/SC",
+            "ONSTART",
+            "/RL",
+            "HIGHEST",
+            "/RU",
+            "SYSTEM",
+            "/F",
+            "/TR",
+            supervisorPath,
+        ]);
+        if (fallback.exitCode === 0) {
+            await log("task scheduler registered via schtasks fallback");
+        } else {
+            await log(
+                `schtasks fallback failed: ${fallback.stderr || fallback.stdout || `exit ${fallback.exitCode}`}`,
+            );
+        }
+    }
+
+    await queryScheduledTask();
 }
 
 async function downloadAgent({ directory }) {
@@ -277,12 +382,18 @@ async function runAgentOnce({ tag, directory }) {
 async function main() {
     printBanner();
 
-    const directory = installDirectory();
+    if (process.platform === "win32") {
+        await ensureInstalledLocation();
+    }
+
+    const directory = targetInstallDirectory();
     logDirectory = directory;
     await mkdir(directory, { recursive: true });
 
+    await log("==== supervisor start ====");
     await log(`host ${HOST}`);
     await log(`install dir ${directory}`);
+    await log(`pid ${process.pid}`);
 
     const tag = await loadOrCreateTag(directory);
     await log(`tag ${tag}`);
