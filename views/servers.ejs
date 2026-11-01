@@ -15,68 +15,21 @@
 
 <main class="bg-light min-vh-100">
     <div class="container py-5">
-        <div class="mb-4">
-            <p class="text-secondary small mb-1">
-                <a href="/app" class="text-decoration-none">App</a> / Servers
-            </p>
-            <h1 class="h3 mb-1">Servers</h1>
-            <p class="text-secondary mb-0">Monitor Windows agents, name tags, and publish supervisor/agent releases.</p>
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> / Servers
+                </p>
+                <h1 class="h3 mb-1">Servers</h1>
+                <p class="text-secondary mb-0">Name tags, review metrics logs, and manage stored log history.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-sm btn-outline-secondary" href="/public/server-monitors/supervisor.exe">Download supervisor</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/public/server-monitors/agent.exe">Download agent</a>
+            </div>
         </div>
 
         <div id="servers-alert" class="alert d-none" role="alert"></div>
-
-        <div class="row g-4 mb-4">
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body p-4">
-                        <h2 class="h5 mb-1">Supervisor release</h2>
-                        <p class="text-secondary small mb-3">
-                            Latest:
-                            <% if (latestSupervisor) { %>
-                                <strong>v<%= latestSupervisor.version %></strong>
-                                <a class="ms-2" href="/api/servers/supervisor">Download</a>
-                            <% } else { %>
-                                <span>none published</span>
-                            <% } %>
-                        </p>
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-primary"
-                            data-bs-toggle="modal"
-                            data-bs-target="#release-modal"
-                            data-kind="supervisor"
-                        >
-                            Upload supervisor.exe
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body p-4">
-                        <h2 class="h5 mb-1">Agent release</h2>
-                        <p class="text-secondary small mb-3">
-                            Latest:
-                            <% if (latestAgent) { %>
-                                <strong>v<%= latestAgent.version %></strong>
-                                <a class="ms-2" href="/api/servers/agent">Download</a>
-                            <% } else { %>
-                                <span>none published</span>
-                            <% } %>
-                        </p>
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-primary"
-                            data-bs-toggle="modal"
-                            data-bs-target="#release-modal"
-                            data-kind="agent"
-                        >
-                            Upload agent.exe
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 pt-4 px-4">
@@ -147,35 +100,6 @@
         </div>
     </div>
 </main>
-
-<div class="modal fade" id="release-modal" tabindex="-1" aria-labelledby="release-modal-label" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form id="release-form" novalidate>
-                <div class="modal-header">
-                    <h2 class="modal-title h5" id="release-modal-label">Upload release</h2>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="release-form-alert" class="alert d-none" role="alert"></div>
-                    <input type="hidden" name="kind" id="release-kind" value="agent" />
-                    <div class="mb-3">
-                        <label for="release-version" class="form-label">Version</label>
-                        <input type="text" class="form-control" id="release-version" name="version" maxlength="32" required placeholder="1.0.0" />
-                    </div>
-                    <div class="mb-0">
-                        <label for="release-file" class="form-label">EXE file</label>
-                        <input type="file" class="form-control" id="release-file" name="file" accept=".exe,application/octet-stream" required />
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="release-submit-btn">Publish</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 <div class="modal fade" id="rename-modal" tabindex="-1" aria-labelledby="rename-modal-label" aria-hidden="true">
     <div class="modal-dialog">

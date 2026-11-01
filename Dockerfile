@@ -49,6 +49,8 @@ RUN bun install --frozen-lockfile
 
 COPY . .
 
+RUN bun run build:windows-agents
+
 VOLUME ["/app/media"]
 
 EXPOSE 3000

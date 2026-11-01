@@ -13,10 +13,7 @@ try {
     logger.success("Email Transporter Ready");
     await bucketizer.init();
     logger.success("Bucketizer Ready");
-    filer.prepareDirectories([
-        Bun.env.DIRECTORY_MEDIA,
-        `${Bun.env.DIRECTORY_MEDIA}/server-monitor-releases`,
-    ]);
+    filer.prepareDirectories([Bun.env.DIRECTORY_MEDIA]);
     logger.success("Required Directories Ready");
     await generateDBTables();
     logger.success("Database Ready (Tables Verified)");

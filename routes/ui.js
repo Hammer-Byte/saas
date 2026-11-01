@@ -32,10 +32,6 @@ import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
 import { getAllInternalDocuments } from "../db/internal_documents.js";
 import { getAllServers, getServerById } from "../db/servers.js";
 import { getServerMetricsByServerId } from "../db/server_metrics.js";
-import {
-    getAllServerMonitorReleases,
-    getLatestActiveServerMonitorReleaseByKind,
-} from "../db/server_monitor_releases.js";
 import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
 import {
     getAllCustomerInvoices,
@@ -380,13 +376,6 @@ export const uiRoutes = new Elysia()
                 render("servers", appPage(session, {
                     title: "Servers — HammerByte",
                     servers: await getAllServers(),
-                    releases: await getAllServerMonitorReleases(),
-                    latestAgent: await getLatestActiveServerMonitorReleaseByKind({
-                        kind: "agent",
-                    }),
-                    latestSupervisor: await getLatestActiveServerMonitorReleaseByKind({
-                        kind: "supervisor",
-                    }),
                 })),
             )
             .get("/app/servers/:id", async ({ render, session, params, redirect }) => {

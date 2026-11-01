@@ -2,11 +2,6 @@
     const pageAlert = document.getElementById("servers-alert");
     const selectAll = document.getElementById("select-all-servers");
     const deleteLogsButton = document.getElementById("delete-logs-btn");
-    const releaseForm = document.getElementById("release-form");
-    const releaseFormAlert = document.getElementById("release-form-alert");
-    const releaseModalElement = document.getElementById("release-modal");
-    const releaseKindInput = document.getElementById("release-kind");
-    const releaseModalLabel = document.getElementById("release-modal-label");
     const renameForm = document.getElementById("rename-form");
     const renameFormAlert = document.getElementById("rename-form-alert");
     const renameModalElement = document.getElementById("rename-modal");
@@ -59,60 +54,6 @@
             }
             syncDeleteButton();
         });
-    });
-
-    releaseModalElement?.addEventListener("show.bs.modal", (event) => {
-        hideAlert(releaseFormAlert);
-        releaseForm?.reset();
-        const trigger = event.relatedTarget;
-        const kind = trigger?.getAttribute("data-kind") || "agent";
-        if (releaseKindInput) releaseKindInput.value = kind;
-        if (releaseModalLabel) {
-            releaseModalLabel.textContent =
-                kind === "supervisor" ? "Upload supervisor.exe" : "Upload agent.exe";
-        }
-    });
-
-    releaseForm?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        hideAlert(releaseFormAlert);
-
-        const kind = releaseKindInput?.value || "agent";
-        const version = document.getElementById("release-version")?.value?.trim() || "";
-        const fileInput = document.getElementById("release-file");
-        const file = fileInput?.files?.[0];
-
-        if (!version || !file) {
-            showAlert(releaseFormAlert, "Version and EXE file are required.", "danger");
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append("kind", kind);
-        formData.append("version", version);
-        formData.append("file", file);
-
-        const submitButton = document.getElementById("release-submit-btn");
-        if (submitButton) submitButton.disabled = true;
-
-        try {
-            const response = await fetch("/api/server-monitor-releases", {
-                method: "POST",
-                credentials: "same-origin",
-                body: formData,
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                showAlert(releaseFormAlert, data.error || "Failed to publish release.", "danger");
-                return;
-            }
-            window.location.reload();
-        } catch (error) {
-            console.error(error);
-            showAlert(releaseFormAlert, "Failed to publish release.", "danger");
-        } finally {
-            if (submitButton) submitButton.disabled = false;
-        }
     });
 
     document.querySelectorAll(".server-rename-btn").forEach((button) => {

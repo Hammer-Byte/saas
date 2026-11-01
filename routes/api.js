@@ -38,7 +38,6 @@ import userRoles from "./apps/user_roles.js";
 import servers from "./apps/servers.js";
 import monitoredServers from "./apps/monitored_servers.js";
 import serverMetrics from "./apps/server_metrics.js";
-import serverMonitorReleases from "./apps/server_monitor_releases.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 import requireApiSession from "../middlewares/require_api_session.js";
@@ -57,7 +56,6 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
         app
             .group("/monitored-servers", monitoredServers)
             .group("/server-metrics", serverMetrics)
-            .group("/server-monitor-releases", serverMonitorReleases)
             .group("/project-applications", projectApplications)
             .group("/application-services", applicationServices)
             .group("/expenses", expenses)

@@ -3,6 +3,9 @@
     "module": "app.js",
     "type": "module",
     "private": true,
+    "scripts": {
+        "build:windows-agents": "mkdir -p public/server-monitors && bun build --compile --target=bun-windows-x64 ./assets/supervisor.js --outfile ./public/server-monitors/supervisor.exe && bun build --compile --target=bun-windows-x64 ./assets/agent.js --outfile ./public/server-monitors/agent.exe"
+    },
     "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/static": "^1.4.7",

@@ -606,17 +606,6 @@ export async function generateDBTables() {
                 ON UPDATE CASCADE,
             INDEX idx_server_metrics_server_collected (server_id, collected_at)
         )`,
-        `CREATE TABLE IF NOT EXISTS SERVER_MONITOR_RELEASES (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            kind VARCHAR(32) NOT NULL,
-            version VARCHAR(32) NOT NULL,
-            sha256 VARCHAR(64) NULL,
-            file_name VARCHAR(255) NOT NULL,
-            active BOOLEAN NOT NULL DEFAULT FALSE,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_server_monitor_releases_kind_active (kind, active)
-        )`,
-
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,
         `INSERT IGNORE INTO USERS (full_name, email, super_admin) VALUES ('Admin', 'support@hammerbyte.co.in', TRUE);`,
