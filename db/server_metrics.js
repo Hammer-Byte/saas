@@ -1,10 +1,12 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
+import { getIstDateTime } from "../libs/date.js";
 
 export async function createServerMetric({ server_id, payload }) {
+    const collected_at = getIstDateTime();
     await executeSQLQuery(
         (sql) => sql`
-            INSERT INTO SERVER_METRICS ${sql({ server_id, payload }, "server_id", "payload")}
+            INSERT INTO SERVER_METRICS ${sql({ server_id, payload, collected_at }, "server_id", "payload", "collected_at")}
         `,
     ).catch((error) => {
         logger.error(`createServerMetric: ${error}`);

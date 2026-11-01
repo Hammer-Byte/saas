@@ -125,6 +125,33 @@ export function getReadableDate(format, date) {
     return formatDate(format, date);
 }
 
+const IST_TIME_ZONE = "Asia/Kolkata";
+
+/** Current instant as MySQL DATETIME wall-clock in Asia/Kolkata (IST). */
+export function getIstDateTime(date = new Date()) {
+    const instant = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(instant.getTime())) {
+        return null;
+    }
+
+    const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: IST_TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+    }).formatToParts(instant);
+
+    const valueByType = Object.fromEntries(
+        parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]),
+    );
+
+    return `${valueByType.year}-${valueByType.month}-${valueByType.day} ${valueByType.hour}:${valueByType.minute}:${valueByType.second}`;
+}
+
 /** Normalize any supported input to MySQL DATETIME wall-clock string. */
 export function toDbDateTime(value) {
     if (value == null || value === "") {

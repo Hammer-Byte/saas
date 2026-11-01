@@ -40,6 +40,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ENV MOZ_HEADLESS=1
+ENV TZ=Asia/Kolkata
 
 WORKDIR /app
 

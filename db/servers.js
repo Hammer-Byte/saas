@@ -1,5 +1,6 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
+import { getIstDateTime } from "../libs/date.js";
 
 export async function createServer({ tag }) {
     return await executeSQLQuery(
@@ -46,11 +47,13 @@ export async function getAllServers() {
 }
 
 export async function updateServerLastSeenById({ id, agent_version = null }) {
+    const last_seen_at = getIstDateTime();
+
     if (agent_version == null) {
         await executeSQLQuery(
             (sql) => sql`
                 UPDATE SERVERS
-                SET last_seen_at = CURRENT_TIMESTAMP
+                SET last_seen_at = ${last_seen_at}
                 WHERE id = ${id}
             `,
         ).catch((error) => {
@@ -63,7 +66,7 @@ export async function updateServerLastSeenById({ id, agent_version = null }) {
         (sql) => sql`
             UPDATE SERVERS
             SET
-                last_seen_at = CURRENT_TIMESTAMP,
+                last_seen_at = ${last_seen_at},
                 agent_version = ${agent_version}
             WHERE id = ${id}
         `,
