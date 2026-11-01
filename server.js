@@ -21,7 +21,12 @@ const app = new Elysia().use(
         origin: true,
         credentials: false,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", HEADERS.APPLICATION_ID, HEADERS.APPLICATION_TOKEN],
+        allowedHeaders: [
+            "Content-Type",
+            HEADERS.APPLICATION_ID,
+            HEADERS.APPLICATION_TOKEN,
+            "X-Server-Tag",
+        ],
     }),
 ).use(
     swagger({

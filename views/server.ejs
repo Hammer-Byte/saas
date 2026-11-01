@@ -1,0 +1,72 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/servers" class="text-decoration-none">Servers</a> /
+                <%= server.name || server.tag %>
+            </p>
+            <h1 class="h3 mb-1"><%= server.name || "Unnamed server" %></h1>
+            <p class="text-secondary mb-0">
+                Tag <code><%= server.tag %></code>
+                <% if (server.agent_version) { %> · Agent <%= server.agent_version %><% } %>
+            </p>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">Metrics logs</h2>
+            </div>
+            <div class="card-body p-0">
+                <% if (!metrics || metrics.length === 0) { %>
+                    <div class="p-4 text-center text-secondary">No metrics received yet.</div>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Collected</th>
+                                    <th scope="col">Payload</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% metrics.forEach(function (metric) { %>
+                                    <tr>
+                                        <td
+                                            class="text-nowrap"
+                                            data-readable-date="<%= metric.collected_at || '' %>"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                                        ></td>
+                                        <td>
+                                            <pre class="small mb-0 text-break" style="white-space: pre-wrap; max-width: 48rem"><%= metric.payload %></pre>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+
+<%- include('common/footer') %>

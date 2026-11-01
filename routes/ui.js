@@ -30,6 +30,12 @@ import {
 } from "../db/customer_projects.js";
 import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
 import { getAllInternalDocuments } from "../db/internal_documents.js";
+import { getAllServers, getServerById } from "../db/servers.js";
+import { getServerMetricsByServerId } from "../db/server_metrics.js";
+import {
+    getAllServerMonitorReleases,
+    getLatestActiveServerMonitorReleaseByKind,
+} from "../db/server_monitor_releases.js";
 import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
 import {
     getAllCustomerInvoices,
@@ -370,6 +376,30 @@ export const uiRoutes = new Elysia()
                     documents: await getAllInternalDocuments(),
                 })),
             )
+            .get("/app/servers", async ({ render, session }) =>
+                render("servers", appPage(session, {
+                    title: "Servers — HammerByte",
+                    servers: await getAllServers(),
+                    releases: await getAllServerMonitorReleases(),
+                    latestAgent: await getLatestActiveServerMonitorReleaseByKind({
+                        kind: "agent",
+                    }),
+                    latestSupervisor: await getLatestActiveServerMonitorReleaseByKind({
+                        kind: "supervisor",
+                    }),
+                })),
+            )
+            .get("/app/servers/:id", async ({ render, session, params, redirect }) => {
+                const server = await getServerById({ id: Number(params.id) });
+                if (!server) {
+                    return redirect("/not-found");
+                }
+                return render("server", appPage(session, {
+                    title: `${server.name || server.tag} — Servers — HammerByte`,
+                    server,
+                    metrics: await getServerMetricsByServerId({ server_id: server.id }),
+                }));
+            })
             .get("/app/expenses", async ({ render, session, query }) => {
                 const now = new Date();
                 const defaultStart = getReadableDate(

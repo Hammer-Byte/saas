@@ -583,6 +583,39 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
+        `CREATE TABLE IF NOT EXISTS SERVERS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            tag VARCHAR(64) NOT NULL,
+            name VARCHAR(128) NULL,
+            last_seen_at DATETIME NULL,
+            agent_version VARCHAR(32) NULL,
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_server_tag (tag)
+        )`,
+        `CREATE TABLE IF NOT EXISTS SERVER_METRICS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            server_id INT NOT NULL,
+            payload TEXT NOT NULL,
+            collected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_server_metrics_server
+                FOREIGN KEY (server_id)
+                REFERENCES SERVERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_server_metrics_server_collected (server_id, collected_at)
+        )`,
+        `CREATE TABLE IF NOT EXISTS SERVER_MONITOR_RELEASES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            kind VARCHAR(32) NOT NULL,
+            version VARCHAR(32) NOT NULL,
+            sha256 VARCHAR(64) NULL,
+            file_name VARCHAR(255) NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT FALSE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_server_monitor_releases_kind_active (kind, active)
+        )`,
 
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,

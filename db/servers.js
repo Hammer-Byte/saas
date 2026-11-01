@@ -1,0 +1,85 @@
+import { logger } from "@hammerbyte/utils";
+import { executeSQLQuery } from "../libs/db.js";
+
+export async function createServer({ tag }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            INSERT INTO SERVERS ${sql({ tag }, "tag")}
+        `,
+    )
+        .then((result) => result.lastInsertRowid)
+        .catch((error) => {
+            logger.error(`createServer: ${error}`);
+        });
+}
+
+export async function getServerById({ id }) {
+    return await executeSQLQuery((sql) => sql`SELECT * FROM SERVERS WHERE id = ${id}`)
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getServerById: ${error}`);
+            return null;
+        });
+}
+
+export async function getServerByTag({ tag }) {
+    return await executeSQLQuery((sql) => sql`SELECT * FROM SERVERS WHERE tag = ${tag}`)
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getServerByTag: ${error}`);
+            return null;
+        });
+}
+
+export async function getAllServers() {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT * FROM SERVERS
+            ORDER BY last_seen_at DESC, created_on DESC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getAllServers: ${error}`);
+            return [];
+        });
+}
+
+export async function updateServerLastSeenById({ id, agent_version = null }) {
+    if (agent_version == null) {
+        await executeSQLQuery(
+            (sql) => sql`
+                UPDATE SERVERS
+                SET last_seen_at = CURRENT_TIMESTAMP
+                WHERE id = ${id}
+            `,
+        ).catch((error) => {
+            logger.error(`updateServerLastSeenById: ${error}`);
+        });
+        return;
+    }
+
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET
+                last_seen_at = CURRENT_TIMESTAMP,
+                agent_version = ${agent_version}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerLastSeenById: ${error}`);
+    });
+}
+
+export async function updateServerNameById({ id, name = null }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET name = ${name}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerNameById: ${error}`);
+    });
+}
