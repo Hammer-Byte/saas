@@ -25,7 +25,6 @@ const TASK_NAME = "HammerByteServerMonitor";
 const TAG_FILE = ".server-tag";
 const AGENT_FILE = "agent.exe";
 const LOG_FILE = "supervisor.log";
-const TASK_PS1_FILE = "hammerbyte-register-task.ps1";
 const SUPERVISOR_FILE = "supervisor.exe";
 
 let logDirectory = null;
@@ -192,8 +191,18 @@ async function ensureInstalledLocation() {
         return targetDir;
     }
 
-    console.log(`[supervisor] installing to ${targetDir}`);
+    console.log("");
+    console.log("=== INSTALLING ===");
+    console.log(`From: ${sourceExe}`);
+    console.log(`To:   ${targetExe}`);
+    console.log("==================");
+    console.log("");
+
     await copySupervisorToInstallDir({ sourceExe, targetExe });
+    if (!(await fileExists(targetExe))) {
+        throw new Error(`install failed; missing ${targetExe}`);
+    }
+    console.log("[supervisor] copied supervisor.exe OK");
 
     const sourceTag = join(sourceDir, TAG_FILE);
     const targetTag = join(targetDir, TAG_FILE);
@@ -202,18 +211,70 @@ async function ensureInstalledLocation() {
         console.log("[supervisor] migrated server tag to install directory");
     }
 
-    console.log("[supervisor] launching installed copy");
-    Bun.spawn([targetExe], {
-        cwd: targetDir,
-        stdout: "ignore",
-        stderr: "ignore",
-        stdin: "ignore",
-        windowsHide: false,
-    });
+    // Start-Process opens a real new console window (plain Bun.spawn was invisible).
+    console.log("[supervisor] opening ProgramData supervisor in a new window...");
+    const start = await runCaptured("powershell.exe", [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        `Start-Process -FilePath ${psSingleQuote(targetExe)} -WorkingDirectory ${psSingleQuote(targetDir)} -Verb RunAs`,
+    ]);
+    if (start.exitCode !== 0) {
+        throw new Error(
+            `failed to start installed supervisor: ${start.stderr || start.stdout || `exit ${start.exitCode}`}`,
+        );
+    }
 
+    console.log("");
     console.log(`[supervisor] installed at ${targetDir}`);
-    console.log("[supervisor] you can delete the Downloads copy; use the ProgramData install from now on");
-    await Bun.sleep(1000);
+    console.log("[supervisor] approve the UAC prompt if shown — ProgramData copy must run as Administrator");
+    console.log("[supervisor] this Downloads window will close in 5 seconds");
+    console.log("[supervisor] you can delete the Downloads copy afterward");
+    console.log("");
+    await Bun.sleep(5000);
+    process.exit(0);
+}
+
+/** Relaunch this EXE with UAC elevation so Task Scheduler can be registered. */
+async function ensureElevated({ directory }) {
+    if (process.platform !== "win32") {
+        return;
+    }
+
+    if (await isElevated()) {
+        await log("running elevated (Administrator)");
+        return;
+    }
+
+    const supervisorPath = join(directory, SUPERVISOR_FILE);
+    await log("not elevated — requesting Administrator via UAC");
+    console.log("");
+    console.log("=== ADMIN REQUIRED ===");
+    console.log("Approve the UAC prompt to register the boot task.");
+    console.log("======================");
+    console.log("");
+
+    const start = await runCaptured("powershell.exe", [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        `Start-Process -FilePath ${psSingleQuote(supervisorPath)} -WorkingDirectory ${psSingleQuote(directory)} -Verb RunAs`,
+    ]);
+
+    if (start.exitCode !== 0) {
+        await log(
+            `UAC relaunch failed: ${start.stderr || start.stdout || `exit ${start.exitCode}`}`,
+        );
+        await log(
+            "boot task was NOT registered — right-click supervisor.exe → Run as administrator once",
+        );
+        return;
+    }
+
+    await log("elevated copy starting; this non-admin process will exit");
+    await Bun.sleep(2000);
     process.exit(0);
 }
 
@@ -226,7 +287,7 @@ async function ensureScheduledTask({ directory }) {
     const elevated = await isElevated();
     if (!elevated) {
         await log(
-            "WARNING: not elevated — boot task will NOT be registered. Right-click supervisor.exe → Run as administrator once.",
+            "WARNING: not elevated — boot task will NOT be registered",
         );
         await queryScheduledTask();
         return;
@@ -238,71 +299,33 @@ async function ensureScheduledTask({ directory }) {
         return;
     }
 
-    const scriptPath = join(directory, TASK_PS1_FILE);
-    const script = `
-$ErrorActionPreference = 'Stop'
-$taskName = ${psSingleQuote(TASK_NAME)}
-$exe = ${psSingleQuote(supervisorPath)}
-$dir = ${psSingleQuote(directory)}
-$action = New-ScheduledTaskAction -Execute $exe -WorkingDirectory $dir
-$trigger = New-ScheduledTaskTrigger -AtStartup
-$trigger.Delay = 'PT1M'
-$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-$settings = New-ScheduledTaskSettingsSet \`
-  -AllowStartIfOnBatteries \`
-  -DontStopIfGoingOnBatteries \`
-  -StartWhenAvailable \`
-  -RestartCount 999 \`
-  -RestartInterval (New-TimeSpan -Minutes 1) \`
-  -ExecutionTimeLimit ([TimeSpan]::Zero) \`
-  -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-Write-Output 'registered'
-`;
-    await writeFile(scriptPath, script, "utf8");
+    await log(`registering Task Scheduler boot task for ${supervisorPath}`);
 
-    const ps = await runCaptured("powershell.exe", [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        scriptPath,
+    // schtasks only — PowerShell Register-ScheduledTask can hang on some Win11 setups.
+    const created = await runCaptured("schtasks", [
+        "/Create",
+        "/TN",
+        TASK_NAME,
+        "/SC",
+        "ONSTART",
+        "/RL",
+        "HIGHEST",
+        "/RU",
+        "SYSTEM",
+        "/F",
+        "/TR",
+        supervisorPath,
     ]);
 
-    try {
-        await unlink(scriptPath);
-    } catch {
-        // ignore
-    }
-
-    if (ps.exitCode === 0) {
-        await log("task scheduler registered (AtStartup + 60s delay, SYSTEM, restart on failure)");
+    if (created.exitCode === 0) {
+        await log("task scheduler registered (ONSTART, SYSTEM)");
+        if (created.stdout) {
+            await log(`schtasks: ${created.stdout}`);
+        }
     } else {
         await log(
-            `PowerShell task registration failed: ${ps.stderr || ps.stdout || `exit ${ps.exitCode}`}`,
+            `task scheduler registration failed: ${created.stderr || created.stdout || `exit ${created.exitCode}`}`,
         );
-        await log("falling back to schtasks ONSTART");
-        const fallback = await runCaptured("schtasks", [
-            "/Create",
-            "/TN",
-            TASK_NAME,
-            "/SC",
-            "ONSTART",
-            "/RL",
-            "HIGHEST",
-            "/RU",
-            "SYSTEM",
-            "/F",
-            "/TR",
-            supervisorPath,
-        ]);
-        if (fallback.exitCode === 0) {
-            await log("task scheduler registered via schtasks fallback");
-        } else {
-            await log(
-                `schtasks fallback failed: ${fallback.stderr || fallback.stdout || `exit ${fallback.exitCode}`}`,
-            );
-        }
     }
 
     await queryScheduledTask();
@@ -395,10 +418,13 @@ async function main() {
     await log(`install dir ${directory}`);
     await log(`pid ${process.pid}`);
 
+    await ensureElevated({ directory });
+
     const tag = await loadOrCreateTag(directory);
     await log(`tag ${tag}`);
 
     await ensureScheduledTask({ directory });
+
 
     while (true) {
         try {
