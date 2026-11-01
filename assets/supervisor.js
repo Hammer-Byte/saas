@@ -1,6 +1,6 @@
 /**
  * HammerByte Server Supervisor — parent process.
- * Usage: supervisor.exe --host https://your-site.example
+ * Usage: supervisor.exe
  */
 
 import {
@@ -15,20 +15,11 @@ import {
 import { dirname, join, basename } from "node:path";
 import { randomUUID } from "node:crypto";
 
+const HOST = "https://hammerbyte.co.in";
+const AGENT_DOWNLOAD_URL = `${HOST}/public/server-monitors/agent.exe`;
 const TASK_NAME = "HammerByteServerMonitor";
 const TAG_FILE = ".server-tag";
 const AGENT_FILE = "agent.exe";
-
-function parseArgs(argv) {
-    const options = { host: null };
-    for (let index = 0; index < argv.length; index++) {
-        const argument = argv[index];
-        if (argument === "--host" && argv[index + 1]) {
-            options.host = argv[++index];
-        }
-    }
-    return options;
-}
 
 function installDirectory() {
     const executableName = basename(process.execPath).toLowerCase();
@@ -100,7 +91,7 @@ async function taskExists() {
     }
 }
 
-async function ensureScheduledTask({ host, directory }) {
+async function ensureScheduledTask({ directory }) {
     if (process.platform !== "win32") {
         log("skip task scheduler (not Windows)");
         return;
@@ -118,7 +109,6 @@ async function ensureScheduledTask({ host, directory }) {
     }
 
     const supervisorPath = join(directory, "supervisor.exe");
-    const tr = `"${supervisorPath}" --host ${host}`;
     const processResult = Bun.spawn(
         [
             "schtasks",
@@ -133,7 +123,7 @@ async function ensureScheduledTask({ host, directory }) {
             "SYSTEM",
             "/F",
             "/TR",
-            tr,
+            `"${supervisorPath}"`,
         ],
         {
             stdout: "pipe",
@@ -149,14 +139,12 @@ async function ensureScheduledTask({ host, directory }) {
     }
 }
 
-async function downloadAgent({ host, directory }) {
-    const baseUrl = host.replace(/\/+$/, "");
-    const url = `${baseUrl}/public/server-monitors/agent.exe`;
+async function downloadAgent({ directory }) {
     const targetPath = join(directory, AGENT_FILE);
     const tempPath = `${targetPath}.new`;
 
     log("updating agent");
-    const response = await fetch(url);
+    const response = await fetch(AGENT_DOWNLOAD_URL);
     if (!response.ok) {
         throw new Error(`download failed (HTTP ${response.status})`);
     }
@@ -175,22 +163,22 @@ async function downloadAgent({ host, directory }) {
     log("agent updated");
 }
 
-async function ensureAgentPresent({ host, directory }) {
+async function ensureAgentPresent({ directory }) {
     const agentPath = join(directory, AGENT_FILE);
     if (!(await fileExists(agentPath))) {
         log("agent missing; downloading");
-        await downloadAgent({ host, directory });
+        await downloadAgent({ directory });
     }
 }
 
-async function runAgentOnce({ host, tag, directory }) {
+async function runAgentOnce({ tag, directory }) {
     const agentPath = join(directory, AGENT_FILE);
     if (!(await fileExists(agentPath))) {
         throw new Error("agent.exe not found");
     }
 
     log("starting agent");
-    const child = Bun.spawn([agentPath, "--host", host, "--tag", tag], {
+    const child = Bun.spawn([agentPath, "--tag", tag], {
         cwd: directory,
         stdout: "pipe",
         stderr: "pipe",
@@ -219,28 +207,22 @@ async function runAgentOnce({ host, tag, directory }) {
 async function main() {
     printBanner();
 
-    const options = parseArgs(Bun.argv.slice(2));
-    if (!options.host) {
-        console.error("Usage: supervisor.exe --host <https://your-hammerbyte-site>");
-        process.exit(1);
-    }
-
     const directory = installDirectory();
     await mkdir(directory, { recursive: true });
 
-    log(`set to host ${options.host}`);
+    log(`host ${HOST}`);
     log(`install dir ${directory}`);
 
     const tag = await loadOrCreateTag(directory);
     log(`tag ${tag}`);
 
-    await ensureScheduledTask({ host: options.host, directory });
+    await ensureScheduledTask({ directory });
 
     while (true) {
         try {
-            await ensureAgentPresent({ host: options.host, directory });
-            await runAgentOnce({ host: options.host, tag, directory });
-            await downloadAgent({ host: options.host, directory });
+            await ensureAgentPresent({ directory });
+            await runAgentOnce({ tag, directory });
+            await downloadAgent({ directory });
         } catch (error) {
             log(`error: ${error?.message || error}`);
             log("retrying in 30s");
