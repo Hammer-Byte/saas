@@ -1,0 +1,166 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/automation" class="text-decoration-none">Automation</a> /
+                Users
+            </p>
+            <h1 class="h3 mb-1">Automation Users</h1>
+            <p class="text-secondary mb-0">
+                Shared accounts with Facebook, Instagram, YouTube, and LinkedIn cookies.
+            </p>
+        </div>
+
+        <div id="automation-users-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <form id="automation-user-form" class="row g-3" novalidate>
+                    <input type="hidden" id="automation-user-id" name="id" value="" />
+                    <div class="col-md-4">
+                        <label for="automation-user-name" class="form-label">Name</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="automation-user-name"
+                            name="name"
+                            maxlength="255"
+                            placeholder="e.g. Acc1"
+                            required
+                        />
+                    </div>
+                    <div class="col-md-8">
+                        <label for="automation-user-linkedin-cookie" class="form-label">LinkedIn cookie (li_at)</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="automation-user-linkedin-cookie"
+                            name="linkedin_cookie"
+                            placeholder="Paste li_at value"
+                        />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="automation-user-facebook-cookie" class="form-label">Facebook cookie</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="automation-user-facebook-cookie"
+                            name="facebook_cookie"
+                            placeholder="c_user=…; xs=… or paste values"
+                        />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="automation-user-instagram-cookie" class="form-label">Instagram cookie</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="automation-user-instagram-cookie"
+                            name="instagram_cookie"
+                            placeholder="sessionid=… or cookie string"
+                        />
+                    </div>
+                    <div class="col-md-8">
+                        <label for="automation-user-youtube-cookie" class="form-label">YouTube cookie</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="automation-user-youtube-cookie"
+                            name="youtube_cookie"
+                            placeholder="Cookie string for youtube.com"
+                        />
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100" id="automation-user-submit-btn">
+                            Add user
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div
+                    id="automation-users-empty"
+                    class="p-4 p-md-5 text-center text-secondary <%= automationUsers && automationUsers.length ? 'd-none' : '' %>"
+                >
+                    No automation users yet. Add one above.
+                </div>
+                <div
+                    class="table-responsive <%= !automationUsers || !automationUsers.length ? 'd-none' : '' %>"
+                    id="automation-users-table-wrap"
+                >
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">Platforms</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="automation-users-tbody">
+                            <% (automationUsers || []).forEach(function (automationUser) { %>
+                                <tr
+                                    data-id="<%= automationUser.id %>"
+                                    data-name="<%= automationUser.name %>"
+                                    data-facebook-cookie="<%= automationUser.facebook_cookie || '' %>"
+                                    data-instagram-cookie="<%= automationUser.instagram_cookie || '' %>"
+                                    data-youtube-cookie="<%= automationUser.youtube_cookie || '' %>"
+                                    data-linkedin-cookie="<%= automationUser.linkedin_cookie || '' %>"
+                                >
+                                    <td><%= automationUser.id %></td>
+                                    <td><%= automationUser.name %></td>
+                                    <td>
+                                        <% if (automationUser.facebook_cookie) { %><span class="badge text-bg-secondary me-1">FB</span><% } %>
+                                        <% if (automationUser.instagram_cookie) { %><span class="badge text-bg-secondary me-1">IG</span><% } %>
+                                        <% if (automationUser.youtube_cookie) { %><span class="badge text-bg-secondary me-1">YT</span><% } %>
+                                        <% if (automationUser.linkedin_cookie) { %><span class="badge text-bg-secondary me-1">LI</span><% } %>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-primary automation-user-edit-btn"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger automation-user-delete-btn"
+                                                data-id="<%= automationUser.id %>"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/automation-users.js" defer></script>
+<%- include('common/footer') %>

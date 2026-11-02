@@ -57,9 +57,14 @@ async function log(message) {
 }
 
 function printBanner() {
-    console.log("##############################");
-    console.log("# HammerByte Server Supervisor #");
-    console.log("##############################");
+    console.log("");
+    console.log("  ╔══════════════════════════════════════════╗");
+    console.log("  ║                                          ║");
+    console.log("  ║   HammerByte  ·  Server Supervisor       ║");
+    console.log("  ║   windows monitor  ·  auto-install       ║");
+    console.log("  ║                                          ║");
+    console.log("  ╚══════════════════════════════════════════╝");
+    console.log("");
 }
 
 async function fileExists(path) {

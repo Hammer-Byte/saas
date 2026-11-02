@@ -463,12 +463,44 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_USERS (
+        `CREATE TABLE IF NOT EXISTS AUTOMATION_USERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
-            cookie TEXT NOT NULL,
+            facebook_cookie TEXT NULL,
+            instagram_cookie TEXT NULL,
+            youtube_cookie TEXT NULL,
+            linkedin_cookie TEXT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_linkedin_user_name (name)
+            UNIQUE KEY unique_automation_user_name (name)
+        )`,
+        `CREATE TABLE IF NOT EXISTS CONTENT_PUBLISH_RUNS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            status VARCHAR(32) NOT NULL DEFAULT 'running',
+            media_id INT NOT NULL,
+            automation_user_id INT NOT NULL,
+            user_name VARCHAR(255) NOT NULL,
+            facebook_caption TEXT NULL,
+            instagram_caption TEXT NULL,
+            instagram_hashtags TEXT NULL,
+            youtube_title VARCHAR(255) NULL,
+            youtube_description TEXT NULL,
+            linkedin_caption TEXT NULL,
+            created_by INT NULL,
+            error_message TEXT NULL,
+            started_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            finished_on DATETIME NULL
+        )`,
+        `CREATE TABLE IF NOT EXISTS CONTENT_PUBLISH_RUN_TARGETS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            run_id INT NOT NULL,
+            platform VARCHAR(32) NOT NULL,
+            status VARCHAR(32) NOT NULL DEFAULT 'pending',
+            error_message TEXT NULL,
+            CONSTRAINT fk_content_publish_run_targets_run
+                FOREIGN KEY (run_id)
+                REFERENCES CONTENT_PUBLISH_RUNS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
         )`,
         `CREATE TABLE IF NOT EXISTS LINKEDIN_DESIGNATIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,

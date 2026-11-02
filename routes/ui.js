@@ -51,7 +51,12 @@ import { getAllContractAttachments } from "../db/contract_attachments.js";
 import { getContractRequiredAttachmentsByContractId } from "../db/contract_required_attachments.js";
 import { getAllGemTenderKeywords, getGemTenderKeywordById } from "../db/gem_tender_keywords.js";
 import { getGemKeywordTendersByKeywordId } from "../db/gem_keyword_tenders.js";
-import { getAllLinkedinUsers } from "../db/linkedin_users.js";
+import { getAllAutomationUsers } from "../db/automation_users.js";
+import {
+    getAllContentPublishRuns,
+    getAllContentPublishRunTargets,
+} from "../db/content_publish_runs.js";
+import { processing as contentPublishProcessing } from "../libs/content_publish_browser.js";
 import { getAllLinkedinDesignations } from "../db/linkedin_designations.js";
 import { getAllLinkedinDesignationMessages } from "../db/linkedin_designation_messages.js";
 import {
@@ -647,22 +652,59 @@ export const uiRoutes = new Elysia()
                     }));
                 },
             )
+            .get("/app/automation", ({ render, session }) =>
+                render("automation", appPage(session, {
+                    title: "Automation — HammerByte",
+                })),
+            )
+            .get("/app/automation-users", async ({ render, session }) =>
+                render("automation-users", appPage(session, {
+                    title: "Automation Users — HammerByte",
+                    automationUsers: await getAllAutomationUsers(),
+                })),
+            )
+            .get("/app/content-publish", ({ render, session }) =>
+                render("content-publish", appPage(session, {
+                    title: "Content Publishing — HammerByte",
+                })),
+            )
+            .get("/app/content-publish-start", async ({ render, session }) =>
+                render("content-publish-start", appPage(session, {
+                    title: "Publish — HammerByte",
+                    automationUsers: await getAllAutomationUsers(),
+                    processing: contentPublishProcessing,
+                })),
+            )
+            .get("/app/content-publish-history", async ({ render, session }) => {
+                const publishRuns = await getAllContentPublishRuns();
+                const publishTargets = await getAllContentPublishRunTargets();
+                const targetsByRunId = new Map();
+                for (const target of publishTargets) {
+                    const list = targetsByRunId.get(target.run_id) || [];
+                    list.push(target);
+                    targetsByRunId.set(target.run_id, list);
+                }
+                const runs = publishRuns.map((run) => ({
+                    ...run,
+                    targets: targetsByRunId.get(run.id) || [],
+                }));
+                return render("content-publish-history", appPage(session, {
+                    title: "Content Publish History — HammerByte",
+                    runs,
+                }));
+            })
             .get("/app/linkedin", ({ render, session }) =>
                 render("linkedin", appPage(session, {
                     title: "LinkedIn — HammerByte",
-                })),
-            )
-            .get("/app/linkedin-users", async ({ render, session }) =>
-                render("linkedin-users", appPage(session, {
-                    title: "LinkedIn Users — HammerByte",
-                    linkedinUsers: await getAllLinkedinUsers(),
                 })),
             )
             .get("/app/linkedin-grow-network", async ({ render, session }) =>
                 render("linkedin-grow-network", appPage(session, {
                     title: "GrowNetwork — HammerByte",
                     designations: await getAllLinkedinDesignations(),
-                    linkedinUsers: await getAllLinkedinUsers(),
+                    linkedinUsers: (await getAllAutomationUsers()).filter((user) =>
+                        String(user.linkedin_cookie || "").trim(),
+                    ),
                     processing: linkedinProcessing,
                 })),
             )
@@ -706,7 +748,9 @@ export const uiRoutes = new Elysia()
                 render("linkedin-search-network", appPage(session, {
                     title: "SearchNetwork — HammerByte",
                     designations: await getAllLinkedinDesignations(),
-                    linkedinUsers: await getAllLinkedinUsers(),
+                    linkedinUsers: (await getAllAutomationUsers()).filter((user) =>
+                        String(user.linkedin_cookie || "").trim(),
+                    ),
                     processing: linkedinProcessing,
                 })),
             )
@@ -758,7 +802,9 @@ export const uiRoutes = new Elysia()
                 return render("linkedin-message-network", appPage(session, {
                     title: "MessageNetwork — HammerByte",
                     designations,
-                    linkedinUsers: await getAllLinkedinUsers(),
+                    linkedinUsers: (await getAllAutomationUsers()).filter((user) =>
+                        String(user.linkedin_cookie || "").trim(),
+                    ),
                     messageCounts,
                     processing: linkedinProcessing,
                 }));

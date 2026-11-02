@@ -1,6 +1,6 @@
 import { getLinkedinDesignationsByIds } from "../db/linkedin_designations.js";
 import { getLinkedinDesignationMessagesByDesignationIds } from "../db/linkedin_designation_messages.js";
-import { getLinkedinUsersByIds } from "../db/linkedin_users.js";
+import { getAutomationUsersByIds } from "../db/automation_users.js";
 import {
     createLinkedinMessageRun,
     createLinkedinMessageRunAccount,
@@ -33,10 +33,20 @@ export async function startLinkedinMessageNetwork({ body, set, cookie }) {
         return { error: "Unauthorized", processing: false };
     }
 
-    const linkedinUsers = await getLinkedinUsersByIds({ ids: body.linkedin_user_ids });
+    const automationUsers = await getAutomationUsersByIds({ ids: body.linkedin_user_ids });
+    if (automationUsers.length !== body.linkedin_user_ids.length) {
+        set.status = 400;
+        return { error: "One or more automation users were not found", processing: false };
+    }
+    const linkedinUsers = automationUsers.filter((user) =>
+        String(user.linkedin_cookie || "").trim(),
+    );
     if (linkedinUsers.length !== body.linkedin_user_ids.length) {
         set.status = 400;
-        return { error: "One or more LinkedIn users were not found", processing: false };
+        return {
+            error: "One or more selected users are missing a LinkedIn cookie",
+            processing: false,
+        };
     }
 
     const linkedinDesignations = await getLinkedinDesignationsByIds({
@@ -92,7 +102,7 @@ export async function startLinkedinMessageNetwork({ body, set, cookie }) {
             runAccountId,
             id: linkedinUser.id,
             name: linkedinUser.name,
-            cookie: linkedinUser.cookie,
+            cookie: String(linkedinUser.linkedin_cookie || "").trim(),
         });
     }
 

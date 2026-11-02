@@ -1,0 +1,128 @@
+document.addEventListener("DOMContentLoaded", () => {
+    const pageAlert = document.getElementById("content-publish-alert");
+    const startButton = document.getElementById("content-publish-start-btn");
+    const imageInput = document.getElementById("content-publish-image");
+    const userRadios = [...document.querySelectorAll(".content-publish-user-radio")];
+    const platformChecks = [...document.querySelectorAll(".content-publish-platform")];
+
+    function showAlert(message, type) {
+        if (!pageAlert) {
+            return;
+        }
+        pageAlert.textContent = message;
+        pageAlert.className = `alert alert-${type}`;
+    }
+
+    function selectedUser() {
+        return userRadios.find((radio) => radio.checked) || null;
+    }
+
+    function syncPlatforms() {
+        const user = selectedUser();
+        for (const checkbox of platformChecks) {
+            const platform = checkbox.dataset.platform;
+            const enabled = user && user.dataset[platform] === "1";
+            checkbox.disabled = !enabled;
+            if (!enabled) {
+                checkbox.checked = false;
+            }
+            const fields = document.getElementById(`platform-${platform}-fields`);
+            if (fields) {
+                fields.classList.toggle("d-none", !checkbox.checked);
+            }
+        }
+    }
+
+    for (const radio of userRadios) {
+        radio.addEventListener("change", syncPlatforms);
+    }
+    for (const checkbox of platformChecks) {
+        checkbox.addEventListener("change", syncPlatforms);
+    }
+    syncPlatforms();
+
+    startButton?.addEventListener("click", async () => {
+        const user = selectedUser();
+        if (!user) {
+            showAlert("Select an automation user", "danger");
+            return;
+        }
+        if (!imageInput?.files?.length) {
+            showAlert("Select an image", "danger");
+            return;
+        }
+
+        const platforms = platformChecks
+            .filter((checkbox) => checkbox.checked)
+            .map((checkbox) => checkbox.value);
+        if (!platforms.length) {
+            showAlert("Select at least one platform", "danger");
+            return;
+        }
+
+        const payload = {
+            automation_user_id: Number(user.value),
+            platforms,
+            facebook_caption: document.getElementById("facebook-caption")?.value || "",
+            instagram_caption: document.getElementById("instagram-caption")?.value || "",
+            instagram_hashtags: document.getElementById("instagram-hashtags")?.value || "",
+            youtube_title: document.getElementById("youtube-title")?.value || "",
+            youtube_description: document.getElementById("youtube-description")?.value || "",
+            linkedin_caption: document.getElementById("linkedin-caption")?.value || "",
+        };
+
+        if (platforms.includes("facebook") && !payload.facebook_caption.trim()) {
+            showAlert("Facebook caption is required", "danger");
+            return;
+        }
+        if (platforms.includes("instagram") && !payload.instagram_caption.trim()) {
+            showAlert("Instagram caption is required", "danger");
+            return;
+        }
+        if (platforms.includes("youtube") && !payload.youtube_title.trim()) {
+            showAlert("YouTube title is required", "danger");
+            return;
+        }
+        if (platforms.includes("linkedin") && !payload.linkedin_caption.trim()) {
+            showAlert("LinkedIn caption is required", "danger");
+            return;
+        }
+
+        startButton.disabled = true;
+        try {
+            const formData = new FormData();
+            formData.append("file", imageInput.files[0]);
+            const mediaResponse = await fetch("/api/media", {
+                method: "POST",
+                credentials: "same-origin",
+                body: formData,
+            });
+            const mediaData = await mediaResponse.json().catch(() => ({}));
+            if (!mediaResponse.ok) {
+                showAlert(mediaData.error || "Image upload failed", "danger");
+                return;
+            }
+
+            const response = await fetch("/api/content-publish/start", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    ...payload,
+                    media_id: Number(mediaData.id),
+                }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showAlert(data.error || "Failed to start publish", "danger");
+                return;
+            }
+            showAlert("Publish started", "success");
+            window.location.href = "/app/content-publish-history";
+        } catch (error) {
+            showAlert(error instanceof Error ? error.message : String(error), "danger");
+        } finally {
+            startButton.disabled = false;
+        }
+    });
+});

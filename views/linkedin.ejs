@@ -17,10 +17,15 @@
     <div class="container py-5">
         <div class="mb-4">
             <p class="text-secondary small mb-1">
-                <a href="/app" class="text-decoration-none">App</a> / LinkedIn
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/automation" class="text-decoration-none">Automation</a> /
+                LinkedIn
             </p>
             <h1 class="h3 mb-1">LinkedIn</h1>
-            <p class="text-secondary mb-0">Choose a LinkedIn automation section.</p>
+            <p class="text-secondary mb-0">
+                LinkedIn automation ops. Manage shared cookies on
+                <a href="/app/automation-users">Automation Users</a>.
+            </p>
         </div>
 
         <div class="row g-4">
@@ -42,17 +47,6 @@
                             <div class="app-section-icon mb-3">S</div>
                             <h2 class="h5 text-dark mb-2">SearchNetwork</h2>
                             <p class="text-secondary small mb-0">Search people by designation and send connect requests.</p>
-                        </div>
-                    </div>
-                </a>
-            </div>
-            <div class="col-12 col-sm-6 col-lg-3">
-                <a href="/app/linkedin-users" class="text-decoration-none">
-                    <div class="card border-0 shadow-sm h-100 app-section-card">
-                        <div class="card-body p-4">
-                            <div class="app-section-icon mb-3">U</div>
-                            <h2 class="h5 text-dark mb-2">Users</h2>
-                            <p class="text-secondary small mb-0">Manage LinkedIn accounts used for cookie login.</p>
                         </div>
                     </div>
                 </a>
@@ -99,20 +93,19 @@
         transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
     .app-section-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.12) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
     }
     .app-section-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.5rem;
+        background: #e9ecef;
+        color: #212529;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #5c8aa5;
-        color: #fff;
         font-weight: 700;
-        font-size: 1.1rem;
     }
 </style>
 
