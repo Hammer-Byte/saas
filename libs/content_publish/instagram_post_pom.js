@@ -21,6 +21,41 @@ function normalize(text) {
   return String(text || "").replace(/\\s+/g, " ").trim();
 }
 
+function buttonLabel(el) {
+  return normalize(el.innerText) || normalize(el.getAttribute("aria-label"));
+}
+
+function findCreateDialog() {
+  const dialogs = [...document.querySelectorAll("div[role='dialog']")];
+  if (!dialogs.length) return null;
+  // Prefer the wizard dialog, never an empty overlay when a richer dialog exists.
+  const scored = dialogs.map((dialog, index) => {
+    const text = normalize(dialog.innerText);
+    let score = text.length;
+    if (/create new post|crop|edit|filters|share|caption|select from computer|add a caption/i.test(text)) {
+      score += 1000;
+    }
+    if (dialog.querySelector("[aria-label='Add a caption...'], [aria-label*='Add a caption' i]")) {
+      score += 2000;
+    }
+    if ([...dialog.querySelectorAll("div[role='button'], button")].some((el) =>
+      /^(next|share)$/i.test(buttonLabel(el))
+    )) {
+      score += 500;
+    }
+    // Later dialogs win ties (stacked overlays).
+    score += index;
+    return { dialog, score, textLength: text.length };
+  });
+  scored.sort((left, right) => right.score - left.score);
+  const best = scored[0];
+  if (best.textLength > 0 || best.score >= 500) {
+    return best.dialog;
+  }
+  const withText = scored.find((item) => item.textLength > 0);
+  return withText ? withText.dialog : dialogs[dialogs.length - 1];
+}
+
 function findNewPostControl() {
   const svg = document.querySelector("svg[aria-label='New post']");
   if (!svg) return null;
@@ -28,15 +63,15 @@ function findNewPostControl() {
 }
 
 function findPostMenuItem() {
-  // Prefer items inside the create dialog so feed "Post" buttons are ignored.
-  const scope = document.querySelector("div[role='dialog']") || document;
+  const scope = findCreateDialog() || document;
   return [...scope.querySelectorAll("button, div[role='button'], span, div")].find((el) =>
     normalize(el.innerText) === "Post"
   ) || null;
 }
 
 function findSelectFromComputer() {
-  return [...document.querySelectorAll("button, div[role='button']")].find((el) =>
+  const scope = findCreateDialog() || document;
+  return [...scope.querySelectorAll("button, div[role='button']")].find((el) =>
     /select from computer|select files/i.test(normalize(el.innerText))
   ) || null;
 }
@@ -48,21 +83,34 @@ function findNotNow() {
 }
 
 function findNext() {
-  const scope = document.querySelector("div[role='dialog']") || document;
-  return [...scope.querySelectorAll("div[role='button'], button")].find((el) =>
-    /^next$/i.test(normalize(el.innerText))
-  ) || null;
+  const scopes = [findCreateDialog(), document].filter(Boolean);
+  for (const scope of scopes) {
+    const next = [...scope.querySelectorAll("div[role='button'], button")].find((el) => {
+      const disabled = el.disabled || el.getAttribute("aria-disabled") === "true";
+      return /^next$/i.test(buttonLabel(el)) && !disabled;
+    });
+    if (next) return next;
+  }
+  return null;
 }
 
 function findShare() {
-  const scope = document.querySelector("div[role='dialog']") || document;
-  return [...scope.querySelectorAll("div[role='button'], button")].find((el) =>
-    /^share$/i.test(normalize(el.innerText))
-  ) || null;
+  const scopes = [findCreateDialog(), document].filter(Boolean);
+  for (const scope of scopes) {
+    const share = [...scope.querySelectorAll("div[role='button'], button")].find((el) => {
+      const disabled = el.disabled || el.getAttribute("aria-disabled") === "true";
+      return /^share$/i.test(buttonLabel(el)) && !disabled;
+    });
+    if (share) return share;
+  }
+  return null;
 }
 
 function findCaption() {
-  return document.querySelector("[aria-label='Add a caption...']")
+  const scope = findCreateDialog() || document;
+  return scope.querySelector("[aria-label='Add a caption...']")
+    || scope.querySelector("[aria-label*='Add a caption' i]")
+    || document.querySelector("[aria-label='Add a caption...']")
     || document.querySelector("[aria-label*='Add a caption' i]")
     || null;
 }
@@ -71,6 +119,7 @@ function findCaption() {
 export async function diagnoseInstagramPublish(driver) {
     return await driver.executeScript(`
       ${PAGE_HELPERS}
+      const dialog = findCreateDialog();
       return {
         url: location.href,
         newPost: !!findNewPostControl(),
@@ -81,7 +130,7 @@ export async function diagnoseInstagramPublish(driver) {
         captionText: (findCaption()?.innerText || "").slice(0, 120),
         notNow: !!findNotNow(),
         dialogs: document.querySelectorAll("div[role='dialog']").length,
-        dialogText: String((document.querySelector("div[role='dialog']") || {}).innerText || "").slice(0, 160),
+        dialogText: String((dialog || {}).innerText || "").slice(0, 160),
       };
     `);
 }
@@ -178,11 +227,11 @@ async function clickThroughNext(driver) {
             next.click();
             return { status: "next" };
           }
-          const dialogText = String((document.querySelector("div[role='dialog']") || {}).innerText || "");
+          const dialog = findCreateDialog();
           return {
             status: "wait",
             dialogs: document.querySelectorAll("div[role='dialog']").length,
-            dialogText: dialogText.slice(0, 120),
+            dialogText: String((dialog || {}).innerText || "").slice(0, 120),
             fileInputs: document.querySelectorAll("input[type='file']").length,
           };
         `);
@@ -192,7 +241,8 @@ async function clickThroughNext(driver) {
         }
         if (status?.status === "next") {
             nextClicks += 1;
-            await contentPublishSleep(1500);
+            // Crop → Edit → Caption transitions need a beat to remount dialogs.
+            await contentPublishSleep(2500);
             continue;
         }
         await contentPublishSleep(700);
