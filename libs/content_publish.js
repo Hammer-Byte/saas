@@ -110,12 +110,21 @@ export function startContentPublish({
                     logger.info(`content publish ${target.platform} completed`);
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
-                    logger.error(`content publish ${target.platform} failed: ${message}`);
+                    const screenshotFile =
+                        error && typeof error === "object" && error.screenshotFile
+                            ? String(error.screenshotFile)
+                            : null;
+                    logger.error(
+                        `content publish ${target.platform} failed: ${message}${
+                            screenshotFile ? ` screenshot=${screenshotFile}` : ""
+                        }`,
+                    );
                     runFailedMessage = message;
                     await updateContentPublishRunTargetById({
                         id: target.targetId,
                         status: "failed",
                         error_message: message,
+                        screenshot_file: screenshotFile,
                     });
                 } finally {
                     if (driver) {

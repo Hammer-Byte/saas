@@ -55,10 +55,27 @@
                                         <td><%= run.user_name %></td>
                                         <td>
                                             <% (run.targets || []).forEach(function (target) { %>
-                                                <div class="small">
-                                                    <%= target.platform %>: <%= target.status %>
-                                                    <% if (target.error_message) { %>
-                                                        <span class="text-danger">(<%= target.error_message %>)</span>
+                                                <div class="small mb-2">
+                                                    <div>
+                                                        <%= target.platform %>: <%= target.status %>
+                                                        <% if (target.error_message) { %>
+                                                            <span class="text-danger">(<%= target.error_message %>)</span>
+                                                        <% } %>
+                                                    </div>
+                                                    <% if (target.screenshot_file) { %>
+                                                        <a
+                                                            href="/api/content-publish/screenshots/<%= encodeURIComponent(target.screenshot_file) %>"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            class="d-inline-block mt-1"
+                                                        >
+                                                            <img
+                                                                src="/api/content-publish/screenshots/<%= encodeURIComponent(target.screenshot_file) %>"
+                                                                alt="<%= target.platform %> failure screenshot"
+                                                                class="border rounded"
+                                                                style="max-width: 220px; max-height: 140px; object-fit: contain;"
+                                                            >
+                                                        </a>
                                                     <% } %>
                                                 </div>
                                             <% }) %>

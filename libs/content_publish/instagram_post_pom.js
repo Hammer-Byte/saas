@@ -1,5 +1,9 @@
 import { Key } from "selenium-webdriver";
 import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
+import {
+    attachScreenshotToError,
+    captureContentPublishScreenshot,
+} from "../content_publish_screenshot.js";
 
 /**
  * Instagram feed image post — live-tuned.
@@ -210,6 +214,16 @@ async function attachImage(driver, mediaPath) {
     }
 }
 
+async function failStep4(driver, message) {
+    let screenshotFile = null;
+    try {
+        screenshotFile = await captureContentPublishScreenshot(driver, "ig-step4");
+    } catch {
+        // Keep the original failure if screenshot capture itself fails.
+    }
+    throw attachScreenshotToError(new Error(message), screenshotFile);
+}
+
 async function clickThroughNext(driver) {
     // After upload, crop/filter UI can lag. Wait for Next or caption; do not
     // treat a momentary missing Next as finished.
@@ -222,22 +236,37 @@ async function clickThroughNext(driver) {
           ${PAGE_HELPERS}
           if (findCaption()) return { status: "caption" };
           if (findShare()) return { status: "share" };
+          const dialog = findCreateDialog();
+          const dialogText = String((dialog || {}).innerText || "").slice(0, 160);
+          if (/something went wrong/i.test(dialogText)) {
+            return {
+              status: "ig_error",
+              dialogs: document.querySelectorAll("div[role='dialog']").length,
+              dialogText,
+              fileInputs: document.querySelectorAll("input[type='file']").length,
+            };
+          }
           const next = findNext();
           if (next) {
             next.click();
             return { status: "next" };
           }
-          const dialog = findCreateDialog();
           return {
             status: "wait",
             dialogs: document.querySelectorAll("div[role='dialog']").length,
-            dialogText: String((dialog || {}).innerText || "").slice(0, 120),
+            dialogText,
             fileInputs: document.querySelectorAll("input[type='file']").length,
           };
         `);
 
         if (status?.status === "caption" || status?.status === "share") {
             return;
+        }
+        if (status?.status === "ig_error") {
+            await failStep4(
+                driver,
+                `Instagram step4 wizard stuck before caption (nextClicks=${nextClicks}, ${JSON.stringify(status)})`,
+            );
         }
         if (status?.status === "next") {
             nextClicks += 1;
@@ -249,7 +278,8 @@ async function clickThroughNext(driver) {
     }
 
     const state = await diagnoseInstagramPublish(driver);
-    throw new Error(
+    await failStep4(
+        driver,
         `Instagram step4 wizard stuck before caption (nextClicks=${nextClicks}, ${JSON.stringify(state)})`,
     );
 }
@@ -286,7 +316,10 @@ async function typeCaption(driver, caption, hashtags) {
     const box = boxes[0];
     if (!box) {
         const state = await diagnoseInstagramPublish(driver);
-        throw new Error(`Instagram step4 caption missing (${JSON.stringify(state)})`);
+        await failStep4(
+            driver,
+            `Instagram step4 caption missing (${JSON.stringify(state)})`,
+        );
     }
 
     const probe = text.slice(0, Math.min(10, text.length));
@@ -334,7 +367,8 @@ async function typeCaption(driver, caption, hashtags) {
     }
 
     if (!String(applied || "").includes(probe)) {
-        throw new Error(
+        await failStep4(
+            driver,
             `Instagram step4 caption not applied (ui=${JSON.stringify(applied)})`,
         );
     }

@@ -11,6 +11,7 @@ import {
 } from "../db/content_publish_runs.js";
 import { processing } from "../libs/content_publish_browser.js";
 import { startContentPublish } from "../libs/content_publish.js";
+import { resolveContentPublishScreenshotPath } from "../libs/content_publish_screenshot.js";
 import { getCurrentUser } from "./authentication.js";
 
 const PLATFORM_COOKIE = {
@@ -220,4 +221,23 @@ export async function getContentPublishRun({ params, set }) {
         },
         processing,
     };
+}
+
+export async function getContentPublishScreenshot({ params, set }) {
+    const path = resolveContentPublishScreenshotPath(params.file);
+    if (!path) {
+        set.status = 400;
+        return { error: "Invalid screenshot file" };
+    }
+
+    const diskFile = Bun.file(path);
+    if (!(await diskFile.exists())) {
+        set.status = 404;
+        return { error: "Screenshot not found" };
+    }
+
+    set.headers["Content-Type"] = "image/png";
+    set.headers["Content-Disposition"] = `inline; filename="${params.file}"`;
+    set.status = 200;
+    return diskFile;
 }

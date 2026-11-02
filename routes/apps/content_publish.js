@@ -2,6 +2,7 @@ import { t } from "elysia";
 import {
     getContentPublishRun,
     getContentPublishRuns,
+    getContentPublishScreenshot,
     getContentPublishStatus,
     startContentPublishRun,
 } from "../../services/content_publish.js";
@@ -27,6 +28,15 @@ export default function (app) {
             detail: {
                 tags: ["Content Publish"],
                 summary: "Get content publish run",
+            },
+        })
+        .get("/screenshots/:file", getContentPublishScreenshot, {
+            params: t.Object({
+                file: t.String({ minLength: 1 }),
+            }),
+            detail: {
+                tags: ["Content Publish"],
+                summary: "View content publish failure screenshot",
             },
         })
         .post("/start", startContentPublishRun, {

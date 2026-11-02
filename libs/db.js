@@ -496,12 +496,16 @@ export async function generateDBTables() {
             platform VARCHAR(32) NOT NULL,
             status VARCHAR(32) NOT NULL DEFAULT 'pending',
             error_message TEXT NULL,
+            screenshot_file VARCHAR(255) NULL,
             CONSTRAINT fk_content_publish_run_targets_run
                 FOREIGN KEY (run_id)
                 REFERENCES CONTENT_PUBLISH_RUNS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
+        // Existing installs created the table without screenshot_file.
+        `ALTER TABLE CONTENT_PUBLISH_RUN_TARGETS
+            ADD COLUMN screenshot_file VARCHAR(255) NULL`,
         `CREATE TABLE IF NOT EXISTS LINKEDIN_DESIGNATIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
@@ -663,6 +667,14 @@ export async function generateDBTables() {
     ];
 
     for (const table of requiredTables) {
-        await dbConnection.unsafe(table);
+        try {
+            await dbConnection.unsafe(table);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            // Ignore duplicate-column ALTERs on already-migrated DBs.
+            if (!/duplicate column name/i.test(message)) {
+                throw error;
+            }
+        }
     }
 }

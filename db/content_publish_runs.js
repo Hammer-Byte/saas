@@ -90,13 +90,15 @@ export async function updateContentPublishRunTargetById({
     id,
     status,
     error_message = null,
+    screenshot_file = null,
 }) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE CONTENT_PUBLISH_RUN_TARGETS
             SET
                 status = ${status},
-                error_message = ${error_message}
+                error_message = ${error_message},
+                screenshot_file = ${screenshot_file}
             WHERE id = ${id}
         `,
     ).catch((error) => {
