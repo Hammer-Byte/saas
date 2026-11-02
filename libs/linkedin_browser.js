@@ -1,9 +1,6 @@
-import { Builder, Browser } from "selenium-webdriver";
-import firefox from "selenium-webdriver/firefox.js";
+import { openConfiguredFirefox } from "./selenium_firefox.js";
 
 export let processing = false;
-
-const FIREFOX_BINARY = "/usr/bin/firefox";
 
 export function acquireLinkedinProcessing() {
     if (processing) {
@@ -18,18 +15,11 @@ export function releaseLinkedinProcessing() {
 }
 
 export async function openFirefox() {
-    const options = new firefox.Options()
-        .setBinary(FIREFOX_BINARY)
-        .setPageLoadStrategy("eager")
-        .windowSize({ width: 1440, height: 1000 });
-
-    const driver = await new Builder()
-        .forBrowser(Browser.FIREFOX)
-        .setFirefoxOptions(options)
-        .build();
-
-    await driver.manage().setTimeouts({ implicit: 0, pageLoad: 20_000 });
-    return driver;
+    return openConfiguredFirefox({
+        width: 1440,
+        height: 1000,
+        pageLoadStrategy: "eager",
+    });
 }
 
 export async function openLinkedinUrl(driver, url) {
