@@ -1,15 +1,16 @@
+import { Key } from "selenium-webdriver";
 import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
 
 /**
- * LinkedIn feed image post — selectors locked via live cookie simulation.
+ * LinkedIn feed image post — live-tuned.
  *
  * Flow:
- * 1. Open /sharing/compose (or Start a post → compose)
- * 2. Wait for Media button and/or ProseMirror editor
- * 3. Click button[aria-label=Media] → input[type=file]
- * 4. sendKeys(image); optional Next
- * 5. Type caption into div.ProseMirror / role=textbox
- * 6. Click button Post
+ * 1. Open /sharing/compose
+ * 2. Media → "Upload from computer"
+ * 3. input[type=file] sendKeys(image); wait for blob preview
+ * 4. Next / Done if shown
+ * 5. Caption via keyboard into contenteditable (ProseMirror)
+ * 6. Post
  */
 
 const PAGE_HELPERS = `
@@ -37,11 +38,26 @@ function findMediaButton() {
   return document.querySelector("button[aria-label='Media']") || null;
 }
 
+function findUploadFromComputer() {
+  const nodes = [...document.querySelectorAll("button, div[role='button'], div[role='menuitem'], span, div")];
+  const upload = nodes.find((el) => normalize(el.innerText) === "Upload from computer");
+  if (!upload) return null;
+  return upload.closest("button, div[role='button'], div[role='menuitem']") || upload;
+}
+
 function findNextButton() {
   return [...document.querySelectorAll("button")].find((el) => {
     const label = normalize(el.getAttribute("aria-label") || el.innerText || "");
     const disabled = el.disabled || el.getAttribute("aria-disabled") === "true";
     return /^next$/i.test(label) && !disabled;
+  }) || null;
+}
+
+function findDoneButton() {
+  return [...document.querySelectorAll("button")].find((el) => {
+    const label = normalize(el.getAttribute("aria-label") || el.innerText || "");
+    const disabled = el.disabled || el.getAttribute("aria-disabled") === "true";
+    return /^done$/i.test(label) && !disabled;
   }) || null;
 }
 
@@ -51,6 +67,13 @@ function findPostButton() {
     const disabled = el.disabled || el.getAttribute("aria-disabled") === "true";
     return /^post$/i.test(label) && !disabled;
   }) || null;
+}
+
+function countBlobPreviews() {
+  return [...document.querySelectorAll("img")].filter((img) => {
+    const src = img.currentSrc || img.src || "";
+    return src.startsWith("blob:") && img.naturalWidth > 40;
+  }).length;
 }
 `;
 
@@ -62,9 +85,13 @@ export async function diagnoseLinkedinPublish(driver) {
         startPost: !!findStartPostControl(),
         composer: !!findComposer(),
         mediaButton: !!findMediaButton(),
+        uploadFromComputer: !!findUploadFromComputer(),
         fileInput: !!document.querySelector("input[type='file']"),
+        blobPreviews: countBlobPreviews(),
         nextButton: !!findNextButton(),
+        doneButton: !!findDoneButton(),
         postButton: !!findPostButton(),
+        caption: (findComposer()?.innerText || "").slice(0, 120),
       };
     `);
 }
@@ -98,8 +125,22 @@ async function waitForComposeReady(driver, timeoutMs = 30000) {
     throw new Error(`LinkedIn step2 compose not ready (${JSON.stringify(state)})`);
 }
 
+async function waitForFileInputs(driver, timeoutMs = 15000) {
+    const deadline = Date.now() + timeoutMs;
+    let inputs = [];
+    while (Date.now() < deadline) {
+        inputs = await driver.findElements({ css: "input[type=file]" });
+        if (inputs.length) {
+            return inputs;
+        }
+        await contentPublishSleep(300);
+    }
+    return inputs;
+}
+
 async function attachImage(driver, mediaPath) {
     let inputs = await driver.findElements({ css: "input[type=file]" });
+
     if (!inputs.length) {
         const clickedMedia = await driver.executeScript(`
           ${PAGE_HELPERS}
@@ -112,13 +153,26 @@ async function attachImage(driver, mediaPath) {
             const state = await diagnoseLinkedinPublish(driver);
             throw new Error(`LinkedIn step3 Media button missing (${JSON.stringify(state)})`);
         }
-        await contentPublishSleep(1500);
-        const deadline = Date.now() + 10000;
-        while (Date.now() < deadline && !inputs.length) {
-            inputs = await driver.findElements({ css: "input[type=file]" });
-            if (!inputs.length) {
-                await contentPublishSleep(400);
+        await contentPublishSleep(1000);
+        inputs = await waitForFileInputs(driver, 4000);
+
+        // Some sessions open a submenu first.
+        if (!inputs.length) {
+            const clickedUpload = await driver.executeScript(`
+              ${PAGE_HELPERS}
+              const upload = findUploadFromComputer();
+              if (!upload) return false;
+              upload.click();
+              return true;
+            `);
+            if (!clickedUpload) {
+                const state = await diagnoseLinkedinPublish(driver);
+                throw new Error(
+                    `LinkedIn step3 upload control missing (${JSON.stringify(state)})`,
+                );
             }
+            await contentPublishSleep(1000);
+            inputs = await waitForFileInputs(driver, 15000);
         }
     }
 
@@ -127,8 +181,41 @@ async function attachImage(driver, mediaPath) {
         throw new Error(`LinkedIn step3 file input missing (${JSON.stringify(state)})`);
     }
 
-    await inputs[0].sendKeys(mediaPath);
-    await contentPublishSleep(3000);
+    let chosen = inputs[0];
+    for (const input of inputs) {
+        const accept = String((await input.getAttribute("accept")) || "").toLowerCase();
+        if (
+            accept.includes("image") ||
+            accept.includes("jpeg") ||
+            accept.includes("jpg") ||
+            accept.includes("png")
+        ) {
+            chosen = input;
+            break;
+        }
+    }
+
+    await chosen.sendKeys(mediaPath);
+
+    const previewDeadline = Date.now() + 30000;
+    let previewReady = false;
+    while (Date.now() < previewDeadline) {
+        const blobCount = await driver.executeScript(`
+          ${PAGE_HELPERS}
+          return countBlobPreviews();
+        `);
+        if (blobCount > 0) {
+            previewReady = true;
+            break;
+        }
+        await contentPublishSleep(500);
+    }
+    if (!previewReady) {
+        const state = await diagnoseLinkedinPublish(driver);
+        throw new Error(`LinkedIn step3 image preview missing (${JSON.stringify(state)})`);
+    }
+
+    await contentPublishSleep(1000);
 
     const nextClicked = await driver.executeScript(`
       ${PAGE_HELPERS}
@@ -140,33 +227,79 @@ async function attachImage(driver, mediaPath) {
     if (nextClicked) {
         await contentPublishSleep(2000);
     }
+
+    const doneClicked = await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const done = findDoneButton();
+      if (!done) return false;
+      done.click();
+      return true;
+    `);
+    if (doneClicked) {
+        await contentPublishSleep(1500);
+    }
 }
 
 async function typeCaption(driver, caption) {
-    const deadline = Date.now() + 15000;
+    const text = String(caption || "");
+    const deadline = Date.now() + 20000;
+    let editor = null;
+
     while (Date.now() < deadline) {
-        const typed = await driver.executeScript(
+        const found = await driver.executeScript(`
+          ${PAGE_HELPERS}
+          const composer = findComposer();
+          if (!composer) return false;
+          composer.scrollIntoView({ block: "center" });
+          composer.focus();
+          composer.click();
+          return true;
+        `);
+        if (found) {
+            const editors = await driver.findElements({ css: "div[contenteditable='true']" });
+            editor = editors[0] || null;
+            if (editor) {
+                break;
+            }
+        }
+        await contentPublishSleep(400);
+    }
+
+    if (!editor) {
+        const state = await diagnoseLinkedinPublish(driver);
+        throw new Error(`LinkedIn step4 caption editor missing (${JSON.stringify(state)})`);
+    }
+
+    await editor.click();
+    await editor.sendKeys(Key.chord(Key.CONTROL, "a"));
+    await editor.sendKeys(Key.BACK_SPACE);
+    if (text) {
+        await editor.sendKeys(text);
+    }
+    await contentPublishSleep(800);
+
+    const applied = await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const composer = findComposer();
+      return composer ? String(composer.innerText || "").trim() : "";
+    `);
+    if (text && !String(applied || "").includes(text.slice(0, Math.min(12, text.length)))) {
+        // Fallback for stubborn ProseMirror instances
+        await driver.executeScript(
             `
           ${PAGE_HELPERS}
           const composer = findComposer();
           if (!composer) return false;
           composer.focus();
-          composer.innerHTML = "";
-          const text = String(arguments[0] || "");
-          composer.textContent = text;
-          composer.dispatchEvent(new InputEvent("input", { bubbles: true, data: text }));
+          document.execCommand("selectAll", false, null);
+          document.execCommand("insertText", false, String(arguments[0] || ""));
+          composer.dispatchEvent(new InputEvent("input", { bubbles: true }));
           return true;
         `,
-            caption,
+            text,
         );
-        if (typed) {
-            await contentPublishSleep(800);
-            return;
-        }
         await contentPublishSleep(500);
     }
-    const state = await diagnoseLinkedinPublish(driver);
-    throw new Error(`LinkedIn step4 caption editor missing (${JSON.stringify(state)})`);
 }
 
 async function clickPost(driver) {
@@ -180,7 +313,7 @@ async function clickPost(driver) {
           return true;
         `);
         if (clicked) {
-            await contentPublishSleep(4000);
+            await contentPublishSleep(5000);
             return;
         }
         await contentPublishSleep(500);

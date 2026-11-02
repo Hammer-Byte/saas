@@ -42,6 +42,11 @@ const app = new Elysia().use(
 app.onRequest(middlewares.bun.requestLogger);
 
 app.onError(({ request, error, code, set }) => {
+    if (code === "NOT_FOUND") {
+        set.status = 404;
+        return;
+    }
+
     const message = error?.message || String(error);
     logger.error(
         `Request Error - ${request.method} ${request.url} | code=${code} | status=${set.status} | ${message}`,
