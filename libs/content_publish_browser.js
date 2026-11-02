@@ -102,7 +102,10 @@ export async function loginFacebookWithCookie(driver, cookieValue) {
 
 export async function loginInstagramWithCookie(driver, cookieValue) {
     await openUrl(driver, "https://www.instagram.com/");
-    const parts = parseNameValueCookieBlob(cookieValue);
+    const parts = normalizeInstagramCookies(cookieValue);
+    if (!parts.some((part) => part.name === "sessionid" && part.value)) {
+        throw new Error("Instagram cookie must include sessionid");
+    }
     for (const part of parts) {
         await driver.manage().addCookie({
             name: part.name,
@@ -110,14 +113,62 @@ export async function loginInstagramWithCookie(driver, cookieValue) {
             domain: ".instagram.com",
             path: "/",
             secure: true,
+            httpOnly: part.name === "sessionid",
         });
     }
     await openUrl(driver, "https://www.instagram.com/");
-    await contentPublishSleep(2000);
-    const url = await driver.getCurrentUrl();
-    if (/accounts\/login|challenge/i.test(url)) {
-        throw new Error(`Instagram login failed at ${url}`);
+    await contentPublishSleep(2500);
+    await waitForInstagramLogin(driver);
+}
+
+async function waitForInstagramLogin(driver) {
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+        const state = await driver.executeScript(`
+          return {
+            url: location.href,
+            hasCreate: !!(
+              document.querySelector("svg[aria-label='New post']")
+              || document.querySelector("svg[aria-label='Create']")
+              || document.querySelector("a[href*='/create']")
+            ),
+            hasHome: !!(
+              document.querySelector("svg[aria-label='Home']")
+              || document.querySelector("a[href='/']")
+            ),
+          };
+        `);
+        if (/accounts\/login|challenge|two_factor|auth_platform/i.test(state.url)) {
+            break;
+        }
+        if (state.hasCreate || state.hasHome || /instagram\.com\/?$|instagram\.com\/(reels|direct|explore)/i.test(state.url)) {
+            return;
+        }
+        await contentPublishSleep(1000);
     }
+    const url = await driver.getCurrentUrl();
+    throw new Error(`Instagram login failed at ${url}`);
+}
+
+function normalizeInstagramCookies(cookieValue) {
+    const trimmed = String(cookieValue || "").trim();
+    let parts = [];
+    if (!trimmed.includes("=")) {
+        parts = [{ name: "sessionid", value: trimmed }];
+    } else {
+        parts = parseNameValueCookieBlob(trimmed);
+    }
+    return parts
+        .map((part) => {
+            let value = String(part.value || "").trim();
+            try {
+                value = decodeURIComponent(value);
+            } catch {
+                // keep raw value
+            }
+            return { name: part.name, value };
+        })
+        .filter((part) => part.name && part.value);
 }
 
 export async function loginYoutubeWithCookie(driver, cookieValue) {
