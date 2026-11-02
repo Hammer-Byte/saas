@@ -4,14 +4,16 @@ import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
 /**
  * Instagram feed image post — live-tuned.
  *
+ * Caption editor is Lexical; bulk textContent/execCommand does not submit.
+ * Type via Selenium Actions character-by-character after focusing the caret.
+ *
  * Flow:
- * 1. Home → svg[aria-label=New post]
- * 2. Choose Post if create menu appears
- * 3. input[type=file] sendKeys(image)
- * 4. Dismiss notifications interstitial if shown
- * 5. Next through crop/filter
- * 6. Caption in [aria-label='Add a caption...'] via sendKeys
- * 7. Share
+ * 1. Home → New post → Post
+ * 2. Upload image via input[type=file]
+ * 3. Dismiss Not Now if shown
+ * 4. Next through crop/filter
+ * 5. Type caption into [aria-label='Add a caption...']
+ * 6. Share (no post-publish verification)
  */
 
 const PAGE_HELPERS = `
@@ -56,10 +58,8 @@ function findShare() {
 }
 
 function findCaption() {
-  return document.querySelector("div[aria-label='Add a caption...'][contenteditable='true']")
-    || document.querySelector("div[role='textbox'][aria-label*='caption' i]")
-    || document.querySelector("textarea[aria-label*='caption' i]")
-    || document.querySelector("div[aria-label*='Add a caption' i]")
+  return document.querySelector("[aria-label='Add a caption...']")
+    || document.querySelector("[aria-label*='Add a caption' i]")
     || null;
 }
 `;
@@ -74,8 +74,10 @@ export async function diagnoseInstagramPublish(driver) {
         next: !!findNext(),
         share: !!findShare(),
         caption: !!findCaption(),
+        captionText: (findCaption()?.innerText || "").slice(0, 120),
         notNow: !!findNotNow(),
         dialogs: document.querySelectorAll("div[role='dialog']").length,
+        dialogText: String((document.querySelector("div[role='dialog']") || {}).innerText || "").slice(0, 160),
       };
     `);
 }
@@ -103,7 +105,6 @@ async function openCreatePost(driver) {
     }
     await contentPublishSleep(2000);
 
-    // Create menu may list Post / Live video / Ad
     await driver.executeScript(`
       ${PAGE_HELPERS}
       const postItem = findPostMenuItem();
@@ -143,16 +144,17 @@ async function attachImage(driver, mediaPath) {
 }
 
 async function clickThroughNext(driver) {
-    for (let step = 0; step < 4; step += 1) {
+    for (let step = 0; step < 6; step += 1) {
         await dismissNotNow(driver);
-        const advanced = await driver.executeScript(`
+        const status = await driver.executeScript(`
           ${PAGE_HELPERS}
+          if (findCaption()) return "caption";
           const next = findNext();
-          if (!next) return false;
+          if (!next) return "done";
           next.click();
-          return true;
+          return "next";
         `);
-        if (!advanced) {
+        if (status === "caption" || status === "done") {
             break;
         }
         await contentPublishSleep(1500);
@@ -161,43 +163,83 @@ async function clickThroughNext(driver) {
 
 async function typeCaption(driver, caption, hashtags) {
     const text = [caption, hashtags].filter(Boolean).join("\n");
+    if (!text) {
+        return;
+    }
+
     const deadline = Date.now() + 20000;
-    let ready = false;
     while (Date.now() < deadline) {
         await dismissNotNow(driver);
-        ready = await driver.executeScript(`
+        const ready = await driver.executeScript(`
           ${PAGE_HELPERS}
-          const caption = findCaption();
-          if (!caption) return false;
-          caption.scrollIntoView({ block: "center" });
-          caption.focus();
-          caption.click();
-          return true;
+          return !!findCaption();
         `);
         if (ready) {
             break;
         }
         await contentPublishSleep(400);
     }
-    if (!ready) {
+
+    const boxes = await driver.findElements({
+        css: "[aria-label='Add a caption...'], [aria-label*='Add a caption' i]",
+    });
+    const box = boxes[0];
+    if (!box) {
         const state = await diagnoseInstagramPublish(driver);
         throw new Error(`Instagram step4 caption missing (${JSON.stringify(state)})`);
     }
 
-    const editors = await driver.findElements({
-        css: "div[aria-label='Add a caption...'][contenteditable='true'], div[aria-label*='Add a caption' i], textarea[aria-label*='caption' i], div[role='textbox'][contenteditable='true']",
-    });
-    const editor = editors[0];
-    if (!editor) {
-        throw new Error("Instagram step4 caption element missing");
-    }
-    await editor.click();
-    await editor.sendKeys(Key.chord(Key.CONTROL, "a"));
-    await editor.sendKeys(Key.BACK_SPACE);
-    if (text) {
-        await editor.sendKeys(text);
+    // Place Lexical caret inside the caption editor.
+    await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const el = findCaption();
+      if (!el) return;
+      const paragraph = el.querySelector("p") || el;
+      el.focus();
+      const range = document.createRange();
+      range.selectNodeContents(paragraph);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      paragraph.click();
+    `);
+    await contentPublishSleep(300);
+
+    const actions = driver.actions({ async: true });
+    await actions.clear();
+    await actions.click(box).pause(250).perform();
+    await actions
+        .keyDown(Key.CONTROL)
+        .sendKeys("a")
+        .keyUp(Key.CONTROL)
+        .sendKeys(Key.BACK_SPACE)
+        .pause(250)
+        .perform();
+
+    for (const character of text) {
+        await driver.actions({ async: true }).sendKeys(character).pause(35).perform();
     }
     await contentPublishSleep(800);
+
+    const applied = await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const el = findCaption();
+      return el ? String(el.innerText || "").trim() : "";
+    `);
+    const probe = text.slice(0, Math.min(10, text.length));
+    if (!String(applied || "").includes(probe)) {
+        throw new Error(
+            `Instagram step4 caption not applied (ui=${JSON.stringify(applied)})`,
+        );
+    }
+
+    await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const el = findCaption();
+      if (el) el.blur();
+    `);
+    await contentPublishSleep(400);
 }
 
 async function clickShare(driver) {
@@ -212,7 +254,7 @@ async function clickShare(driver) {
           return true;
         `);
         if (shared) {
-            await contentPublishSleep(6000);
+            await contentPublishSleep(3000);
             return;
         }
         await contentPublishSleep(500);
