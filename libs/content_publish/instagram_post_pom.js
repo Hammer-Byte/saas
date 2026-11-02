@@ -28,7 +28,9 @@ function findNewPostControl() {
 }
 
 function findPostMenuItem() {
-  return [...document.querySelectorAll("button, div[role='button'], span, div")].find((el) =>
+  // Prefer items inside the create dialog so feed "Post" buttons are ignored.
+  const scope = document.querySelector("div[role='dialog']") || document;
+  return [...scope.querySelectorAll("button, div[role='button'], span, div")].find((el) =>
     normalize(el.innerText) === "Post"
   ) || null;
 }
@@ -46,13 +48,15 @@ function findNotNow() {
 }
 
 function findNext() {
-  return [...document.querySelectorAll("div[role='button'], button")].find((el) =>
+  const scope = document.querySelector("div[role='dialog']") || document;
+  return [...scope.querySelectorAll("div[role='button'], button")].find((el) =>
     /^next$/i.test(normalize(el.innerText))
   ) || null;
 }
 
 function findShare() {
-  return [...document.querySelectorAll("div[role='button'], button")].find((el) =>
+  const scope = document.querySelector("div[role='dialog']") || document;
+  return [...scope.querySelectorAll("div[role='button'], button")].find((el) =>
     /^share$/i.test(normalize(el.innerText))
   ) || null;
 }
@@ -141,24 +145,63 @@ async function attachImage(driver, mediaPath) {
     await inputs[0].sendKeys(mediaPath);
     await contentPublishSleep(2500);
     await dismissNotNow(driver);
+
+    // Wait until crop/filter wizard shows Next (or caption is already available).
+    const readyDeadline = Date.now() + 20000;
+    while (Date.now() < readyDeadline) {
+        await dismissNotNow(driver);
+        const ready = await driver.executeScript(`
+          ${PAGE_HELPERS}
+          return !!(findNext() || findCaption() || findShare());
+        `);
+        if (ready) {
+            return;
+        }
+        await contentPublishSleep(500);
+    }
 }
 
 async function clickThroughNext(driver) {
-    for (let step = 0; step < 6; step += 1) {
+    // After upload, crop/filter UI can lag. Wait for Next or caption; do not
+    // treat a momentary missing Next as finished.
+    const deadline = Date.now() + 45000;
+    let nextClicks = 0;
+
+    while (Date.now() < deadline) {
         await dismissNotNow(driver);
         const status = await driver.executeScript(`
           ${PAGE_HELPERS}
-          if (findCaption()) return "caption";
+          if (findCaption()) return { status: "caption" };
+          if (findShare()) return { status: "share" };
           const next = findNext();
-          if (!next) return "done";
-          next.click();
-          return "next";
+          if (next) {
+            next.click();
+            return { status: "next" };
+          }
+          const dialogText = String((document.querySelector("div[role='dialog']") || {}).innerText || "");
+          return {
+            status: "wait",
+            dialogs: document.querySelectorAll("div[role='dialog']").length,
+            dialogText: dialogText.slice(0, 120),
+            fileInputs: document.querySelectorAll("input[type='file']").length,
+          };
         `);
-        if (status === "caption" || status === "done") {
-            break;
+
+        if (status?.status === "caption" || status?.status === "share") {
+            return;
         }
-        await contentPublishSleep(1500);
+        if (status?.status === "next") {
+            nextClicks += 1;
+            await contentPublishSleep(1500);
+            continue;
+        }
+        await contentPublishSleep(700);
     }
+
+    const state = await diagnoseInstagramPublish(driver);
+    throw new Error(
+        `Instagram step4 wizard stuck before caption (nextClicks=${nextClicks}, ${JSON.stringify(state)})`,
+    );
 }
 
 async function typeCaption(driver, caption, hashtags) {
@@ -167,7 +210,8 @@ async function typeCaption(driver, caption, hashtags) {
         return;
     }
 
-    const deadline = Date.now() + 20000;
+    // Caption screen should already be open from clickThroughNext; keep a short wait.
+    const deadline = Date.now() + 15000;
     while (Date.now() < deadline) {
         await dismissNotNow(driver);
         const ready = await driver.executeScript(`
@@ -177,7 +221,13 @@ async function typeCaption(driver, caption, hashtags) {
         if (ready) {
             break;
         }
-        await contentPublishSleep(400);
+        // One more Next if crop/filter is still showing.
+        await driver.executeScript(`
+          ${PAGE_HELPERS}
+          const next = findNext();
+          if (next) next.click();
+        `);
+        await contentPublishSleep(700);
     }
 
     const boxes = await driver.findElements({
@@ -189,56 +239,56 @@ async function typeCaption(driver, caption, hashtags) {
         throw new Error(`Instagram step4 caption missing (${JSON.stringify(state)})`);
     }
 
-    // Place Lexical caret inside the caption editor.
-    await driver.executeScript(`
-      ${PAGE_HELPERS}
-      const el = findCaption();
-      if (!el) return;
-      const paragraph = el.querySelector("p") || el;
-      el.focus();
-      const range = document.createRange();
-      range.selectNodeContents(paragraph);
-      range.collapse(true);
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      paragraph.click();
-    `);
-    await contentPublishSleep(300);
-
-    const actions = driver.actions({ async: true });
-    await actions.clear();
-    await actions.click(box).pause(250).perform();
-    await actions
-        .keyDown(Key.CONTROL)
-        .sendKeys("a")
-        .keyUp(Key.CONTROL)
-        .sendKeys(Key.BACK_SPACE)
-        .pause(250)
-        .perform();
-
-    for (const character of text) {
-        await driver.actions({ async: true }).sendKeys(character).pause(35).perform();
-    }
-    await contentPublishSleep(800);
-
-    const applied = await driver.executeScript(`
-      ${PAGE_HELPERS}
-      const el = findCaption();
-      return el ? String(el.innerText || "").trim() : "";
-    `);
     const probe = text.slice(0, Math.min(10, text.length));
+    let applied = "";
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+        await driver.executeScript(`
+          ${PAGE_HELPERS}
+          const el = findCaption();
+          if (!el) return;
+          const paragraph = el.querySelector("p") || el;
+          el.scrollIntoView({ block: "center" });
+          el.focus();
+          const range = document.createRange();
+          range.selectNodeContents(paragraph);
+          range.collapse(true);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          paragraph.click();
+        `);
+        await contentPublishSleep(400);
+
+        await driver.actions({ async: true }).click(box).pause(300).perform();
+        const active = await driver.switchTo().activeElement();
+        await active.sendKeys(Key.chord(Key.CONTROL, "a"));
+        await active.sendKeys(Key.BACK_SPACE);
+        await contentPublishSleep(200);
+
+        // Lexical needs real key events; type relatively slowly.
+        for (const character of text) {
+            await active.sendKeys(character);
+            await contentPublishSleep(25);
+        }
+        await contentPublishSleep(800);
+
+        applied = await driver.executeScript(`
+          ${PAGE_HELPERS}
+          const el = findCaption();
+          return el ? String(el.innerText || "").trim() : "";
+        `);
+        if (String(applied || "").includes(probe)) {
+            break;
+        }
+    }
+
     if (!String(applied || "").includes(probe)) {
         throw new Error(
             `Instagram step4 caption not applied (ui=${JSON.stringify(applied)})`,
         );
     }
 
-    await driver.executeScript(`
-      ${PAGE_HELPERS}
-      const el = findCaption();
-      if (el) el.blur();
-    `);
     await contentPublishSleep(400);
 }
 
@@ -266,6 +316,7 @@ async function clickShare(driver) {
 export async function publishInstagramImagePost({ driver, mediaPath, caption, hashtags }) {
     await openUrl(driver, "https://www.instagram.com/");
     await contentPublishSleep(2500);
+    await dismissNotNow(driver);
     await dismissNotNow(driver);
 
     await openCreatePost(driver);
