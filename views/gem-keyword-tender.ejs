@@ -1,0 +1,334 @@
+<%- include('common/header') %>
+
+<%
+    const canAssignOthers = (authorities || []).includes(AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE);
+    const currentUserId = Number(userId || 0);
+    const assigneeUserId = tender.assignee_user_id ? Number(tender.assignee_user_id) : null;
+    const isAssignedToMe = assigneeUserId === currentUserId;
+    const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
+    const stageValues = Object.keys(stageLabels);
+%>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/gem-tenders" class="text-decoration-none">Gem Tenders Analyzer</a> /
+                    <a href="/app/gem-keyword-tenders" class="text-decoration-none">Tenders</a> /
+                    <%= tender.tender_id %>
+                </p>
+                <h1 class="h3 mb-1">
+                    <% if (tender.document) { %>
+                        <a href="<%= tender.document %>" target="_blank" rel="noopener noreferrer">
+                            <%= tender.tender_id %>
+                        </a>
+                    <% } else { %>
+                        <%= tender.tender_id %>
+                    <% } %>
+                </h1>
+                <p class="text-secondary mb-0">Keyword: <%= tender.keyword || "-" %></p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    id="gem-tender-hide-btn"
+                    <%= tender.eligible ? "disabled" : "" %>
+                >
+                    <%= tender.hidden ? "Unhide" : "Hide" %>
+                </button>
+            </div>
+        </div>
+
+        <div id="gem-tender-alert" class="alert d-none" role="alert"></div>
+
+        <div
+            class="card border-0 shadow-sm mb-4"
+            id="gem-tender-detail"
+            data-id="<%= tender.id %>"
+            data-eligible="<%= tender.eligible ? '1' : '0' %>"
+            data-filed="<%= tender.filed ? '1' : '0' %>"
+            data-hidden="<%= tender.hidden ? '1' : '0' %>"
+            data-stage="<%= tender.stage || 'new' %>"
+            data-assignee-user-id="<%= assigneeUserId || '' %>"
+            data-quote="<%= encodeURIComponent(tender.quote || '') %>"
+            data-current-user-id="<%= currentUserId %>"
+            data-can-assign-others="<%= canAssignOthers ? '1' : '0' %>"
+        >
+            <div class="card-body p-4">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label for="gem-tender-stage" class="form-label">Stage</label>
+                        <select class="form-select" id="gem-tender-stage">
+                            <% stageValues.forEach(function (stage) { %>
+                                <option
+                                    value="<%= stage %>"
+                                    <%= (tender.stage || 'new') === stage ? 'selected' : '' %>
+                                >
+                                    <%= stageLabels[stage] %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="gem-tender-assignee" class="form-label">Assignee</label>
+                        <% if (canAssignOthers) { %>
+                            <select class="form-select" id="gem-tender-assignee">
+                                <option value="">Unassigned</option>
+                                <% (users || []).forEach(function (user) { %>
+                                    <option
+                                        value="<%= user.id %>"
+                                        <%= assigneeUserId === Number(user.id) ? 'selected' : '' %>
+                                    >
+                                        <%= user.full_name %> (<%= user.email %>)
+                                    </option>
+                                <% }) %>
+                            </select>
+                        <% } else { %>
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="<%= tender.assignee_full_name || 'Unassigned' %>"
+                                disabled
+                            />
+                        <% } %>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary w-100"
+                            id="gem-tender-assign-me-btn"
+                            <%= isAssignedToMe ? "disabled" : "" %>
+                        >
+                            Assign to me
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="gem-tender-eligible"
+                                <%= tender.eligible ? "checked" : "" %>
+                            />
+                            <label class="form-check-label" for="gem-tender-eligible">Eligible</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="gem-tender-filed"
+                                <%= tender.filed ? "checked" : "" %>
+                                <%= !tender.eligible ? "disabled" : "" %>
+                            />
+                            <label class="form-check-label" for="gem-tender-filed">Filed</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="gem-tender-quote" class="form-label">Quote</label>
+                        <textarea
+                            class="form-control"
+                            id="gem-tender-quote"
+                            rows="3"
+                            <%= !tender.eligible ? "disabled" : "" %>
+                        ><%= tender.quote || "" %></textarea>
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-primary mt-2"
+                            id="gem-tender-quote-save-btn"
+                            <%= !tender.eligible ? "disabled" : "" %>
+                        >
+                            Save quote
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row g-3 small">
+                    <div class="col-md-4"><strong>Start</strong><br /><%= tender.start_date_time || "-" %></div>
+                    <div class="col-md-4"><strong>End</strong><br /><%= tender.end_date_time || "-" %></div>
+                    <div class="col-md-4"><strong>Hidden</strong><br /><span id="gem-tender-hidden-label"><%= tender.hidden ? "Yes" : "No" %></span></div>
+                    <div class="col-md-4"><strong>Ministry</strong><br /><%= tender.ministry || "-" %></div>
+                    <div class="col-md-4"><strong>Department</strong><br /><%= tender.department || "-" %></div>
+                    <div class="col-md-4"><strong>Organization</strong><br /><%= tender.organization || "-" %></div>
+                    <div class="col-md-4"><strong>Office</strong><br /><%= tender.office || "-" %></div>
+                    <div class="col-md-4"><strong>Required Minimum Average Turnover</strong><br /><%= tender.required_minimum_average_turnover || "-" %></div>
+                    <div class="col-md-4"><strong>Required Past Experience Years</strong><br /><%= tender.required_past_experice_years || "-" %></div>
+                    <div class="col-md-4"><strong>MSE Experience Relaxation</strong><br /><%= tender.mse_experience_relaxation || "-" %></div>
+                    <div class="col-md-4"><strong>MSE Turnover Relaxation</strong><br /><%= tender.mse_turnover_relaxation || "-" %></div>
+                    <div class="col-md-4"><strong>Asked documents</strong><br /><%= tender.asked_documents || "-" %></div>
+                    <div class="col-md-4"><strong>HOD email</strong><br /><%= tender.hod_email || "-" %></div>
+                    <div class="col-md-4"><strong>Buyer email</strong><br /><%= tender.buyer_email || "-" %></div>
+                    <div class="col-md-4"><strong>Buyer phone</strong><br /><%= tender.buyer_phone || "-" %></div>
+                </div>
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs" id="gem-tender-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link active"
+                    id="gem-tender-activities-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#gem-tender-activities-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="gem-tender-activities-pane"
+                    aria-selected="true"
+                >
+                    Activities
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link"
+                    id="gem-tender-comments-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#gem-tender-comments-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="gem-tender-comments-pane"
+                    aria-selected="false"
+                >
+                    Comments
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content border border-top-0 bg-white shadow-sm rounded-bottom p-4 mb-4">
+            <div
+                class="tab-pane fade show active"
+                id="gem-tender-activities-pane"
+                role="tabpanel"
+                aria-labelledby="gem-tender-activities-tab"
+            >
+                <div
+                    id="gem-tender-activities-empty"
+                    class="text-secondary <%= activities && activities.length ? 'd-none' : '' %>"
+                >
+                    No activities yet.
+                </div>
+                <ul class="list-group list-group-flush" id="gem-tender-activities-list">
+                    <% (activities || []).forEach(function (activity) { %>
+                        <li class="list-group-item px-0">
+                            <div class="d-flex justify-content-between gap-3">
+                                <div>
+                                    <strong><%= activity.user_full_name || activity.user_email %></strong>
+                                    <span class="text-secondary">— <%= activity.activity %></span>
+                                </div>
+                                <span
+                                    class="text-secondary small text-nowrap"
+                                    data-readable-date="<%= activity.created_on %>"
+                                    data-date-format="YYYY-MM-DD HH:mm:ss"
+                                ></span>
+                            </div>
+                        </li>
+                    <% }) %>
+                </ul>
+            </div>
+
+            <div
+                class="tab-pane fade"
+                id="gem-tender-comments-pane"
+                role="tabpanel"
+                aria-labelledby="gem-tender-comments-tab"
+            >
+                <form id="gem-tender-comment-form" class="mb-4" novalidate>
+                    <label for="gem-tender-comment-text" class="form-label">Add comment</label>
+                    <textarea
+                        class="form-control"
+                        id="gem-tender-comment-text"
+                        rows="3"
+                        required
+                    ></textarea>
+                    <button type="submit" class="btn btn-primary mt-2" id="gem-tender-comment-submit-btn">
+                        Add comment
+                    </button>
+                </form>
+
+                <div
+                    id="gem-tender-comments-empty"
+                    class="text-secondary <%= comments && comments.length ? 'd-none' : '' %>"
+                >
+                    No comments yet.
+                </div>
+                <ul class="list-group list-group-flush" id="gem-tender-comments-list">
+                    <% (comments || []).forEach(function (comment) { %>
+                        <li
+                            class="list-group-item px-0"
+                            data-id="<%= comment.id %>"
+                            data-user-id="<%= comment.user_id %>"
+                            data-comment="<%= encodeURIComponent(comment.comment || '') %>"
+                        >
+                            <div class="d-flex justify-content-between gap-3 mb-2">
+                                <strong><%= comment.user_full_name || comment.user_email %></strong>
+                                <span
+                                    class="text-secondary small text-nowrap"
+                                    data-readable-date="<%= comment.created_on %>"
+                                    data-date-format="YYYY-MM-DD HH:mm:ss"
+                                ></span>
+                            </div>
+                            <p class="mb-2 gem-tender-comment-body"><%= comment.comment %></p>
+                            <% if (Number(comment.user_id) === currentUserId) { %>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary gem-tender-comment-edit-btn">
+                                        Edit
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger gem-tender-comment-delete-btn">
+                                        Delete
+                                    </button>
+                                </div>
+                            <% } %>
+                        </li>
+                    <% }) %>
+                </ul>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="gem-tender-comment-edit-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="gem-tender-comment-edit-form" novalidate>
+                <input type="hidden" id="gem-tender-comment-edit-id" value="" />
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Edit comment</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="gem-tender-comment-edit-alert" class="alert d-none" role="alert"></div>
+                    <textarea class="form-control" id="gem-tender-comment-edit-text" rows="5" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="gem-tender-comment-edit-save-btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/gem-keyword-tender.js" defer></script>
+<%- include('common/footer') %>

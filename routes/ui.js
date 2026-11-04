@@ -49,8 +49,16 @@ import { getContractClausesByContractId } from "../db/contract_clauses.js";
 import { getClauseSubclausesByContractId } from "../db/clause_subclauses.js";
 import { getAllContractAttachments } from "../db/contract_attachments.js";
 import { getContractRequiredAttachmentsByContractId } from "../db/contract_required_attachments.js";
-import { getAllGemTenderKeywords, getGemTenderKeywordById } from "../db/gem_tender_keywords.js";
-import { getGemKeywordTendersByKeywordId } from "../db/gem_keyword_tenders.js";
+import { getAllGemTenderKeywords } from "../db/gem_tender_keywords.js";
+import {
+    getAllGemKeywordTenders,
+    getGemKeywordTenderById,
+} from "../db/gem_keyword_tenders.js";
+import { getAllGemKeywordTenderActivitiesByTenderId } from "../db/gem_keyword_tender_activities.js";
+import { getAllGemKeywordTenderCommentsByTenderId } from "../db/gem_keyword_tender_comments.js";
+import {
+    GEM_KEYWORD_TENDER_STAGE_LABELS,
+} from "../constants.js";
 import { getAllAutomationUsers } from "../db/automation_users.js";
 import {
     getAllContentPublishRuns,
@@ -644,35 +652,68 @@ export const uiRoutes = new Elysia()
                     allAuthorities: await getAllAuthorities(),
                 })),
             )
-            .get("/app/gem-tender-keywords", async ({ render, session }) =>
-                render("gem-tenders", appPage(session, {
+            .get("/app/gem-tenders", ({ render, session }) =>
+                render("gem-tenders-hub", appPage(session, {
                     title: "Gem Tenders Analyzer — HammerByte",
-                    keywords: await getAllGemTenderKeywords(),
-                    processing: gemTendereProcessing,
-                    month: getReadableDate("YYYY-MM", new Date()),
                 })),
             )
+            .get("/app/gem-tender-keywords", async ({ render, session }) =>
+                render("gem-tenders", appPage(session, {
+                    title: "Keywords — Gem Tenders Analyzer — HammerByte",
+                    keywords: await getAllGemTenderKeywords(),
+                    processing: gemTendereProcessing,
+                })),
+            )
+            .get("/app/gem-keyword-tenders", async ({ render, session, query }) => {
+                const now = new Date();
+                const defaultTo = getReadableDate("YYYY-MM-DD", now);
+                const defaultFrom = getReadableDate(
+                    "YYYY-MM-DD",
+                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30),
+                );
+
+                const from =
+                    query.from && /^\d{4}-\d{2}-\d{2}$/.test(query.from)
+                        ? query.from
+                        : defaultFrom;
+                const to =
+                    query.to && /^\d{4}-\d{2}-\d{2}$/.test(query.to) ? query.to : defaultTo;
+
+                const rangeFrom = from <= to ? from : to;
+                const rangeTo = from <= to ? to : from;
+
+                return render("gem-keyword-tenders", appPage(session, {
+                    title: "Tenders — Gem Tenders Analyzer — HammerByte",
+                    from: rangeFrom,
+                    to: rangeTo,
+                    keywords: await getAllGemTenderKeywords(),
+                    tenders: await getAllGemKeywordTenders({
+                        from: rangeFrom,
+                        to: rangeTo,
+                    }),
+                    GEM_KEYWORD_TENDER_STAGE_LABELS,
+                }));
+            })
             .get(
-                "/app/gem-tender-keywords/:id",
-                async ({ render, session, params, query, redirect }) => {
-                    const keyword = await getGemTenderKeywordById({ id: params.id });
-                    if (!keyword) {
+                "/app/gem-keyword-tenders/:id",
+                async ({ render, session, params, redirect }) => {
+                    const tender = await getGemKeywordTenderById({ id: params.id });
+                    if (!tender) {
                         return redirect("/not-found");
                     }
 
-                    const month =
-                        query.month && /^\d{4}-\d{2}$/.test(query.month)
-                            ? query.month
-                            : getReadableDate("YYYY-MM", new Date());
-
-                    return render("gem-tender-keyword", appPage(session, {
-                        title: `Tenders — ${keyword.keyword} — HammerByte`,
-                        keyword,
-                        month,
-                        tenders: await getGemKeywordTendersByKeywordId({
-                            keyword_id: keyword.id,
-                            month,
+                    return render("gem-keyword-tender", appPage(session, {
+                        title: `Tender ${tender.tender_id} — HammerByte`,
+                        tender,
+                        userId: session?.id,
+                        users: await getAllUsers(),
+                        activities: await getAllGemKeywordTenderActivitiesByTenderId({
+                            gem_keyword_tender_id: tender.id,
                         }),
+                        comments: await getAllGemKeywordTenderCommentsByTenderId({
+                            gem_keyword_tender_id: tender.id,
+                        }),
+                        GEM_KEYWORD_TENDER_STAGE_LABELS,
                     }));
                 },
             )

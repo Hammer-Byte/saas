@@ -25,6 +25,7 @@ import contractClauses from "./apps/contract_clauses.js";
 import clauseSubclauses from "./apps/clause_subclauses.js";
 import gemTenderKeywords from "./apps/gem_tender_keywords.js";
 import gemKeywordTenders from "./apps/gem_keyword_tenders.js";
+import gemKeywordTenderComments from "./apps/gem_keyword_tender_comments.js";
 import automationUsers from "./apps/automation_users.js";
 import contentPublish from "./apps/content_publish.js";
 import linkedinDesignations from "./apps/linkedin_designations.js";
@@ -75,6 +76,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/clause-subclauses", clauseSubclauses)
             .group("/gem-tender-keywords", gemTenderKeywords)
             .group("/gem-keyword-tenders", gemKeywordTenders)
+            .group("/gem-keyword-tender-comments", gemKeywordTenderComments)
             .group("/automation-users", automationUsers)
             .group("/content-publish", contentPublish)
             .group("/linkedin-designations", linkedinDesignations)

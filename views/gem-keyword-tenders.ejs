@@ -1,5 +1,9 @@
 <%- include('common/header') %>
 
+<%
+    const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
+%>
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
         <a class="navbar-brand" href="/app">HammerByte App</a>
@@ -19,21 +23,33 @@
             <div>
                 <p class="text-secondary small mb-1">
                     <a href="/app" class="text-decoration-none">App</a> /
-                    <a href="/app/gem-tender-keywords" class="text-decoration-none">Gem Tenders Analyzer</a> /
-                    #<%= keyword.id %>
+                    <a href="/app/gem-tenders" class="text-decoration-none">Gem Tenders Analyzer</a> /
+                    Tenders
                 </p>
-                <h1 class="h3 mb-1">Tenders for keyword</h1>
-                <p class="text-secondary mb-0"><%= keyword.keyword %></p>
+                <h1 class="h3 mb-1">Tenders</h1>
+                <p class="text-secondary mb-0">Matched GEM tenders by end date range. Open a tender for details and actions.</p>
             </div>
-            <div style="min-width: 14rem">
-                <label for="gem-tenders-month" class="form-label">End month</label>
-                <input
-                    type="date"
-                    class="form-control"
-                    id="gem-tenders-month"
-                    name="month"
-                    value="<%= month %>-01"
-                />
+            <div class="d-flex flex-wrap gap-3 align-items-end">
+                <div style="min-width: 11rem">
+                    <label for="gem-tenders-from" class="form-label">End date from</label>
+                    <input
+                        type="date"
+                        class="form-control"
+                        id="gem-tenders-from"
+                        name="from"
+                        value="<%= from %>"
+                    />
+                </div>
+                <div style="min-width: 11rem">
+                    <label for="gem-tenders-to" class="form-label">End date to</label>
+                    <input
+                        type="date"
+                        class="form-control"
+                        id="gem-tenders-to"
+                        name="to"
+                        value="<%= to %>"
+                    />
+                </div>
             </div>
         </div>
 
@@ -43,7 +59,7 @@
                     id="gem-tenders-empty"
                     class="p-4 p-md-5 text-center text-secondary <%= tenders && tenders.length ? 'd-none' : '' %>"
                 >
-                    No tenders ending in this month for this keyword.
+                    No tenders ending in this date range.
                 </div>
                 <div
                     id="gem-tenders-table-wrap"
@@ -51,7 +67,16 @@
                 >
                     <div class="border-bottom p-3 p-md-4">
                         <div class="row g-3 align-items-end">
-                            <div class="col-md-6 col-lg-4">
+                            <div class="col-md-6 col-lg-3">
+                                <label for="gem-filter-keyword" class="form-label">Keyword</label>
+                                <select class="form-select" id="gem-filter-keyword">
+                                    <option value="">All</option>
+                                    <% (keywords || []).forEach(function (keyword) { %>
+                                        <option value="<%= keyword.id %>"><%= keyword.keyword %></option>
+                                    <% }) %>
+                                </select>
+                            </div>
+                            <div class="col-md-6 col-lg-3">
                                 <label for="gem-tenders-search" class="form-label">Search</label>
                                 <input
                                     type="search"
@@ -98,6 +123,18 @@
                                     <option value="0">No</option>
                                 </select>
                             </div>
+                            <div class="col-6 col-md-3 col-lg-2">
+                                <div class="form-check mt-4">
+                                    <input
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        id="gem-filter-show-all"
+                                    />
+                                    <label class="form-check-label" for="gem-filter-show-all">
+                                        Show all (include hidden)
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         <p class="text-secondary small mb-0 mt-3" id="gem-tenders-filter-status" role="status"></p>
                     </div>
@@ -106,7 +143,11 @@
                             <thead class="table-light">
                                 <tr>
                                     <th scope="col">Tender ID</th>
-                                    <th scope="col">Start / End</th>
+                                    <th scope="col">Keyword</th>
+                                    <th scope="col">Stage</th>
+                                    <th scope="col">Assignee</th>
+                                    <th scope="col">Start</th>
+                                    <th scope="col">End</th>
                                     <th scope="col">Ministry</th>
                                     <th scope="col">Department</th>
                                     <th scope="col">Organization</th>
@@ -118,39 +159,34 @@
                                     <th scope="col">Asked documents</th>
                                     <th scope="col">Eligible</th>
                                     <th scope="col">Filed</th>
-                                    <th scope="col">Quote</th>
-                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="gem-tenders-tbody">
                                 <% (tenders || []).forEach(function (tender) { %>
                                     <tr
                                         data-id="<%= tender.id %>"
+                                        data-keyword-id="<%= tender.keyword_id %>"
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"
                                         data-mse-exp="<%= tender.mse_experience_relaxation || '' %>"
                                         data-mse-turnover="<%= tender.mse_turnover_relaxation || '' %>"
                                         data-eligible="<%= tender.eligible ? '1' : '0' %>"
                                         data-filed="<%= tender.filed ? '1' : '0' %>"
-                                        data-quote="<%= encodeURIComponent(tender.quote || '') %>"
+                                        data-hidden="<%= tender.hidden ? '1' : '0' %>"
                                     >
                                         <td>
-                                            <% if (tender.document) { %>
-                                                <a
-                                                    href="<%= tender.document %>"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    <%= tender.tender_id %>
-                                                </a>
-                                            <% } else { %>
+                                            <a
+                                                href="/app/gem-keyword-tenders/<%= tender.id %>"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
                                                 <%= tender.tender_id %>
-                                            <% } %>
+                                            </a>
                                         </td>
-                                        <td>
-                                            <%= tender.start_date_time || "-" %>
-                                            <br />
-                                            <%= tender.end_date_time || "-" %>
-                                        </td>
+                                        <td><%= tender.keyword || "-" %></td>
+                                        <td><%= stageLabels[tender.stage] || tender.stage || "New" %></td>
+                                        <td><%= tender.assignee_full_name || "-" %></td>
+                                        <td><%= tender.start_date_time || "-" %></td>
+                                        <td><%= tender.end_date_time || "-" %></td>
                                         <td><%= tender.ministry || "-" %></td>
                                         <td><%= tender.department || "-" %></td>
                                         <td><%= tender.organization || "-" %></td>
@@ -160,49 +196,8 @@
                                         <td><%= tender.mse_experience_relaxation || "-" %></td>
                                         <td><%= tender.mse_turnover_relaxation || "-" %></td>
                                         <td><%= tender.asked_documents || "-" %></td>
-                                        <td>
-                                            <div class="form-check mb-0">
-                                                <input
-                                                    class="form-check-input gem-tender-eligible-checkbox"
-                                                    type="checkbox"
-                                                    <%= tender.eligible ? "checked" : "" %>
-                                                    aria-label="Eligible"
-                                                />
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="form-check mb-0">
-                                                <input
-                                                    class="form-check-input gem-tender-filed-checkbox"
-                                                    type="checkbox"
-                                                    <%= tender.filed ? "checked" : "" %>
-                                                    <%= !tender.eligible ? "disabled" : "" %>
-                                                    aria-label="Filed"
-                                                />
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <button
-                                                type="button"
-                                                class="btn btn-link btn-sm text-start text-decoration-none p-0 gem-tender-quote-btn"
-                                                <%= !tender.eligible ? "disabled" : "" %>
-                                            >
-                                                <%= tender.quote
-                                                    ? (tender.quote.length > 48
-                                                        ? tender.quote.slice(0, 48) + "…"
-                                                        : tender.quote)
-                                                    : "Add quote" %>
-                                            </button>
-                                        </td>
-                                        <td>
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-outline-secondary gem-tender-hidden-btn"
-                                                <%= tender.eligible ? "disabled" : "" %>
-                                            >
-                                                Hide
-                                            </button>
-                                        </td>
+                                        <td><%= tender.eligible ? "Yes" : "No" %></td>
+                                        <td><%= tender.filed ? "Yes" : "No" %></td>
                                     </tr>
                                 <% }) %>
                             </tbody>
@@ -214,36 +209,7 @@
     </div>
 </main>
 
-<div class="modal fade" id="gem-tender-quote-modal" tabindex="-1" aria-labelledby="gem-tender-quote-modal-label" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form id="gem-tender-quote-form" novalidate>
-                <input type="hidden" id="gem-tender-quote-id" name="id" value="" />
-                <div class="modal-header">
-                    <h2 class="modal-title h5" id="gem-tender-quote-modal-label">Quote</h2>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="gem-tender-quote-form-alert" class="alert d-none" role="alert"></div>
-                    <div class="mb-0">
-                        <label for="gem-tender-quote-text" class="form-label">Quote</label>
-                        <textarea
-                            class="form-control"
-                            id="gem-tender-quote-text"
-                            name="quote"
-                            rows="6"
-                        ></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="gem-tender-quote-save-btn">Save</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 <script src="/public/app.js" defer></script>
-<script src="/public/gem-tender-keyword.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/gem-keyword-tenders.js" defer></script>
 <%- include('common/footer') %>

@@ -129,8 +129,58 @@ export async function getGemKeywordTendersByKeywordId({ keyword_id, month }) {
         });
 }
 
+export async function getAllGemKeywordTenders({ from, to }) {
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {
+        return [];
+    }
+
+    const rangeStart = from <= to ? from : to;
+    const rangeEnd = from <= to ? to : from;
+    const startDateTime = `${rangeStart} 00:00:00`;
+    const endDateTime = `${rangeEnd} 23:59:59`;
+
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                GEM_KEYWORD_TENDERS.*,
+                GEM_TENDER_KEYWORDS.keyword AS keyword,
+                USERS.full_name AS assignee_full_name,
+                USERS.email AS assignee_email
+            FROM GEM_KEYWORD_TENDERS
+            INNER JOIN GEM_TENDER_KEYWORDS
+                ON GEM_TENDER_KEYWORDS.id = GEM_KEYWORD_TENDERS.keyword_id
+            LEFT JOIN USERS
+                ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
+            WHERE GEM_KEYWORD_TENDERS.end_date_time IS NOT NULL
+              AND GEM_KEYWORD_TENDERS.end_date_time >= ${startDateTime}
+              AND GEM_KEYWORD_TENDERS.end_date_time <= ${endDateTime}
+            ORDER BY GEM_KEYWORD_TENDERS.end_date_time ASC, GEM_KEYWORD_TENDERS.id DESC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getAllGemKeywordTenders: ${error}`);
+            return [];
+        });
+}
+
 export async function getGemKeywordTenderById({ id }) {
-    return await executeSQLQuery((sql) => sql`SELECT * FROM GEM_KEYWORD_TENDERS WHERE id = ${id}`)
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                GEM_KEYWORD_TENDERS.*,
+                GEM_TENDER_KEYWORDS.keyword AS keyword,
+                USERS.full_name AS assignee_full_name,
+                USERS.email AS assignee_email
+            FROM GEM_KEYWORD_TENDERS
+            INNER JOIN GEM_TENDER_KEYWORDS
+                ON GEM_TENDER_KEYWORDS.id = GEM_KEYWORD_TENDERS.keyword_id
+            LEFT JOIN USERS
+                ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
+            WHERE GEM_KEYWORD_TENDERS.id = ${id}
+        `,
+    )
         .then((result) => (result.length ? result[0] : null))
         .catch((error) => {
             logger.error(`getGemKeywordTenderById: ${error}`);
@@ -144,6 +194,8 @@ export async function updateGemKeywordTenderById({
     eligible,
     filed,
     quote,
+    stage,
+    assignee_user_id = null,
 }) {
     await executeSQLQuery(
         (sql) => sql`
@@ -152,7 +204,9 @@ export async function updateGemKeywordTenderById({
                 hidden = ${!!hidden},
                 eligible = ${!!eligible},
                 filed = ${!!filed},
-                quote = ${quote}
+                quote = ${quote},
+                stage = ${stage},
+                assignee_user_id = ${assignee_user_id}
             WHERE id = ${id}
         `,
     ).catch((error) => {

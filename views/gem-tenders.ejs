@@ -18,10 +18,12 @@
         <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
-                    <a href="/app" class="text-decoration-none">App</a> / Gem Tenders Analyzer
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/gem-tenders" class="text-decoration-none">Gem Tenders Analyzer</a> /
+                    Keywords
                 </p>
-                <h1 class="h3 mb-1">Gem Tenders Analyzer</h1>
-                <p class="text-secondary mb-0">Add keywords to track GEM tenders. Show tenders opens matches for that keyword.</p>
+                <h1 class="h3 mb-1">Keywords</h1>
+                <p class="text-secondary mb-0">Add, edit, and delete GEM search keywords. Start a scan to crawl matches.</p>
             </div>
             <button
                 type="button"
@@ -111,12 +113,6 @@
                                     <td><%= isExact ? "Yes" : "No" %></td>
                                     <td>
                                         <div class="d-flex gap-2 flex-wrap">
-                                            <a
-                                                href="/app/gem-tender-keywords/<%= keyword.id %>?month=<%= month %>"
-                                                class="btn btn-sm btn-outline-secondary"
-                                            >
-                                                Show tenders
-                                            </a>
                                             <button
                                                 type="button"
                                                 class="btn btn-sm btn-outline-primary gem-keyword-edit-btn"

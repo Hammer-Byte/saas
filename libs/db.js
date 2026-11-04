@@ -455,11 +455,53 @@ export async function generateDBTables() {
             filed BOOLEAN NOT NULL DEFAULT FALSE,
             quote TEXT NULL,
             hidden BOOLEAN NOT NULL DEFAULT FALSE,
+            stage VARCHAR(64) NOT NULL DEFAULT 'new',
+            assignee_user_id INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_gem_keyword_tender (keyword_id, tender_id),
             CONSTRAINT fk_gem_keyword_tenders_keyword
                 FOREIGN KEY (keyword_id)
                 REFERENCES GEM_TENDER_KEYWORDS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_gem_keyword_tenders_assignee
+                FOREIGN KEY (assignee_user_id)
+                REFERENCES USERS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDER_ACTIVITIES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            gem_keyword_tender_id INT NOT NULL,
+            user_id INT NOT NULL,
+            activity VARCHAR(512) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_gem_keyword_tender_activities_tender
+                FOREIGN KEY (gem_keyword_tender_id)
+                REFERENCES GEM_KEYWORD_TENDERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_gem_keyword_tender_activities_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDER_COMMENTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            gem_keyword_tender_id INT NOT NULL,
+            user_id INT NOT NULL,
+            comment TEXT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_gem_keyword_tender_comments_tender
+                FOREIGN KEY (gem_keyword_tender_id)
+                REFERENCES GEM_KEYWORD_TENDERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_gem_keyword_tender_comments_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
