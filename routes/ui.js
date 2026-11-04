@@ -57,10 +57,13 @@ import {
 import { getAllGemKeywordTenderActivitiesByTenderId } from "../db/gem_keyword_tender_activities.js";
 import { getAllGemKeywordTenderCommentsByTenderId } from "../db/gem_keyword_tender_comments.js";
 import { getAllGemTenderScanRuns } from "../db/gem_tender_scan_runs.js";
+import { buildGemKeywordTenderReport } from "../services/gem_keyword_tender_report.js";
 import {
     GEM_KEYWORD_TENDER_ELIGIBILITY,
     GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
+    USER_LOGIN_METHOD_LABELS,
+    USER_LOGIN_METHODS,
 } from "../constants.js";
 import { getAllAutomationUsers } from "../db/automation_users.js";
 import {
@@ -640,6 +643,8 @@ export const uiRoutes = new Elysia()
                     title: "Users — HammerByte",
                     users: await getAllUsers(),
                     allRoles: await getAllRoles(),
+                    USER_LOGIN_METHODS,
+                    USER_LOGIN_METHOD_LABELS,
                 })),
             )
             .get("/app/roles", async ({ render, session }) =>
@@ -704,6 +709,35 @@ export const uiRoutes = new Elysia()
                     GEM_KEYWORD_TENDER_STAGE_LABELS,
                     GEM_KEYWORD_TENDER_ELIGIBILITY,
                     GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS,
+                }));
+            })
+            .get("/app/gem-keyword-tender-report", async ({ render, session, query }) => {
+                const now = new Date();
+                const defaultTo = getReadableDate("YYYY-MM-DD", now);
+                const defaultFrom = getReadableDate(
+                    "YYYY-MM-DD",
+                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30),
+                );
+
+                const from =
+                    query.from && /^\d{4}-\d{2}-\d{2}$/.test(query.from)
+                        ? query.from
+                        : defaultFrom;
+                const to =
+                    query.to && /^\d{4}-\d{2}-\d{2}$/.test(query.to) ? query.to : defaultTo;
+
+                const rangeFrom = from <= to ? from : to;
+                const rangeTo = from <= to ? to : from;
+                const report = await buildGemKeywordTenderReport({
+                    from: rangeFrom,
+                    to: rangeTo,
+                });
+
+                return render("gem-keyword-tender-report", appPage(session, {
+                    title: "Tenders report — Gem Tenders Analyzer — HammerByte",
+                    from: rangeFrom,
+                    to: rangeTo,
+                    report,
                 }));
             })
             .get(

@@ -1,4 +1,5 @@
 import { filer, logger } from "@hammerbyte/utils";
+import { ERRORS, USER_LOGIN_METHODS } from "../constants.js";
 import { getUserByEmail } from "../db/users.js";
 import {
     createUserAuthenticationToken,
@@ -8,7 +9,6 @@ import {
 import { generateAuthenticationToken, generateOTP } from "../libs/utils.js";
 import { setAuthenticationTokenCookie } from "../libs/authentication.js";
 import transporter from "../libs/transporter.js";
-import { ERRORS } from "../constants.js";
 
 export async function addUserAuthenticationToken({ body, set }) {
     const email = body.email.trim().toLowerCase();
@@ -17,6 +17,12 @@ export async function addUserAuthenticationToken({ body, set }) {
     if (!user) {
         set.status = 404;
         return { error: ERRORS.NO_SUCH_USER };
+    }
+
+    const loginMethod = user.login_method || USER_LOGIN_METHODS.OTP;
+    if (loginMethod === USER_LOGIN_METHODS.PASSWORD) {
+        set.status = 403;
+        return { error: ERRORS.LOGIN_METHOD_NOT_ALLOWED };
     }
 
     const token = generateAuthenticationToken();

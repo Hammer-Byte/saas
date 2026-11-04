@@ -1,34 +1,18 @@
+import { ERRORS, USER_LOGIN_METHODS } from "../constants.js";
+import { getUserByEmail } from "../db/users.js";
 import {
-    clearAuthenticationTokenCookie,
-    AUTHENTICATION_TOKEN_COOKIE,
-} from "../libs/authentication.js";
-import {
+    createUserAuthenticationToken,
     getActiveUserAuthenticationTokenByToken,
     updateUserAuthenticationTokenActiveById,
 } from "../db/user_authentication_tokens.js";
 import { getAuthorityTitlesByRoleIds } from "../db/role_authorities.js";
 import { getUserRolesByUserId } from "../db/user_roles.js";
-
-export async function logout({ cookie, set }) {
-    const token = cookie[AUTHENTICATION_TOKEN_COOKIE]?.value;
-    if (token) {
-        const existingAuthenticationToken = await getActiveUserAuthenticationTokenByToken({ token });
-        if (existingAuthenticationToken) {
-            await updateUserAuthenticationTokenActiveById({
-                id: existingAuthenticationToken.id,
-                active: false,
-            });
-        }
-    }
-
-    clearAuthenticationTokenCookie(cookie);
-
-    set.status = 200;
-    return {
-        message: "Logged out",
-        redirect: "/login",
-    };
-}
+import {
+    AUTHENTICATION_TOKEN_COOKIE,
+    clearAuthenticationTokenCookie,
+    setAuthenticationTokenCookie,
+} from "../libs/authentication.js";
+import { generateAuthenticationToken, generateOTP } from "../libs/utils.js";
 
 export async function getCurrentUser({ cookie }) {
     const token = cookie[AUTHENTICATION_TOKEN_COOKIE]?.value;
@@ -57,5 +41,94 @@ export async function getCurrentUser({ cookie }) {
         authentication_token: authenticationToken.token,
         roles,
         authorities,
+    };
+}
+
+export async function logout({ cookie, set }) {
+    const token = cookie[AUTHENTICATION_TOKEN_COOKIE]?.value;
+    if (token) {
+        const existingAuthenticationToken = await getActiveUserAuthenticationTokenByToken({
+            token,
+        });
+        if (existingAuthenticationToken) {
+            await updateUserAuthenticationTokenActiveById({
+                id: existingAuthenticationToken.id,
+                active: false,
+            });
+        }
+    }
+
+    clearAuthenticationTokenCookie(cookie);
+
+    set.status = 200;
+    return {
+        message: "Logged out",
+        redirect: "/login",
+    };
+}
+
+export async function getLoginMethod({ body, set }) {
+    const email = body.email.trim().toLowerCase();
+    const user = await getUserByEmail({ email });
+    if (!user) {
+        set.status = 404;
+        return { error: ERRORS.NO_SUCH_USER };
+    }
+
+    set.status = 200;
+    return {
+        login_method: user.login_method || USER_LOGIN_METHODS.OTP,
+    };
+}
+
+export async function loginWithPassword({ body, cookie, set }) {
+    const email = body.email.trim().toLowerCase();
+    const password = String(body.password || "");
+    const user = await getUserByEmail({ email });
+
+    if (!user) {
+        set.status = 401;
+        return { error: ERRORS.INVALID_PASSWORD };
+    }
+
+    const loginMethod = user.login_method || USER_LOGIN_METHODS.OTP;
+    if (loginMethod === USER_LOGIN_METHODS.OTP) {
+        set.status = 403;
+        return { error: ERRORS.LOGIN_METHOD_NOT_ALLOWED };
+    }
+
+    if (!user.password_hash) {
+        set.status = 401;
+        return { error: ERRORS.INVALID_PASSWORD };
+    }
+
+    const passwordMatches = await Bun.password.verify(password, user.password_hash);
+    if (!passwordMatches) {
+        set.status = 401;
+        return { error: ERRORS.INVALID_PASSWORD };
+    }
+
+    const token = generateAuthenticationToken();
+    const otp = generateOTP();
+    const tokenId = await createUserAuthenticationToken({
+        user_id: user.id,
+        token,
+        otp,
+    });
+    if (!tokenId) {
+        set.status = 400;
+        return { error: "Failed to create session" };
+    }
+
+    await updateUserAuthenticationTokenActiveById({
+        id: tokenId,
+        active: true,
+    });
+    setAuthenticationTokenCookie(cookie, token);
+
+    set.status = 200;
+    return {
+        message: "Login successful",
+        redirect: "/app",
     };
 }

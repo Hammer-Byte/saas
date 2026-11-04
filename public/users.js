@@ -7,6 +7,10 @@
     const openAddButton = document.getElementById("open-add-user-btn");
     const tableBody = document.getElementById("users-tbody");
     const rolesSection = document.getElementById("user-roles-section");
+    const loginMethodSelect = document.getElementById("user-login-method");
+    const passwordWrap = document.getElementById("user-password-wrap");
+    const passwordInput = document.getElementById("user-password");
+    const passwordHelp = document.getElementById("user-password-help");
     const roleCheckboxes = Array.from(document.querySelectorAll(".user-role-checkbox"));
 
     if (!form || !tableBody) {
@@ -47,6 +51,24 @@
         rolesSection?.classList.toggle("d-none", !visible);
     }
 
+    function syncPasswordField() {
+        const method = loginMethodSelect?.value || "otp";
+        const needsPassword = method === "password" || method === "both";
+        const isEdit = Boolean(idInput.value);
+        passwordWrap?.classList.toggle("d-none", method === "otp");
+        if (passwordInput) {
+            passwordInput.required = needsPassword && !isEdit;
+            if (method === "otp") {
+                passwordInput.value = "";
+            }
+        }
+        if (passwordHelp) {
+            passwordHelp.textContent = isEdit
+                ? "Required for password login methods. Leave blank to keep the current password."
+                : "Required for password or OTP-or-password login.";
+        }
+    }
+
     async function loadUserRoles(userId) {
         clearRoleCheckboxes();
         if (!canManageRoles || !rolesSection) {
@@ -77,9 +99,11 @@
     function resetForm() {
         form.reset();
         idInput.value = "";
+        if (loginMethodSelect) loginMethodSelect.value = "otp";
         clearRoleCheckboxes();
         setRolesSectionVisible(false);
         hideAlert(formAlert);
+        syncPasswordField();
     }
 
     function openAddModal() {
@@ -93,6 +117,9 @@
         idInput.value = row.dataset.id || "";
         fullNameInput.value = row.dataset.fullName || "";
         emailInput.value = row.dataset.email || "";
+        if (loginMethodSelect) loginMethodSelect.value = row.dataset.loginMethod || "otp";
+        if (passwordInput) passwordInput.value = "";
+        syncPasswordField();
 
         const userId = Number(row.dataset.id || 0);
         if (!userId) {
@@ -110,6 +137,7 @@
     }
 
     openAddButton?.addEventListener("click", openAddModal);
+    loginMethodSelect?.addEventListener("change", syncPasswordField);
 
     tableBody.addEventListener("click", async (event) => {
         const row = event.target.closest("tr[data-id]");
@@ -210,14 +238,26 @@
         hideAlert(formAlert);
 
         const id = idInput.value ? Number(idInput.value) : null;
+        const loginMethod = loginMethodSelect?.value || "otp";
+        const password = passwordInput?.value || "";
         const payload = {
             full_name: fullNameInput.value.trim(),
             email: emailInput.value.trim(),
+            login_method: loginMethod,
         };
 
         if (!payload.full_name || !payload.email) {
             showAlert(formAlert, "Please fill in full name and email.", "danger");
             return;
+        }
+
+        if ((loginMethod === "password" || loginMethod === "both") && !id && password.length < 8) {
+            showAlert(formAlert, "Password must be at least 8 characters.", "danger");
+            return;
+        }
+
+        if (password) {
+            payload.password = password;
         }
 
         const submitButton = document.getElementById("user-submit-btn");
@@ -246,4 +286,6 @@
             if (submitButton) submitButton.disabled = false;
         }
     });
+
+    syncPasswordField();
 })();

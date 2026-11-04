@@ -129,6 +129,8 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             full_name VARCHAR(128) NOT NULL,
             email VARCHAR(48) NOT NULL,
+            login_method VARCHAR(16) NOT NULL DEFAULT 'otp',
+            password_hash VARCHAR(255) NULL,
             super_admin BOOLEAN NOT NULL DEFAULT FALSE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

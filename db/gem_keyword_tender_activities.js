@@ -43,3 +43,40 @@ export async function getAllGemKeywordTenderActivitiesByTenderId({ gem_keyword_t
             return [];
         });
 }
+
+export async function getGemKeywordTenderActivityCountsByActor({ from, to }) {
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {
+        return [];
+    }
+
+    const rangeStart = from <= to ? from : to;
+    const rangeEnd = from <= to ? to : from;
+    const startDateTime = `${rangeStart} 00:00:00`;
+    const endDateTime = `${rangeEnd} 23:59:59`;
+
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                USERS.id AS user_id,
+                USERS.full_name AS user_full_name,
+                USERS.email AS user_email,
+                COUNT(GEM_KEYWORD_TENDER_ACTIVITIES.id) AS activity_count
+            FROM GEM_KEYWORD_TENDER_ACTIVITIES
+            INNER JOIN USERS
+                ON USERS.id = GEM_KEYWORD_TENDER_ACTIVITIES.user_id
+            INNER JOIN GEM_KEYWORD_TENDERS
+                ON GEM_KEYWORD_TENDERS.id = GEM_KEYWORD_TENDER_ACTIVITIES.gem_keyword_tender_id
+            WHERE GEM_KEYWORD_TENDERS.end_date_time IS NOT NULL
+              AND GEM_KEYWORD_TENDERS.end_date_time >= ${startDateTime}
+              AND GEM_KEYWORD_TENDERS.end_date_time <= ${endDateTime}
+            GROUP BY USERS.id, USERS.full_name, USERS.email
+            ORDER BY activity_count DESC, USERS.full_name ASC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getGemKeywordTenderActivityCountsByActor: ${error}`);
+            return [];
+        });
+}

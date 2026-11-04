@@ -1,3 +1,4 @@
+import { ERRORS, USER_LOGIN_METHODS } from "../constants.js";
 import {
     createUser,
     deleteUserById,
@@ -5,6 +6,26 @@ import {
     getUserById,
     updateUserById,
 } from "../db/users.js";
+
+const LOGIN_METHOD_VALUES = new Set(Object.values(USER_LOGIN_METHODS));
+
+function sanitizeUser(user) {
+    if (!user) return null;
+    const { password_hash, ...safeUser } = user;
+    return safeUser;
+}
+
+function normalizeLoginMethod(value) {
+    const method = String(value || USER_LOGIN_METHODS.OTP).trim().toLowerCase();
+    return LOGIN_METHOD_VALUES.has(method) ? method : null;
+}
+
+function passwordRequiredForMethod(loginMethod) {
+    return (
+        loginMethod === USER_LOGIN_METHODS.PASSWORD ||
+        loginMethod === USER_LOGIN_METHODS.BOTH
+    );
+}
 
 export async function addUser({ body, set }) {
     const email = body.email.trim().toLowerCase();
@@ -14,13 +35,35 @@ export async function addUser({ body, set }) {
         return { error: "A user with this email already exists" };
     }
 
+    const loginMethod = normalizeLoginMethod(body.login_method);
+    if (!loginMethod) {
+        set.status = 400;
+        return { error: "Invalid login method" };
+    }
+
+    const password = String(body.password || "").trim();
+    let passwordHash = null;
+
+    if (passwordRequiredForMethod(loginMethod)) {
+        if (password.length < 8) {
+            set.status = 400;
+            return { error: "Password must be at least 8 characters" };
+        }
+        passwordHash = await Bun.password.hash(password);
+    }
+
     const id = await createUser({
-        ...body,
         full_name: body.full_name.trim(),
         email,
+        login_method: loginMethod,
+        password_hash: passwordHash,
     });
+    if (!id) {
+        set.status = 400;
+        return { error: "Failed to create user" };
+    }
 
-    const user = await getUserById({ id });
+    const user = sanitizeUser(await getUserById({ id }));
 
     set.status = 201;
     return { message: "User created", user };
@@ -40,13 +83,46 @@ export async function updateUser({ body, set }) {
         return { error: "A user with this email already exists" };
     }
 
+    const loginMethod = normalizeLoginMethod(body.login_method);
+    if (!loginMethod) {
+        set.status = 400;
+        return { error: "Invalid login method" };
+    }
+
+    const password = String(body.password || "").trim();
+    const passwordProvided = password.length > 0;
+    let passwordHash = existingUser.password_hash || null;
+    let updatePassword = false;
+
+    if (passwordProvided) {
+        if (password.length < 8) {
+            set.status = 400;
+            return { error: "Password must be at least 8 characters" };
+        }
+        passwordHash = await Bun.password.hash(password);
+        updatePassword = true;
+    }
+
+    if (passwordRequiredForMethod(loginMethod) && !passwordHash) {
+        set.status = 400;
+        return { error: ERRORS.PASSWORD_REQUIRED };
+    }
+
+    if (loginMethod === USER_LOGIN_METHODS.OTP && passwordHash) {
+        passwordHash = null;
+        updatePassword = true;
+    }
+
     await updateUserById({
-        ...body,
+        id: existingUser.id,
         full_name: body.full_name.trim(),
         email,
+        login_method: loginMethod,
+        password_hash: passwordHash,
+        update_password: updatePassword,
     });
 
-    const user = await getUserById({ id: body.id });
+    const user = sanitizeUser(await getUserById({ id: existingUser.id }));
 
     set.status = 200;
     return { message: "User updated", user };
@@ -59,6 +135,6 @@ export async function deleteUser({ params, set }) {
         return { error: "User not found" };
     }
 
-    await deleteUserById({ id: params.id });
+    await deleteUserById({ id: existingUser.id });
     set.status = 204;
 }

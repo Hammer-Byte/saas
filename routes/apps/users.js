@@ -1,6 +1,13 @@
 import { t } from "elysia";
+import { USER_LOGIN_METHODS } from "../../constants.js";
 import { addUser, deleteUser, updateUser } from "../../services/users.js";
 import { getUserRoles } from "../../services/user_roles.js";
+
+const loginMethodSchema = t.Union([
+    t.Literal(USER_LOGIN_METHODS.OTP),
+    t.Literal(USER_LOGIN_METHODS.PASSWORD),
+    t.Literal(USER_LOGIN_METHODS.BOTH),
+]);
 
 export default function (app) {
     return app
@@ -17,6 +24,8 @@ export default function (app) {
                     format: "email",
                     error: "Valid email is required",
                 }),
+                login_method: loginMethodSchema,
+                password: t.Optional(t.String({ maxLength: 128 })),
             }),
             detail: {
                 tags: ["Users"],
@@ -37,6 +46,8 @@ export default function (app) {
                     format: "email",
                     error: "Valid email is required",
                 }),
+                login_method: loginMethodSchema,
+                password: t.Optional(t.String({ maxLength: 128 })),
             }),
             detail: {
                 tags: ["Users"],

@@ -11,6 +11,21 @@ export const ERRORS = {
     EMAIL_INVALID: "Email is invalid",
     NO_SUCH_USER: "No Such User Found",
     INVALID_OTP: "Invalid OTP",
+    INVALID_PASSWORD: "Invalid email or password",
+    LOGIN_METHOD_NOT_ALLOWED: "This login method is not allowed for this user",
+    PASSWORD_REQUIRED: "Password is required",
+};
+
+export const USER_LOGIN_METHODS = {
+    OTP: "otp",
+    PASSWORD: "password",
+    BOTH: "both",
+};
+
+export const USER_LOGIN_METHOD_LABELS = {
+    [USER_LOGIN_METHODS.OTP]: "Email OTP",
+    [USER_LOGIN_METHODS.PASSWORD]: "Email password",
+    [USER_LOGIN_METHODS.BOTH]: "OTP or password",
 };
 
 export const SWAGGER = {

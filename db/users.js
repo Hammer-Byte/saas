@@ -1,10 +1,26 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createUser({ full_name, email }) {
+export async function createUser({
+    full_name,
+    email,
+    login_method = "otp",
+    password_hash = null,
+}) {
     return await executeSQLQuery(
         (sql) => sql`
-            INSERT INTO USERS ${sql({ full_name, email }, "full_name", "email")}
+            INSERT INTO USERS ${sql(
+                {
+                    full_name,
+                    email,
+                    login_method,
+                    password_hash,
+                },
+                "full_name",
+                "email",
+                "login_method",
+                "password_hash",
+            )}
         `,
     )
         .then((result) => result.lastInsertRowid)
@@ -13,13 +29,38 @@ export async function createUser({ full_name, email }) {
         });
 }
 
-export async function updateUserById({ id, full_name, email }) {
+export async function updateUserById({
+    id,
+    full_name,
+    email,
+    login_method,
+    password_hash = null,
+    update_password = false,
+}) {
+    if (update_password) {
+        await executeSQLQuery(
+            (sql) => sql`
+                UPDATE USERS
+                SET
+                    full_name = ${full_name},
+                    email = ${email},
+                    login_method = ${login_method},
+                    password_hash = ${password_hash}
+                WHERE id = ${id}
+            `,
+        ).catch((error) => {
+            logger.error(`updateUserById: ${error}`);
+        });
+        return;
+    }
+
     await executeSQLQuery(
         (sql) => sql`
             UPDATE USERS
             SET
                 full_name = ${full_name},
-                email = ${email}
+                email = ${email},
+                login_method = ${login_method}
             WHERE id = ${id}
         `,
     ).catch((error) => {
@@ -66,7 +107,14 @@ export async function getUserById({ id }) {
 export async function getAllUsers() {
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT *
+            SELECT
+                id,
+                full_name,
+                email,
+                login_method,
+                super_admin,
+                created_on,
+                updated_at
             FROM USERS
             ORDER BY id ASC
         `,
@@ -81,7 +129,14 @@ export async function getAllUsers() {
 export async function getAllSuperAdminUsers() {
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT *
+            SELECT
+                id,
+                full_name,
+                email,
+                login_method,
+                super_admin,
+                created_on,
+                updated_at
             FROM USERS
             WHERE super_admin = TRUE
             ORDER BY id ASC
