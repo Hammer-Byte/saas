@@ -19,42 +19,112 @@
 
 <main class="bg-light min-vh-100">
     <div class="container-fluid py-5 px-3 px-lg-4">
-        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-end gap-3">
-            <div>
-                <p class="text-secondary small mb-1">
-                    <a href="/app" class="text-decoration-none">App</a> /
-                    <a href="/app/gem-tenders" class="text-decoration-none">Gem Tenders Analyzer</a> /
-                    Tenders
-                </p>
-                <h1 class="h3 mb-1">Tenders</h1>
-                <p class="text-secondary mb-0">Matched GEM tenders by end date range. Open a tender for details and actions.</p>
-            </div>
-            <div class="d-flex flex-wrap gap-3 align-items-end">
-                <div style="min-width: 11rem">
-                    <label for="gem-tenders-from" class="form-label">End date from</label>
-                    <input
-                        type="date"
-                        class="form-control"
-                        id="gem-tenders-from"
-                        name="from"
-                        value="<%= from %>"
-                    />
-                </div>
-                <div style="min-width: 11rem">
-                    <label for="gem-tenders-to" class="form-label">End date to</label>
-                    <input
-                        type="date"
-                        class="form-control"
-                        id="gem-tenders-to"
-                        name="to"
-                        value="<%= to %>"
-                    />
-                </div>
-            </div>
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/gem-tenders" class="text-decoration-none">Gem Tenders Analyzer</a> /
+                Tenders
+            </p>
+            <h1 class="h3 mb-1">Tenders</h1>
+            <p class="text-secondary mb-0">Matched GEM tenders by end date range. Open a tender for details and actions.</p>
         </div>
 
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
+                <div class="border-bottom p-3 p-md-4">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <label for="gem-tenders-from" class="form-label">End date from</label>
+                            <input
+                                type="date"
+                                class="form-control"
+                                id="gem-tenders-from"
+                                name="from"
+                                value="<%= from %>"
+                            />
+                        </div>
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <label for="gem-tenders-to" class="form-label">End date to</label>
+                            <input
+                                type="date"
+                                class="form-control"
+                                id="gem-tenders-to"
+                                name="to"
+                                value="<%= to %>"
+                            />
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="gem-filter-keyword" class="form-label">Keyword</label>
+                            <select class="form-select" id="gem-filter-keyword">
+                                <option value="">All</option>
+                                <% (keywords || []).forEach(function (keyword) { %>
+                                    <option value="<%= keyword.id %>"><%= keyword.keyword %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="gem-tenders-search" class="form-label">Search</label>
+                            <input
+                                type="search"
+                                class="form-control"
+                                id="gem-tenders-search"
+                                placeholder="Tender ID, email, documents…"
+                                autocomplete="off"
+                            />
+                        </div>
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <label for="gem-filter-past-experience" class="form-label">Required Past Experience Years</label>
+                            <select
+                                class="form-select gem-tender-column-filter"
+                                id="gem-filter-past-experience"
+                                data-column="pastExperience"
+                            >
+                                <option value="">All</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <label for="gem-filter-mse-exp" class="form-label">MSE Experience Relaxation</label>
+                            <select class="form-select gem-tender-column-filter" id="gem-filter-mse-exp" data-column="mseExp">
+                                <option value="">All</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <label for="gem-filter-mse-turnover" class="form-label">MSE Turnover Relaxation</label>
+                            <select class="form-select gem-tender-column-filter" id="gem-filter-mse-turnover" data-column="mseTurnover">
+                                <option value="">All</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <label for="gem-filter-eligible" class="form-label">Eligible</label>
+                            <select class="form-select gem-tender-column-filter" id="gem-filter-eligible" data-column="eligible">
+                                <option value="">All</option>
+                                <option value="1">Yes</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <label for="gem-filter-filed" class="form-label">Filed</label>
+                            <select class="form-select gem-tender-column-filter" id="gem-filter-filed" data-column="filed">
+                                <option value="">All</option>
+                                <option value="1">Yes</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <div class="form-check mt-4">
+                                <input
+                                    class="form-check-input"
+                                    type="checkbox"
+                                    id="gem-filter-show-all"
+                                />
+                                <label class="form-check-label" for="gem-filter-show-all">
+                                    Show all (include out of service scope)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-secondary small mb-0 mt-3" id="gem-tenders-filter-status" role="status"></p>
+                </div>
                 <div
                     id="gem-tenders-empty"
                     class="p-4 p-md-5 text-center text-secondary <%= tenders && tenders.length ? 'd-none' : '' %>"
@@ -65,79 +135,6 @@
                     id="gem-tenders-table-wrap"
                     class="<%= !tenders || !tenders.length ? 'd-none' : '' %>"
                 >
-                    <div class="border-bottom p-3 p-md-4">
-                        <div class="row g-3 align-items-end">
-                            <div class="col-md-6 col-lg-3">
-                                <label for="gem-filter-keyword" class="form-label">Keyword</label>
-                                <select class="form-select" id="gem-filter-keyword">
-                                    <option value="">All</option>
-                                    <% (keywords || []).forEach(function (keyword) { %>
-                                        <option value="<%= keyword.id %>"><%= keyword.keyword %></option>
-                                    <% }) %>
-                                </select>
-                            </div>
-                            <div class="col-md-6 col-lg-3">
-                                <label for="gem-tenders-search" class="form-label">Search</label>
-                                <input
-                                    type="search"
-                                    class="form-control"
-                                    id="gem-tenders-search"
-                                    placeholder="Tender ID, email, documents…"
-                                    autocomplete="off"
-                                />
-                            </div>
-                            <div class="col-6 col-md-3 col-lg-2">
-                                <label for="gem-filter-past-experience" class="form-label">Required Past Experience Years</label>
-                                <select
-                                    class="form-select"
-                                    id="gem-filter-past-experience"
-                                    multiple
-                                    size="4"
-                                ></select>
-                            </div>
-                            <div class="col-6 col-md-3 col-lg-2">
-                                <label for="gem-filter-mse-exp" class="form-label">MSE Experience Relaxation</label>
-                                <select class="form-select gem-tender-column-filter" id="gem-filter-mse-exp" data-column="mseExp">
-                                    <option value="">All</option>
-                                </select>
-                            </div>
-                            <div class="col-6 col-md-3 col-lg-2">
-                                <label for="gem-filter-mse-turnover" class="form-label">MSE Turnover Relaxation</label>
-                                <select class="form-select gem-tender-column-filter" id="gem-filter-mse-turnover" data-column="mseTurnover">
-                                    <option value="">All</option>
-                                </select>
-                            </div>
-                            <div class="col-6 col-md-3 col-lg-2">
-                                <label for="gem-filter-eligible" class="form-label">Eligible</label>
-                                <select class="form-select gem-tender-column-filter" id="gem-filter-eligible" data-column="eligible">
-                                    <option value="">All</option>
-                                    <option value="1">Yes</option>
-                                    <option value="0">No</option>
-                                </select>
-                            </div>
-                            <div class="col-6 col-md-3 col-lg-2">
-                                <label for="gem-filter-filed" class="form-label">Filed</label>
-                                <select class="form-select gem-tender-column-filter" id="gem-filter-filed" data-column="filed">
-                                    <option value="">All</option>
-                                    <option value="1">Yes</option>
-                                    <option value="0">No</option>
-                                </select>
-                            </div>
-                            <div class="col-6 col-md-3 col-lg-2">
-                                <div class="form-check mt-4">
-                                    <input
-                                        class="form-check-input"
-                                        type="checkbox"
-                                        id="gem-filter-show-all"
-                                    />
-                                    <label class="form-check-label" for="gem-filter-show-all">
-                                        Show all (include hidden)
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="text-secondary small mb-0 mt-3" id="gem-tenders-filter-status" role="status"></p>
-                    </div>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0 small" id="gem-tenders-table">
                             <thead class="table-light">
@@ -148,15 +145,9 @@
                                     <th scope="col">Assignee</th>
                                     <th scope="col">Start</th>
                                     <th scope="col">End</th>
-                                    <th scope="col">Ministry</th>
-                                    <th scope="col">Department</th>
-                                    <th scope="col">Organization</th>
-                                    <th scope="col">Office</th>
-                                    <th scope="col">Required Minimum Average Turnover</th>
-                                    <th scope="col">Required Past Experience Years</th>
+                                    <th scope="col">Buyer</th>
                                     <th scope="col">MSE Experience Relaxation</th>
                                     <th scope="col">MSE Turnover Relaxation</th>
-                                    <th scope="col">Asked documents</th>
                                     <th scope="col">Eligible</th>
                                     <th scope="col">Filed</th>
                                 </tr>
@@ -187,15 +178,23 @@
                                         <td><%= tender.assignee_full_name || "-" %></td>
                                         <td><%= tender.start_date_time || "-" %></td>
                                         <td><%= tender.end_date_time || "-" %></td>
-                                        <td><%= tender.ministry || "-" %></td>
-                                        <td><%= tender.department || "-" %></td>
-                                        <td><%= tender.organization || "-" %></td>
-                                        <td><%= tender.office || "-" %></td>
-                                        <td><%= tender.required_minimum_average_turnover || "-" %></td>
-                                        <td><%= tender.required_past_experice_years || "-" %></td>
+                                        <td>
+                                            <%
+                                                const buyerParts = [
+                                                    tender.ministry,
+                                                    tender.department,
+                                                    tender.organization,
+                                                    tender.office,
+                                                ].filter(Boolean);
+                                            %>
+                                            <% if (buyerParts.length) { %>
+                                                <%= buyerParts.join(" / ") %>
+                                            <% } else { %>
+                                                -
+                                            <% } %>
+                                        </td>
                                         <td><%= tender.mse_experience_relaxation || "-" %></td>
                                         <td><%= tender.mse_turnover_relaxation || "-" %></td>
-                                        <td><%= tender.asked_documents || "-" %></td>
                                         <td><%= tender.eligible ? "Yes" : "No" %></td>
                                         <td><%= tender.filed ? "Yes" : "No" %></td>
                                     </tr>

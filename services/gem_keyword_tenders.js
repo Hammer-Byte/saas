@@ -9,6 +9,7 @@ import {
     updateGemKeywordTenderById,
 } from "../db/gem_keyword_tenders.js";
 import { getUserById } from "../db/users.js";
+import { notifyGemKeywordTenderAssigned } from "../libs/gem_tender_notify.js";
 import { getCurrentUser } from "./authentication.js";
 
 const STAGE_VALUES = new Set(Object.values(GEM_KEYWORD_TENDER_STAGES));
@@ -110,7 +111,9 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     const activities = [];
 
     if (!!gemKeywordTender.hidden !== nextHidden) {
-        activities.push(nextHidden ? "Marked as hidden" : "Unhid tender");
+        activities.push(
+            nextHidden ? "Marked as out of service scope" : "Restored to service scope",
+        );
     }
     if (!!gemKeywordTender.eligible !== nextEligible) {
         activities.push(`Set eligible to ${booleanLabel(nextEligible)}`);
@@ -126,11 +129,13 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
             `Changed stage from ${stageLabel(gemKeywordTender.stage)} to ${stageLabel(nextStage)}`,
         );
     }
+    let previousAssignee = null;
+    let nextAssignee = null;
     if (assigneeChanging) {
-        const previousAssignee = previousAssigneeUserId
+        previousAssignee = previousAssigneeUserId
             ? await getUserById({ id: previousAssigneeUserId })
             : null;
-        const nextAssignee = nextAssigneeUserId
+        nextAssignee = nextAssigneeUserId
             ? await getUserById({ id: nextAssigneeUserId })
             : null;
         activities.push(
@@ -157,6 +162,15 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     }
 
     const updatedGemKeywordTender = await getGemKeywordTenderById({ id: gemKeywordTender.id });
+
+    if (assigneeChanging && nextAssigneeUserId != null && nextAssignee) {
+        notifyGemKeywordTenderAssigned({
+            tender: updatedGemKeywordTender,
+            assigneeUser: nextAssignee,
+            assignedByUser: currentUser,
+        });
+    }
+
     set.status = 200;
     return { message: "Tender updated", gemKeywordTender: updatedGemKeywordTender };
 }

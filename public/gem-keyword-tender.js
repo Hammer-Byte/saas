@@ -57,7 +57,7 @@
         if (quoteSaveButton) quoteSaveButton.disabled = !eligible;
         if (hideButton) {
             hideButton.disabled = !hidden && eligible;
-            hideButton.textContent = hidden ? "Unhide" : "Hide";
+            hideButton.textContent = hidden ? "Restore to scope" : "Out of service scope";
         }
         if (hiddenLabel) hiddenLabel.textContent = hidden ? "Yes" : "No";
         if (assignMeButton) {

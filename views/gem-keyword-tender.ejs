@@ -50,7 +50,7 @@
                     id="gem-tender-hide-btn"
                     <%= tender.eligible ? "disabled" : "" %>
                 >
-                    <%= tender.hidden ? "Unhide" : "Hide" %>
+                    <%= tender.hidden ? "Restore to scope" : "Out of service scope" %>
                 </button>
             </div>
         </div>
@@ -166,7 +166,7 @@
                 <div class="row g-3 small">
                     <div class="col-md-4"><strong>Start</strong><br /><%= tender.start_date_time || "-" %></div>
                     <div class="col-md-4"><strong>End</strong><br /><%= tender.end_date_time || "-" %></div>
-                    <div class="col-md-4"><strong>Hidden</strong><br /><span id="gem-tender-hidden-label"><%= tender.hidden ? "Yes" : "No" %></span></div>
+                    <div class="col-md-4"><strong>Out of service scope</strong><br /><span id="gem-tender-hidden-label"><%= tender.hidden ? "Yes" : "No" %></span></div>
                     <div class="col-md-4"><strong>Ministry</strong><br /><%= tender.ministry || "-" %></div>
                     <div class="col-md-4"><strong>Department</strong><br /><%= tender.department || "-" %></div>
                     <div class="col-md-4"><strong>Organization</strong><br /><%= tender.organization || "-" %></div>

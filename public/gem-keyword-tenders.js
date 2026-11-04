@@ -9,7 +9,6 @@
     const emptyState = document.getElementById("gem-tenders-empty");
     const filterStatus = document.getElementById("gem-tenders-filter-status");
     const columnFilters = Array.from(document.querySelectorAll(".gem-tender-column-filter"));
-    const pastExperienceFilter = document.getElementById("gem-filter-past-experience");
 
     function reloadDateRange() {
         if (!fromInput?.value || !toInput?.value) return;
@@ -70,30 +69,10 @@
         }
     }
 
-    function fillPastExperienceFilter() {
-        if (!pastExperienceFilter) return;
-
-        pastExperienceFilter.replaceChildren();
-        for (const value of uniqueColumnValues("pastExperience")) {
-            const option = document.createElement("option");
-            option.value = value;
-            option.textContent = value;
-            pastExperienceFilter.appendChild(option);
-        }
-    }
-
-    function selectedPastExperienceValues() {
-        if (!pastExperienceFilter) return [];
-        return Array.from(pastExperienceFilter.selectedOptions)
-            .map((option) => option.value.trim().toLowerCase())
-            .filter(Boolean);
-    }
-
     function applyFilters() {
         const query = (searchInput?.value || "").trim().toLowerCase();
         const keywordId = (keywordFilter?.value || "").trim();
         const showAll = !!showAllFilter?.checked;
-        const pastExperienceValues = selectedPastExperienceValues();
         const activeFilters = columnFilters
             .map((select) => ({
                 column: select.dataset.column,
@@ -111,23 +90,12 @@
 
             const matchesSearch = !query || row.textContent.toLowerCase().includes(query);
 
-            const matchesPastExperience =
-                !pastExperienceValues.length ||
-                pastExperienceValues.includes(
-                    (row.dataset.pastExperience || "").trim().toLowerCase(),
-                );
-
             const matchesColumns = activeFilters.every((filter) => {
                 const cellValue = (row.dataset[filter.column] || "").trim().toLowerCase();
                 return cellValue === filter.value;
             });
 
-            const visible =
-                matchesHidden &&
-                matchesKeyword &&
-                matchesSearch &&
-                matchesPastExperience &&
-                matchesColumns;
+            const visible = matchesHidden && matchesKeyword && matchesSearch && matchesColumns;
             row.classList.toggle("d-none", !visible);
             if (visible) visibleCount += 1;
         }
@@ -146,8 +114,6 @@
         select.addEventListener("change", applyFilters);
     }
 
-    fillPastExperienceFilter();
-    pastExperienceFilter?.addEventListener("change", applyFilters);
     keywordFilter?.addEventListener("change", applyFilters);
     showAllFilter?.addEventListener("change", applyFilters);
     searchInput?.addEventListener("input", applyFilters);
