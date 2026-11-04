@@ -33,6 +33,7 @@ function emptyAssigneeBucket(key, label) {
         hidden: 0,
         stage_new: 0,
         stage_work_in_progress: 0,
+        stage_requested_for_quote: 0,
         stage_filed: 0,
         stage_waiting_for_technical: 0,
         stage_waiting_for_financial: 0,
@@ -103,6 +104,9 @@ export async function buildGemKeywordTenderReport({ from, to }) {
         if (stage === GEM_KEYWORD_TENDER_STAGES.NEW) bucket.stage_new += 1;
         if (stage === GEM_KEYWORD_TENDER_STAGES.WORK_IN_PROGRESS) {
             bucket.stage_work_in_progress += 1;
+        }
+        if (stage === GEM_KEYWORD_TENDER_STAGES.REQUESTED_FOR_QUOTE) {
+            bucket.stage_requested_for_quote += 1;
         }
         if (stage === GEM_KEYWORD_TENDER_STAGES.FILED) bucket.stage_filed += 1;
         if (stage === GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_TECHNICAL) {

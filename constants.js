@@ -59,6 +59,7 @@ export const AUTHORITIES = {
 export const GEM_KEYWORD_TENDER_STAGES = {
     NEW: "new",
     WORK_IN_PROGRESS: "work_in_progress",
+    REQUESTED_FOR_QUOTE: "requested_for_quote",
     FILED: "filed",
     WAITING_FOR_TECHNICAL: "waiting_for_technical",
     WAITING_FOR_FINANCIAL: "waiting_for_financial",
@@ -67,6 +68,7 @@ export const GEM_KEYWORD_TENDER_STAGES = {
 export const GEM_KEYWORD_TENDER_STAGE_LABELS = {
     [GEM_KEYWORD_TENDER_STAGES.NEW]: "New",
     [GEM_KEYWORD_TENDER_STAGES.WORK_IN_PROGRESS]: "Work in progress",
+    [GEM_KEYWORD_TENDER_STAGES.REQUESTED_FOR_QUOTE]: "Requested for quote",
     [GEM_KEYWORD_TENDER_STAGES.FILED]: "Filed",
     [GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_TECHNICAL]: "Waiting for technical",
     [GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_FINANCIAL]: "Waiting for financial",

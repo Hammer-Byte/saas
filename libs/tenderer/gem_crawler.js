@@ -63,8 +63,17 @@ const downloadTender = async (driver, tender) => {
         throw new Error(`HTTP ${response.status} for ${tenderId}`);
     }
 
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    const header = buffer.subarray(0, 5).toString("latin1");
+    if (header !== "%PDF-") {
+        throw new Error(
+            `Not a PDF for ${tenderId} (content-type: ${contentType || "unknown"}, header: ${JSON.stringify(header)})`,
+        );
+    }
+
     const tenderFile = join(TENDERS_DIRECTORY, tenderFileName(tenderId));
-    await writeFile(tenderFile, Buffer.from(await response.arrayBuffer()));
+    await writeFile(tenderFile, buffer);
     logger.info(`Saved tender PDF: ${tenderId}`);
     return { tenderFile, document };
 };

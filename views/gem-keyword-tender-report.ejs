@@ -166,6 +166,7 @@
                                     <th>Eligible</th>
                                     <th>Filed</th>
                                     <th>WIP</th>
+                                    <th>Quote req</th>
                                     <th>Activities</th>
                                     <th>Status</th>
                                 </tr>
@@ -182,6 +183,7 @@
                                         <td><%= row.eligible %></td>
                                         <td><%= row.filed %></td>
                                         <td><%= row.stage_work_in_progress %></td>
+                                        <td><%= row.stage_requested_for_quote %></td>
                                         <td><%= row.activity_count %></td>
                                         <td>
                                             <% if (row.status === "On track") { %>
@@ -219,6 +221,7 @@
                                 <th>Hidden</th>
                                 <th>New</th>
                                 <th>WIP</th>
+                                <th>Quote req</th>
                                 <th>Waiting tech</th>
                                 <th>Waiting finance</th>
                             </tr>
@@ -235,6 +238,7 @@
                                     <td><%= row.hidden %></td>
                                     <td><%= row.stage_new %></td>
                                     <td><%= row.stage_work_in_progress %></td>
+                                    <td><%= row.stage_requested_for_quote %></td>
                                     <td><%= row.stage_waiting_for_technical %></td>
                                     <td><%= row.stage_waiting_for_financial %></td>
                                 </tr>

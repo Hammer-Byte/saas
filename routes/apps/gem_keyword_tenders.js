@@ -25,6 +25,7 @@ export default function (app) {
                 t.Union([
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.NEW),
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.WORK_IN_PROGRESS),
+                    t.Literal(GEM_KEYWORD_TENDER_STAGES.REQUESTED_FOR_QUOTE),
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.FILED),
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_TECHNICAL),
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_FINANCIAL),
