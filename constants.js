@@ -57,6 +57,18 @@ export const GEM_KEYWORD_TENDER_STAGE_LABELS = {
     [GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_FINANCIAL]: "Waiting for financial",
 };
 
+export const GEM_KEYWORD_TENDER_ELIGIBILITY = {
+    NEED_TO_CHECK: "need_to_check",
+    ELIGIBLE: "eligible",
+    NOT_ELIGIBLE: "not_eligible",
+};
+
+export const GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS = {
+    [GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK]: "Need to check",
+    [GEM_KEYWORD_TENDER_ELIGIBILITY.ELIGIBLE]: "Eligible",
+    [GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE]: "Not eligible",
+};
+
 export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_PROJECTS: "View Projects page",
     USE_PAGE_EXPENSES: "View Expenses page",

@@ -7,6 +7,15 @@
     const isAssignedToMe = assigneeUserId === currentUserId;
     const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
     const stageValues = Object.keys(stageLabels);
+    const eligibilityValues = GEM_KEYWORD_TENDER_ELIGIBILITY || {};
+    const eligibilityLabels = GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS || {};
+    const currentEligibility =
+        tender.eligible === true || tender.eligible === 1 || tender.eligible === "1"
+            ? eligibilityValues.ELIGIBLE
+            : tender.eligible === false || tender.eligible === 0 || tender.eligible === "0"
+              ? eligibilityValues.NEED_TO_CHECK
+              : (tender.eligible || eligibilityValues.NEED_TO_CHECK);
+    const isEligible = currentEligibility === eligibilityValues.ELIGIBLE;
 %>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -48,7 +57,7 @@
                     type="button"
                     class="btn btn-outline-secondary"
                     id="gem-tender-hide-btn"
-                    <%= tender.eligible ? "disabled" : "" %>
+                    <%= isEligible ? "disabled" : "" %>
                 >
                     <%= tender.hidden ? "Restore to scope" : "Out of service scope" %>
                 </button>
@@ -61,7 +70,7 @@
             class="card border-0 shadow-sm mb-4"
             id="gem-tender-detail"
             data-id="<%= tender.id %>"
-            data-eligible="<%= tender.eligible ? '1' : '0' %>"
+            data-eligible="<%= currentEligibility %>"
             data-filed="<%= tender.filed ? '1' : '0' %>"
             data-hidden="<%= tender.hidden ? '1' : '0' %>"
             data-stage="<%= tender.stage || 'new' %>"
@@ -121,42 +130,50 @@
                 </div>
 
                 <div class="row g-3 mb-4">
-                    <div class="col-md-3">
-                        <div class="form-check">
-                            <input
-                                class="form-check-input"
-                                type="checkbox"
-                                id="gem-tender-eligible"
-                                <%= tender.eligible ? "checked" : "" %>
-                            />
-                            <label class="form-check-label" for="gem-tender-eligible">Eligible</label>
+                    <div class="col-12 col-lg-6">
+                        <label class="form-label d-block">Eligibility</label>
+                        <div class="btn-group flex-wrap" role="group" aria-label="Eligibility">
+                            <% Object.keys(eligibilityLabels).forEach(function (value) { %>
+                                <input
+                                    type="radio"
+                                    class="btn-check gem-tender-eligible-option"
+                                    name="gem-tender-eligible"
+                                    id="gem-tender-eligible-<%= value %>"
+                                    value="<%= value %>"
+                                    autocomplete="off"
+                                    <%= currentEligibility === value ? "checked" : "" %>
+                                />
+                                <label class="btn btn-outline-secondary" for="gem-tender-eligible-<%= value %>">
+                                    <%= eligibilityLabels[value] %>
+                                </label>
+                            <% }) %>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="form-check">
+                        <div class="form-check mt-4">
                             <input
                                 class="form-check-input"
                                 type="checkbox"
                                 id="gem-tender-filed"
                                 <%= tender.filed ? "checked" : "" %>
-                                <%= !tender.eligible ? "disabled" : "" %>
+                                <%= !isEligible ? "disabled" : "" %>
                             />
                             <label class="form-check-label" for="gem-tender-filed">Filed</label>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6 col-lg-3">
                         <label for="gem-tender-quote" class="form-label">Quote</label>
                         <textarea
                             class="form-control"
                             id="gem-tender-quote"
                             rows="3"
-                            <%= !tender.eligible ? "disabled" : "" %>
+                            <%= !isEligible ? "disabled" : "" %>
                         ><%= tender.quote || "" %></textarea>
                         <button
                             type="button"
                             class="btn btn-sm btn-primary mt-2"
                             id="gem-tender-quote-save-btn"
-                            <%= !tender.eligible ? "disabled" : "" %>
+                            <%= !isEligible ? "disabled" : "" %>
                         >
                             Save quote
                         </button>

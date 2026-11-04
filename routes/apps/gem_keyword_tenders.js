@@ -1,5 +1,6 @@
 import { t } from "elysia";
 import {
+    GEM_KEYWORD_TENDER_ELIGIBILITY,
     GEM_KEYWORD_TENDER_STAGES,
 } from "../../constants.js";
 import { updateGemKeywordTender } from "../../services/gem_keyword_tenders.js";
@@ -11,7 +12,13 @@ export default function (app) {
         }),
         body: t.Object({
             hidden: t.Optional(t.Boolean()),
-            eligible: t.Optional(t.Boolean()),
+            eligible: t.Optional(
+                t.Union([
+                    t.Literal(GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK),
+                    t.Literal(GEM_KEYWORD_TENDER_ELIGIBILITY.ELIGIBLE),
+                    t.Literal(GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE),
+                ]),
+            ),
             filed: t.Optional(t.Boolean()),
             quote: t.Optional(t.String()),
             stage: t.Optional(

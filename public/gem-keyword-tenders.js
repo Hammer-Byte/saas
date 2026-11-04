@@ -2,6 +2,7 @@
     const fromInput = document.getElementById("gem-tenders-from");
     const toInput = document.getElementById("gem-tenders-to");
     const keywordFilter = document.getElementById("gem-filter-keyword");
+    const assigneeFilter = document.getElementById("gem-filter-assignee");
     const showAllFilter = document.getElementById("gem-filter-show-all");
     const searchInput = document.getElementById("gem-tenders-search");
     const tableBody = document.getElementById("gem-tenders-tbody");
@@ -72,6 +73,7 @@
     function applyFilters() {
         const query = (searchInput?.value || "").trim().toLowerCase();
         const keywordId = (keywordFilter?.value || "").trim();
+        const assigneeValue = (assigneeFilter?.value || "").trim();
         const showAll = !!showAllFilter?.checked;
         const activeFilters = columnFilters
             .map((select) => ({
@@ -88,6 +90,13 @@
             const matchesKeyword =
                 !keywordId || String(row.dataset.keywordId || "") === keywordId;
 
+            const rowAssigneeId = String(row.dataset.assigneeUserId || "");
+            const matchesAssignee =
+                !assigneeValue ||
+                (assigneeValue === "unassigned"
+                    ? !rowAssigneeId
+                    : rowAssigneeId === assigneeValue);
+
             const matchesSearch = !query || row.textContent.toLowerCase().includes(query);
 
             const matchesColumns = activeFilters.every((filter) => {
@@ -95,7 +104,12 @@
                 return cellValue === filter.value;
             });
 
-            const visible = matchesHidden && matchesKeyword && matchesSearch && matchesColumns;
+            const visible =
+                matchesHidden &&
+                matchesKeyword &&
+                matchesAssignee &&
+                matchesSearch &&
+                matchesColumns;
             row.classList.toggle("d-none", !visible);
             if (visible) visibleCount += 1;
         }
@@ -115,7 +129,22 @@
     }
 
     keywordFilter?.addEventListener("change", applyFilters);
+    assigneeFilter?.addEventListener("change", applyFilters);
     showAllFilter?.addEventListener("change", applyFilters);
     searchInput?.addEventListener("input", applyFilters);
+
+    const filtersCollapse = document.getElementById("gem-tenders-filters");
+    const filtersToggle = document.getElementById("gem-tenders-filters-toggle");
+    function syncFiltersToggleLabel() {
+        if (!filtersToggle || !filtersCollapse) return;
+        const expanded = filtersCollapse.classList.contains("show");
+        filtersToggle.textContent = expanded ? "Hide filters" : "Filters";
+        filtersToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+    }
+    filtersCollapse?.addEventListener("shown.bs.collapse", syncFiltersToggleLabel);
+    filtersCollapse?.addEventListener("hidden.bs.collapse", syncFiltersToggleLabel);
+    syncFiltersToggleLabel();
+
     applyFilters();
 })();
+

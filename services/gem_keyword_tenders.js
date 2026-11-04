@@ -1,5 +1,7 @@
 import {
     AUTHORITIES,
+    GEM_KEYWORD_TENDER_ELIGIBILITY,
+    GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
     GEM_KEYWORD_TENDER_STAGES,
 } from "../constants.js";
@@ -13,9 +15,14 @@ import { notifyGemKeywordTenderAssigned } from "../libs/gem_tender_notify.js";
 import { getCurrentUser } from "./authentication.js";
 
 const STAGE_VALUES = new Set(Object.values(GEM_KEYWORD_TENDER_STAGES));
+const ELIGIBILITY_VALUES = new Set(Object.values(GEM_KEYWORD_TENDER_ELIGIBILITY));
 
 function stageLabel(stage) {
     return GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage || "-";
+}
+
+function eligibilityLabel(value) {
+    return GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS[value] || value || "-";
 }
 
 function booleanLabel(value) {
@@ -25,6 +32,19 @@ function booleanLabel(value) {
 function assigneeLabel(user) {
     if (!user) return "Unassigned";
     return user.full_name || user.email || `User #${user.id}`;
+}
+
+function normalizeEligibility(value) {
+    if (ELIGIBILITY_VALUES.has(value)) {
+        return value;
+    }
+    if (value === true || value === 1 || value === "1") {
+        return GEM_KEYWORD_TENDER_ELIGIBILITY.ELIGIBLE;
+    }
+    if (value === false || value === 0 || value === "0") {
+        return GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK;
+    }
+    return GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK;
 }
 
 async function logActivity({ gem_keyword_tender_id, user_id, activity }) {
@@ -48,19 +68,34 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         return { error: "Tender not found" };
     }
 
+    const previousEligible = normalizeEligibility(gemKeywordTender.eligible);
     const nextHidden = body.hidden ?? !!gemKeywordTender.hidden;
-    const nextEligible = body.eligible ?? !!gemKeywordTender.eligible;
-    const nextFiled = body.filed ?? !!gemKeywordTender.filed;
+    let nextEligible =
+        body.eligible !== undefined
+            ? normalizeEligibility(body.eligible)
+            : previousEligible;
+    let nextFiled = body.filed ?? !!gemKeywordTender.filed;
     const nextQuote = body.quote !== undefined ? body.quote : gemKeywordTender.quote;
     const nextStage =
-        body.stage !== undefined ? body.stage : gemKeywordTender.stage || GEM_KEYWORD_TENDER_STAGES.NEW;
+        body.stage !== undefined
+            ? body.stage
+            : gemKeywordTender.stage || GEM_KEYWORD_TENDER_STAGES.NEW;
+
+    if (!ELIGIBILITY_VALUES.has(nextEligible)) {
+        set.status = 400;
+        return { error: "Invalid eligibility" };
+    }
 
     if (!STAGE_VALUES.has(nextStage)) {
         set.status = 400;
         return { error: "Invalid stage" };
     }
 
-    if (nextFiled && !nextEligible) {
+    if (nextEligible !== GEM_KEYWORD_TENDER_ELIGIBILITY.ELIGIBLE) {
+        nextFiled = false;
+    }
+
+    if (nextFiled && nextEligible !== GEM_KEYWORD_TENDER_ELIGIBILITY.ELIGIBLE) {
         set.status = 400;
         return { error: "Mark eligible before filing" };
     }
@@ -115,8 +150,10 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
             nextHidden ? "Marked as out of service scope" : "Restored to service scope",
         );
     }
-    if (!!gemKeywordTender.eligible !== nextEligible) {
-        activities.push(`Set eligible to ${booleanLabel(nextEligible)}`);
+    if (previousEligible !== nextEligible) {
+        activities.push(
+            `Changed eligibility from ${eligibilityLabel(previousEligible)} to ${eligibilityLabel(nextEligible)}`,
+        );
     }
     if (!!gemKeywordTender.filed !== nextFiled) {
         activities.push(`Set filed to ${booleanLabel(nextFiled)}`);
@@ -129,6 +166,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
             `Changed stage from ${stageLabel(gemKeywordTender.stage)} to ${stageLabel(nextStage)}`,
         );
     }
+
     let previousAssignee = null;
     let nextAssignee = null;
     if (assigneeChanging) {

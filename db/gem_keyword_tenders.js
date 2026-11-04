@@ -202,7 +202,7 @@ export async function updateGemKeywordTenderById({
             UPDATE GEM_KEYWORD_TENDERS
             SET
                 hidden = ${!!hidden},
-                eligible = ${!!eligible},
+                eligible = ${eligible},
                 filed = ${!!filed},
                 quote = ${quote},
                 stage = ${stage},

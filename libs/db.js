@@ -451,7 +451,7 @@ export async function generateDBTables() {
             mse_experience_relaxation VARCHAR(32) NULL,
             mse_turnover_relaxation VARCHAR(32) NULL,
             asked_documents TEXT NULL,
-            eligible BOOLEAN NOT NULL DEFAULT FALSE,
+            eligible VARCHAR(32) NOT NULL DEFAULT 'need_to_check',
             filed BOOLEAN NOT NULL DEFAULT FALSE,
             quote TEXT NULL,
             hidden BOOLEAN NOT NULL DEFAULT FALSE,

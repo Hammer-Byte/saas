@@ -4,7 +4,9 @@
     const stageSelect = document.getElementById("gem-tender-stage");
     const assigneeSelect = document.getElementById("gem-tender-assignee");
     const assignMeButton = document.getElementById("gem-tender-assign-me-btn");
-    const eligibleCheckbox = document.getElementById("gem-tender-eligible");
+    const eligibilityOptions = Array.from(
+        document.querySelectorAll(".gem-tender-eligible-option"),
+    );
     const filedCheckbox = document.getElementById("gem-tender-filed");
     const quoteInput = document.getElementById("gem-tender-quote");
     const quoteSaveButton = document.getElementById("gem-tender-quote-save-btn");
@@ -47,11 +49,18 @@
         editAlert.textContent = "";
     }
 
+    function isMarkedEligible() {
+        return detail.dataset.eligible === "eligible";
+    }
+
     function syncControls() {
-        const eligible = detail.dataset.eligible === "1";
+        const eligible = isMarkedEligible();
         const hidden = detail.dataset.hidden === "1";
         const assigneeUserId = detail.dataset.assigneeUserId || "";
 
+        for (const option of eligibilityOptions) {
+            option.checked = option.value === detail.dataset.eligible;
+        }
         if (filedCheckbox) filedCheckbox.disabled = !eligible;
         if (quoteInput) quoteInput.disabled = !eligible;
         if (quoteSaveButton) quoteSaveButton.disabled = !eligible;
@@ -124,23 +133,29 @@
         if (!ok) syncControls();
     });
 
-    eligibleCheckbox?.addEventListener("change", async () => {
-        const value = eligibleCheckbox.checked;
-        const ok = await applyPatch({ eligible: value }, (tender) => {
-            detail.dataset.eligible = tender.eligible ? "1" : "0";
-            if (!tender.eligible) {
-                detail.dataset.filed = "0";
-                if (filedCheckbox) {
-                    filedCheckbox.checked = false;
+    for (const option of eligibilityOptions) {
+        option.addEventListener("change", async () => {
+            if (!option.checked) return;
+            const previous = detail.dataset.eligible || "need_to_check";
+            const eligible = option.value;
+            const ok = await applyPatch({ eligible }, (tender) => {
+                detail.dataset.eligible = tender.eligible || eligible;
+                if (tender.eligible !== "eligible") {
+                    detail.dataset.filed = "0";
+                    if (filedCheckbox) filedCheckbox.checked = false;
+                }
+                window.location.reload();
+            });
+            if (!ok) {
+                for (const eligibilityOption of eligibilityOptions) {
+                    eligibilityOption.checked = eligibilityOption.value === previous;
                 }
             }
-            window.location.reload();
         });
-        if (!ok) eligibleCheckbox.checked = !value;
-    });
+    }
 
     filedCheckbox?.addEventListener("change", async () => {
-        if (detail.dataset.eligible !== "1") {
+        if (!isMarkedEligible()) {
             filedCheckbox.checked = false;
             filedCheckbox.disabled = true;
             return;
@@ -154,7 +169,7 @@
     });
 
     quoteSaveButton?.addEventListener("click", async () => {
-        if (detail.dataset.eligible !== "1") return;
+        if (!isMarkedEligible()) return;
         quoteSaveButton.disabled = true;
         const quote = quoteInput?.value || "";
         const ok = await applyPatch({ quote }, (tender) => {
@@ -168,7 +183,7 @@
 
     hideButton?.addEventListener("click", async () => {
         const currentlyHidden = detail.dataset.hidden === "1";
-        if (!currentlyHidden && detail.dataset.eligible === "1") return;
+        if (!currentlyHidden && isMarkedEligible()) return;
         const nextHidden = !currentlyHidden;
         hideButton.disabled = true;
         const ok = await applyPatch({ hidden: nextHidden }, (tender) => {

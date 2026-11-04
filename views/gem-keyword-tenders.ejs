@@ -2,6 +2,14 @@
 
 <%
     const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
+    const eligibilityValues = GEM_KEYWORD_TENDER_ELIGIBILITY || {};
+    const eligibilityLabels = GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS || {};
+
+    function resolveEligibility(value) {
+        if (value === true || value === 1 || value === "1") return eligibilityValues.ELIGIBLE;
+        if (value === false || value === 0 || value === "0") return eligibilityValues.NEED_TO_CHECK;
+        return value || eligibilityValues.NEED_TO_CHECK;
+    }
 %>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -17,9 +25,9 @@
     </div>
 </nav>
 
-<main class="bg-light min-vh-100">
-    <div class="container-fluid py-5 px-3 px-lg-4">
-        <div class="mb-4">
+<main class="bg-light gem-tenders-page">
+    <div class="container-fluid px-3 px-lg-4 py-3 gem-tenders-page-inner">
+        <div class="gem-tenders-page-header mb-3">
             <p class="text-secondary small mb-1">
                 <a href="/app" class="text-decoration-none">App</a> /
                 <a href="/app/gem-tenders" class="text-decoration-none">Gem Tenders Analyzer</a> /
@@ -29,9 +37,23 @@
             <p class="text-secondary mb-0">Matched GEM tenders by end date range. Open a tender for details and actions.</p>
         </div>
 
-        <div class="card border-0 shadow-sm">
-            <div class="card-body p-0">
-                <div class="border-bottom p-3 p-md-4">
+        <div class="card border-0 shadow-sm mb-3 gem-tenders-filters-card">
+            <div class="card-header bg-white border-0 d-flex flex-wrap justify-content-between align-items-center gap-2 py-3 px-3 px-md-4">
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#gem-tenders-filters"
+                    aria-expanded="false"
+                    aria-controls="gem-tenders-filters"
+                    id="gem-tenders-filters-toggle"
+                >
+                    Filters
+                </button>
+                <p class="text-secondary small mb-0" id="gem-tenders-filter-status" role="status"></p>
+            </div>
+            <div class="collapse" id="gem-tenders-filters">
+                <div class="card-body border-top pt-3 px-3 px-md-4 pb-3">
                     <div class="row g-3 align-items-end">
                         <div class="col-6 col-md-3 col-lg-2">
                             <label for="gem-tenders-from" class="form-label">End date from</label>
@@ -72,6 +94,16 @@
                                 autocomplete="off"
                             />
                         </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="gem-filter-assignee" class="form-label">Assignee</label>
+                            <select class="form-select" id="gem-filter-assignee">
+                                <option value="">All</option>
+                                <option value="unassigned">Unassigned</option>
+                                <% (users || []).forEach(function (user) { %>
+                                    <option value="<%= user.id %>"><%= user.full_name %></option>
+                                <% }) %>
+                            </select>
+                        </div>
                         <div class="col-6 col-md-3 col-lg-2">
                             <label for="gem-filter-past-experience" class="form-label">Required Past Experience Years</label>
                             <select
@@ -95,11 +127,12 @@
                             </select>
                         </div>
                         <div class="col-6 col-md-3 col-lg-2">
-                            <label for="gem-filter-eligible" class="form-label">Eligible</label>
+                            <label for="gem-filter-eligible" class="form-label">Eligibility</label>
                             <select class="form-select gem-tender-column-filter" id="gem-filter-eligible" data-column="eligible">
                                 <option value="">All</option>
-                                <option value="1">Yes</option>
-                                <option value="0">No</option>
+                                <% Object.keys(eligibilityLabels).forEach(function (value) { %>
+                                    <option value="<%= value %>"><%= eligibilityLabels[value] %></option>
+                                <% }) %>
                             </select>
                         </div>
                         <div class="col-6 col-md-3 col-lg-2">
@@ -123,90 +156,130 @@
                             </div>
                         </div>
                     </div>
-                    <p class="text-secondary small mb-0 mt-3" id="gem-tenders-filter-status" role="status"></p>
                 </div>
-                <div
-                    id="gem-tenders-empty"
-                    class="p-4 p-md-5 text-center text-secondary <%= tenders && tenders.length ? 'd-none' : '' %>"
-                >
-                    No tenders ending in this date range.
-                </div>
-                <div
-                    id="gem-tenders-table-wrap"
-                    class="<%= !tenders || !tenders.length ? 'd-none' : '' %>"
-                >
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0 small" id="gem-tenders-table">
-                            <thead class="table-light">
-                                <tr>
-                                    <th scope="col">Tender ID</th>
-                                    <th scope="col">Keyword</th>
-                                    <th scope="col">Stage</th>
-                                    <th scope="col">Assignee</th>
-                                    <th scope="col">Start</th>
-                                    <th scope="col">End</th>
-                                    <th scope="col">Buyer</th>
-                                    <th scope="col">MSE Experience Relaxation</th>
-                                    <th scope="col">MSE Turnover Relaxation</th>
-                                    <th scope="col">Eligible</th>
-                                    <th scope="col">Filed</th>
-                                </tr>
-                            </thead>
-                            <tbody id="gem-tenders-tbody">
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm gem-tenders-list-card">
+            <div
+                id="gem-tenders-empty"
+                class="p-4 p-md-5 text-center text-secondary <%= tenders && tenders.length ? 'd-none' : '' %>"
+            >
+                No tenders ending in this date range.
+            </div>
+            <div
+                id="gem-tenders-table-wrap"
+                class="gem-tenders-list-scroll <%= !tenders || !tenders.length ? 'd-none' : '' %>"
+            >
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small" id="gem-tenders-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Tender ID</th>
+                                <th scope="col">Keyword</th>
+                                <th scope="col">Stage</th>
+                                <th scope="col">Assignee</th>
+                                <th scope="col">Start</th>
+                                <th scope="col">End</th>
+                                <th scope="col">Buyer</th>
+                                <th scope="col">MSE Experience Relaxation</th>
+                                <th scope="col">MSE Turnover Relaxation</th>
+                                <th scope="col">Eligible</th>
+                                <th scope="col">Filed</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gem-tenders-tbody">
                                 <% (tenders || []).forEach(function (tender) { %>
+                                    <% const eligibility = resolveEligibility(tender.eligible); %>
                                     <tr
                                         data-id="<%= tender.id %>"
                                         data-keyword-id="<%= tender.keyword_id %>"
+                                        data-assignee-user-id="<%= tender.assignee_user_id || '' %>"
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"
                                         data-mse-exp="<%= tender.mse_experience_relaxation || '' %>"
                                         data-mse-turnover="<%= tender.mse_turnover_relaxation || '' %>"
-                                        data-eligible="<%= tender.eligible ? '1' : '0' %>"
+                                        data-eligible="<%= eligibility %>"
                                         data-filed="<%= tender.filed ? '1' : '0' %>"
                                         data-hidden="<%= tender.hidden ? '1' : '0' %>"
                                     >
-                                        <td>
-                                            <a
-                                                href="/app/gem-keyword-tenders/<%= tender.id %>"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                <%= tender.tender_id %>
-                                            </a>
-                                        </td>
-                                        <td><%= tender.keyword || "-" %></td>
-                                        <td><%= stageLabels[tender.stage] || tender.stage || "New" %></td>
-                                        <td><%= tender.assignee_full_name || "-" %></td>
-                                        <td><%= tender.start_date_time || "-" %></td>
-                                        <td><%= tender.end_date_time || "-" %></td>
-                                        <td>
-                                            <%
-                                                const buyerParts = [
-                                                    tender.ministry,
-                                                    tender.department,
-                                                    tender.organization,
-                                                    tender.office,
-                                                ].filter(Boolean);
-                                            %>
-                                            <% if (buyerParts.length) { %>
-                                                <%= buyerParts.join(" / ") %>
-                                            <% } else { %>
-                                                -
-                                            <% } %>
-                                        </td>
-                                        <td><%= tender.mse_experience_relaxation || "-" %></td>
-                                        <td><%= tender.mse_turnover_relaxation || "-" %></td>
-                                        <td><%= tender.eligible ? "Yes" : "No" %></td>
+                                    <td>
+                                        <a
+                                            href="/app/gem-keyword-tenders/<%= tender.id %>"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <%= tender.tender_id %>
+                                        </a>
+                                    </td>
+                                    <td><%= tender.keyword || "-" %></td>
+                                    <td><%= stageLabels[tender.stage] || tender.stage || "New" %></td>
+                                    <td><%= tender.assignee_full_name || "-" %></td>
+                                    <td><%= tender.start_date_time || "-" %></td>
+                                    <td><%= tender.end_date_time || "-" %></td>
+                                    <td>
+                                        <%
+                                            const buyerParts = [
+                                                tender.ministry,
+                                                tender.department,
+                                                tender.organization,
+                                                tender.office,
+                                            ].filter(Boolean);
+                                        %>
+                                        <% if (buyerParts.length) { %>
+                                            <%= buyerParts.join(" / ") %>
+                                        <% } else { %>
+                                            -
+                                        <% } %>
+                                    </td>
+                                    <td><%= tender.mse_experience_relaxation || "-" %></td>
+                                    <td><%= tender.mse_turnover_relaxation || "-" %></td>
+                                        <td><%= eligibilityLabels[eligibility] || eligibility || "-" %></td>
                                         <td><%= tender.filed ? "Yes" : "No" %></td>
-                                    </tr>
-                                <% }) %>
-                            </tbody>
-                        </table>
-                    </div>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 </main>
+
+<style>
+    .gem-tenders-page {
+        height: calc(100vh - 56px);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .gem-tenders-page-inner {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    .gem-tenders-page-header,
+    .gem-tenders-filters-card {
+        flex: 0 0 auto;
+    }
+    .gem-tenders-list-card {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .gem-tenders-list-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+    }
+    #gem-tenders-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+</style>
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
