@@ -159,16 +159,22 @@ export const processTender = async ({ tenderFile, keyword_id, tender_id, documen
         const pdfText = await readTenderText(tenderFile);
         const gemTenderDetails = extractTenderDetails(pdfText);
 
-        createGemKeywordTender({
+        const tenderRowId = await createGemKeywordTender({
             keyword_id,
             tender_id,
             document,
             ...gemTenderDetails,
         });
 
+        if (!tenderRowId) {
+            return false;
+        }
+
         logger.info(`Stored tender details: ${tender_id}`);
+        return true;
     } catch (error) {
         logger.error(`Failed to process tender ${tender_id}: ${error}`);
+        return false;
     }
 };
 
@@ -178,7 +184,7 @@ export const searchTendersByKeyword = async (
 ) => {
     if (!keyword || !keyword_id) {
         logger.info("No keyword configured, skipping search.");
-        return;
+        return 0;
     }
 
     await ensureTenderStorage();
@@ -205,10 +211,11 @@ export const searchTendersByKeyword = async (
 
     if (!(await page.isPaginationVisible())) {
         logger.info(`No tenders found for keyword: ${keyword}`);
-        return;
+        return 0;
     }
 
     const lastPage = await page.getLastPageNumber();
+    let createdCount = 0;
 
     for (let pageNumber = 1; pageNumber <= lastPage; pageNumber++) {
         logger.info(`Downloading page ${pageNumber} of ${lastPage} for ${keyword}...`);
@@ -230,12 +237,15 @@ export const searchTendersByKeyword = async (
 
             try {
                 const { tenderFile, document } = await downloadTender(driver, tender);
-                await processTender({
+                const created = await processTender({
                     tenderFile,
                     keyword_id,
                     tender_id: tenderId,
                     document,
                 });
+                if (created) {
+                    createdCount += 1;
+                }
             } catch (error) {
                 logger.error(`Failed download ${tenderId}: ${error}`);
             }
@@ -247,4 +257,6 @@ export const searchTendersByKeyword = async (
             await goToNextPage(driver, page);
         }
     }
+
+    return createdCount;
 };

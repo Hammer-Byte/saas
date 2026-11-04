@@ -56,6 +56,7 @@ import {
 } from "../db/gem_keyword_tenders.js";
 import { getAllGemKeywordTenderActivitiesByTenderId } from "../db/gem_keyword_tender_activities.js";
 import { getAllGemKeywordTenderCommentsByTenderId } from "../db/gem_keyword_tender_comments.js";
+import { getAllGemTenderScanRuns } from "../db/gem_tender_scan_runs.js";
 import {
     GEM_KEYWORD_TENDER_STAGE_LABELS,
 } from "../constants.js";
@@ -662,6 +663,12 @@ export const uiRoutes = new Elysia()
                     title: "Keywords — Gem Tenders Analyzer — HammerByte",
                     keywords: await getAllGemTenderKeywords(),
                     processing: gemTendereProcessing,
+                })),
+            )
+            .get("/app/gem-tender-scan-history", async ({ render, session }) =>
+                render("gem-tender-scan-history", appPage(session, {
+                    title: "Scan History — Gem Tenders Analyzer — HammerByte",
+                    runs: await getAllGemTenderScanRuns(),
                 })),
             )
             .get("/app/gem-keyword-tenders", async ({ render, session, query }) => {

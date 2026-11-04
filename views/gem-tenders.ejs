@@ -25,18 +25,21 @@
                 <h1 class="h3 mb-1">Keywords</h1>
                 <p class="text-secondary mb-0">Add, edit, and delete GEM search keywords. Start a scan to crawl matches.</p>
             </div>
-            <button
-                type="button"
-                class="btn btn-success"
-                id="gem-start-scan-btn"
-                <% if (processing) { %>disabled<% } %>
-            >
-                <% if (processing) { %>
-                    Scan in progress…
-                <% } else { %>
-                    Start scan
-                <% } %>
-            </button>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="/app/gem-tender-scan-history" class="btn btn-outline-secondary">History</a>
+                <button
+                    type="button"
+                    class="btn btn-success"
+                    id="gem-start-scan-btn"
+                    <% if (processing) { %>disabled<% } %>
+                >
+                    <% if (processing) { %>
+                        Scan in progress…
+                    <% } else { %>
+                        Start scan
+                    <% } %>
+                </button>
+            </div>
         </div>
 
         <div id="gem-keywords-alert" class="alert d-none" role="alert"></div>

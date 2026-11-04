@@ -505,6 +505,21 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
+        `CREATE TABLE IF NOT EXISTS GEM_TENDER_SCAN_RUNS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            status VARCHAR(32) NOT NULL DEFAULT 'running',
+            keyword_count INT NOT NULL DEFAULT 0,
+            tender_count INT NOT NULL DEFAULT 0,
+            created_by INT NULL,
+            error_message TEXT NULL,
+            started_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            finished_on DATETIME NULL,
+            CONSTRAINT fk_gem_tender_scan_runs_created_by
+                FOREIGN KEY (created_by)
+                REFERENCES USERS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        )`,
         `CREATE TABLE IF NOT EXISTS AUTOMATION_USERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,

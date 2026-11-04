@@ -7,7 +7,12 @@ import {
     updateGemTenderKeywordById,
 } from "../db/gem_tender_keywords.js";
 import { getGemKeywordTendersByKeywordId } from "../db/gem_keyword_tenders.js";
+import {
+    createGemTenderScanRun,
+    getGemTenderScanRunById,
+} from "../db/gem_tender_scan_runs.js";
 import { crawlGemForTenders, processing } from "../libs/tenderer.js";
+import { getCurrentUser } from "./authentication.js";
 
 function normalizeExactSearch(value) {
     return !!value;
@@ -89,10 +94,16 @@ export async function getGemTenderKeywords({ set }) {
     return { gemTenderKeywords, processing };
 }
 
-export async function startGemTenderScan({ set }) {
+export async function startGemTenderScan({ cookie, set }) {
     if (processing) {
         set.status = 409;
         return { error: "Scan already in progress", processing: true };
+    }
+
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized", processing: false };
     }
 
     const gemTenderKeywords = await getAllGemTenderKeywords();
@@ -101,14 +112,30 @@ export async function startGemTenderScan({ set }) {
         return { error: "No keywords to scan", processing: false };
     }
 
-    const started = crawlGemForTenders({ keywords: gemTenderKeywords });
+    const runId = await createGemTenderScanRun({
+        keyword_count: gemTenderKeywords.length,
+        created_by: currentUser.id,
+    });
+    if (!runId) {
+        set.status = 400;
+        return { error: "Failed to create scan run", processing: false };
+    }
+
+    const started = crawlGemForTenders({
+        keywords: gemTenderKeywords,
+        runId,
+    });
     if (!started) {
         set.status = 409;
         return { error: "Scan already in progress", processing: true };
     }
 
     set.status = 202;
-    return { message: "Scan started", processing: true };
+    return {
+        message: "Scan started",
+        processing: true,
+        run: await getGemTenderScanRunById({ id: runId }),
+    };
 }
 
 export async function getGemKeywordTenders({ params, query, set }) {

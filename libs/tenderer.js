@@ -1,11 +1,13 @@
 import { Builder, Browser } from "selenium-webdriver";
 import firefox from "selenium-webdriver/firefox.js";
 import { logger } from "@hammerbyte/utils";
+import { updateGemTenderScanRunById } from "../db/gem_tender_scan_runs.js";
+import { toDbDateTime } from "./date.js";
 import { searchTendersByKeyword } from "./tenderer/gem_crawler.js";
 
 export let processing = false;
 
-export function crawlGemForTenders({ keywords = [] } = {}) {
+export function crawlGemForTenders({ keywords = [], runId = null } = {}) {
     if (processing) {
         return false;
     }
@@ -27,6 +29,7 @@ export function crawlGemForTenders({ keywords = [] } = {}) {
 
     (async () => {
         let driver = null;
+        let tenderCount = 0;
 
         try {
             const options = new firefox.Options()
@@ -39,7 +42,38 @@ export function crawlGemForTenders({ keywords = [] } = {}) {
                 .build();
 
             for (const keyword of keywordList) {
-                await searchTendersByKeyword(driver, keyword);
+                const createdCount = await searchTendersByKeyword(driver, keyword);
+                tenderCount += Number(createdCount || 0);
+
+                if (runId) {
+                    await updateGemTenderScanRunById({
+                        id: runId,
+                        status: "running",
+                        tender_count: tenderCount,
+                    });
+                }
+            }
+
+            if (runId) {
+                await updateGemTenderScanRunById({
+                    id: runId,
+                    status: "completed",
+                    tender_count: tenderCount,
+                    finished_on: toDbDateTime(new Date()),
+                });
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`gem tenderer crawl failed: ${message}`);
+
+            if (runId) {
+                await updateGemTenderScanRunById({
+                    id: runId,
+                    status: "failed",
+                    tender_count: tenderCount,
+                    error_message: message,
+                    finished_on: toDbDateTime(new Date()),
+                });
             }
         } finally {
             if (driver) {
@@ -49,8 +83,18 @@ export function crawlGemForTenders({ keywords = [] } = {}) {
             }
         }
     })()
-        .catch((error) => {
-            logger.error(`gem tenderer crawl failed: ${error}`);
+        .catch(async (error) => {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`gem tenderer crawl failed: ${message}`);
+            if (runId) {
+                await updateGemTenderScanRunById({
+                    id: runId,
+                    status: "failed",
+                    tender_count: 0,
+                    error_message: message,
+                    finished_on: toDbDateTime(new Date()),
+                });
+            }
         })
         .finally(() => {
             processing = false;
