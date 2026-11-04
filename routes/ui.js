@@ -388,10 +388,34 @@ export const uiRoutes = new Elysia()
                 if (!server) {
                     return redirect("/not-found");
                 }
+                const metricRows = await getServerMetricsByServerId({ server_id: server.id });
+                const metrics = (metricRows || []).map((metric) => {
+                    let data = null;
+                    try {
+                        data =
+                            typeof metric.payload === "string"
+                                ? JSON.parse(metric.payload)
+                                : metric.payload && typeof metric.payload === "object"
+                                  ? metric.payload
+                                  : null;
+                    } catch {
+                        data = null;
+                    }
+                    return {
+                        id: metric.id,
+                        collected_at: metric.collected_at,
+                        data,
+                        raw:
+                            typeof metric.payload === "string"
+                                ? metric.payload
+                                : JSON.stringify(metric.payload ?? {}, null, 2),
+                    };
+                });
                 return render("server", appPage(session, {
                     title: `${server.name || server.tag} — Servers — HammerByte`,
                     server,
-                    metrics: await getServerMetricsByServerId({ server_id: server.id }),
+                    metrics,
+                    latest: metrics[0] || null,
                 }));
             })
             .get("/app/expenses", async ({ render, session, query }) => {

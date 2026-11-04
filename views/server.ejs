@@ -1,5 +1,44 @@
 <%- include('common/header') %>
 
+<%
+    function pct(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return null;
+        return Math.max(0, Math.min(100, number));
+    }
+
+    function fmt(value, suffix) {
+        if (value == null || value === "") return "—";
+        if (typeof value === "number" && Number.isFinite(value)) {
+            const rounded = Number.isInteger(value) ? String(value) : value.toFixed(1);
+            return suffix ? `${rounded}${suffix}` : rounded;
+        }
+        return suffix ? `${value}${suffix}` : String(value);
+    }
+
+    function barClass(value) {
+        const number = pct(value);
+        if (number == null) return "bg-secondary";
+        if (number >= 90) return "bg-danger";
+        if (number >= 75) return "bg-warning";
+        return "bg-success";
+    }
+
+    const snap = latest && latest.data ? latest.data : null;
+    const processor = snap && snap.processor ? snap.processor : {};
+    const memory = snap && snap.memory ? snap.memory : {};
+    const processes = snap && snap.processes ? snap.processes : {};
+    const services = snap && snap.services ? snap.services : {};
+    const disks = snap && Array.isArray(snap.disks) ? snap.disks : [];
+    const temperatures = snap && snap.temperatures ? snap.temperatures : {};
+    const osInfo = snap && snap.os ? snap.os : {};
+    const hardware = snap && snap.hardware ? snap.hardware : {};
+    const topCpu = Array.isArray(processes.top_cpu) ? processes.top_cpu : [];
+    const topMemory = Array.isArray(processes.top_memory) ? processes.top_memory : [];
+    const cpuPct = pct(processor.usage_percent);
+    const ramPct = pct(memory.used_percent);
+%>
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
         <a class="navbar-brand" href="/app">HammerByte App</a>
@@ -15,50 +54,377 @@
 
 <main class="bg-light min-vh-100">
     <div class="container py-5">
-        <div class="mb-4">
-            <p class="text-secondary small mb-1">
-                <a href="/app" class="text-decoration-none">App</a> /
-                <a href="/app/servers" class="text-decoration-none">Servers</a> /
-                <%= server.name || server.tag %>
-            </p>
-            <h1 class="h3 mb-1"><%= server.name || "Unnamed server" %></h1>
-            <p class="text-secondary mb-0">
-                Tag <code><%= server.tag %></code>
-                <% if (server.agent_version) { %> · Agent <%= server.agent_version %><% } %>
-            </p>
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/servers" class="text-decoration-none">Servers</a> /
+                    <%= server.name || server.tag %>
+                </p>
+                <h1 class="h3 mb-1"><%= server.name || "Unnamed server" %></h1>
+                <p class="text-secondary mb-0">
+                    Tag <code><%= server.tag %></code>
+                    <% if (server.agent_version || (snap && snap.agent_version)) { %>
+                        · Agent <%= server.agent_version || snap.agent_version %>
+                    <% } %>
+                    <% if (snap && snap.hostname) { %> · Host <strong><%= snap.hostname %></strong><% } %>
+                </p>
+            </div>
+            <a href="/app/servers" class="btn btn-sm btn-outline-secondary">Back to fleet</a>
         </div>
+
+        <% if (!snap) { %>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4 text-center text-secondary">
+                    No metrics received yet.
+                </div>
+            </div>
+        <% } else { %>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6 col-xl-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-secondary small mb-1">CPU usage</div>
+                            <div class="h3 mb-2"><%= fmt(processor.usage_percent, "%") %></div>
+                            <div class="progress" style="height: 0.5rem">
+                                <div class="progress-bar <%= barClass(cpuPct) %>" style="width: <%= cpuPct == null ? 0 : cpuPct %>%"></div>
+                            </div>
+                            <div class="small text-secondary mt-2"><%= fmt(processor.name) %></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-secondary small mb-1">Memory</div>
+                            <div class="h3 mb-2"><%= fmt(memory.used_percent, "%") %></div>
+                            <div class="progress" style="height: 0.5rem">
+                                <div class="progress-bar <%= barClass(ramPct) %>" style="width: <%= ramPct == null ? 0 : ramPct %>%"></div>
+                            </div>
+                            <div class="small text-secondary mt-2">
+                                <%= fmt(memory.used_mb) %> / <%= fmt(memory.total_mb) %> MB used
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-secondary small mb-1">Processes / services</div>
+                            <div class="h3 mb-2"><%= fmt(processes.total) %></div>
+                            <div class="small text-secondary">
+                                <%= fmt(services.running) %> services running
+                                · <%= fmt(services.stopped) %> stopped
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-secondary small mb-1">Temperature</div>
+                            <div class="h3 mb-2">
+                                <% if (temperatures.available) { %>
+                                    <%= fmt(temperatures.celsius_max, "°C") %>
+                                <% } else { %>
+                                    —
+                                <% } %>
+                            </div>
+                            <div class="small text-secondary">
+                                <% if (temperatures.available && Array.isArray(temperatures.zones)) { %>
+                                    <%= temperatures.zones.length %> zone(s)
+                                <% } else { %>
+                                    Not available on this host
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white border-0 pt-4 px-4">
+                            <h2 class="h6 mb-0">Processor</h2>
+                        </div>
+                        <div class="card-body pt-0 px-4 pb-4">
+                            <dl class="row mb-0 small">
+                                <dt class="col-sm-4 text-secondary">Name</dt>
+                                <dd class="col-sm-8"><%= fmt(processor.name) %></dd>
+                                <dt class="col-sm-4 text-secondary">Packages</dt>
+                                <dd class="col-sm-8"><%= fmt(processor.packages) %></dd>
+                                <dt class="col-sm-4 text-secondary">Cores</dt>
+                                <dd class="col-sm-8"><%= fmt(processor.core_count) %></dd>
+                                <dt class="col-sm-4 text-secondary">Logical CPUs</dt>
+                                <dd class="col-sm-8"><%= fmt(processor.logical_count || snap.cpu_count) %></dd>
+                                <dt class="col-sm-4 text-secondary">Max clock</dt>
+                                <dd class="col-sm-8"><%= processor.max_clock_mhz != null ? fmt(processor.max_clock_mhz, " MHz") : "—" %></dd>
+                                <dt class="col-sm-4 text-secondary">WMI load</dt>
+                                <dd class="col-sm-8"><%= fmt(processor.load_percent_wmi, "%") %></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white border-0 pt-4 px-4">
+                            <h2 class="h6 mb-0">Memory</h2>
+                        </div>
+                        <div class="card-body pt-0 px-4 pb-4">
+                            <dl class="row mb-0 small">
+                                <dt class="col-sm-4 text-secondary">Total</dt>
+                                <dd class="col-sm-8"><%= fmt(memory.total_mb, " MB") %></dd>
+                                <dt class="col-sm-4 text-secondary">Free</dt>
+                                <dd class="col-sm-8"><%= fmt(memory.free_mb, " MB") %></dd>
+                                <dt class="col-sm-4 text-secondary">Used</dt>
+                                <dd class="col-sm-8"><%= fmt(memory.used_mb, " MB") %> (<%= fmt(memory.used_percent, "%") %>)</dd>
+                                <dt class="col-sm-4 text-secondary">Available</dt>
+                                <dd class="col-sm-8"><%= fmt(memory.available_mb, " MB") %></dd>
+                                <dt class="col-sm-4 text-secondary">Committed</dt>
+                                <dd class="col-sm-8"><%= fmt(memory.committed_mb, " MB") %></dd>
+                                <dt class="col-sm-4 text-secondary">Pool</dt>
+                                <dd class="col-sm-8">
+                                    paged <%= fmt(memory.pool_paged_mb, " MB") %>
+                                    · nonpaged <%= fmt(memory.pool_nonpaged_mb, " MB") %>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 pt-4 px-4">
+                    <h2 class="h6 mb-0">Disks</h2>
+                </div>
+                <div class="card-body p-0">
+                    <% if (!disks.length) { %>
+                        <div class="p-4 text-secondary small">No disk data.</div>
+                    <% } else { %>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Drive</th>
+                                        <th>Label</th>
+                                        <th>Filesystem</th>
+                                        <th>Used</th>
+                                        <th>Free / Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% disks.forEach(function (disk) {
+                                        const used = pct(disk.used_percent);
+                                    %>
+                                        <tr>
+                                            <td><strong><%= fmt(disk.device) %></strong></td>
+                                            <td><%= disk.label || "—" %></td>
+                                            <td><%= fmt(disk.filesystem) %></td>
+                                            <td style="min-width: 10rem">
+                                                <div class="d-flex justify-content-between small mb-1">
+                                                    <span><%= fmt(disk.used_percent, "%") %></span>
+                                                </div>
+                                                <div class="progress" style="height: 0.45rem">
+                                                    <div class="progress-bar <%= barClass(used) %>" style="width: <%= used == null ? 0 : used %>%"></div>
+                                                </div>
+                                            </td>
+                                            <td class="small text-secondary">
+                                                <%= fmt(disk.free_mb) %> / <%= fmt(disk.total_mb) %> MB
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white border-0 pt-4 px-4">
+                            <h2 class="h6 mb-0">Top processes by CPU</h2>
+                        </div>
+                        <div class="card-body p-0">
+                            <% if (!topCpu.length) { %>
+                                <div class="p-4 text-secondary small">No process data.</div>
+                            <% } else { %>
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>PID</th>
+                                                <th>CPU sec</th>
+                                                <th>RAM</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <% topCpu.forEach(function (proc) { %>
+                                                <tr>
+                                                    <td><%= fmt(proc.name) %></td>
+                                                    <td class="text-secondary"><%= fmt(proc.pid) %></td>
+                                                    <td><%= fmt(proc.cpu_seconds) %></td>
+                                                    <td><%= fmt(proc.memory_mb, " MB") %></td>
+                                                </tr>
+                                            <% }) %>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white border-0 pt-4 px-4">
+                            <h2 class="h6 mb-0">Top processes by memory</h2>
+                        </div>
+                        <div class="card-body p-0">
+                            <% if (!topMemory.length) { %>
+                                <div class="p-4 text-secondary small">No process data.</div>
+                            <% } else { %>
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>PID</th>
+                                                <th>RAM</th>
+                                                <th>CPU sec</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <% topMemory.forEach(function (proc) { %>
+                                                <tr>
+                                                    <td><%= fmt(proc.name) %></td>
+                                                    <td class="text-secondary"><%= fmt(proc.pid) %></td>
+                                                    <td><%= fmt(proc.memory_mb, " MB") %></td>
+                                                    <td><%= fmt(proc.cpu_seconds) %></td>
+                                                </tr>
+                                            <% }) %>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white border-0 pt-4 px-4">
+                            <h2 class="h6 mb-0">Operating system</h2>
+                        </div>
+                        <div class="card-body pt-0 px-4 pb-4">
+                            <dl class="row mb-0 small">
+                                <dt class="col-sm-4 text-secondary">Caption</dt>
+                                <dd class="col-sm-8"><%= fmt(osInfo.caption) %></dd>
+                                <dt class="col-sm-4 text-secondary">Version</dt>
+                                <dd class="col-sm-8"><%= fmt(osInfo.version) %> (build <%= fmt(osInfo.build) %>)</dd>
+                                <dt class="col-sm-4 text-secondary">Architecture</dt>
+                                <dd class="col-sm-8"><%= fmt(osInfo.architecture || snap.arch) %></dd>
+                                <dt class="col-sm-4 text-secondary">Uptime</dt>
+                                <dd class="col-sm-8">
+                                    <% if (snap.uptime_seconds != null) {
+                                        const days = Math.floor(snap.uptime_seconds / 86400);
+                                        const hours = Math.floor((snap.uptime_seconds % 86400) / 3600);
+                                        const mins = Math.floor((snap.uptime_seconds % 3600) / 60);
+                                    %>
+                                        <%= days %>d <%= hours %>h <%= mins %>m
+                                    <% } else { %>—<% } %>
+                                </dd>
+                                <dt class="col-sm-4 text-secondary">Last boot</dt>
+                                <dd class="col-sm-8"><%= fmt(osInfo.last_boot) %></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white border-0 pt-4 px-4">
+                            <h2 class="h6 mb-0">Hardware</h2>
+                        </div>
+                        <div class="card-body pt-0 px-4 pb-4">
+                            <dl class="row mb-0 small">
+                                <dt class="col-sm-4 text-secondary">Manufacturer</dt>
+                                <dd class="col-sm-8"><%= fmt(hardware.manufacturer) %></dd>
+                                <dt class="col-sm-4 text-secondary">Model</dt>
+                                <dd class="col-sm-8"><%= fmt(hardware.model) %></dd>
+                                <dt class="col-sm-4 text-secondary">Board</dt>
+                                <dd class="col-sm-8"><%= fmt(hardware.baseboard_product) %></dd>
+                                <dt class="col-sm-4 text-secondary">BIOS</dt>
+                                <dd class="col-sm-8"><%= fmt(hardware.bios_version) %></dd>
+                                <dt class="col-sm-4 text-secondary">Serial</dt>
+                                <dd class="col-sm-8"><%= fmt(hardware.serial_number) %></dd>
+                                <dt class="col-sm-4 text-secondary">Domain</dt>
+                                <dd class="col-sm-8"><%= fmt(hardware.domain) %></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        <% } %>
 
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 pt-4 px-4">
-                <h2 class="h5 mb-0">Metrics logs</h2>
+                <h2 class="h5 mb-0">History</h2>
+                <p class="text-secondary small mb-0 mt-1">Previous check-ins with a quick summary. Expand a row for raw JSON if needed.</p>
             </div>
             <div class="card-body p-0">
                 <% if (!metrics || metrics.length === 0) { %>
                     <div class="p-4 text-center text-secondary">No metrics received yet.</div>
                 <% } else { %>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th scope="col">Collected</th>
-                                    <th scope="col">Payload</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% metrics.forEach(function (metric) { %>
-                                    <tr>
-                                        <td
-                                            class="text-nowrap"
-                                            data-readable-date="<%= metric.collected_at || '' %>"
-                                            data-date-format="DD/MM/YYYY HH:mm:ss"
-                                        ></td>
-                                        <td>
-                                            <pre class="small mb-0 text-break" style="white-space: pre-wrap; max-width: 48rem"><%= metric.payload %></pre>
-                                        </td>
-                                    </tr>
-                                <% }) %>
-                            </tbody>
-                        </table>
+                    <div class="accordion accordion-flush" id="metrics-history">
+                        <% metrics.forEach(function (metric, index) {
+                            const data = metric.data || {};
+                            const proc = data.processor || {};
+                            const mem = data.memory || {};
+                            const collapseId = "metric-" + (metric.id || index);
+                        %>
+                            <div class="accordion-item">
+                                <h3 class="accordion-header">
+                                    <button
+                                        class="accordion-button <%= index === 0 ? '' : 'collapsed' %> py-3"
+                                        type="button"
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="#<%= collapseId %>"
+                                        aria-expanded="<%= index === 0 ? 'true' : 'false' %>"
+                                    >
+                                        <div class="d-flex flex-wrap align-items-center gap-2 w-100 pe-3">
+                                            <span
+                                                class="text-nowrap fw-semibold"
+                                                data-readable-date="<%= metric.collected_at || '' %>"
+                                                data-date-format="DD/MM/YYYY HH:mm:ss"
+                                            ></span>
+                                            <% if (metric.data) { %>
+                                                <span class="badge text-bg-light border">CPU <%= fmt(proc.usage_percent, "%") %></span>
+                                                <span class="badge text-bg-light border">RAM <%= fmt(mem.used_percent, "%") %></span>
+                                                <span class="badge text-bg-light border">Procs <%= fmt((data.processes || {}).total) %></span>
+                                                <% if (data.temperatures && data.temperatures.available) { %>
+                                                    <span class="badge text-bg-light border"><%= fmt(data.temperatures.celsius_max, "°C") %></span>
+                                                <% } %>
+                                            <% } else { %>
+                                                <span class="badge text-bg-warning">Unparsed payload</span>
+                                            <% } %>
+                                        </div>
+                                    </button>
+                                </h3>
+                                <div
+                                    id="<%= collapseId %>"
+                                    class="accordion-collapse collapse <%= index === 0 ? 'show' : '' %>"
+                                    data-bs-parent="#metrics-history"
+                                >
+                                    <div class="accordion-body bg-light">
+                                        <pre class="small mb-0 text-break" style="white-space: pre-wrap; max-height: 24rem; overflow: auto"><%= metric.raw %></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }) %>
                     </div>
                 <% } %>
             </div>
