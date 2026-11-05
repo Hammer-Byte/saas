@@ -10,6 +10,13 @@ function igLog(message) {
     logger.info(`content-publish ig ${message}`);
 }
 
+/** Step screenshots for the current IG publish attempt (attached to history on failure). */
+let stepShots = [];
+
+function resetStepShots() {
+    stepShots = [];
+}
+
 /**
  * Instagram feed image post — human-paced + step screenshots for debugging.
  *
@@ -133,7 +140,10 @@ function humanPause(minMs, maxMs = minMs) {
 async function debugShot(driver, label) {
     try {
         const fileName = await captureContentPublishScreenshot(driver, label);
-        igLog(`screenshot ${label} -> ${fileName}`);
+        if (fileName) {
+            stepShots.push(fileName);
+        }
+        igLog(`screenshot ${label} -> ${fileName} (total=${stepShots.length})`);
         return fileName;
     } catch (error) {
         igLog(`screenshot ${label} failed: ${error instanceof Error ? error.message : error}`);
@@ -143,7 +153,7 @@ async function debugShot(driver, label) {
 
 async function failWithShot(driver, label, message) {
     const screenshotFile = await debugShot(driver, label);
-    throw attachScreenshotToError(new Error(message), screenshotFile);
+    throw attachScreenshotToError(new Error(message), screenshotFile, stepShots);
 }
 
 export async function diagnoseInstagramPublish(driver) {
@@ -302,6 +312,7 @@ async function clickThroughNext(driver) {
     igLog("step crop/filter Next");
     const deadline = Date.now() + 60000;
     let nextClicks = 0;
+    let waitShots = 0;
 
     while (Date.now() < deadline) {
         await dismissNotNow(driver);
@@ -354,6 +365,10 @@ async function clickThroughNext(driver) {
             // Person reviews crop/filter before continuing.
             await humanPause(2200, 4200);
             continue;
+        }
+        waitShots += 1;
+        if (waitShots <= 4 || waitShots % 3 === 0) {
+            await debugShot(driver, `ig-04-waiting-${waitShots}`);
         }
         await humanPause(800, 1400);
     }
@@ -517,17 +532,28 @@ async function clickShare(driver) {
 }
 
 export async function publishInstagramImagePost({ driver, mediaPath, caption, hashtags }) {
+    resetStepShots();
     igLog("publish start");
-    await openUrl(driver, "https://www.instagram.com/");
-    await humanPause(2200, 3800);
-    await dismissNotNow(driver);
-    await humanPause(600, 1200);
-    await dismissNotNow(driver);
+    try {
+        await openUrl(driver, "https://www.instagram.com/");
+        await humanPause(2200, 3800);
+        await dismissNotNow(driver);
+        await humanPause(600, 1200);
+        await dismissNotNow(driver);
+        await debugShot(driver, "ig-00-after-home-settle");
 
-    await openCreatePost(driver);
-    await attachImage(driver, mediaPath);
-    await clickThroughNext(driver);
-    await typeCaption(driver, caption, hashtags);
-    await clickShare(driver);
-    igLog("publish ok");
+        await openCreatePost(driver);
+        await attachImage(driver, mediaPath);
+        await clickThroughNext(driver);
+        await typeCaption(driver, caption, hashtags);
+        await clickShare(driver);
+        igLog(`publish ok screenshots=${stepShots.length}`);
+    } catch (error) {
+        // Ensure every step shot is stored on the failure for history/logs.
+        throw attachScreenshotToError(
+            error instanceof Error ? error : new Error(String(error)),
+            null,
+            stepShots,
+        );
+    }
 }

@@ -572,6 +572,8 @@ export async function generateDBTables() {
         // Existing installs created the table without screenshot_file.
         `ALTER TABLE CONTENT_PUBLISH_RUN_TARGETS
             ADD COLUMN screenshot_file VARCHAR(255) NULL`,
+        `ALTER TABLE CONTENT_PUBLISH_RUN_TARGETS
+            ADD COLUMN screenshot_files TEXT NULL`,
         `CREATE TABLE IF NOT EXISTS LINKEDIN_DESIGNATIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,

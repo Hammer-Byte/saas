@@ -91,6 +91,7 @@ export async function updateContentPublishRunTargetById({
     status,
     error_message = null,
     screenshot_file = null,
+    screenshot_files = null,
 }) {
     await executeSQLQuery(
         (sql) => sql`
@@ -98,7 +99,8 @@ export async function updateContentPublishRunTargetById({
             SET
                 status = ${status},
                 error_message = ${error_message},
-                screenshot_file = ${screenshot_file}
+                screenshot_file = ${screenshot_file},
+                screenshot_files = ${screenshot_files}
             WHERE id = ${id}
         `,
     ).catch((error) => {

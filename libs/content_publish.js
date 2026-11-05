@@ -18,6 +18,10 @@ import { publishFacebookImagePost } from "./content_publish/facebook_post_pom.js
 import { publishInstagramImagePost } from "./content_publish/instagram_post_pom.js";
 import { publishYoutubeCommunityImagePost } from "./content_publish/youtube_community_pom.js";
 import { publishLinkedinImagePost } from "./content_publish/linkedin_post_pom.js";
+import {
+    normalizeScreenshotFiles,
+    serializeScreenshotFiles,
+} from "./content_publish_screenshot.js";
 
 const PLATFORM_ORDER = ["facebook", "instagram", "youtube", "linkedin"];
 
@@ -156,21 +160,33 @@ export function startContentPublish({
                     );
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
+                    const screenshotFiles = normalizeScreenshotFiles(
+                        error && typeof error === "object" ? error.screenshotFiles || error.screenshotFile : null,
+                    );
                     const screenshotFile =
-                        error && typeof error === "object" && error.screenshotFile
+                        screenshotFiles[screenshotFiles.length - 1]
+                        || (error && typeof error === "object" && error.screenshotFile
                             ? String(error.screenshotFile)
-                            : null;
+                            : null);
                     logger.error(
                         `content-publish run=${runId} platform=${target.platform} failed: ${message}${
-                            screenshotFile ? ` screenshot=${screenshotFile}` : ""
+                            screenshotFiles.length
+                                ? ` screenshots=${screenshotFiles.length} last=${screenshotFile}`
+                                : ""
                         }`,
                     );
+                    if (screenshotFiles.length) {
+                        logger.info(
+                            `content-publish run=${runId} platform=${target.platform} screenshot files: ${screenshotFiles.join(", ")}`,
+                        );
+                    }
                     runFailedMessage = message;
                     await updateContentPublishRunTargetById({
                         id: target.targetId,
                         status: "failed",
                         error_message: message,
                         screenshot_file: screenshotFile,
+                        screenshot_files: serializeScreenshotFiles(screenshotFiles),
                     });
                 } finally {
                     if (driver) {

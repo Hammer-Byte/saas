@@ -63,20 +63,44 @@
                                                             <span class="text-danger">(<%= target.error_message %>)</span>
                                                         <% } %>
                                                     </div>
-                                                    <% if (target.screenshot_file) { %>
-                                                        <a
-                                                            href="/api/content-publish/screenshots/<%= encodeURIComponent(target.screenshot_file) %>"
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            class="d-inline-block mt-1"
-                                                        >
-                                                            <img
-                                                                src="/api/content-publish/screenshots/<%= encodeURIComponent(target.screenshot_file) %>"
-                                                                alt="<%= target.platform %> failure screenshot"
-                                                                class="border rounded"
-                                                                style="max-width: 220px; max-height: 140px; object-fit: contain;"
-                                                            >
-                                                        </a>
+                                                    <% 
+                                                        var shotFiles = [];
+                                                        if (target.screenshot_files) {
+                                                            try {
+                                                                var parsedShots = typeof target.screenshot_files === "string"
+                                                                    ? JSON.parse(target.screenshot_files)
+                                                                    : target.screenshot_files;
+                                                                if (Array.isArray(parsedShots)) {
+                                                                    shotFiles = parsedShots;
+                                                                }
+                                                            } catch (e) {}
+                                                        }
+                                                        if (!shotFiles.length && target.screenshot_file) {
+                                                            shotFiles = [target.screenshot_file];
+                                                        }
+                                                    %>
+                                                    <% if (shotFiles.length) { %>
+                                                        <div class="d-flex flex-wrap gap-2 mt-1">
+                                                            <% shotFiles.forEach(function (shotFile, shotIndex) { %>
+                                                                <a
+                                                                    href="/api/content-publish/screenshots/<%= encodeURIComponent(shotFile) %>"
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    class="d-inline-block"
+                                                                    title="Step <%= shotIndex + 1 %>: <%= shotFile %>"
+                                                                >
+                                                                    <img
+                                                                        src="/api/content-publish/screenshots/<%= encodeURIComponent(shotFile) %>"
+                                                                        alt="<%= target.platform %> step <%= shotIndex + 1 %>"
+                                                                        class="border rounded"
+                                                                        style="max-width: 160px; max-height: 110px; object-fit: contain;"
+                                                                    >
+                                                                    <div class="small text-secondary text-truncate" style="max-width: 160px;">
+                                                                        <%= shotIndex + 1 %>. <%= String(shotFile).replace(/-\d+\.png$/, "").slice(0, 28) %>
+                                                                    </div>
+                                                                </a>
+                                                            <% }) %>
+                                                        </div>
                                                     <% } %>
                                                 </div>
                                             <% }) %>

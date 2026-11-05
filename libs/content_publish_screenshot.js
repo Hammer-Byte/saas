@@ -31,10 +31,50 @@ export async function captureContentPublishScreenshot(driver, label = "fail") {
     return fileName;
 }
 
-export function attachScreenshotToError(error, screenshotFile) {
-    if (!error || !screenshotFile) {
+export function normalizeScreenshotFiles(value) {
+    if (Array.isArray(value)) {
+        return value.map((item) => String(item || "").trim()).filter(Boolean);
+    }
+    const text = String(value || "").trim();
+    if (!text) {
+        return [];
+    }
+    if (text.startsWith("[")) {
+        try {
+            const parsed = JSON.parse(text);
+            if (Array.isArray(parsed)) {
+                return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+            }
+        } catch {
+            // fall through
+        }
+    }
+    return text
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+export function serializeScreenshotFiles(files) {
+    const list = normalizeScreenshotFiles(files);
+    return list.length ? JSON.stringify(list) : null;
+}
+
+export function attachScreenshotToError(error, screenshotFile, screenshotFiles = null) {
+    if (!error) {
         return error;
     }
-    error.screenshotFile = screenshotFile;
+    const collected = [
+        ...normalizeScreenshotFiles(error.screenshotFiles),
+        ...normalizeScreenshotFiles(screenshotFiles),
+    ];
+    if (screenshotFile) {
+        collected.push(String(screenshotFile));
+    }
+    const unique = [...new Set(collected.filter(Boolean))];
+    if (unique.length) {
+        error.screenshotFiles = unique;
+        error.screenshotFile = unique[unique.length - 1];
+    }
     return error;
 }
