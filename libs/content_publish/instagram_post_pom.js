@@ -6,7 +6,7 @@ import {
 } from "../content_publish_screenshot.js";
 
 /**
- * Instagram feed image post — live-tuned.
+ * Instagram feed image post — human-paced + step screenshots for debugging.
  *
  * Caption editor is Lexical; bulk textContent/execCommand does not submit.
  * Type via Selenium Actions character-by-character after focusing the caret.
@@ -15,9 +15,9 @@ import {
  * 1. Home → New post → Post
  * 2. Upload image via input[type=file]
  * 3. Dismiss Not Now if shown
- * 4. Next through crop/filter
- * 5. Type caption into [aria-label='Add a caption...']
- * 6. Share (no post-publish verification)
+ * 4. Next through crop/filter (pause like a person reviewing each screen)
+ * 5. Type caption slowly into [aria-label='Add a caption...']
+ * 6. Pause, then Share
  */
 
 const PAGE_HELPERS = `
@@ -32,7 +32,6 @@ function buttonLabel(el) {
 function findCreateDialog() {
   const dialogs = [...document.querySelectorAll("div[role='dialog']")];
   if (!dialogs.length) return null;
-  // Prefer the wizard dialog, never an empty overlay when a richer dialog exists.
   const scored = dialogs.map((dialog, index) => {
     const text = normalize(dialog.innerText);
     let score = text.length;
@@ -47,7 +46,6 @@ function findCreateDialog() {
     )) {
       score += 500;
     }
-    // Later dialogs win ties (stacked overlays).
     score += index;
     return { dialog, score, textLength: text.length };
   });
@@ -120,6 +118,26 @@ function findCaption() {
 }
 `;
 
+function humanPause(minMs, maxMs = minMs) {
+    const low = Math.max(0, Number(minMs) || 0);
+    const high = Math.max(low, Number(maxMs) || low);
+    const ms = low + Math.floor(Math.random() * (high - low + 1));
+    return contentPublishSleep(ms);
+}
+
+async function debugShot(driver, label) {
+    try {
+        return await captureContentPublishScreenshot(driver, label);
+    } catch {
+        return null;
+    }
+}
+
+async function failWithShot(driver, label, message) {
+    const screenshotFile = await debugShot(driver, label);
+    throw attachScreenshotToError(new Error(message), screenshotFile);
+}
+
 export async function diagnoseInstagramPublish(driver) {
     return await driver.executeScript(`
       ${PAGE_HELPERS}
@@ -140,29 +158,42 @@ export async function diagnoseInstagramPublish(driver) {
 }
 
 async function dismissNotNow(driver) {
-    await driver.executeScript(`
+    const clicked = await driver.executeScript(`
       ${PAGE_HELPERS}
       const notNow = findNotNow();
-      if (notNow) notNow.click();
+      if (!notNow) return false;
+      notNow.click();
+      return true;
     `);
-    await contentPublishSleep(800);
+    if (clicked) {
+        await humanPause(700, 1400);
+    }
 }
 
 async function openCreatePost(driver) {
+    await debugShot(driver, "ig-01-home");
+    await humanPause(800, 1600);
+
     const opened = await driver.executeScript(`
       ${PAGE_HELPERS}
       const control = findNewPostControl();
       if (!control) return false;
+      control.scrollIntoView({ block: "center" });
       control.click();
       return true;
     `);
     if (!opened) {
         const state = await diagnoseInstagramPublish(driver);
-        throw new Error(`Instagram step2 New post missing (${JSON.stringify(state)})`);
+        await failWithShot(
+            driver,
+            "ig-02-new-post-missing",
+            `Instagram step2 New post missing (${JSON.stringify(state)})`,
+        );
     }
-    await contentPublishSleep(2000);
+    await humanPause(1800, 3200);
+    await debugShot(driver, "ig-02-after-new-post");
 
-    await driver.executeScript(`
+    const chosePost = await driver.executeScript(`
       ${PAGE_HELPERS}
       const postItem = findPostMenuItem();
       if (!postItem) return false;
@@ -170,37 +201,65 @@ async function openCreatePost(driver) {
       clickable.click();
       return true;
     `);
-    await contentPublishSleep(1200);
+    if (!chosePost) {
+        // Some accounts open the uploader directly without a Post submenu.
+        const hasUpload = await driver.executeScript(`
+          ${PAGE_HELPERS}
+          return !!(findSelectFromComputer() || document.querySelector("input[type='file']"));
+        `);
+        if (!hasUpload) {
+            const state = await diagnoseInstagramPublish(driver);
+            await failWithShot(
+                driver,
+                "ig-02-post-menu-missing",
+                `Instagram step2 Post menu missing (${JSON.stringify(state)})`,
+            );
+        }
+    }
+    await humanPause(1400, 2600);
+    await debugShot(driver, "ig-02-create-dialog");
 }
 
 async function attachImage(driver, mediaPath) {
     let inputs = await driver.findElements({ css: "input[type=file]" });
     if (!inputs.length) {
+        await humanPause(600, 1200);
         await driver.executeScript(`
           ${PAGE_HELPERS}
           const select = findSelectFromComputer();
-          if (select) select.click();
+          if (select) {
+            select.scrollIntoView({ block: "center" });
+            select.click();
+          }
         `);
-        await contentPublishSleep(1000);
-        const deadline = Date.now() + 10000;
+        await humanPause(900, 1600);
+        const deadline = Date.now() + 12000;
         while (Date.now() < deadline && !inputs.length) {
             inputs = await driver.findElements({ css: "input[type=file]" });
             if (!inputs.length) {
-                await contentPublishSleep(300);
+                await humanPause(350, 700);
             }
         }
     }
     if (!inputs.length) {
         const state = await diagnoseInstagramPublish(driver);
-        throw new Error(`Instagram step3 file input missing (${JSON.stringify(state)})`);
+        await failWithShot(
+            driver,
+            "ig-03-file-input-missing",
+            `Instagram step3 file input missing (${JSON.stringify(state)})`,
+        );
     }
 
+    await debugShot(driver, "ig-03-before-upload");
+    await humanPause(500, 1100);
     await inputs[0].sendKeys(mediaPath);
-    await contentPublishSleep(2500);
-    await dismissNotNow(driver);
 
-    // Wait until crop/filter wizard shows Next (or caption is already available).
-    const readyDeadline = Date.now() + 20000;
+    // Let IG process the file like a person waiting for the preview.
+    await humanPause(2800, 4500);
+    await dismissNotNow(driver);
+    await debugShot(driver, "ig-03-after-upload");
+
+    const readyDeadline = Date.now() + 25000;
     while (Date.now() < readyDeadline) {
         await dismissNotNow(driver);
         const ready = await driver.executeScript(`
@@ -208,26 +267,23 @@ async function attachImage(driver, mediaPath) {
           return !!(findNext() || findCaption() || findShare());
         `);
         if (ready) {
+            await humanPause(900, 1800);
+            await debugShot(driver, "ig-03-upload-ready");
             return;
         }
-        await contentPublishSleep(500);
+        await humanPause(600, 1100);
     }
-}
 
-async function failStep4(driver, message) {
-    let screenshotFile = null;
-    try {
-        screenshotFile = await captureContentPublishScreenshot(driver, "ig-step4");
-    } catch {
-        // Keep the original failure if screenshot capture itself fails.
-    }
-    throw attachScreenshotToError(new Error(message), screenshotFile);
+    const state = await diagnoseInstagramPublish(driver);
+    await failWithShot(
+        driver,
+        "ig-03-upload-not-ready",
+        `Instagram step3 upload preview not ready (${JSON.stringify(state)})`,
+    );
 }
 
 async function clickThroughNext(driver) {
-    // After upload, crop/filter UI can lag. Wait for Next or caption; do not
-    // treat a momentary missing Next as finished.
-    const deadline = Date.now() + 45000;
+    const deadline = Date.now() + 60000;
     let nextClicks = 0;
 
     while (Date.now() < deadline) {
@@ -237,7 +293,7 @@ async function clickThroughNext(driver) {
           if (findCaption()) return { status: "caption" };
           if (findShare()) return { status: "share" };
           const dialog = findCreateDialog();
-          const dialogText = String((dialog || {}).innerText || "").slice(0, 160);
+          const dialogText = String((dialog || {}).innerText || "").slice(0, 200);
           if (/something went wrong/i.test(dialogText)) {
             return {
               status: "ig_error",
@@ -247,51 +303,108 @@ async function clickThroughNext(driver) {
             };
           }
           const next = findNext();
-          if (next) {
-            next.click();
-            return { status: "next" };
+          if (!next) {
+            return {
+              status: "wait",
+              dialogs: document.querySelectorAll("div[role='dialog']").length,
+              dialogText,
+              fileInputs: document.querySelectorAll("input[type='file']").length,
+            };
           }
-          return {
-            status: "wait",
-            dialogs: document.querySelectorAll("div[role='dialog']").length,
-            dialogText,
-            fileInputs: document.querySelectorAll("input[type='file']").length,
-          };
+          next.scrollIntoView({ block: "center" });
+          next.click();
+          return { status: "next", dialogText };
         `);
 
         if (status?.status === "caption" || status?.status === "share") {
+            await humanPause(1000, 2000);
+            await debugShot(driver, "ig-04-caption-screen");
             return;
         }
         if (status?.status === "ig_error") {
-            await failStep4(
+            await failWithShot(
                 driver,
+                "ig-04-something-went-wrong",
                 `Instagram step4 wizard stuck before caption (nextClicks=${nextClicks}, ${JSON.stringify(status)})`,
             );
         }
         if (status?.status === "next") {
             nextClicks += 1;
-            // Crop → Edit → Caption transitions need a beat to remount dialogs.
-            await contentPublishSleep(2500);
+            await debugShot(driver, `ig-04-after-next-${nextClicks}`);
+            // Person reviews crop/filter before continuing.
+            await humanPause(2200, 4200);
             continue;
         }
-        await contentPublishSleep(700);
+        await humanPause(800, 1400);
     }
 
     const state = await diagnoseInstagramPublish(driver);
-    await failStep4(
+    await failWithShot(
         driver,
+        "ig-04-wizard-timeout",
         `Instagram step4 wizard stuck before caption (nextClicks=${nextClicks}, ${JSON.stringify(state)})`,
     );
+}
+
+async function typeCaptionHuman(driver, text) {
+    const boxes = await driver.findElements({
+        css: "[aria-label='Add a caption...'], [aria-label*='Add a caption' i]",
+    });
+    const box = boxes[0];
+    if (!box) {
+        return false;
+    }
+
+    await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const el = findCaption();
+      if (!el) return;
+      const paragraph = el.querySelector("p") || el;
+      el.scrollIntoView({ block: "center" });
+      el.focus();
+      const range = document.createRange();
+      range.selectNodeContents(paragraph);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      paragraph.click();
+    `);
+    await humanPause(500, 1000);
+
+    await driver.actions({ async: true }).move({ origin: box }).pause(250).click().pause(400).perform();
+    const active = await driver.switchTo().activeElement();
+    await active.sendKeys(Key.chord(Key.CONTROL, "a"));
+    await humanPause(120, 280);
+    await active.sendKeys(Key.BACK_SPACE);
+    await humanPause(350, 700);
+
+    for (const character of text) {
+        await active.sendKeys(character);
+        if (character === "\n") {
+            await humanPause(280, 520);
+        } else if (character === " ") {
+            await humanPause(90, 220);
+        } else if (/[.,!?#]/.test(character)) {
+            await humanPause(140, 320);
+        } else {
+            await humanPause(45, 130);
+        }
+    }
+
+    // Stop typing and "look" at the caption before Share.
+    await humanPause(1200, 2200);
+    return true;
 }
 
 async function typeCaption(driver, caption, hashtags) {
     const text = [caption, hashtags].filter(Boolean).join("\n");
     if (!text) {
+        await debugShot(driver, "ig-05-no-caption");
         return;
     }
 
-    // Caption screen should already be open from clickThroughNext; keep a short wait.
-    const deadline = Date.now() + 15000;
+    const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
         await dismissNotNow(driver);
         const ready = await driver.executeScript(`
@@ -301,106 +414,86 @@ async function typeCaption(driver, caption, hashtags) {
         if (ready) {
             break;
         }
-        // One more Next if crop/filter is still showing.
         await driver.executeScript(`
           ${PAGE_HELPERS}
           const next = findNext();
           if (next) next.click();
         `);
-        await contentPublishSleep(700);
+        await humanPause(900, 1600);
     }
 
-    const boxes = await driver.findElements({
-        css: "[aria-label='Add a caption...'], [aria-label*='Add a caption' i]",
-    });
-    const box = boxes[0];
-    if (!box) {
-        const state = await diagnoseInstagramPublish(driver);
-        await failStep4(
-            driver,
-            `Instagram step4 caption missing (${JSON.stringify(state)})`,
-        );
-    }
+    await debugShot(driver, "ig-05-before-caption");
 
     const probe = text.slice(0, Math.min(10, text.length));
     let applied = "";
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-        await driver.executeScript(`
-          ${PAGE_HELPERS}
-          const el = findCaption();
-          if (!el) return;
-          const paragraph = el.querySelector("p") || el;
-          el.scrollIntoView({ block: "center" });
-          el.focus();
-          const range = document.createRange();
-          range.selectNodeContents(paragraph);
-          range.collapse(true);
-          const selection = window.getSelection();
-          selection.removeAllRanges();
-          selection.addRange(range);
-          paragraph.click();
-        `);
-        await contentPublishSleep(400);
-
-        await driver.actions({ async: true }).click(box).pause(300).perform();
-        const active = await driver.switchTo().activeElement();
-        await active.sendKeys(Key.chord(Key.CONTROL, "a"));
-        await active.sendKeys(Key.BACK_SPACE);
-        await contentPublishSleep(200);
-
-        // Lexical needs real key events; type relatively slowly.
-        for (const character of text) {
-            await active.sendKeys(character);
-            await contentPublishSleep(25);
+        const typed = await typeCaptionHuman(driver, text);
+        if (!typed) {
+            break;
         }
-        await contentPublishSleep(800);
-
         applied = await driver.executeScript(`
           ${PAGE_HELPERS}
           const el = findCaption();
           return el ? String(el.innerText || "").trim() : "";
         `);
+        await debugShot(driver, `ig-05-caption-attempt-${attempt}`);
         if (String(applied || "").includes(probe)) {
-            break;
+            await humanPause(800, 1500);
+            return;
         }
+        await humanPause(700, 1300);
     }
 
     if (!String(applied || "").includes(probe)) {
-        await failStep4(
+        const state = await diagnoseInstagramPublish(driver);
+        await failWithShot(
             driver,
-            `Instagram step4 caption not applied (ui=${JSON.stringify(applied)})`,
+            "ig-05-caption-not-applied",
+            `Instagram step5 caption not applied (ui=${JSON.stringify(applied)}, ${JSON.stringify(state)})`,
         );
     }
-
-    await contentPublishSleep(400);
 }
 
 async function clickShare(driver) {
-    const deadline = Date.now() + 20000;
+    await debugShot(driver, "ig-06-before-share");
+    await humanPause(900, 1800);
+
+    const deadline = Date.now() + 25000;
     while (Date.now() < deadline) {
         await dismissNotNow(driver);
         const shared = await driver.executeScript(`
           ${PAGE_HELPERS}
           const share = findShare();
           if (!share) return false;
+          share.scrollIntoView({ block: "center" });
           share.click();
           return true;
         `);
         if (shared) {
-            await contentPublishSleep(3000);
+            await humanPause(2500, 4500);
+            await debugShot(driver, "ig-06-after-share");
+            // Extra beat for "post shared" toast / dialog close.
+            await humanPause(2000, 3500);
+            await debugShot(driver, "ig-07-done");
             return;
         }
-        await contentPublishSleep(500);
+        await humanPause(700, 1200);
     }
+
     const state = await diagnoseInstagramPublish(driver);
-    throw new Error(`Instagram step5 Share missing (${JSON.stringify(state)})`);
+    await failWithShot(
+        driver,
+        "ig-06-share-missing",
+        `Instagram step6 Share missing (${JSON.stringify(state)})`,
+    );
 }
 
 export async function publishInstagramImagePost({ driver, mediaPath, caption, hashtags }) {
     await openUrl(driver, "https://www.instagram.com/");
-    await contentPublishSleep(2500);
+    await humanPause(2200, 3800);
     await dismissNotNow(driver);
+    await humanPause(600, 1200);
     await dismissNotNow(driver);
 
     await openCreatePost(driver);

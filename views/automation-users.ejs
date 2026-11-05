@@ -45,7 +45,7 @@
                             required
                         />
                     </div>
-                    <div class="col-md-8">
+                    <div class="col-12">
                         <label for="automation-user-linkedin-cookie" class="form-label">LinkedIn cookie (li_at)</label>
                         <input
                             type="text"
@@ -53,18 +53,6 @@
                             id="automation-user-linkedin-cookie"
                             name="linkedin_cookie"
                             placeholder="Paste li_at value"
-                        />
-                    </div>
-                    <div class="col-md-4">
-                        <label for="automation-user-linkedin-company-id" class="form-label">
-                            LinkedIn company id <span class="text-secondary fw-normal">(optional prefill)</span>
-                        </label>
-                        <input
-                            type="text"
-                            class="form-control"
-                            id="automation-user-linkedin-company-id"
-                            name="linkedin_company_id"
-                            placeholder="Asked at publish if LinkedIn is selected"
                         />
                     </div>
                     <div class="col-md-6">
@@ -96,18 +84,6 @@
                             rows="2"
                             placeholder="Netscape cookie export or name=value; … for youtube.com"
                         ></textarea>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="automation-user-youtube-channel-id" class="form-label">
-                            YouTube channel id <span class="text-secondary fw-normal">(optional prefill)</span>
-                        </label>
-                        <input
-                            type="text"
-                            class="form-control"
-                            id="automation-user-youtube-channel-id"
-                            name="youtube_channel_id"
-                            placeholder="Asked at publish if YouTube is selected"
-                        />
                     </div>
                     <div class="col-md-4 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100" id="automation-user-submit-btn">
@@ -147,9 +123,7 @@
                                     data-facebook-cookie="<%= automationUser.facebook_cookie || '' %>"
                                     data-instagram-cookie="<%= automationUser.instagram_cookie || '' %>"
                                     data-youtube-cookie="<%= automationUser.youtube_cookie || '' %>"
-                                    data-youtube-channel-id="<%= automationUser.youtube_channel_id || '' %>"
                                     data-linkedin-cookie="<%= automationUser.linkedin_cookie || '' %>"
-                                    data-linkedin-company-id="<%= automationUser.linkedin_company_id || '' %>"
                                 >
                                     <td><%= automationUser.id %></td>
                                     <td><%= automationUser.name %></td>

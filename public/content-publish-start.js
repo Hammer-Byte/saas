@@ -19,15 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return userRadios.find((radio) => radio.checked) || null;
     }
 
-    function applyDestinationPrefills(user) {
-        if (youtubeChannelIdInput) {
-            youtubeChannelIdInput.value = user?.dataset.youtubeChannelId || "";
-        }
-        if (linkedinCompanyIdInput) {
-            linkedinCompanyIdInput.value = user?.dataset.linkedinCompanyId || "";
-        }
-    }
-
     function syncPlatforms() {
         const user = selectedUser();
         for (const checkbox of platformChecks) {
@@ -45,10 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     for (const radio of userRadios) {
-        radio.addEventListener("change", () => {
-            applyDestinationPrefills(selectedUser());
-            syncPlatforms();
-        });
+        radio.addEventListener("change", syncPlatforms);
     }
     for (const checkbox of platformChecks) {
         checkbox.addEventListener("change", syncPlatforms);
