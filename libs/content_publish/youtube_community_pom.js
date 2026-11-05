@@ -1,4 +1,5 @@
 import { Key } from "selenium-webdriver";
+import { logger } from "@hammerbyte/utils";
 import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
 import {
     attachScreenshotToError,
@@ -276,8 +277,13 @@ export async function publishYoutubeCommunityImagePost({
         );
     }
 
+    logger.info(`content-publish yt publish start channel=${resolvedChannelId}`);
     await openCreatePostDialog(driver, resolvedChannelId);
+    logger.info("content-publish yt compose ready, attaching image");
     await attachImage(driver, mediaPath);
+    logger.info("content-publish yt typing caption");
     await typeCaption(driver, title, description);
+    logger.info("content-publish yt clicking Post");
     await clickPost(driver);
+    logger.info("content-publish yt publish ok");
 }

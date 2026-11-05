@@ -1,5 +1,6 @@
 import { Builder, Browser } from "selenium-webdriver";
 import firefox from "selenium-webdriver/firefox.js";
+import { logger } from "@hammerbyte/utils";
 
 export let processing = false;
 
@@ -18,6 +19,9 @@ export function releaseContentPublishProcessing() {
 }
 
 export async function openFirefox() {
+    logger.info(
+        `content-publish browser launch binary=${FIREFOX_BINARY} moz_headless=${Bun.env.MOZ_HEADLESS || "0"}`,
+    );
     const options = new firefox.Options()
         .setBinary(FIREFOX_BINARY)
         .setPageLoadStrategy("eager")
@@ -29,6 +33,7 @@ export async function openFirefox() {
         .build();
 
     await driver.manage().setTimeouts({ implicit: 0, pageLoad: 20_000 });
+    logger.info("content-publish browser ready");
     return driver;
 }
 
@@ -48,6 +53,7 @@ export function contentPublishSleep(ms) {
 }
 
 export async function loginLinkedinWithCookie(driver, cookie) {
+    logger.info("content-publish linkedin login start");
     await openUrl(driver, "https://www.linkedin.com");
     await driver.manage().addCookie({
         name: "li_at",
@@ -60,6 +66,7 @@ export async function loginLinkedinWithCookie(driver, cookie) {
     });
     await openUrl(driver, "https://www.linkedin.com/feed/");
     await waitForLinkedinLogin(driver);
+    logger.info("content-publish linkedin login ok");
 }
 
 async function waitForLinkedinLogin(driver) {
@@ -81,8 +88,10 @@ async function waitForLinkedinLogin(driver) {
 }
 
 export async function loginFacebookWithCookie(driver, cookieValue) {
+    logger.info("content-publish facebook login start");
     await openUrl(driver, "https://www.facebook.com/");
     const parts = parseFacebookCookieBlob(cookieValue);
+    logger.info(`content-publish facebook cookies applied count=${parts.length}`);
     for (const part of parts) {
         await driver.manage().addCookie({
             name: part.name,
@@ -98,14 +107,19 @@ export async function loginFacebookWithCookie(driver, cookieValue) {
     if (/login|checkpoint/i.test(url)) {
         throw new Error(`Facebook login failed at ${url}`);
     }
+    logger.info("content-publish facebook login ok");
 }
 
 export async function loginInstagramWithCookie(driver, cookieValue) {
+    logger.info("content-publish instagram login start");
     await openUrl(driver, "https://www.instagram.com/");
     const parts = normalizeInstagramCookies(cookieValue);
     if (!parts.some((part) => part.name === "sessionid" && part.value)) {
         throw new Error("Instagram cookie must include sessionid");
     }
+    logger.info(
+        `content-publish instagram cookies applied names=${parts.map((part) => part.name).join(",")}`,
+    );
     for (const part of parts) {
         await driver.manage().addCookie({
             name: part.name,
@@ -119,6 +133,7 @@ export async function loginInstagramWithCookie(driver, cookieValue) {
     await openUrl(driver, "https://www.instagram.com/");
     await contentPublishSleep(2500);
     await waitForInstagramLogin(driver);
+    logger.info("content-publish instagram login ok");
 }
 
 async function waitForInstagramLogin(driver) {
@@ -172,6 +187,7 @@ function normalizeInstagramCookies(cookieValue) {
 }
 
 export async function loginYoutubeWithCookie(driver, cookieValue) {
+    logger.info("content-publish youtube login start");
     const parts = parseYoutubeCookieBlob(cookieValue);
     if (!parts.length) {
         throw new Error("YouTube cookie blob is empty");
@@ -187,6 +203,7 @@ export async function loginYoutubeWithCookie(driver, cookieValue) {
         );
     }
 
+    logger.info(`content-publish youtube cookies applied count=${parts.length}`);
     // Community posts run on www.youtube.com; Netscape exports are usually .youtube.com only.
     await openUrl(driver, "https://www.youtube.com/");
     for (const part of parts) {
@@ -195,6 +212,7 @@ export async function loginYoutubeWithCookie(driver, cookieValue) {
     await openUrl(driver, "https://www.youtube.com/");
     await contentPublishSleep(2500);
     await waitForYoutubeLogin(driver);
+    logger.info("content-publish youtube login ok");
 }
 
 async function addCookieBestEffort(driver, part, domain) {

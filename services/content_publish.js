@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { logger } from "@hammerbyte/utils";
 import { getAutomationUserById } from "../db/automation_users.js";
 import { getMediaById } from "../db/media.js";
 import {
@@ -213,6 +214,11 @@ export async function startContentPublishRun({ body, set, cookie }) {
     }
 
     const mediaPath = join(Bun.env.DIRECTORY_MEDIA, media.file);
+    logger.info(
+        `content-publish start requested run=${runId} user=${automationUser.name} platforms=${platforms.join(",")} media_id=${media.id}${
+            youtube_channel_id ? ` youtube_channel=${youtube_channel_id}` : ""
+        }${linkedin_company_id ? ` linkedin_company=${linkedin_company_id}` : ""}`,
+    );
     const started = startContentPublish({
         runId,
         mediaPath,
@@ -226,10 +232,12 @@ export async function startContentPublishRun({ body, set, cookie }) {
     });
 
     if (!started) {
+        logger.info(`content-publish start rejected run=${runId} already processing`);
         set.status = 409;
         return { error: "Content publish already in progress", processing: true };
     }
 
+    logger.info(`content-publish start accepted run=${runId}`);
     set.status = 202;
     return {
         message: "Content publish started",

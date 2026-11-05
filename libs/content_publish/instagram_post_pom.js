@@ -1,9 +1,14 @@
 import { Key } from "selenium-webdriver";
+import { logger } from "@hammerbyte/utils";
 import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
 import {
     attachScreenshotToError,
     captureContentPublishScreenshot,
 } from "../content_publish_screenshot.js";
+
+function igLog(message) {
+    logger.info(`content-publish ig ${message}`);
+}
 
 /**
  * Instagram feed image post — human-paced + step screenshots for debugging.
@@ -127,8 +132,11 @@ function humanPause(minMs, maxMs = minMs) {
 
 async function debugShot(driver, label) {
     try {
-        return await captureContentPublishScreenshot(driver, label);
-    } catch {
+        const fileName = await captureContentPublishScreenshot(driver, label);
+        igLog(`screenshot ${label} -> ${fileName}`);
+        return fileName;
+    } catch (error) {
+        igLog(`screenshot ${label} failed: ${error instanceof Error ? error.message : error}`);
         return null;
     }
 }
@@ -171,6 +179,7 @@ async function dismissNotNow(driver) {
 }
 
 async function openCreatePost(driver) {
+    igLog("step open create post");
     await debugShot(driver, "ig-01-home");
     await humanPause(800, 1600);
 
@@ -190,6 +199,7 @@ async function openCreatePost(driver) {
             `Instagram step2 New post missing (${JSON.stringify(state)})`,
         );
     }
+    igLog("clicked New post");
     await humanPause(1800, 3200);
     await debugShot(driver, "ig-02-after-new-post");
 
@@ -215,12 +225,16 @@ async function openCreatePost(driver) {
                 `Instagram step2 Post menu missing (${JSON.stringify(state)})`,
             );
         }
+        igLog("create dialog opened without Post submenu");
+    } else {
+        igLog("selected Post from create menu");
     }
     await humanPause(1400, 2600);
     await debugShot(driver, "ig-02-create-dialog");
 }
 
 async function attachImage(driver, mediaPath) {
+    igLog(`step upload image path=${mediaPath}`);
     let inputs = await driver.findElements({ css: "input[type=file]" });
     if (!inputs.length) {
         await humanPause(600, 1200);
@@ -253,6 +267,7 @@ async function attachImage(driver, mediaPath) {
     await debugShot(driver, "ig-03-before-upload");
     await humanPause(500, 1100);
     await inputs[0].sendKeys(mediaPath);
+    igLog("file sent to input, waiting for preview");
 
     // Let IG process the file like a person waiting for the preview.
     await humanPause(2800, 4500);
@@ -267,6 +282,7 @@ async function attachImage(driver, mediaPath) {
           return !!(findNext() || findCaption() || findShare());
         `);
         if (ready) {
+            igLog("upload preview ready");
             await humanPause(900, 1800);
             await debugShot(driver, "ig-03-upload-ready");
             return;
@@ -283,6 +299,7 @@ async function attachImage(driver, mediaPath) {
 }
 
 async function clickThroughNext(driver) {
+    igLog("step crop/filter Next");
     const deadline = Date.now() + 60000;
     let nextClicks = 0;
 
@@ -317,11 +334,13 @@ async function clickThroughNext(driver) {
         `);
 
         if (status?.status === "caption" || status?.status === "share") {
+            igLog(`wizard reached ${status.status} after nextClicks=${nextClicks}`);
             await humanPause(1000, 2000);
             await debugShot(driver, "ig-04-caption-screen");
             return;
         }
         if (status?.status === "ig_error") {
+            igLog(`wizard error dialog=${status.dialogText || ""}`);
             await failWithShot(
                 driver,
                 "ig-04-something-went-wrong",
@@ -330,6 +349,7 @@ async function clickThroughNext(driver) {
         }
         if (status?.status === "next") {
             nextClicks += 1;
+            igLog(`clicked Next #${nextClicks}`);
             await debugShot(driver, `ig-04-after-next-${nextClicks}`);
             // Person reviews crop/filter before continuing.
             await humanPause(2200, 4200);
@@ -400,10 +420,12 @@ async function typeCaptionHuman(driver, text) {
 async function typeCaption(driver, caption, hashtags) {
     const text = [caption, hashtags].filter(Boolean).join("\n");
     if (!text) {
+        igLog("step caption skipped (empty)");
         await debugShot(driver, "ig-05-no-caption");
         return;
     }
 
+    igLog(`step caption typing chars=${text.length}`);
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
         await dismissNotNow(driver);
@@ -439,9 +461,11 @@ async function typeCaption(driver, caption, hashtags) {
         `);
         await debugShot(driver, `ig-05-caption-attempt-${attempt}`);
         if (String(applied || "").includes(probe)) {
+            igLog(`caption applied attempt=${attempt}`);
             await humanPause(800, 1500);
             return;
         }
+        igLog(`caption not confirmed attempt=${attempt}`);
         await humanPause(700, 1300);
     }
 
@@ -456,6 +480,7 @@ async function typeCaption(driver, caption, hashtags) {
 }
 
 async function clickShare(driver) {
+    igLog("step Share");
     await debugShot(driver, "ig-06-before-share");
     await humanPause(900, 1800);
 
@@ -471,11 +496,13 @@ async function clickShare(driver) {
           return true;
         `);
         if (shared) {
+            igLog("Share clicked");
             await humanPause(2500, 4500);
             await debugShot(driver, "ig-06-after-share");
             // Extra beat for "post shared" toast / dialog close.
             await humanPause(2000, 3500);
             await debugShot(driver, "ig-07-done");
+            igLog("publish flow finished");
             return;
         }
         await humanPause(700, 1200);
@@ -490,6 +517,7 @@ async function clickShare(driver) {
 }
 
 export async function publishInstagramImagePost({ driver, mediaPath, caption, hashtags }) {
+    igLog("publish start");
     await openUrl(driver, "https://www.instagram.com/");
     await humanPause(2200, 3800);
     await dismissNotNow(driver);
@@ -501,4 +529,5 @@ export async function publishInstagramImagePost({ driver, mediaPath, caption, ha
     await clickThroughNext(driver);
     await typeCaption(driver, caption, hashtags);
     await clickShare(driver);
+    igLog("publish ok");
 }

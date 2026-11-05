@@ -60,6 +60,12 @@ export function startContentPublish({
             PLATFORM_ORDER.indexOf(left.platform) - PLATFORM_ORDER.indexOf(right.platform),
     );
 
+    logger.info(
+        `content-publish run=${runId} queued platforms=${targetList
+            .map((target) => target.platform)
+            .join(",")} media=${mediaPath}`,
+    );
+
     (async () => {
         let runFailedMessage = null;
         let completedCount = 0;
@@ -68,21 +74,39 @@ export function startContentPublish({
             for (const target of targetList) {
                 let driver = null;
                 try {
+                    logger.info(
+                        `content-publish run=${runId} platform=${target.platform} starting`,
+                    );
                     await updateContentPublishRunTargetById({
                         id: target.targetId,
                         status: "running",
                     });
 
+                    logger.info(
+                        `content-publish run=${runId} platform=${target.platform} opening firefox`,
+                    );
                     driver = await openFirefox();
                     if (target.platform === "facebook") {
+                        logger.info(
+                            `content-publish run=${runId} platform=facebook logging in`,
+                        );
                         await loginFacebookWithCookie(driver, target.cookie);
+                        logger.info(
+                            `content-publish run=${runId} platform=facebook publishing`,
+                        );
                         await publishFacebookImagePost({
                             driver,
                             mediaPath,
                             caption: facebookCaption,
                         });
                     } else if (target.platform === "instagram") {
+                        logger.info(
+                            `content-publish run=${runId} platform=instagram logging in`,
+                        );
                         await loginInstagramWithCookie(driver, target.cookie);
+                        logger.info(
+                            `content-publish run=${runId} platform=instagram publishing`,
+                        );
                         await publishInstagramImagePost({
                             driver,
                             mediaPath,
@@ -90,7 +114,13 @@ export function startContentPublish({
                             hashtags: instagramHashtags,
                         });
                     } else if (target.platform === "youtube") {
+                        logger.info(
+                            `content-publish run=${runId} platform=youtube logging in channel=${target.youtubeChannelId || "?"}`,
+                        );
                         await loginYoutubeWithCookie(driver, target.cookie);
+                        logger.info(
+                            `content-publish run=${runId} platform=youtube publishing`,
+                        );
                         await publishYoutubeCommunityImagePost({
                             driver,
                             mediaPath,
@@ -99,7 +129,13 @@ export function startContentPublish({
                             channelId: target.youtubeChannelId,
                         });
                     } else if (target.platform === "linkedin") {
+                        logger.info(
+                            `content-publish run=${runId} platform=linkedin logging in company=${target.linkedinCompanyId || "?"}`,
+                        );
                         await loginLinkedinWithCookie(driver, target.cookie);
+                        logger.info(
+                            `content-publish run=${runId} platform=linkedin publishing`,
+                        );
                         await publishLinkedinImagePost({
                             driver,
                             mediaPath,
@@ -115,7 +151,9 @@ export function startContentPublish({
                         status: "completed",
                     });
                     completedCount += 1;
-                    logger.info(`content publish ${target.platform} completed`);
+                    logger.info(
+                        `content-publish run=${runId} platform=${target.platform} completed`,
+                    );
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
                     const screenshotFile =
@@ -123,7 +161,7 @@ export function startContentPublish({
                             ? String(error.screenshotFile)
                             : null;
                     logger.error(
-                        `content publish ${target.platform} failed: ${message}${
+                        `content-publish run=${runId} platform=${target.platform} failed: ${message}${
                             screenshotFile ? ` screenshot=${screenshotFile}` : ""
                         }`,
                     );
@@ -138,22 +176,31 @@ export function startContentPublish({
                     if (driver) {
                         try {
                             await driver.quit();
+                            logger.info(
+                                `content-publish run=${runId} platform=${target.platform} browser closed`,
+                            );
                         } catch (quitError) {
-                            logger.error(`content publish driver quit: ${quitError}`);
+                            logger.error(
+                                `content-publish run=${runId} platform=${target.platform} driver quit: ${quitError}`,
+                            );
                         }
                     }
                 }
             }
 
+            const status = completedCount > 0 ? "completed" : "failed";
             await updateContentPublishRunById({
                 id: runId,
-                status: completedCount > 0 ? "completed" : "failed",
+                status,
                 error_message: runFailedMessage,
                 finished_on: toDbDateTime(new Date()),
             });
+            logger.info(
+                `content-publish run=${runId} finished status=${status} completed=${completedCount}/${targetList.length}`,
+            );
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            logger.error(`content publish run failed: ${message}`);
+            logger.error(`content-publish run=${runId} failed: ${message}`);
             await updateContentPublishRunById({
                 id: runId,
                 status: "failed",
@@ -164,9 +211,10 @@ export function startContentPublish({
             try {
                 await notifyContentPublishRunComplete({ runId });
             } catch (notifyError) {
-                logger.error(`content publish notify: ${notifyError}`);
+                logger.error(`content-publish run=${runId} notify: ${notifyError}`);
             }
             releaseContentPublishProcessing();
+            logger.info(`content-publish run=${runId} processing released`);
         }
     })();
 

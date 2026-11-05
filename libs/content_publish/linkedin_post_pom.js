@@ -1,4 +1,5 @@
 import { Key } from "selenium-webdriver";
+import { logger } from "@hammerbyte/utils";
 import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
 
 /**
@@ -438,14 +439,23 @@ export async function publishLinkedinImagePost({
     companyId = null,
 }) {
     const resolvedCompanyId = normalizeCompanyId(companyId);
+    logger.info(
+        `content-publish li publish start company=${resolvedCompanyId || "personal"}`,
+    );
     if (resolvedCompanyId) {
+        logger.info(`content-publish li open page compose company=${resolvedCompanyId}`);
         await openPageCompose(driver, resolvedCompanyId);
     } else {
+        logger.info("content-publish li open personal compose");
         await openPersonalCompose(driver);
     }
 
     await waitForComposeReady(driver);
+    logger.info("content-publish li compose ready, attaching image");
     await attachImage(driver, mediaPath);
+    logger.info("content-publish li typing caption");
     await typeCaption(driver, caption);
+    logger.info("content-publish li clicking Post");
     await clickPost(driver);
+    logger.info("content-publish li publish ok");
 }

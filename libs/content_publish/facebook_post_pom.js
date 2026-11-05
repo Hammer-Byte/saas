@@ -1,3 +1,4 @@
+import { logger } from "@hammerbyte/utils";
 import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
 
 /**
@@ -5,6 +6,7 @@ import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
  * Locators refined when a Facebook cookie is provided for live simulation.
  */
 export async function publishFacebookImagePost({ driver, mediaPath, caption }) {
+    logger.info("content-publish fb publish start");
     await openUrl(driver, "https://www.facebook.com/");
     await contentPublishSleep(2500);
 
@@ -20,6 +22,7 @@ export async function publishFacebookImagePost({ driver, mediaPath, caption }) {
     if (!opened) {
         throw new Error("Facebook step2 create-post control not found (needs live cookie tuning)");
     }
+    logger.info("content-publish fb compose opened");
 
     await contentPublishSleep(1500);
     const inputs = await driver.findElements({ css: "input[type=file]" });
@@ -27,6 +30,7 @@ export async function publishFacebookImagePost({ driver, mediaPath, caption }) {
         throw new Error("Facebook step3 file input not found (needs live cookie tuning)");
     }
     await inputs[0].sendKeys(mediaPath);
+    logger.info("content-publish fb image attached");
     await contentPublishSleep(2500);
 
     const typed = await driver.executeScript(
@@ -43,6 +47,7 @@ export async function publishFacebookImagePost({ driver, mediaPath, caption }) {
     if (!typed) {
         throw new Error("Facebook step4 caption box not found (needs live cookie tuning)");
     }
+    logger.info("content-publish fb caption typed");
 
     const posted = await driver.executeScript(`
       const buttons = [...document.querySelectorAll("div[role='button'], button")];
@@ -55,4 +60,5 @@ export async function publishFacebookImagePost({ driver, mediaPath, caption }) {
         throw new Error("Facebook step5 Post button not found (needs live cookie tuning)");
     }
     await contentPublishSleep(3000);
+    logger.info("content-publish fb publish ok");
 }
