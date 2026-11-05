@@ -1,10 +1,12 @@
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { logger } from "@hammerbyte/utils";
+import { toDbDateTime } from "../date.js";
 import { GemPage } from "./gem_pom.js";
 import {
     createGemKeywordTender,
     getGemKeywordTenderByTenderId,
+    updateGemKeywordTenderScanDetailsById,
 } from "../../db/gem_keyword_tenders.js";
 
 const DELAY_SHORT = 1000;
@@ -32,6 +34,7 @@ const TENDER_DETAIL_REGEXES = {
         /((?:Experience Criteria|Bidder Turnover|Certificate \(Requested in ATC\)|OEM Authorization Certificate|Additional Doc \d+ \(Requested in ATC\))(?:,\s*(?:Experience Criteria|Bidder Turnover|Certificate \(Requested in ATC\)|OEM Authorization Certificate|Additional Doc \d+ \(Requested in ATC\)))*)/,
     SKIP_VALUE: /Years of Past Experience|MSE|Startup|Document required/i,
     DEVANAGARI_START: /^[\u0900-\u097F]/,
+    SCOPE_OF_WORK_FILE: /Scope\s+of\s+Work\s*:?\s*([0-9]+\.pdf)/gi,
 };
 
 const sleep = (driver, ms) => driver.sleep(ms);
@@ -75,7 +78,7 @@ const downloadTender = async (driver, tender) => {
     const tenderFile = join(TENDERS_DIRECTORY, tenderFileName(tenderId));
     await writeFile(tenderFile, buffer);
     logger.info(`Saved tender PDF: ${tenderId}`);
-    return { tenderFile, document };
+    return { tenderFile, document, buffer };
 };
 
 const goToNextPage = async (driver, page) => {
@@ -128,7 +131,69 @@ const extractDocumentsRequired = (text) => {
     return cleanValue(match?.[1]);
 };
 
-const extractTenderDetails = (text) => {
+function extractUrisFromPdfBuffer(buffer) {
+    const text = Buffer.from(buffer).toString("latin1");
+    const uris = new Set();
+
+    const uriLiteral = /\/URI\s*\(([^)]+)\)/g;
+    let match;
+    while ((match = uriLiteral.exec(text))) {
+        const uri = match[1]
+            .replace(/\\\(/g, "(")
+            .replace(/\\\)/g, ")")
+            .replace(/\\\//g, "/");
+        if (/^https?:\/\//i.test(uri)) {
+            uris.add(uri);
+        }
+    }
+
+    const plainHttp = /https?:\/\/[a-zA-Z0-9._~:/?#\[\]@!$&'()*+,;=%\-]+/g;
+    while ((match = plainHttp.exec(text))) {
+        const uri = match[0].replace(/[.,;)\]]+$/, "");
+        if (/gem\.gov\.in/i.test(uri)) {
+            uris.add(uri);
+        }
+    }
+
+    return [...uris];
+}
+
+function extractSpecificationLinks({ buffer, pdfText }) {
+    const uris = extractUrisFromPdfBuffer(buffer);
+    const links = [];
+    const seen = new Set();
+
+    const pushLink = (label, url) => {
+        if (!url || seen.has(url)) return;
+        seen.add(url);
+        links.push({ label, url });
+    };
+
+    const scopeFiles = [
+        ...pdfText.matchAll(TENDER_DETAIL_REGEXES.SCOPE_OF_WORK_FILE),
+    ].map((match) => match[1]);
+
+    for (const fileName of scopeFiles) {
+        const matchedUri = uris.find((uri) => uri.toLowerCase().includes(fileName.toLowerCase()));
+        if (matchedUri) {
+            pushLink(`Scope of Work: ${fileName}`, matchedUri);
+        }
+    }
+
+    for (const uri of uris) {
+        if (/SpecificationDocument/i.test(uri) || /downloadBuyerDoc/i.test(uri)) {
+            pushLink("Buyer Specification Document", uri);
+            continue;
+        }
+        if (/\/swspec_/i.test(uri) || /\/BoqDocument\/[^?]+\.pdf/i.test(uri)) {
+            pushLink("Specification Document", uri);
+        }
+    }
+
+    return links.length ? links : null;
+}
+
+const extractTenderDetails = (text, buffer) => {
     const end_date_time =
         text.match(TENDER_DETAIL_REGEXES.BID_END_DATE_TIME)?.[1] ||
         text.match(TENDER_DETAIL_REGEXES.RA_END_DATE_TIME)?.[1] ||
@@ -160,26 +225,83 @@ const extractTenderDetails = (text) => {
             [...text.matchAll(TENDER_DETAIL_REGEXES.MSE_TURNOVER_RELAXATION)].at(-1)?.[1] ||
             null,
         asked_documents: extractDocumentsRequired(text),
+        specification_links: extractSpecificationLinks({ buffer, pdfText: text }),
     };
 };
 
-export const processTender = async ({ tenderFile, keyword_id, tender_id, document = null }) => {
-    try {
-        const pdfText = await readTenderText(tenderFile);
-        const gemTenderDetails = extractTenderDetails(pdfText);
+function sameDateTime(left, right) {
+    return toDbDateTime(left) === toDbDateTime(right);
+}
 
-        const tenderRowId = await createGemKeywordTender({
-            keyword_id,
-            tender_id,
+function hasSpecificationLinks(value) {
+    if (value == null || value === "") return false;
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === "string") {
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) && parsed.length > 0;
+        } catch {
+            return false;
+        }
+    }
+    return false;
+}
+
+export const processTender = async ({
+    tenderFile,
+    keyword_id,
+    tender_id,
+    document = null,
+    buffer = null,
+    existingTender = null,
+}) => {
+    try {
+        const pdfBuffer = buffer || (await readFile(tenderFile));
+        const pdfText = await readTenderText(tenderFile);
+        const gemTenderDetails = extractTenderDetails(pdfText, pdfBuffer);
+
+        if (!existingTender) {
+            const tenderRowId = await createGemKeywordTender({
+                keyword_id,
+                tender_id,
+                document,
+                ...gemTenderDetails,
+            });
+
+            if (!tenderRowId) {
+                return false;
+            }
+
+            logger.info(`Stored tender details: ${tender_id}`);
+            return true;
+        }
+
+        const datesChanged =
+            !sameDateTime(existingTender.start_date_time, gemTenderDetails.start_date_time) ||
+            !sameDateTime(existingTender.end_date_time, gemTenderDetails.end_date_time);
+        const needsSpecBackfill =
+            !hasSpecificationLinks(existingTender.specification_links) &&
+            hasSpecificationLinks(gemTenderDetails.specification_links);
+
+        if (!datesChanged && !needsSpecBackfill) {
+            logger.info(`Tender unchanged, skipping update: ${tender_id}`);
+            return false;
+        }
+
+        await updateGemKeywordTenderScanDetailsById({
+            id: existingTender.id,
             document,
             ...gemTenderDetails,
         });
 
-        if (!tenderRowId) {
-            return false;
+        if (datesChanged) {
+            logger.info(
+                `Updated tender after date change: ${tender_id} (${toDbDateTime(existingTender.start_date_time)}/${toDbDateTime(existingTender.end_date_time)} -> ${toDbDateTime(gemTenderDetails.start_date_time)}/${toDbDateTime(gemTenderDetails.end_date_time)})`,
+            );
+        } else {
+            logger.info(`Backfilled specification links: ${tender_id}`);
         }
 
-        logger.info(`Stored tender details: ${tender_id}`);
         return true;
     } catch (error) {
         logger.error(`Failed to process tender ${tender_id}: ${error}`);
@@ -224,7 +346,7 @@ export const searchTendersByKeyword = async (
     }
 
     const lastPage = await page.getLastPageNumber();
-    let createdCount = 0;
+    let changedCount = 0;
 
     for (let pageNumber = 1; pageNumber <= lastPage; pageNumber++) {
         logger.info(`Downloading page ${pageNumber} of ${lastPage} for ${keyword}...`);
@@ -240,20 +362,19 @@ export const searchTendersByKeyword = async (
             }
 
             const existingTender = await getGemKeywordTenderByTenderId({ tender_id: tenderId });
-            if (existingTender) {
-                continue;
-            }
 
             try {
-                const { tenderFile, document } = await downloadTender(driver, tender);
-                const created = await processTender({
+                const { tenderFile, document, buffer } = await downloadTender(driver, tender);
+                const changed = await processTender({
                     tenderFile,
                     keyword_id,
                     tender_id: tenderId,
                     document,
+                    buffer,
+                    existingTender,
                 });
-                if (created) {
-                    createdCount += 1;
+                if (changed) {
+                    changedCount += 1;
                 }
             } catch (error) {
                 logger.error(`Failed download ${tenderId}: ${error}`);
@@ -267,5 +388,5 @@ export const searchTendersByKeyword = async (
         }
     }
 
-    return createdCount;
+    return changedCount;
 };

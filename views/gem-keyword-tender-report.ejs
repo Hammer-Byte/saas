@@ -26,7 +26,9 @@
                 <h1 class="h3 mb-1">Tenders report</h1>
                 <p class="text-secondary mb-0">
                     Workload and progress for tenders ending
-                    <strong><%= from %></strong> to <strong><%= to %></strong>.
+                    <strong data-readable-date="<%= from %>" data-date-format="DD/MM/YYYY"></strong>
+                    to
+                    <strong data-readable-date="<%= to %>" data-date-format="DD/MM/YYYY"></strong>.
                 </p>
             </div>
             <a
@@ -42,11 +44,33 @@
                 <form class="row g-3 align-items-end" method="get" action="/app/gem-keyword-tender-report">
                     <div class="col-6 col-md-3 col-lg-2">
                         <label for="report-from" class="form-label">End date from</label>
-                        <input type="date" class="form-control" id="report-from" name="from" value="<%= from %>" required />
+                        <input
+                            type="text"
+                            class="form-control js-date-input"
+                            id="report-from"
+                            name="from"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            data-date-value="<%= from %>"
+                            value="<%= from %>"
+                            required
+                        />
                     </div>
                     <div class="col-6 col-md-3 col-lg-2">
                         <label for="report-to" class="form-label">End date to</label>
-                        <input type="date" class="form-control" id="report-to" name="to" value="<%= to %>" required />
+                        <input
+                            type="text"
+                            class="form-control js-date-input"
+                            id="report-to"
+                            name="to"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            data-date-value="<%= to %>"
+                            value="<%= to %>"
+                            required
+                        />
                     </div>
                     <div class="col-12 col-md-3 col-lg-2">
                         <button type="submit" class="btn btn-primary w-100">Apply range</button>

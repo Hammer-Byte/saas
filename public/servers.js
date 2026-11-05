@@ -133,10 +133,20 @@
         const payload = { server_ids: serverIds, mode };
 
         if (mode === "range") {
-            const from = document.getElementById("delete-from")?.value || "";
-            const to = document.getElementById("delete-to")?.value || "";
+            const from = getWritableDate(
+                "YYYY-MM-DD",
+                document.getElementById("delete-from")?.value || "",
+            );
+            const to = getWritableDate(
+                "YYYY-MM-DD",
+                document.getElementById("delete-to")?.value || "",
+            );
             if (!from || !to) {
-                showAlert(deleteLogsFormAlert, "From and to dates are required.", "danger");
+                showAlert(
+                    deleteLogsFormAlert,
+                    "From and to dates are required (dd/mm/yyyy).",
+                    "danger",
+                );
                 return;
             }
             payload.from = from;

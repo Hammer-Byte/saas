@@ -113,11 +113,14 @@
                         <div class="col-md-6">
                             <label for="detail-signable_till" class="form-label">Signable till</label>
                             <input
-                                type="datetime-local"
-                                class="form-control"
+                                type="text"
+                                class="form-control js-datetime-input"
                                 id="detail-signable_till"
                                 name="signable_till"
+                                placeholder="dd/mm/yyyy hh:mm"
+                                autocomplete="off"
                                 data-date="<%= contract.signable_till || '' %>"
+                                data-date-value="<%= contract.signable_till || '' %>"
                                 required
                             />
                         </div>

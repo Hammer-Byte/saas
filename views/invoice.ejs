@@ -59,11 +59,15 @@
                         <div class="col-md-4">
                             <label for="due_date" class="form-label">Due date</label>
                             <input
-                                type="date"
-                                class="form-control"
+                                type="text"
+                                class="form-control js-date-input"
                                 id="due_date"
                                 name="due_date"
+                                placeholder="dd/mm/yyyy"
+                                autocomplete="off"
+                                inputmode="numeric"
                                 data-date="<%= invoice.due_date %>"
+                                data-date-value="<%= invoice.due_date %>"
                                 required
                                 disabled
                             />
@@ -368,7 +372,16 @@
                     </div>
                     <div class="mb-3">
                         <label for="invoice-payment-date" class="form-label">Payment date</label>
-                        <input type="date" class="form-control" id="invoice-payment-date" name="created_on" required />
+                        <input
+                            type="text"
+                            class="form-control js-date-input"
+                            id="invoice-payment-date"
+                            name="created_on"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            required
+                        />
                     </div>
                     <div class="mb-0">
                         <label for="invoice-payment-note" class="form-label">Note <span class="text-secondary fw-normal">(optional)</span></label>

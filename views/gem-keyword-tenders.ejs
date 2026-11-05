@@ -64,27 +64,47 @@
             </div>
             <div class="collapse" id="gem-tenders-filters">
                 <div class="card-body border-top pt-3 px-3 px-md-4 pb-3">
-                    <div class="row g-2 align-items-end gem-tenders-filters-row">
-                        <div class="col-6 col-md-4 col-xl-1">
+                    <form
+                        class="row g-2 align-items-end gem-tenders-date-range mb-2"
+                        method="get"
+                        action="/app/gem-keyword-tenders"
+                        id="gem-tenders-date-form"
+                    >
+                        <div class="col-6 col-md-3 col-xl-2">
                             <label for="gem-tenders-from" class="form-label">End from</label>
                             <input
-                                type="date"
-                                class="form-control form-control-sm"
+                                type="text"
+                                class="form-control form-control-sm js-date-input"
                                 id="gem-tenders-from"
                                 name="from"
+                                placeholder="dd/mm/yyyy"
+                                autocomplete="off"
+                                inputmode="numeric"
+                                data-date-value="<%= from %>"
                                 value="<%= from %>"
+                                required
                             />
                         </div>
-                        <div class="col-6 col-md-4 col-xl-1">
+                        <div class="col-6 col-md-3 col-xl-2">
                             <label for="gem-tenders-to" class="form-label">End to</label>
                             <input
-                                type="date"
-                                class="form-control form-control-sm"
+                                type="text"
+                                class="form-control form-control-sm js-date-input"
                                 id="gem-tenders-to"
                                 name="to"
+                                placeholder="dd/mm/yyyy"
+                                autocomplete="off"
+                                inputmode="numeric"
+                                data-date-value="<%= to %>"
                                 value="<%= to %>"
+                                required
                             />
                         </div>
+                        <div class="col-12 col-md-3 col-xl-2">
+                            <button type="submit" class="btn btn-primary btn-sm w-100">Apply dates</button>
+                        </div>
+                    </form>
+                    <div class="row g-2 align-items-end gem-tenders-filters-row">
                         <div class="col-6 col-md-4 col-xl-2">
                             <label for="gem-filter-keyword" class="form-label">Keyword</label>
                             <select class="form-select form-select-sm" id="gem-filter-keyword">
@@ -224,8 +244,14 @@
                                     <td><%= tender.keyword || "-" %></td>
                                     <td><%= stageLabels[tender.stage] || tender.stage || "New" %></td>
                                     <td><%= tender.assignee_full_name || "-" %></td>
-                                    <td><%= tender.start_date_time || "-" %></td>
-                                    <td><%= tender.end_date_time || "-" %></td>
+                                    <td
+                                        data-readable-date="<%= tender.start_date_time || '' %>"
+                                        data-date-format="DD/MM/YYYY HH:mm:ss"
+                                    ></td>
+                                    <td
+                                        data-readable-date="<%= tender.end_date_time || '' %>"
+                                        data-date-format="DD/MM/YYYY HH:mm:ss"
+                                    ></td>
                                     <td>
                                         <%
                                             const buyerParts = [

@@ -28,11 +28,33 @@
                 <div class="row g-3 align-items-end">
                     <div class="col-md-4">
                         <label for="start" class="form-label">Start date</label>
-                        <input type="date" class="form-control" id="start" name="start" value="<%= start %>" required />
+                        <input
+                            type="text"
+                            class="form-control js-date-input"
+                            id="start"
+                            name="start"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            data-date-value="<%= start %>"
+                            value="<%= start %>"
+                            required
+                        />
                     </div>
                     <div class="col-md-4">
                         <label for="end" class="form-label">End date</label>
-                        <input type="date" class="form-control" id="end" name="end" value="<%= end %>" required />
+                        <input
+                            type="text"
+                            class="form-control js-date-input"
+                            id="end"
+                            name="end"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            data-date-value="<%= end %>"
+                            value="<%= end %>"
+                            required
+                        />
                     </div>
                     <div class="col-md-4">
                         <button type="submit" class="btn btn-outline-primary w-100">Apply range</button>

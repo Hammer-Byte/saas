@@ -29,9 +29,9 @@ function matchWallClock(value) {
         };
     }
 
-    // GEM / Indian wall-clock: DD-MM-YYYY[ HH:mm:ss]
+    // Indian wall-clock: DD/MM/YYYY or DD-MM-YYYY[ HH:mm[:ss]]
     const dayFirstMatch = trimmed.match(
-        /^(\d{2})-(\d{2})-(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/,
+        /^(\d{2})[/-](\d{2})[/-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/,
     );
     if (dayFirstMatch) {
         return {
@@ -166,6 +166,12 @@ export function toDbDate(value) {
         return null;
     }
     return getWritableDate("YYYY-MM-DD", value) || null;
+}
+
+/** Parse query/user date input into YYYY-MM-DD, or null if invalid. */
+export function parseQueryDate(value) {
+    const normalized = toDbDate(value);
+    return /^\d{4}-\d{2}-\d{2}$/.test(normalized || "") ? normalized : null;
 }
 
 /** Convert a MySQL/Bun Date (or any value) coming out of a query row. */

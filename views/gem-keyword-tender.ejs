@@ -16,6 +16,21 @@
               ? eligibilityValues.NEED_TO_CHECK
               : (tender.eligible || eligibilityValues.NEED_TO_CHECK);
     const isEligible = currentEligibility === eligibilityValues.ELIGIBLE;
+
+    let specificationLinks = [];
+    if (tender.specification_links) {
+        try {
+            const parsed =
+                typeof tender.specification_links === "string"
+                    ? JSON.parse(tender.specification_links)
+                    : tender.specification_links;
+            if (Array.isArray(parsed)) {
+                specificationLinks = parsed.filter((item) => item && item.url);
+            }
+        } catch (error) {
+            specificationLinks = [];
+        }
+    }
 %>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -181,8 +196,20 @@
                 </div>
 
                 <div class="row g-3 small">
-                    <div class="col-md-4"><strong>Start</strong><br /><%= tender.start_date_time || "-" %></div>
-                    <div class="col-md-4"><strong>End</strong><br /><%= tender.end_date_time || "-" %></div>
+                    <div class="col-md-4">
+                        <strong>Start</strong><br />
+                        <span
+                            data-readable-date="<%= tender.start_date_time || '' %>"
+                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                        ></span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>End</strong><br />
+                        <span
+                            data-readable-date="<%= tender.end_date_time || '' %>"
+                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                        ></span>
+                    </div>
                     <div class="col-md-4"><strong>Out of service scope</strong><br /><span id="gem-tender-hidden-label"><%= tender.hidden ? "Yes" : "No" %></span></div>
                     <div class="col-md-4"><strong>Ministry</strong><br /><%= tender.ministry || "-" %></div>
                     <div class="col-md-4"><strong>Department</strong><br /><%= tender.department || "-" %></div>
@@ -196,6 +223,30 @@
                     <div class="col-md-4"><strong>HOD email</strong><br /><%= tender.hod_email || "-" %></div>
                     <div class="col-md-4"><strong>Buyer email</strong><br /><%= tender.buyer_email || "-" %></div>
                     <div class="col-md-4"><strong>Buyer phone</strong><br /><%= tender.buyer_phone || "-" %></div>
+                    <div class="col-md-4">
+                        <strong>Bid document</strong><br />
+                        <% if (tender.document) { %>
+                            <a href="<%= tender.document %>" target="_blank" rel="noopener noreferrer">Open bid PDF</a>
+                        <% } else { %>
+                            -
+                        <% } %>
+                    </div>
+                    <div class="col-12">
+                        <strong>Specification / Scope of Work</strong><br />
+                        <% if (specificationLinks.length) { %>
+                            <ul class="mb-0 ps-3">
+                                <% specificationLinks.forEach(function (link) { %>
+                                    <li>
+                                        <a href="<%= link.url %>" target="_blank" rel="noopener noreferrer">
+                                            <%= link.label || "Specification" %>
+                                        </a>
+                                    </li>
+                                <% }) %>
+                            </ul>
+                        <% } else { %>
+                            -
+                        <% } %>
+                    </div>
                 </div>
             </div>
         </div>

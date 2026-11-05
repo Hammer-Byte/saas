@@ -30,6 +30,21 @@
             };
         }
 
+        // Indian wall-clock: DD/MM/YYYY or DD-MM-YYYY[ HH:mm[:ss]]
+        const dayFirstMatch = trimmed.match(
+            /^(\d{2})[/-](\d{2})[/-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/,
+        );
+        if (dayFirstMatch) {
+            return {
+                YYYY: dayFirstMatch[3],
+                MM: dayFirstMatch[2],
+                DD: dayFirstMatch[1],
+                HH: (dayFirstMatch[4] || "00").padStart(2, "0"),
+                mm: (dayFirstMatch[5] || "00").padStart(2, "0"),
+                ss: (dayFirstMatch[6] || "00").padStart(2, "0"),
+            };
+        }
+
         return null;
     }
 
@@ -181,6 +196,45 @@
     document.querySelectorAll("[data-readable-date]").forEach((element) => {
         const format = element.dataset.dateFormat || "DD/MM/YYYY HH:mm:ss";
         element.textContent = getReadableDate(format, element.dataset.readableDate) || "-";
+    });
+
+    function hydrateDateLikeInput(element, displayFormat) {
+        const raw = element.dataset.dateValue || element.value;
+        const display = getReadableDate(displayFormat, raw);
+        if (display) {
+            element.value = display;
+        }
+
+        element.addEventListener("blur", () => {
+            const normalizedDisplay = getReadableDate(displayFormat, element.value);
+            if (normalizedDisplay) {
+                element.value = normalizedDisplay;
+            }
+        });
+
+        const form = element.closest("form");
+        if (!form || form.dataset.dateNormalizeBound === "1") {
+            return;
+        }
+        form.dataset.dateNormalizeBound = "1";
+        form.addEventListener("submit", () => {
+            form.querySelectorAll(".js-date-input").forEach((input) => {
+                const iso = getWritableDate("YYYY-MM-DD", input.value);
+                if (iso) input.value = iso;
+            });
+            form.querySelectorAll(".js-datetime-input").forEach((input) => {
+                const iso = getWritableDate("YYYY-MM-DD HH:mm:ss", input.value);
+                if (iso) input.value = iso;
+            });
+        });
+    }
+
+    document.querySelectorAll(".js-date-input").forEach((element) => {
+        hydrateDateLikeInput(element, "DD/MM/YYYY");
+    });
+
+    document.querySelectorAll(".js-datetime-input").forEach((element) => {
+        hydrateDateLikeInput(element, "DD/MM/YYYY HH:mm");
     });
 
     window.hasRequiredAuthority = function hasRequiredAuthority(requiredAuthority) {

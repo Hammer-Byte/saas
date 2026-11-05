@@ -46,7 +46,7 @@
     function openAddModal() {
         resetForm();
         modalLabel.textContent = "Add expense";
-        dateInput.value = getReadableDate("YYYY-MM-DD", new Date());
+        dateInput.value = getReadableDate("DD/MM/YYYY", new Date());
     }
 
     function openEditModal(row) {
@@ -56,7 +56,7 @@
         titleInput.value = row.dataset.title || "";
         descriptionInput.value = row.dataset.description || "";
         amountInput.value = row.dataset.amount || "";
-        dateInput.value = getReadableDate("YYYY-MM-DD", row.dataset.expenseDate);
+        dateInput.value = getReadableDate("DD/MM/YYYY", row.dataset.expenseDate);
         loanedInput.checked = row.dataset.loaned === "true";
     }
 

@@ -90,7 +90,7 @@ import {
 } from "../db/linkedin_message_runs.js";
 import { processing as gemTendereProcessing } from "../libs/tenderer.js";
 import { processing as linkedinProcessing } from "../libs/linkedin_browser.js";
-import { getReadableDate } from "../libs/date.js";
+import { getReadableDate, parseQueryDate } from "../libs/date.js";
 import { formatContractCreatedOn } from "../libs/contractor.js";
 import { isContractSigned } from "../services/contracts.js";
 
@@ -336,13 +336,9 @@ export const uiRoutes = new Elysia()
                 const defaultEnd = getReadableDate("YYYY-MM-DD", now);
 
                 const start =
-                    query.start && /^\d{4}-\d{2}-\d{2}$/.test(query.start)
-                        ? query.start
-                        : defaultStart;
+                    parseQueryDate(query.start) || defaultStart;
                 const end =
-                    query.end && /^\d{4}-\d{2}-\d{2}$/.test(query.end)
-                        ? query.end
-                        : defaultEnd;
+                    parseQueryDate(query.end) || defaultEnd;
 
                 const rangeStart = start <= end ? start : end;
                 const rangeEnd = start <= end ? end : start;
@@ -441,13 +437,9 @@ export const uiRoutes = new Elysia()
                 const defaultEnd = getReadableDate("YYYY-MM-DD", now);
 
                 const start =
-                    query.start && /^\d{4}-\d{2}-\d{2}$/.test(query.start)
-                        ? query.start
-                        : defaultStart;
+                    parseQueryDate(query.start) || defaultStart;
                 const end =
-                    query.end && /^\d{4}-\d{2}-\d{2}$/.test(query.end)
-                        ? query.end
-                        : defaultEnd;
+                    parseQueryDate(query.end) || defaultEnd;
 
                 const rangeStart = start <= end ? start : end;
                 const rangeEnd = start <= end ? end : start;
@@ -485,13 +477,9 @@ export const uiRoutes = new Elysia()
                 const defaultEnd = getReadableDate("YYYY-MM-DD", now);
 
                 const start =
-                    query.start && /^\d{4}-\d{2}-\d{2}$/.test(query.start)
-                        ? query.start
-                        : defaultStart;
+                    parseQueryDate(query.start) || defaultStart;
                 const end =
-                    query.end && /^\d{4}-\d{2}-\d{2}$/.test(query.end)
-                        ? query.end
-                        : defaultEnd;
+                    parseQueryDate(query.end) || defaultEnd;
 
                 const rangeStart = start <= end ? start : end;
                 const rangeEnd = start <= end ? end : start;
@@ -687,11 +675,9 @@ export const uiRoutes = new Elysia()
                 );
 
                 const from =
-                    query.from && /^\d{4}-\d{2}-\d{2}$/.test(query.from)
-                        ? query.from
-                        : defaultFrom;
+                    parseQueryDate(query.from) || defaultFrom;
                 const to =
-                    query.to && /^\d{4}-\d{2}-\d{2}$/.test(query.to) ? query.to : defaultTo;
+                    parseQueryDate(query.to) || defaultTo;
 
                 const rangeFrom = from <= to ? from : to;
                 const rangeTo = from <= to ? to : from;
@@ -720,11 +706,9 @@ export const uiRoutes = new Elysia()
                 );
 
                 const from =
-                    query.from && /^\d{4}-\d{2}-\d{2}$/.test(query.from)
-                        ? query.from
-                        : defaultFrom;
+                    parseQueryDate(query.from) || defaultFrom;
                 const to =
-                    query.to && /^\d{4}-\d{2}-\d{2}$/.test(query.to) ? query.to : defaultTo;
+                    parseQueryDate(query.to) || defaultTo;
 
                 const rangeFrom = from <= to ? from : to;
                 const rangeTo = from <= to ? to : from;

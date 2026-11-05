@@ -150,11 +150,27 @@
                     <div id="delete-range-fields" class="row g-3 d-none">
                         <div class="col-md-6">
                             <label for="delete-from" class="form-label">From</label>
-                            <input type="date" class="form-control" id="delete-from" name="from" />
+                            <input
+                                type="text"
+                                class="form-control js-date-input"
+                                id="delete-from"
+                                name="from"
+                                placeholder="dd/mm/yyyy"
+                                autocomplete="off"
+                                inputmode="numeric"
+                            />
                         </div>
                         <div class="col-md-6">
                             <label for="delete-to" class="form-label">To</label>
-                            <input type="date" class="form-control" id="delete-to" name="to" />
+                            <input
+                                type="text"
+                                class="form-control js-date-input"
+                                id="delete-to"
+                                name="to"
+                                placeholder="dd/mm/yyyy"
+                                autocomplete="off"
+                                inputmode="numeric"
+                            />
                         </div>
                     </div>
                 </div>

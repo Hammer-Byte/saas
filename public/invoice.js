@@ -29,7 +29,7 @@
 
     const dueDateField = invoiceForm?.elements.namedItem("due_date");
     if (dueDateField?.dataset.date) {
-        dueDateField.value = getReadableDate("YYYY-MM-DD", dueDateField.dataset.date);
+        dueDateField.value = getReadableDate("DD/MM/YYYY", dueDateField.dataset.date);
     }
 
     const createdOnField = document.getElementById("invoice-created-on");
@@ -340,7 +340,7 @@
         if (paymentIdField) paymentIdField.value = "";
         if (paymentPaidField) paymentPaidField.value = "0";
         if (paymentNoteField) paymentNoteField.value = "";
-        if (paymentDateField) paymentDateField.value = getReadableDate("YYYY-MM-DD", new Date());
+        if (paymentDateField) paymentDateField.value = getReadableDate("DD/MM/YYYY", new Date());
         updatePaymentSplit();
     });
 
@@ -357,8 +357,8 @@
             if (paymentNoteField) paymentNoteField.value = button.dataset.note || "";
             if (paymentDateField) {
                 paymentDateField.value =
-                    getReadableDate("YYYY-MM-DD", button.dataset.createdOn) ||
-                    getReadableDate("YYYY-MM-DD", new Date());
+                    getReadableDate("DD/MM/YYYY", button.dataset.createdOn) ||
+                    getReadableDate("DD/MM/YYYY", new Date());
             }
             updatePaymentSplit();
 
@@ -412,7 +412,7 @@
         const paid = Number(paymentPaidField?.value || 0);
         const { amount } = splitPaid(paid);
         const note = paymentNoteField?.value?.trim() || "";
-        const created_on = paymentDateField?.value || "";
+        const created_on = getWritableDate("YYYY-MM-DD", paymentDateField?.value || "");
 
         if (paid < 0) {
             showAlert(paymentFormAlert, "Paid must be 0 or more.", "danger");
@@ -420,7 +420,7 @@
         }
 
         if (!created_on) {
-            showAlert(paymentFormAlert, "Payment date is required.", "danger");
+            showAlert(paymentFormAlert, "Payment date is required (dd/mm/yyyy).", "danger");
             return;
         }
 

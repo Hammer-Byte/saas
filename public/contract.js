@@ -19,7 +19,7 @@
 
     const signableTillField = detailForm?.elements.namedItem("signable_till");
     if (signableTillField?.dataset.date) {
-        signableTillField.value = getReadableDate("YYYY-MM-DDTHH:mm", signableTillField.dataset.date);
+        signableTillField.value = getReadableDate("DD/MM/YYYY HH:mm", signableTillField.dataset.date);
     }
 
     function showAlert(target, message, type) {

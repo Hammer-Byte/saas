@@ -1,4 +1,5 @@
 (() => {
+    const dateForm = document.getElementById("gem-tenders-date-form");
     const fromInput = document.getElementById("gem-tenders-from");
     const toInput = document.getElementById("gem-tenders-to");
     const keywordFilter = document.getElementById("gem-filter-keyword");
@@ -11,21 +12,17 @@
     const filterStatus = document.getElementById("gem-tenders-filter-status");
     const columnFilters = Array.from(document.querySelectorAll(".gem-tender-column-filter"));
 
-    function reloadDateRange() {
-        if (!fromInput?.value || !toInput?.value) return;
-
-        const from = window.getWritableDate("YYYY-MM-DD", fromInput.value);
-        const to = window.getWritableDate("YYYY-MM-DD", toInput.value);
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return;
-
-        const url = new URL(window.location.href);
-        url.searchParams.set("from", from);
-        url.searchParams.set("to", to);
-        window.location.href = url.toString();
-    }
-
-    fromInput?.addEventListener("change", reloadDateRange);
-    toInput?.addEventListener("change", reloadDateRange);
+    dateForm?.addEventListener("submit", (event) => {
+        const from = window.getWritableDate("YYYY-MM-DD", fromInput?.value || "");
+        const to = window.getWritableDate("YYYY-MM-DD", toInput?.value || "");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(from || "") || !/^\d{4}-\d{2}-\d{2}$/.test(to || "")) {
+            event.preventDefault();
+            window.alert("Enter valid end dates as dd/mm/yyyy.");
+            return;
+        }
+        if (fromInput) fromInput.value = from;
+        if (toInput) toInput.value = to;
+    });
 
     if (!tableBody) return;
 
