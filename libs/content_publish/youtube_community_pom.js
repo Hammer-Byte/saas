@@ -9,12 +9,13 @@ import {
 /**
  * YouTube Community image post — live-tuned.
  *
+ * Must publish as the given channel (brand accounts), not the default/main channel.
+ *
  * Flow:
- * 1. Open /channel/{UC…}/posts?show_create_dialog=1
- * 2. Enable Community / dismiss intro if shown
- * 3. Add an image via input[type=file]
- * 4. Type title + description into Write a message…
- * 5. Post (no post-publish verification)
+ * 1. Switch context via Studio for /channel/{UC…}
+ * 2. Open /channel/{UC…}/posts?show_create_dialog=1 (or Studio community create)
+ * 3. Verify page is still that channel before composing
+ * 4. Add image → caption → Post
  */
 
 function normalizeChannelId(value) {
@@ -85,62 +86,182 @@ async function ensureCommunityEnabled(driver) {
     await dismissCommunityIntro(driver);
 }
 
-async function openCreatePostDialog(driver, channelId) {
-    await openUrl(
-        driver,
-        `https://www.youtube.com/channel/${channelId}/posts?show_create_dialog=1`,
+async function diagnoseChannelContext(driver, channelId) {
+    return await driver.executeScript(
+        `
+      const wanted = String(arguments[0] || "");
+      const href = String(location.href || "");
+      const html = String(document.documentElement?.innerHTML || "");
+      const text = String(document.body?.innerText || "").slice(0, 2500);
+      const inUrl = wanted && href.includes(wanted);
+      const inHtml = wanted && html.includes(wanted);
+      return {
+        url: href,
+        inUrl,
+        inHtml,
+        matched: !!(inUrl || inHtml),
+        hasCompose: !!(
+          document.querySelector("button[aria-label='Add an image']")
+          || document.querySelector("#contenteditable-root, [aria-label='Write a message...']")
+          || [...document.querySelectorAll("button")].some((el) =>
+            /^post$/i.test((el.innerText || "").trim())
+          )
+        ),
+        snippet: text.slice(0, 180),
+      };
+    `,
+        channelId,
     );
+}
+
+async function assertChannelContext(driver, channelId, label) {
+    const state = await diagnoseChannelContext(driver, channelId);
+    logger.info(
+        `content-publish yt channel-check matched=${state.matched} inUrl=${state.inUrl} url=${state.url}`,
+    );
+    if (!state.matched) {
+        await failStep(
+            driver,
+            `YouTube channel context mismatch (wanted=${channelId}, ${JSON.stringify(state)})`,
+            label,
+        );
+    }
+    return state;
+}
+
+async function establishChannelContext(driver, channelId) {
+    // Studio channel URL forces the signed-in session onto that brand channel.
+    logger.info(`content-publish yt switch studio channel=${channelId}`);
+    await openUrl(driver, `https://studio.youtube.com/channel/${channelId}`);
+    await contentPublishSleep(3500);
+
+    let state = await diagnoseChannelContext(driver, channelId);
+    if (!state.matched) {
+        // Fallback: channel switcher with next=Studio for that channel
+        logger.info("content-publish yt studio switch missed, trying channel_switcher");
+        await openUrl(
+            driver,
+            `https://www.youtube.com/channel_switcher?next=${encodeURIComponent(
+                `/channel/${channelId}/posts`,
+            )}`,
+        );
+        await contentPublishSleep(4000);
+
+        // If switcher shows a list, click the entry that mentions this channel id / href.
+        await driver.executeScript(
+            `
+          const wanted = String(arguments[0] || "");
+          const links = [...document.querySelectorAll("a[href*='channel/'], ytd-account-item-renderer, tp-yt-paper-item")];
+          const hit = links.find((el) => {
+            const href = el.getAttribute?.("href") || el.querySelector?.("a")?.getAttribute("href") || "";
+            const text = (el.innerText || "") + " " + href;
+            return href.includes(wanted) || text.includes(wanted);
+          });
+          if (hit) {
+            const clickable = hit.closest("a, ytd-account-item-renderer, tp-yt-paper-item") || hit;
+            clickable.click();
+            return true;
+          }
+          return false;
+        `,
+            channelId,
+        );
+        await contentPublishSleep(3500);
+        state = await diagnoseChannelContext(driver, channelId);
+    }
+
+    if (!state.matched) {
+        await failStep(
+            driver,
+            `YouTube could not switch to channel ${channelId} (${JSON.stringify(state)})`,
+            "yt-channel-switch",
+        );
+    }
+}
+
+async function openCreateOnChannelPosts(driver, channelId) {
+    const postsUrl = `https://www.youtube.com/channel/${channelId}/posts?show_create_dialog=1`;
+    logger.info(`content-publish yt open posts create ${postsUrl}`);
+    await openUrl(driver, postsUrl);
     await contentPublishSleep(4500);
     await ensureCommunityEnabled(driver);
     await dismissCommunityIntro(driver);
+    return await diagnoseChannelContext(driver, channelId);
+}
 
-    const ready = await driver.executeScript(`
-      return !!(
-        document.querySelector("button[aria-label='Add an image']")
-        || document.querySelector("#contenteditable-root, [aria-label='Write a message...']")
-        || [...document.querySelectorAll("button")].some((el) =>
-          /^post$/i.test((el.innerText || "").trim())
-        )
-      );
-    `);
-    if (ready) {
-        return;
-    }
+async function openCreateOnStudioCommunity(driver, channelId) {
+    const studioUrl = `https://studio.youtube.com/channel/${channelId}/community`;
+    logger.info(`content-publish yt open studio community ${studioUrl}`);
+    await openUrl(driver, studioUrl);
+    await contentPublishSleep(4000);
+    await dismissCommunityIntro(driver);
 
-    // Fallback: home Create → Create post
-    await openUrl(driver, "https://www.youtube.com/");
-    await contentPublishSleep(2500);
-    const createOpened = await driver.executeScript(`
-      const create = [...document.querySelectorAll("button")].find((button) =>
-        (button.getAttribute("aria-label") || "").trim() === "Create"
-      );
+    // Prefer an explicit create/post control on Studio community.
+    const opened = await driver.executeScript(`
+      const nodes = [...document.querySelectorAll("button, a, div[role='button'], yt-button-shape button")];
+      const create = nodes.find((el) => {
+        const label = ((el.getAttribute("aria-label") || "") + " " + (el.innerText || ""))
+          .replace(/\\s+/g, " ")
+          .trim();
+        return /^(create|new post|create post)$/i.test(label)
+          || /create (a )?post/i.test(label);
+      });
       if (!create) return false;
       create.click();
       return true;
     `);
-    if (!createOpened) {
-        await failStep(driver, "YouTube step2 Create control missing", "yt-step2");
+    if (opened) {
+        await contentPublishSleep(3500);
     }
-    await contentPublishSleep(1500);
-
-    const postOpened = await driver.executeScript(`
-      const nodes = [...document.querySelectorAll("ytd-compact-link-renderer a, tp-yt-paper-item, a")];
-      const link = nodes.find((node) => {
-        const text = ((node.getAttribute("aria-label") || "") + " " + (node.innerText || ""))
-          .replace(/\\s+/g, " ")
-          .trim();
-        const href = node.getAttribute("href") || "";
-        return /^create post$/i.test(text) || /show_create_dialog=1/i.test(href);
-      });
-      if (!link) return false;
-      link.click();
-      return true;
-    `);
-    if (!postOpened) {
-        await failStep(driver, "YouTube step2 Create post menu item missing", "yt-step2");
-    }
-    await contentPublishSleep(4000);
     await dismissCommunityIntro(driver);
+    return await diagnoseChannelContext(driver, channelId);
+}
+
+async function waitForComposeReady(driver, timeoutMs = 20000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const ready = await driver.executeScript(`
+          return !!(
+            document.querySelector("button[aria-label='Add an image']")
+            || document.querySelector("#contenteditable-root, [aria-label='Write a message...']")
+            || [...document.querySelectorAll("button")].some((el) =>
+              /^post$/i.test((el.innerText || "").trim())
+            )
+          );
+        `);
+        if (ready) {
+            return true;
+        }
+        await contentPublishSleep(700);
+    }
+    return false;
+}
+
+async function openCreatePostDialog(driver, channelId) {
+    await establishChannelContext(driver, channelId);
+
+    let state = await openCreateOnChannelPosts(driver, channelId);
+    await assertChannelContext(driver, channelId, "yt-posts-channel");
+
+    if (state.hasCompose || (await waitForComposeReady(driver, 8000))) {
+        logger.info("content-publish yt compose ready on channel posts");
+        return;
+    }
+
+    // Do NOT fall back to www.youtube.com Create — that uses the default/main channel.
+    state = await openCreateOnStudioCommunity(driver, channelId);
+    await assertChannelContext(driver, channelId, "yt-studio-channel");
+
+    if (state.hasCompose || (await waitForComposeReady(driver, 12000))) {
+        logger.info("content-publish yt compose ready on studio community");
+        return;
+    }
+
+    await failStep(
+        driver,
+        `YouTube step2 create dialog missing for channel ${channelId} (${JSON.stringify(state)})`,
+        "yt-step2",
+    );
 }
 
 async function attachImage(driver, mediaPath) {
@@ -273,17 +394,19 @@ export async function publishYoutubeCommunityImagePost({
     const resolvedChannelId = normalizeChannelId(channelId);
     if (!resolvedChannelId) {
         throw new Error(
-            "YouTube channel id is required (UC…). Set youtube_channel_id on the automation user.",
+            "YouTube channel id is required (UC…). Set it on the automation user / publish form.",
         );
     }
 
     logger.info(`content-publish yt publish start channel=${resolvedChannelId}`);
     await openCreatePostDialog(driver, resolvedChannelId);
+    // Re-check right before composing so we never silently post as default channel.
+    await assertChannelContext(driver, resolvedChannelId, "yt-before-compose");
     logger.info("content-publish yt compose ready, attaching image");
     await attachImage(driver, mediaPath);
     logger.info("content-publish yt typing caption");
     await typeCaption(driver, title, description);
     logger.info("content-publish yt clicking Post");
     await clickPost(driver);
-    logger.info("content-publish yt publish ok");
+    logger.info(`content-publish yt publish ok channel=${resolvedChannelId}`);
 }
