@@ -8,6 +8,7 @@ import {
     loginYoutubeWithCookie,
     openFirefox,
     releaseContentPublishProcessing,
+    shouldUseContentPublishProxy,
 } from "./content_publish_browser.js";
 import {
     updateContentPublishRunById,
@@ -86,10 +87,11 @@ export function startContentPublish({
                         status: "running",
                     });
 
+                    const useProxy = shouldUseContentPublishProxy(target.platform);
                     logger.info(
-                        `content-publish run=${runId} platform=${target.platform} opening firefox`,
+                        `content-publish run=${runId} platform=${target.platform} opening firefox proxy=${useProxy ? "1" : "0"}`,
                     );
-                    driver = await openFirefox();
+                    driver = await openFirefox({ useProxy });
                     if (target.platform === "facebook") {
                         logger.info(
                             `content-publish run=${runId} platform=facebook logging in`,

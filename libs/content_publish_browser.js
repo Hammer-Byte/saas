@@ -1,3 +1,5 @@
+import http from "node:http";
+import net from "node:net";
 import { Builder, Browser } from "selenium-webdriver";
 import firefox from "selenium-webdriver/firefox.js";
 import { logger } from "@hammerbyte/utils";
@@ -18,14 +20,190 @@ export function releaseContentPublishProcessing() {
     processing = false;
 }
 
-export async function openFirefox() {
+/**
+ * Opt-in via CONTENT_PUBLISH_PROXY=http://user:pass@host:port
+ * Optional CONTENT_PUBLISH_PROXY_PLATFORMS=instagram,facebook (default: all)
+ */
+export function shouldUseContentPublishProxy(platform) {
+    if (!parseContentPublishProxyEnv()) {
+        return false;
+    }
+    const raw = String(Bun.env.CONTENT_PUBLISH_PROXY_PLATFORMS || "").trim();
+    if (!raw) {
+        return true;
+    }
+    const allowed = raw
+        .split(",")
+        .map((part) => part.trim().toLowerCase())
+        .filter(Boolean);
+    return allowed.includes(String(platform || "").trim().toLowerCase());
+}
+
+function parseContentPublishProxyEnv() {
+    const raw = String(Bun.env.CONTENT_PUBLISH_PROXY || "").trim();
+    if (!raw) {
+        return null;
+    }
+    let url;
+    try {
+        url = new URL(raw.includes("://") ? raw : `http://${raw}`);
+    } catch {
+        throw new Error(`Invalid CONTENT_PUBLISH_PROXY: ${raw}`);
+    }
+    const host = url.hostname;
+    const port = Number(url.port) || (url.protocol === "https:" ? 443 : 80);
+    if (!host || !port) {
+        throw new Error(`Invalid CONTENT_PUBLISH_PROXY host/port: ${raw}`);
+    }
+    return {
+        host,
+        port,
+        username: decodeURIComponent(url.username || ""),
+        password: decodeURIComponent(url.password || ""),
+    };
+}
+
+/** Local HTTP proxy that injects upstream Basic auth (Firefox cannot). */
+function startLocalProxyForwarder({ host, port, username, password }) {
+    const authHeader =
+        username || password
+            ? `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`
+            : null;
+
+    const server = http.createServer((clientReq, clientRes) => {
+        const headers = { ...clientReq.headers };
+        if (authHeader) {
+            headers["Proxy-Authorization"] = authHeader;
+        }
+        delete headers["proxy-connection"];
+
+        const upstreamReq = http.request(
+            {
+                host,
+                port,
+                path: clientReq.url,
+                method: clientReq.method,
+                headers,
+            },
+            (upstreamRes) => {
+                clientRes.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers);
+                upstreamRes.pipe(clientRes);
+            },
+        );
+        upstreamReq.on("error", () => {
+            if (!clientRes.headersSent) {
+                clientRes.writeHead(502);
+            }
+            clientRes.end();
+        });
+        clientReq.pipe(upstreamReq);
+    });
+
+    server.on("connect", (req, clientSocket, head) => {
+        const upstreamSocket = net.connect(port, host, () => {
+            let connectReq =
+                `CONNECT ${req.url} HTTP/1.1\r\n` +
+                `Host: ${req.url}\r\n` +
+                `Proxy-Connection: keep-alive\r\n`;
+            if (authHeader) {
+                connectReq += `Proxy-Authorization: ${authHeader}\r\n`;
+            }
+            connectReq += `\r\n`;
+            upstreamSocket.write(connectReq);
+
+            let buf = Buffer.alloc(0);
+            const onData = (chunk) => {
+                buf = Buffer.concat([buf, chunk]);
+                const headerEnd = buf.indexOf("\r\n\r\n");
+                if (headerEnd < 0) {
+                    return;
+                }
+                upstreamSocket.off("data", onData);
+                const statusLine = buf.slice(0, buf.indexOf("\r\n")).toString("utf8");
+                const rest = buf.slice(headerEnd + 4);
+                if (!/^HTTP\/1\.[01] 200\b/i.test(statusLine)) {
+                    clientSocket.write("HTTP/1.1 502 Bad Gateway\r\n\r\n");
+                    clientSocket.destroy();
+                    upstreamSocket.destroy();
+                    return;
+                }
+                clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+                if (rest.length) {
+                    clientSocket.write(rest);
+                }
+                if (head?.length) {
+                    upstreamSocket.write(head);
+                }
+                upstreamSocket.pipe(clientSocket);
+                clientSocket.pipe(upstreamSocket);
+            };
+            upstreamSocket.on("data", onData);
+        });
+
+        const fail = () => {
+            try {
+                clientSocket.destroy();
+            } catch {
+                // ignore
+            }
+            try {
+                upstreamSocket.destroy();
+            } catch {
+                // ignore
+            }
+        };
+        upstreamSocket.on("error", fail);
+        clientSocket.on("error", fail);
+    });
+
+    return new Promise((resolve, reject) => {
+        server.once("error", reject);
+        server.listen(0, "127.0.0.1", () => {
+            const address = server.address();
+            resolve({
+                port: address.port,
+                close: () =>
+                    new Promise((done) => {
+                        server.close(() => done());
+                    }),
+            });
+        });
+    });
+}
+
+function applyFirefoxManualProxy(options, host, port) {
+    options.setPreference("network.proxy.type", 1);
+    options.setPreference("network.proxy.http", host);
+    options.setPreference("network.proxy.http_port", port);
+    options.setPreference("network.proxy.ssl", host);
+    options.setPreference("network.proxy.ssl_port", port);
+    options.setPreference("network.proxy.share_proxy_settings", true);
+    options.setPreference("network.proxy.no_proxies_on", "localhost, 127.0.0.1");
+    options.setPreference("network.proxy.allow_hijacking_localhost", false);
+}
+
+export async function openFirefox({ useProxy = false } = {}) {
     logger.info(
-        `content-publish browser launch binary=${FIREFOX_BINARY} moz_headless=${Bun.env.MOZ_HEADLESS || "0"}`,
+        `content-publish browser launch binary=${FIREFOX_BINARY} moz_headless=${Bun.env.MOZ_HEADLESS || "0"} use_proxy=${useProxy ? "1" : "0"}`,
     );
     const options = new firefox.Options()
         .setBinary(FIREFOX_BINARY)
         .setPageLoadStrategy("eager")
         .windowSize({ width: 1440, height: 1000 });
+
+    let proxyCleanup = null;
+    if (useProxy) {
+        const upstream = parseContentPublishProxyEnv();
+        if (!upstream) {
+            throw new Error("CONTENT_PUBLISH_PROXY is required when useProxy=true");
+        }
+        const forwarder = await startLocalProxyForwarder(upstream);
+        proxyCleanup = forwarder.close;
+        applyFirefoxManualProxy(options, "127.0.0.1", forwarder.port);
+        logger.info(
+            `content-publish browser proxy local=127.0.0.1:${forwarder.port} upstream=${upstream.host}:${upstream.port} auth=${upstream.username ? "yes" : "no"}`,
+        );
+    }
 
     const driver = await new Builder()
         .forBrowser(Browser.FIREFOX)
@@ -33,6 +211,23 @@ export async function openFirefox() {
         .build();
 
     await driver.manage().setTimeouts({ implicit: 0, pageLoad: 20_000 });
+
+    const originalQuit = driver.quit.bind(driver);
+    driver.quit = async () => {
+        try {
+            return await originalQuit();
+        } finally {
+            if (proxyCleanup) {
+                try {
+                    await proxyCleanup();
+                } catch (error) {
+                    logger.error(`content-publish proxy forwarder close: ${error}`);
+                }
+                proxyCleanup = null;
+            }
+        }
+    };
+
     logger.info("content-publish browser ready");
     return driver;
 }
