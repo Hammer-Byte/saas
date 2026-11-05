@@ -168,19 +168,39 @@ function dialogTitle() {
 
 function countPreviewMedia() {
   const dialog = findCreateDialog() || document;
-  return [...dialog.querySelectorAll("img, video, canvas")].filter((el) => {
+  let count = 0;
+  for (const el of dialog.querySelectorAll("img, video, canvas")) {
+    const rect = el.getClientRects()[0];
+    if (!rect || rect.width < 60 || rect.height < 60) continue;
     if (el.tagName === "IMG") {
       const src = el.currentSrc || el.src || "";
-      return (src.startsWith("blob:") || src.startsWith("data:image/") || el.naturalWidth > 80)
-        && el.getClientRects().length > 0;
+      // IG often uses blob:/https CDN thumbs; naturalWidth can still be 0 briefly.
+      if (src || el.naturalWidth > 40) count += 1;
+      continue;
     }
     if (el.tagName === "VIDEO") {
-      return el.getClientRects().length > 0 && (el.videoWidth > 40 || el.readyState >= 2);
+      count += 1;
+      continue;
     }
-    // canvas
+    count += 1;
+  }
+  // CSS background previews inside crop canvas wrappers.
+  for (const el of dialog.querySelectorAll("div, span")) {
     const rect = el.getClientRects()[0];
-    return !!rect && rect.width > 80 && rect.height > 80;
-  }).length;
+    if (!rect || rect.width < 120 || rect.height < 120) continue;
+    const bg = getComputedStyle(el).backgroundImage || "";
+    if (/url\\(/i.test(bg) && !/sprite|icon/i.test(bg)) count += 1;
+  }
+  return count;
+}
+
+function hasCropChrome() {
+  const dialog = findCreateDialog();
+  const text = normalize(dialog?.innerText || "");
+  // Aspect / zoom / multi-select controls appear once media is in Crop.
+  return /select crop|zoom|crop media|original|\\b1:1\\b|\\b4:5\\b|\\b16:9\\b/i.test(text)
+    || !!dialog?.querySelector("svg[aria-label='Select crop'], svg[aria-label='Zoom'], svg[aria-label='Open media gallery']")
+    || /\\d\\.\\d\\s*-\\s*\\d\\.\\d\\s*sec/i.test(text);
 }
 
 function wizardStage() {
@@ -188,20 +208,27 @@ function wizardStage() {
   const dialog = findCreateDialog();
   const text = normalize(dialog?.innerText || "");
   if (/something went wrong/i.test(text)) return "error";
-  if (/select from computer|drag photos and videos here/i.test(text) && countPreviewMedia() === 0) {
+  if (/select from computer|drag photos and videos here/i.test(text) && countPreviewMedia() === 0 && !findNext()) {
     return "select";
   }
   const title = dialogTitle();
+  const previews = countPreviewMedia();
+  const cropChrome = hasCropChrome();
   if (/^crop$/i.test(title) || (/\\bcrop\\b/i.test(text.slice(0, 60)) && findNext())) {
-    return countPreviewMedia() > 0 ? "crop_ready" : "crop_empty";
+    // Crop + Next is enough once chrome/preview exists; IG may hide img metrics.
+    if (previews > 0 || cropChrome || (findNext() && !/select from computer|drag photos/i.test(text))) {
+      return "crop_ready";
+    }
+    return "crop_empty";
   }
   if (/^edit$/i.test(title) || (/\\bedit\\b/i.test(text.slice(0, 60)) && findNext())) {
-    // Blank Edit: title Edit + Next but almost no media / filter UI.
     const hasFilters = /filters|adjustments|original/i.test(text);
-    if (countPreviewMedia() > 0 || hasFilters) return "edit_ready";
+    if (previews > 0 || hasFilters || cropChrome) return "edit_ready";
+    // Title Edit + Next with almost no body text beyond header → blank Edit.
+    if (text.length < 40) return "edit_blank";
     return "edit_blank";
   }
-  if (countPreviewMedia() > 0 && findNext()) return "crop_ready";
+  if (previews > 0 && findNext()) return "crop_ready";
   return "unknown";
 }
 `;
