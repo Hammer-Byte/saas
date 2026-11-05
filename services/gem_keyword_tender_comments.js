@@ -7,6 +7,15 @@ import {
 } from "../db/gem_keyword_tender_comments.js";
 import { getGemKeywordTenderById } from "../db/gem_keyword_tenders.js";
 import { getCurrentUser } from "./authentication.js";
+import { logGemKeywordTenderActivity } from "./gem_keyword_tenders.js";
+
+function commentPreview(value) {
+    const text = String(value || "")
+        .trim()
+        .replace(/\s+/g, " ");
+    if (!text) return "";
+    return text.length > 120 ? `${text.slice(0, 117)}...` : text;
+}
 
 export async function addGemKeywordTenderComment({ body, cookie, set }) {
     const currentUser = await getCurrentUser({ cookie });
@@ -33,6 +42,12 @@ export async function addGemKeywordTenderComment({ body, cookie, set }) {
         gem_keyword_tender_id: gemKeywordTender.id,
         user_id: currentUser.id,
         comment,
+    });
+
+    await logGemKeywordTenderActivity({
+        gem_keyword_tender_id: gemKeywordTender.id,
+        user_id: currentUser.id,
+        activity: `Added comment: "${commentPreview(comment)}"`,
     });
 
     const comments = await getAllGemKeywordTenderCommentsByTenderId({
@@ -78,6 +93,12 @@ export async function updateGemKeywordTenderComment({ params, body, cookie, set 
         comment,
     });
 
+    await logGemKeywordTenderActivity({
+        gem_keyword_tender_id: existingComment.gem_keyword_tender_id,
+        user_id: currentUser.id,
+        activity: `Updated comment to: "${commentPreview(comment)}"`,
+    });
+
     const comments = await getAllGemKeywordTenderCommentsByTenderId({
         gem_keyword_tender_id: existingComment.gem_keyword_tender_id,
     });
@@ -110,7 +131,14 @@ export async function deleteGemKeywordTenderComment({ params, cookie, set }) {
         return { error: "Only the author can delete this comment" };
     }
 
+    const preview = commentPreview(existingComment.comment);
     await deleteGemKeywordTenderCommentById({ id: existingComment.id });
+
+    await logGemKeywordTenderActivity({
+        gem_keyword_tender_id: existingComment.gem_keyword_tender_id,
+        user_id: currentUser.id,
+        activity: preview ? `Deleted comment: "${preview}"` : "Deleted a comment",
+    });
 
     set.status = 200;
     return { message: "Comment deleted" };

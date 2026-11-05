@@ -47,12 +47,43 @@ function normalizeEligibility(value) {
     return GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK;
 }
 
-async function logActivity({ gem_keyword_tender_id, user_id, activity }) {
-    await createGemKeywordTenderActivity({
+function asBoolean(value) {
+    return value === true || value === 1 || value === "1";
+}
+
+function asText(value) {
+    return value == null ? "" : String(value);
+}
+
+function quotePreview(value) {
+    const text = asText(value).trim().replace(/\s+/g, " ");
+    if (!text) return "";
+    return text.length > 120 ? `${text.slice(0, 117)}...` : text;
+}
+
+export async function logGemKeywordTenderActivity({
+    gem_keyword_tender_id,
+    user_id,
+    activity,
+}) {
+    return await createGemKeywordTenderActivity({
         gem_keyword_tender_id,
         user_id,
         activity,
     });
+}
+
+async function logActivities({ gem_keyword_tender_id, user_id, activities }) {
+    let logged = 0;
+    for (const activity of activities) {
+        const ok = await logGemKeywordTenderActivity({
+            gem_keyword_tender_id,
+            user_id,
+            activity,
+        });
+        if (ok) logged += 1;
+    }
+    return logged;
 }
 
 export async function updateGemKeywordTender({ params, body, cookie, set }) {
@@ -69,17 +100,20 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     }
 
     const previousEligible = normalizeEligibility(gemKeywordTender.eligible);
-    const nextHidden = body.hidden ?? !!gemKeywordTender.hidden;
+    const previousHidden = asBoolean(gemKeywordTender.hidden);
+    const previousFiled = asBoolean(gemKeywordTender.filed);
+    const previousQuote = asText(gemKeywordTender.quote);
+    const previousStage = gemKeywordTender.stage || GEM_KEYWORD_TENDER_STAGES.NEW;
+
+    const nextHidden = body.hidden !== undefined ? asBoolean(body.hidden) : previousHidden;
     let nextEligible =
         body.eligible !== undefined
             ? normalizeEligibility(body.eligible)
             : previousEligible;
-    let nextFiled = body.filed ?? !!gemKeywordTender.filed;
-    const nextQuote = body.quote !== undefined ? body.quote : gemKeywordTender.quote;
+    let nextFiled = body.filed !== undefined ? asBoolean(body.filed) : previousFiled;
+    const nextQuote = body.quote !== undefined ? asText(body.quote) : previousQuote;
     const nextStage =
-        body.stage !== undefined
-            ? body.stage
-            : gemKeywordTender.stage || GEM_KEYWORD_TENDER_STAGES.NEW;
+        body.stage !== undefined ? body.stage : previousStage;
 
     if (!ELIGIBILITY_VALUES.has(nextEligible)) {
         set.status = 400;
@@ -145,25 +179,41 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
 
     const activities = [];
 
-    if (!!gemKeywordTender.hidden !== nextHidden) {
+    if (previousHidden !== nextHidden) {
         activities.push(
-            nextHidden ? "Marked as out of service scope" : "Restored to service scope",
+            nextHidden
+                ? "Marked tender as out of service scope"
+                : "Restored tender to service scope",
         );
     }
+
     if (previousEligible !== nextEligible) {
         activities.push(
             `Changed eligibility from ${eligibilityLabel(previousEligible)} to ${eligibilityLabel(nextEligible)}`,
         );
     }
-    if (!!gemKeywordTender.filed !== nextFiled) {
-        activities.push(`Set filed to ${booleanLabel(nextFiled)}`);
-    }
-    if ((gemKeywordTender.quote || "") !== (nextQuote || "")) {
-        activities.push(nextQuote?.trim() ? "Updated quote" : "Cleared quote");
-    }
-    if ((gemKeywordTender.stage || GEM_KEYWORD_TENDER_STAGES.NEW) !== nextStage) {
+
+    if (previousFiled !== nextFiled) {
         activities.push(
-            `Changed stage from ${stageLabel(gemKeywordTender.stage)} to ${stageLabel(nextStage)}`,
+            nextFiled ? "Marked tender as filed" : "Cleared filed status",
+        );
+    }
+
+    if (previousQuote !== nextQuote) {
+        const previousPreview = quotePreview(previousQuote);
+        const nextPreview = quotePreview(nextQuote);
+        if (!previousPreview && nextPreview) {
+            activities.push(`Added quote: "${nextPreview}"`);
+        } else if (previousPreview && !nextPreview) {
+            activities.push(`Cleared quote (was: "${previousPreview}")`);
+        } else {
+            activities.push(`Updated quote to: "${nextPreview}"`);
+        }
+    }
+
+    if (previousStage !== nextStage) {
+        activities.push(
+            `Changed stage from ${stageLabel(previousStage)} to ${stageLabel(nextStage)}`,
         );
     }
 
@@ -176,9 +226,18 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         nextAssignee = nextAssigneeUserId
             ? await getUserById({ id: nextAssigneeUserId })
             : null;
-        activities.push(
-            `Changed assignee from ${assigneeLabel(previousAssignee)} to ${assigneeLabel(nextAssignee)}`,
-        );
+
+        if (body.assign_to_me === true && nextAssigneeUserId === currentUser.id) {
+            activities.push(
+                previousAssigneeUserId
+                    ? `Assigned tender to self (was ${assigneeLabel(previousAssignee)})`
+                    : "Assigned tender to self",
+            );
+        } else {
+            activities.push(
+                `Changed assignee from ${assigneeLabel(previousAssignee)} to ${assigneeLabel(nextAssignee)}`,
+            );
+        }
     }
 
     await updateGemKeywordTenderById({
@@ -191,11 +250,11 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         assignee_user_id: nextAssigneeUserId,
     });
 
-    for (const activity of activities) {
-        await logActivity({
+    if (activities.length) {
+        await logActivities({
             gem_keyword_tender_id: gemKeywordTender.id,
             user_id: currentUser.id,
-            activity,
+            activities,
         });
     }
 

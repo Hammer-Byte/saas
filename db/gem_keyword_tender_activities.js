@@ -1,27 +1,57 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
+const ACTIVITY_MAX_LENGTH = 512;
+
+function truncateActivity(activity) {
+    const text = String(activity || "").trim();
+    if (!text) {
+        return null;
+    }
+    if (text.length <= ACTIVITY_MAX_LENGTH) {
+        return text;
+    }
+    return `${text.slice(0, ACTIVITY_MAX_LENGTH - 3)}...`;
+}
+
 export async function createGemKeywordTenderActivity({
     gem_keyword_tender_id,
     user_id,
     activity,
 }) {
-    await executeSQLQuery(
-        (sql) => sql`
-            INSERT INTO GEM_KEYWORD_TENDER_ACTIVITIES ${sql(
-                {
+    const activityText = truncateActivity(activity);
+    if (!activityText) {
+        return false;
+    }
+
+    const tenderId = Number(gem_keyword_tender_id);
+    const actorId = Number(user_id);
+    if (!(tenderId >= 1) || !(actorId >= 1)) {
+        logger.error(
+            `createGemKeywordTenderActivity: invalid ids tender=${gem_keyword_tender_id} user=${user_id}`,
+        );
+        return false;
+    }
+
+    try {
+        await executeSQLQuery(
+            (sql) => sql`
+                INSERT INTO GEM_KEYWORD_TENDER_ACTIVITIES (
                     gem_keyword_tender_id,
                     user_id,
-                    activity,
-                },
-                "gem_keyword_tender_id",
-                "user_id",
-                "activity",
-            )}
-        `,
-    ).catch((error) => {
+                    activity
+                ) VALUES (
+                    ${tenderId},
+                    ${actorId},
+                    ${activityText}
+                )
+            `,
+        );
+        return true;
+    } catch (error) {
         logger.error(`createGemKeywordTenderActivity: ${error}`);
-    });
+        return false;
+    }
 }
 
 export async function getAllGemKeywordTenderActivitiesByTenderId({ gem_keyword_tender_id }) {

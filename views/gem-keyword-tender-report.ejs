@@ -135,7 +135,9 @@
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body p-3 p-md-4">
                         <h2 class="h6 mb-3">Tenders by assignee</h2>
-                        <canvas id="chart-tenders-by-assignee" height="220"></canvas>
+                        <div class="gem-report-chart-box">
+                            <canvas id="chart-tenders-by-assignee"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -143,7 +145,9 @@
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body p-3 p-md-4">
                         <h2 class="h6 mb-3">Activity by person</h2>
-                        <canvas id="chart-activity-by-user" height="220"></canvas>
+                        <div class="gem-report-chart-box">
+                            <canvas id="chart-activity-by-user"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -151,7 +155,9 @@
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body p-3 p-md-4">
                         <h2 class="h6 mb-3">Eligibility mix</h2>
-                        <canvas id="chart-eligibility" height="220"></canvas>
+                        <div class="gem-report-chart-box gem-report-chart-box-doughnut">
+                            <canvas id="chart-eligibility"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -159,7 +165,9 @@
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body p-3 p-md-4">
                         <h2 class="h6 mb-3">Stage mix</h2>
-                        <canvas id="chart-stages" height="220"></canvas>
+                        <div class="gem-report-chart-box gem-report-chart-box-doughnut">
+                            <canvas id="chart-stages"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -275,6 +283,27 @@
     </div>
 </main>
 
+<style>
+    .gem-report-chart-box {
+        position: relative;
+        width: 100%;
+        height: 260px;
+        max-height: 260px;
+        overflow: hidden;
+    }
+
+    .gem-report-chart-box-doughnut {
+        height: 240px;
+        max-height: 240px;
+    }
+
+    .gem-report-chart-box canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100%;
+    }
+</style>
 <script id="gem-tender-report-data" type="application/json">
 <%- JSON.stringify(report.charts || {}) %>
 </script>

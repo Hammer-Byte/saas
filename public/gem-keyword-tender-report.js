@@ -50,6 +50,8 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                resizeDelay: 100,
+                animation: false,
                 plugins: {
                     legend: {
                         display: type === "doughnut" || type === "pie",
@@ -62,7 +64,7 @@
                         : {
                               x: {
                                   ticks: {
-                                      autoSkip: false,
+                                      autoSkip: true,
                                       maxRotation: 45,
                                       minRotation: 0,
                                   },
