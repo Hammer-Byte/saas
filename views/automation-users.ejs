@@ -77,12 +77,22 @@
                     </div>
                     <div class="col-md-8">
                         <label for="automation-user-youtube-cookie" class="form-label">YouTube cookie</label>
-                        <input
-                            type="text"
+                        <textarea
                             class="form-control"
                             id="automation-user-youtube-cookie"
                             name="youtube_cookie"
-                            placeholder="Cookie string for youtube.com"
+                            rows="2"
+                            placeholder="Netscape cookie export or name=value; … for youtube.com"
+                        ></textarea>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="automation-user-youtube-channel-id" class="form-label">YouTube channel id</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="automation-user-youtube-channel-id"
+                            name="youtube_channel_id"
+                            placeholder="UC…"
                         />
                     </div>
                     <div class="col-md-4 d-flex align-items-end">
@@ -123,6 +133,7 @@
                                     data-facebook-cookie="<%= automationUser.facebook_cookie || '' %>"
                                     data-instagram-cookie="<%= automationUser.instagram_cookie || '' %>"
                                     data-youtube-cookie="<%= automationUser.youtube_cookie || '' %>"
+                                    data-youtube-channel-id="<%= automationUser.youtube_channel_id || '' %>"
                                     data-linkedin-cookie="<%= automationUser.linkedin_cookie || '' %>"
                                 >
                                     <td><%= automationUser.id %></td>

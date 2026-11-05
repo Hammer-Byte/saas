@@ -41,6 +41,9 @@ export function startContentPublish({
             targetId: target?.targetId,
             platform: String(target?.platform || "").trim(),
             cookie: String(target?.cookie || "").trim(),
+            youtubeChannelId: target?.youtubeChannelId
+                ? String(target.youtubeChannelId).trim()
+                : null,
         }))
         .filter((target) => target.targetId && target.platform && target.cookie);
 
@@ -90,6 +93,7 @@ export function startContentPublish({
                             mediaPath,
                             title: youtubeTitle,
                             description: youtubeDescription,
+                            channelId: target.youtubeChannelId,
                         });
                     } else if (target.platform === "linkedin") {
                         await loginLinkedinWithCookie(driver, target.cookie);

@@ -529,10 +529,13 @@ export async function generateDBTables() {
             facebook_cookie TEXT NULL,
             instagram_cookie TEXT NULL,
             youtube_cookie TEXT NULL,
+            youtube_channel_id VARCHAR(128) NULL,
             linkedin_cookie TEXT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_automation_user_name (name)
         )`,
+        `ALTER TABLE AUTOMATION_USERS
+            ADD COLUMN youtube_channel_id VARCHAR(128) NULL`,
         `CREATE TABLE IF NOT EXISTS CONTENT_PUBLISH_RUNS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             status VARCHAR(32) NOT NULL DEFAULT 'running',

@@ -172,19 +172,139 @@ function normalizeInstagramCookies(cookieValue) {
 }
 
 export async function loginYoutubeWithCookie(driver, cookieValue) {
+    const parts = parseYoutubeCookieBlob(cookieValue);
+    if (!parts.length) {
+        throw new Error("YouTube cookie blob is empty");
+    }
+
+    const names = new Set(parts.map((part) => part.name));
+    const hasModernSession = [...names].some((name) =>
+        /^(__Secure-1PSID|__Secure-3PSID|LOGIN_INFO)$/i.test(name),
+    );
+    if (!hasModernSession) {
+        throw new Error(
+            "YouTube cookie needs __Secure-1PSID / __Secure-3PSID / LOGIN_INFO (Netscape export from youtube.com)",
+        );
+    }
+
+    // Community posts run on www.youtube.com; Netscape exports are usually .youtube.com only.
     await openUrl(driver, "https://www.youtube.com/");
-    const parts = parseNameValueCookieBlob(cookieValue);
     for (const part of parts) {
+        await addCookieBestEffort(driver, part, ".youtube.com");
+    }
+    await openUrl(driver, "https://www.youtube.com/");
+    await contentPublishSleep(2500);
+    await waitForYoutubeLogin(driver);
+}
+
+async function addCookieBestEffort(driver, part, domain) {
+    const secure = part.secure !== false;
+    try {
         await driver.manage().addCookie({
             name: part.name,
             value: part.value,
-            domain: part.domain || ".youtube.com",
-            path: "/",
-            secure: true,
+            domain,
+            path: part.path || "/",
+            secure,
+            sameSite: "None",
         });
+    } catch {
+        try {
+            await driver.manage().addCookie({
+                name: part.name,
+                value: part.value,
+                domain,
+                path: part.path || "/",
+                secure,
+            });
+        } catch {
+            // Ignore cookies this host rejects.
+        }
     }
-    await openUrl(driver, "https://www.youtube.com/");
-    await contentPublishSleep(2000);
+}
+
+function parseYoutubeCookieBlob(cookieValue) {
+    const trimmed = String(cookieValue || "").trim();
+    if (!trimmed) {
+        return [];
+    }
+    if (isNetscapeCookieFile(trimmed)) {
+        return parseNetscapeCookieFile(trimmed);
+    }
+    return parseNameValueCookieBlob(trimmed).map((part) => ({
+        ...part,
+        secure: true,
+        path: "/",
+    }));
+}
+
+function isNetscapeCookieFile(text) {
+    return (
+        /^#\s*Netscape HTTP Cookie File/im.test(text)
+        || /^#HttpOnly_/m.test(text)
+        || /^\.[a-z0-9.-]+\t/im.test(text)
+    );
+}
+
+function parseNetscapeCookieFile(text) {
+    return String(text || "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"))
+        .map((line) => {
+            const cols = line.split("\t");
+            if (cols.length < 7) {
+                return null;
+            }
+            const domain = cols[0].replace(/^#HttpOnly_/i, "");
+            const path = cols[2] || "/";
+            const secure = String(cols[3]).toUpperCase() === "TRUE";
+            const name = cols[5];
+            const value = cols.slice(6).join("\t");
+            if (!name || !value) {
+                return null;
+            }
+            // Skip short-lived Studio transit cookies.
+            if (/^ST-/i.test(name) || name === "GPS") {
+                return null;
+            }
+            return { name, value, domain, path, secure };
+        })
+        .filter(Boolean);
+}
+
+async function waitForYoutubeLogin(driver) {
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline) {
+        const state = await driver.executeScript(`
+          const text = String(document.body?.innerText || "");
+          const url = location.href;
+          const avatar = !!document.querySelector("#avatar-btn, button#avatar-btn, img.yt-spec-avatar-shape__image");
+          return {
+            avatar,
+            create: !![...document.querySelectorAll("button")].find((el) =>
+              (el.getAttribute("aria-label") || "").trim() === "Create"
+            ),
+            createChannel: /create channel/i.test(text.slice(0, 3000)),
+            signedOut: /accounts\\.google\\.com\\/v3\\/signin|ServiceLogin/i.test(url)
+              || (!avatar && /sign in to youtube|^sign in$/i.test(text.slice(0, 500))),
+          };
+        `);
+        if (state.signedOut) {
+            break;
+        }
+        if (state.createChannel && !state.avatar) {
+            throw new Error(
+                "YouTube account has no channel yet (Create channel). Community posts need an existing channel.",
+            );
+        }
+        if (state.avatar || state.create) {
+            return;
+        }
+        await contentPublishSleep(1000);
+    }
+    const url = await driver.getCurrentUrl();
+    throw new Error(`YouTube login failed at ${url}`);
 }
 
 function parseFacebookCookieBlob(cookieValue) {

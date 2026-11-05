@@ -124,6 +124,13 @@ export async function startContentPublishRun({ body, set, cookie }) {
         set.status = 400;
         return { error: "YouTube title is required", processing: false };
     }
+    if (platforms.includes("youtube") && !String(automationUser.youtube_channel_id || "").trim()) {
+        set.status = 400;
+        return {
+            error: "Automation user is missing youtube_channel_id (UC…)",
+            processing: false,
+        };
+    }
     if (platforms.includes("linkedin") && !linkedin_caption) {
         set.status = 400;
         return { error: "LinkedIn caption is required", processing: false };
@@ -157,6 +164,10 @@ export async function startContentPublishRun({ body, set, cookie }) {
             targetId,
             platform,
             cookie: String(automationUser[PLATFORM_COOKIE[platform]] || "").trim(),
+            youtubeChannelId:
+                platform === "youtube"
+                    ? String(automationUser.youtube_channel_id || "").trim() || null
+                    : null,
         });
     }
 

@@ -26,6 +26,7 @@ export default function (app) {
                 facebook_cookie: optionalCookie,
                 instagram_cookie: optionalCookie,
                 youtube_cookie: optionalCookie,
+                youtube_channel_id: optionalCookie,
                 linkedin_cookie: optionalCookie,
             }),
             detail: {
@@ -46,6 +47,7 @@ export default function (app) {
                 facebook_cookie: optionalCookie,
                 instagram_cookie: optionalCookie,
                 youtube_cookie: optionalCookie,
+                youtube_channel_id: optionalCookie,
                 linkedin_cookie: optionalCookie,
             }),
             detail: {

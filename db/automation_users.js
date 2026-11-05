@@ -6,6 +6,7 @@ export async function createAutomationUser({
     facebook_cookie = null,
     instagram_cookie = null,
     youtube_cookie = null,
+    youtube_channel_id = null,
     linkedin_cookie = null,
 }) {
     return await executeSQLQuery(
@@ -16,12 +17,14 @@ export async function createAutomationUser({
                     facebook_cookie,
                     instagram_cookie,
                     youtube_cookie,
+                    youtube_channel_id,
                     linkedin_cookie,
                 },
                 "name",
                 "facebook_cookie",
                 "instagram_cookie",
                 "youtube_cookie",
+                "youtube_channel_id",
                 "linkedin_cookie",
             )}
         `,
@@ -38,6 +41,7 @@ export async function updateAutomationUserById({
     facebook_cookie = null,
     instagram_cookie = null,
     youtube_cookie = null,
+    youtube_channel_id = null,
     linkedin_cookie = null,
 }) {
     await executeSQLQuery(
@@ -48,6 +52,7 @@ export async function updateAutomationUserById({
                 facebook_cookie = ${facebook_cookie},
                 instagram_cookie = ${instagram_cookie},
                 youtube_cookie = ${youtube_cookie},
+                youtube_channel_id = ${youtube_channel_id},
                 linkedin_cookie = ${linkedin_cookie}
             WHERE id = ${id}
         `,
