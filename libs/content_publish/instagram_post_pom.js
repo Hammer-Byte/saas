@@ -18,18 +18,11 @@ function resetStepShots() {
 }
 
 /**
- * Instagram feed image post — human-paced + step screenshots for debugging.
+ * Instagram feed image post — human-paced + Crop/Edit readiness gates.
  *
- * Caption editor is Lexical; bulk textContent/execCommand does not submit.
- * Type via Selenium Actions character-by-character after focusing the caret.
- *
- * Flow:
- * 1. Home → New post → Post
- * 2. Upload image via input[type=file]
- * 3. Dismiss Not Now if shown
- * 4. Next through crop/filter (pause like a person reviewing each screen)
- * 5. Type caption slowly into [aria-label='Add a caption...']
- * 6. Pause, then Share
+ * Failure mode we saw: Crop looks fine → Next → blank Edit → "Something went wrong".
+ * Fix: wait for real crop preview before Next; wait for Edit to hydrate; never Next a blank Edit;
+ * one full retry (close + re-upload) on blank Edit / Meta error.
  */
 
 const PAGE_HELPERS = `
@@ -47,7 +40,7 @@ function findCreateDialog() {
   const scored = dialogs.map((dialog, index) => {
     const text = normalize(dialog.innerText);
     let score = text.length;
-    if (/create new post|crop|edit|filters|share|caption|select from computer|add a caption/i.test(text)) {
+    if (/create new post|crop|edit|filters|share|caption|select from computer|add a caption|something went wrong/i.test(text)) {
       score += 1000;
     }
     if (dialog.querySelector("[aria-label='Add a caption...'], [aria-label*='Add a caption' i]")) {
@@ -96,6 +89,37 @@ function findNotNow() {
   ) || null;
 }
 
+function findTryAgain() {
+  return [...document.querySelectorAll("button, div[role='button']")].find((el) =>
+    /^try again$/i.test(buttonLabel(el))
+  ) || null;
+}
+
+function findDismissCreate() {
+  const dialog = findCreateDialog();
+  const scope = dialog || document;
+  return scope.querySelector("svg[aria-label='Close']")?.closest("button, div[role='button']")
+    || [...scope.querySelectorAll("button, div[role='button']")].find((el) => {
+      const aria = normalize(el.getAttribute("aria-label"));
+      return /^close$/i.test(aria) || /^dismiss$/i.test(aria);
+    })
+    || null;
+}
+
+function findBack() {
+  const scopes = [findCreateDialog(), document].filter(Boolean);
+  for (const scope of scopes) {
+    const back = [...scope.querySelectorAll("div[role='button'], button")].find((el) => {
+      const aria = normalize(el.getAttribute("aria-label"));
+      const label = buttonLabel(el);
+      return /^back$/i.test(aria) || /^back$/i.test(label);
+    });
+    if (back) return back;
+  }
+  const svg = document.querySelector("svg[aria-label='Back']");
+  return svg ? (svg.closest("button, div[role='button']") || svg) : null;
+}
+
 function findNext() {
   const scopes = [findCreateDialog(), document].filter(Boolean);
   for (const scope of scopes) {
@@ -127,6 +151,58 @@ function findCaption() {
     || document.querySelector("[aria-label='Add a caption...']")
     || document.querySelector("[aria-label*='Add a caption' i]")
     || null;
+}
+
+function dialogTitle() {
+  const dialog = findCreateDialog();
+  if (!dialog) return "";
+  const heading = dialog.querySelector("h1, h2, [role='heading']");
+  if (heading) return normalize(heading.innerText);
+  const text = normalize(dialog.innerText || "");
+  if (/^crop\\b/i.test(text) || /\\bcrop\\b/i.test(text.slice(0, 40))) return "Crop";
+  if (/^edit\\b/i.test(text) || /\\bedit\\b/i.test(text.slice(0, 40))) return "Edit";
+  if (/create new post/i.test(text.slice(0, 80))) return "Create new post";
+  if (/new post/i.test(text.slice(0, 80))) return "New post";
+  return text.slice(0, 40);
+}
+
+function countPreviewMedia() {
+  const dialog = findCreateDialog() || document;
+  return [...dialog.querySelectorAll("img, video, canvas")].filter((el) => {
+    if (el.tagName === "IMG") {
+      const src = el.currentSrc || el.src || "";
+      return (src.startsWith("blob:") || src.startsWith("data:image/") || el.naturalWidth > 80)
+        && el.getClientRects().length > 0;
+    }
+    if (el.tagName === "VIDEO") {
+      return el.getClientRects().length > 0 && (el.videoWidth > 40 || el.readyState >= 2);
+    }
+    // canvas
+    const rect = el.getClientRects()[0];
+    return !!rect && rect.width > 80 && rect.height > 80;
+  }).length;
+}
+
+function wizardStage() {
+  if (findCaption() || findShare()) return "caption";
+  const dialog = findCreateDialog();
+  const text = normalize(dialog?.innerText || "");
+  if (/something went wrong/i.test(text)) return "error";
+  if (/select from computer|drag photos and videos here/i.test(text) && countPreviewMedia() === 0) {
+    return "select";
+  }
+  const title = dialogTitle();
+  if (/^crop$/i.test(title) || (/\\bcrop\\b/i.test(text.slice(0, 60)) && findNext())) {
+    return countPreviewMedia() > 0 ? "crop_ready" : "crop_empty";
+  }
+  if (/^edit$/i.test(title) || (/\\bedit\\b/i.test(text.slice(0, 60)) && findNext())) {
+    // Blank Edit: title Edit + Next but almost no media / filter UI.
+    const hasFilters = /filters|adjustments|original/i.test(text);
+    if (countPreviewMedia() > 0 || hasFilters) return "edit_ready";
+    return "edit_blank";
+  }
+  if (countPreviewMedia() > 0 && findNext()) return "crop_ready";
+  return "unknown";
 }
 `;
 
@@ -162,6 +238,9 @@ export async function diagnoseInstagramPublish(driver) {
       const dialog = findCreateDialog();
       return {
         url: location.href,
+        stage: wizardStage(),
+        title: dialogTitle(),
+        previews: countPreviewMedia(),
         newPost: !!findNewPostControl(),
         fileInputs: document.querySelectorAll("input[type='file']").length,
         next: !!findNext(),
@@ -170,7 +249,7 @@ export async function diagnoseInstagramPublish(driver) {
         captionText: (findCaption()?.innerText || "").slice(0, 120),
         notNow: !!findNotNow(),
         dialogs: document.querySelectorAll("div[role='dialog']").length,
-        dialogText: String((dialog || {}).innerText || "").slice(0, 160),
+        dialogText: String((dialog || {}).innerText || "").slice(0, 180),
       };
     `);
 }
@@ -186,6 +265,31 @@ async function dismissNotNow(driver) {
     if (clicked) {
         await humanPause(700, 1400);
     }
+}
+
+async function closeCreateFlow(driver) {
+    igLog("closing create dialog for retry");
+    await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const tryAgain = findTryAgain();
+      if (tryAgain) tryAgain.click();
+    `);
+    await humanPause(600, 1000);
+    await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const close = findDismissCreate();
+      if (close) close.click();
+    `);
+    await humanPause(800, 1400);
+    // Confirm leave if Instagram asks.
+    await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const nodes = [...document.querySelectorAll("button, div[role='button']")];
+      const leave = nodes.find((el) => /^leave$/i.test(buttonLabel(el)) || /^discard$/i.test(buttonLabel(el)));
+      if (leave) leave.click();
+    `);
+    await humanPause(1000, 1800);
+    await debugShot(driver, "ig-retry-after-close");
 }
 
 async function openCreatePost(driver) {
@@ -222,7 +326,6 @@ async function openCreatePost(driver) {
       return true;
     `);
     if (!chosePost) {
-        // Some accounts open the uploader directly without a Post submenu.
         const hasUpload = await driver.executeScript(`
           ${PAGE_HELPERS}
           return !!(findSelectFromComputer() || document.querySelector("input[type='file']"));
@@ -274,98 +377,199 @@ async function attachImage(driver, mediaPath) {
         );
     }
 
+    let chosen = inputs[0];
+    for (const input of inputs) {
+        const accept = String((await input.getAttribute("accept")) || "").toLowerCase();
+        if (
+            accept.includes("image") ||
+            accept.includes("jpeg") ||
+            accept.includes("png") ||
+            accept.includes("webp")
+        ) {
+            chosen = input;
+            break;
+        }
+    }
+
     await debugShot(driver, "ig-03-before-upload");
     await humanPause(500, 1100);
-    await inputs[0].sendKeys(mediaPath);
-    igLog("file sent to input, waiting for preview");
+    await chosen.sendKeys(mediaPath);
+    igLog("file sent to input, waiting for crop preview (not only Next)");
 
-    // Let IG process the file like a person waiting for the preview.
-    await humanPause(2800, 4500);
+    await humanPause(3000, 5000);
     await dismissNotNow(driver);
     await debugShot(driver, "ig-03-after-upload");
 
-    const readyDeadline = Date.now() + 25000;
+    const readyDeadline = Date.now() + 35000;
     while (Date.now() < readyDeadline) {
         await dismissNotNow(driver);
-        const ready = await driver.executeScript(`
-          ${PAGE_HELPERS}
-          return !!(findNext() || findCaption() || findShare());
-        `);
-        if (ready) {
-            igLog("upload preview ready");
-            await humanPause(900, 1800);
+        const state = await diagnoseInstagramPublish(driver);
+        if (state.stage === "error") {
+            await failWithShot(
+                driver,
+                "ig-03-upload-error",
+                `Instagram step3 error after upload (${JSON.stringify(state)})`,
+            );
+        }
+        // Require Crop with a real preview — Next alone is not enough.
+        if (state.stage === "crop_ready" || (state.previews > 0 && state.next)) {
+            igLog(`upload crop ready previews=${state.previews} stage=${state.stage}`);
+            await humanPause(1200, 2200);
             await debugShot(driver, "ig-03-upload-ready");
             return;
         }
-        await humanPause(600, 1100);
+        if (state.stage === "caption" || state.stage === "edit_ready") {
+            igLog(`upload already past crop stage=${state.stage}`);
+            await debugShot(driver, "ig-03-upload-ready");
+            return;
+        }
+        await humanPause(700, 1200);
     }
 
     const state = await diagnoseInstagramPublish(driver);
     await failWithShot(
         driver,
         "ig-03-upload-not-ready",
-        `Instagram step3 upload preview not ready (${JSON.stringify(state)})`,
+        `Instagram step3 crop preview not ready (${JSON.stringify(state)})`,
     );
 }
 
+async function clickNextOnce(driver) {
+    return await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const next = findNext();
+      if (!next) return false;
+      next.scrollIntoView({ block: "center" });
+      next.click();
+      return true;
+    `);
+}
+
+async function goBackOnce(driver) {
+    return await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const back = findBack();
+      if (!back) return false;
+      back.click();
+      return true;
+    `);
+}
+
 async function clickThroughNext(driver) {
-    igLog("step crop/filter Next");
-    const deadline = Date.now() + 60000;
+    igLog("step crop/filter Next with readiness gates");
+    const deadline = Date.now() + 75000;
     let nextClicks = 0;
     let waitShots = 0;
+    let blankEditRecoveries = 0;
 
     while (Date.now() < deadline) {
         await dismissNotNow(driver);
-        const status = await driver.executeScript(`
-          ${PAGE_HELPERS}
-          if (findCaption()) return { status: "caption" };
-          if (findShare()) return { status: "share" };
-          const dialog = findCreateDialog();
-          const dialogText = String((dialog || {}).innerText || "").slice(0, 200);
-          if (/something went wrong/i.test(dialogText)) {
-            return {
-              status: "ig_error",
-              dialogs: document.querySelectorAll("div[role='dialog']").length,
-              dialogText,
-              fileInputs: document.querySelectorAll("input[type='file']").length,
-            };
-          }
-          const next = findNext();
-          if (!next) {
-            return {
-              status: "wait",
-              dialogs: document.querySelectorAll("div[role='dialog']").length,
-              dialogText,
-              fileInputs: document.querySelectorAll("input[type='file']").length,
-            };
-          }
-          next.scrollIntoView({ block: "center" });
-          next.click();
-          return { status: "next", dialogText };
-        `);
+        const state = await diagnoseInstagramPublish(driver);
+        igLog(
+            `wizard stage=${state.stage} previews=${state.previews} next=${state.next} clicks=${nextClicks}`,
+        );
 
-        if (status?.status === "caption" || status?.status === "share") {
-            igLog(`wizard reached ${status.status} after nextClicks=${nextClicks}`);
+        if (state.stage === "caption" || state.share || state.caption) {
+            igLog(`wizard reached caption after nextClicks=${nextClicks}`);
             await humanPause(1000, 2000);
             await debugShot(driver, "ig-04-caption-screen");
-            return;
+            return { ok: true };
         }
-        if (status?.status === "ig_error") {
-            igLog(`wizard error dialog=${status.dialogText || ""}`);
-            await failWithShot(
-                driver,
-                "ig-04-something-went-wrong",
-                `Instagram step4 wizard stuck before caption (nextClicks=${nextClicks}, ${JSON.stringify(status)})`,
-            );
+
+        if (state.stage === "error") {
+            await debugShot(driver, "ig-04-something-went-wrong");
+            return { ok: false, reason: "ig_error", state };
         }
-        if (status?.status === "next") {
-            nextClicks += 1;
-            igLog(`clicked Next #${nextClicks}`);
-            await debugShot(driver, `ig-04-after-next-${nextClicks}`);
-            // Person reviews crop/filter before continuing.
-            await humanPause(2200, 4200);
+
+        if (state.stage === "edit_blank") {
+            await debugShot(driver, `ig-04-edit-blank-${blankEditRecoveries + 1}`);
+            if (blankEditRecoveries < 2) {
+                blankEditRecoveries += 1;
+                igLog("blank Edit detected — going Back to Crop to re-hydrate");
+                const backed = await goBackOnce(driver);
+                await humanPause(2000, 3500);
+                if (!backed) {
+                    return { ok: false, reason: "edit_blank", state };
+                }
+                continue;
+            }
+            igLog("blank Edit persisted after Back retries");
+            return { ok: false, reason: "edit_blank", state };
+        }
+
+        if (state.stage === "crop_empty") {
+            waitShots += 1;
+            if (waitShots <= 5 || waitShots % 3 === 0) {
+                await debugShot(driver, `ig-04-crop-empty-${waitShots}`);
+            }
+            await humanPause(900, 1500);
             continue;
         }
+
+        if (state.stage === "crop_ready") {
+            // Extra beat so crop canvas finishes before Next.
+            await humanPause(1500, 2800);
+            const recheck = await diagnoseInstagramPublish(driver);
+            if (recheck.stage !== "crop_ready" || recheck.previews < 1) {
+                continue;
+            }
+            const clicked = await clickNextOnce(driver);
+            if (!clicked) {
+                await humanPause(800, 1200);
+                continue;
+            }
+            nextClicks += 1;
+            igLog(`clicked Next #${nextClicks} from crop_ready`);
+            await debugShot(driver, `ig-04-after-next-${nextClicks}`);
+            // Wait for Edit to hydrate (or caption) before considering another Next.
+            const editDeadline = Date.now() + 15000;
+            while (Date.now() < editDeadline) {
+                await humanPause(800, 1400);
+                const after = await diagnoseInstagramPublish(driver);
+                if (after.stage === "caption" || after.caption || after.share) {
+                    await debugShot(driver, "ig-04-caption-screen");
+                    return { ok: true };
+                }
+                if (after.stage === "edit_ready") {
+                    igLog("Edit hydrated with preview/filters");
+                    await debugShot(driver, "ig-04-edit-ready");
+                    break;
+                }
+                if (after.stage === "edit_blank") {
+                    igLog("landed on blank Edit after Crop Next");
+                    break;
+                }
+                if (after.stage === "error") {
+                    await debugShot(driver, "ig-04-something-went-wrong");
+                    return { ok: false, reason: "ig_error", state: after };
+                }
+            }
+            continue;
+        }
+
+        if (state.stage === "edit_ready") {
+            await humanPause(1200, 2200);
+            const recheck = await diagnoseInstagramPublish(driver);
+            if (recheck.stage === "caption" || recheck.caption) {
+                await debugShot(driver, "ig-04-caption-screen");
+                return { ok: true };
+            }
+            if (recheck.stage !== "edit_ready") {
+                continue;
+            }
+            const clicked = await clickNextOnce(driver);
+            if (!clicked) {
+                await humanPause(800, 1200);
+                continue;
+            }
+            nextClicks += 1;
+            igLog(`clicked Next #${nextClicks} from edit_ready`);
+            await debugShot(driver, `ig-04-after-next-${nextClicks}`);
+            await humanPause(2200, 4000);
+            continue;
+        }
+
+        // unknown / select — wait
         waitShots += 1;
         if (waitShots <= 4 || waitShots % 3 === 0) {
             await debugShot(driver, `ig-04-waiting-${waitShots}`);
@@ -374,11 +578,7 @@ async function clickThroughNext(driver) {
     }
 
     const state = await diagnoseInstagramPublish(driver);
-    await failWithShot(
-        driver,
-        "ig-04-wizard-timeout",
-        `Instagram step4 wizard stuck before caption (nextClicks=${nextClicks}, ${JSON.stringify(state)})`,
-    );
+    return { ok: false, reason: "timeout", state };
 }
 
 async function typeCaptionHuman(driver, text) {
@@ -427,7 +627,6 @@ async function typeCaptionHuman(driver, text) {
         }
     }
 
-    // Stop typing and "look" at the caption before Share.
     await humanPause(1200, 2200);
     return true;
 }
@@ -444,18 +643,13 @@ async function typeCaption(driver, caption, hashtags) {
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
         await dismissNotNow(driver);
-        const ready = await driver.executeScript(`
-          ${PAGE_HELPERS}
-          return !!findCaption();
-        `);
-        if (ready) {
+        const state = await diagnoseInstagramPublish(driver);
+        if (state.caption || state.stage === "caption") {
             break;
         }
-        await driver.executeScript(`
-          ${PAGE_HELPERS}
-          const next = findNext();
-          if (next) next.click();
-        `);
+        if (state.stage === "edit_ready") {
+            await clickNextOnce(driver);
+        }
         await humanPause(900, 1600);
     }
 
@@ -514,7 +708,6 @@ async function clickShare(driver) {
             igLog("Share clicked");
             await humanPause(2500, 4500);
             await debugShot(driver, "ig-06-after-share");
-            // Extra beat for "post shared" toast / dialog close.
             await humanPause(2000, 3500);
             await debugShot(driver, "ig-07-done");
             igLog("publish flow finished");
@@ -531,6 +724,18 @@ async function clickShare(driver) {
     );
 }
 
+async function runPublishOnce(driver, mediaPath, caption, hashtags) {
+    await openCreatePost(driver);
+    await attachImage(driver, mediaPath);
+    const wizard = await clickThroughNext(driver);
+    if (!wizard.ok) {
+        return wizard;
+    }
+    await typeCaption(driver, caption, hashtags);
+    await clickShare(driver);
+    return { ok: true };
+}
+
 export async function publishInstagramImagePost({ driver, mediaPath, caption, hashtags }) {
     resetStepShots();
     igLog("publish start");
@@ -542,14 +747,27 @@ export async function publishInstagramImagePost({ driver, mediaPath, caption, ha
         await dismissNotNow(driver);
         await debugShot(driver, "ig-00-after-home-settle");
 
-        await openCreatePost(driver);
-        await attachImage(driver, mediaPath);
-        await clickThroughNext(driver);
-        await typeCaption(driver, caption, hashtags);
-        await clickShare(driver);
+        let result = await runPublishOnce(driver, mediaPath, caption, hashtags);
+        if (!result.ok && (result.reason === "ig_error" || result.reason === "edit_blank")) {
+            igLog(`first attempt failed reason=${result.reason} — full retry once`);
+            await debugShot(driver, "ig-retry-before");
+            await closeCreateFlow(driver);
+            await openUrl(driver, "https://www.instagram.com/");
+            await humanPause(2000, 3500);
+            await dismissNotNow(driver);
+            result = await runPublishOnce(driver, mediaPath, caption, hashtags);
+        }
+
+        if (!result.ok) {
+            await failWithShot(
+                driver,
+                `ig-04-${result.reason || "failed"}`,
+                `Instagram step4 wizard failed (${result.reason}, ${JSON.stringify(result.state || {})})`,
+            );
+        }
+
         igLog(`publish ok screenshots=${stepShots.length}`);
     } catch (error) {
-        // Ensure every step shot is stored on the failure for history/logs.
         throw attachScreenshotToError(
             error instanceof Error ? error : new Error(String(error)),
             null,
