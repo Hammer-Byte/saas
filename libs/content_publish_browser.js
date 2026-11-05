@@ -210,7 +210,12 @@ export async function openFirefox({ useProxy = false } = {}) {
         .setFirefoxOptions(options)
         .build();
 
-    await driver.manage().setTimeouts({ implicit: 0, pageLoad: 20_000 });
+    // Residential proxies make Instagram's first document slow; 20s was failing
+    // with Firefox "Navigation timed out after 20000 ms".
+    const pageLoadMs = useProxy
+        ? Number(Bun.env.CONTENT_PUBLISH_PROXY_PAGELOAD_MS) || 90_000
+        : 20_000;
+    await driver.manage().setTimeouts({ implicit: 0, pageLoad: pageLoadMs });
 
     const originalQuit = driver.quit.bind(driver);
     driver.quit = async () => {
@@ -232,14 +237,23 @@ export async function openFirefox({ useProxy = false } = {}) {
     return driver;
 }
 
+function isNavigationTimeoutError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Firefox: "Navigation timed out after 20000 ms"
+    // Chrome/others: often "timeout" / "TimeoutError"
+    return /timed\s*out|timeout/i.test(message);
+}
+
 export async function openUrl(driver, url) {
     try {
         await driver.get(url);
     } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (!/timeout/i.test(message)) {
+        if (!isNavigationTimeoutError(error)) {
             throw error;
         }
+        logger.info(
+            `content-publish openUrl navigation timeout (continuing) url=${url}`,
+        );
     }
 }
 
