@@ -7,15 +7,10 @@ import {
 } from "../content_publish_screenshot.js";
 
 /**
- * YouTube Community image post — live-tuned.
+ * YouTube Community image post on a specific channel (brand accounts supported).
  *
- * Must publish as the given channel (brand accounts), not the default/main channel.
- *
- * Flow:
- * 1. Switch context via Studio for /channel/{UC…}
- * 2. Open /channel/{UC…}/posts?show_create_dialog=1 (or Studio community create)
- * 3. Verify page is still that channel before composing
- * 4. Add image → caption → Post
+ * Critical: stay on /channel/{UC…}/posts — never fall back to homepage Create
+ * (that posts as the default/personal channel).
  */
 
 function normalizeChannelId(value) {
@@ -77,37 +72,43 @@ async function dismissCommunityIntro(driver) {
     }
 }
 
-async function ensureCommunityEnabled(driver) {
-    if (await clickByLabel(driver, ["^turn on my community$"])) {
-        await contentPublishSleep(2000);
-        await clickByLabel(driver, ["^visit community$", "^not now$"]);
-        await contentPublishSleep(2000);
-    }
-    await dismissCommunityIntro(driver);
-}
-
 async function diagnoseChannelContext(driver, channelId) {
     return await driver.executeScript(
         `
       const wanted = String(arguments[0] || "");
       const href = String(location.href || "");
       const html = String(document.documentElement?.innerHTML || "");
-      const text = String(document.body?.innerText || "").slice(0, 2500);
+      const text = String(document.body?.innerText || "");
       const inUrl = wanted && href.includes(wanted);
       const inHtml = wanted && html.includes(wanted);
+      const hasAddImage = [...document.querySelectorAll("button, yt-button-shape button")].some((el) => {
+        const aria = (el.getAttribute("aria-label") || "").trim();
+        const label = ((el.innerText || "") + " " + aria).replace(/\\s+/g, " ").trim();
+        return /^add an image$/i.test(aria) || /^image$/i.test(label);
+      });
+      const hasCaption = !!document.querySelector("#contenteditable-root, [contenteditable='true']");
+      const hasImageFile = [...document.querySelectorAll("input[type='file']")].some((input) => {
+        const accept = (input.getAttribute("accept") || "").toLowerCase();
+        return accept.includes("image");
+      });
+      const hasPost = [...document.querySelectorAll("button, yt-button-shape button")].some((el) => {
+        const aria = (el.getAttribute("aria-label") || "").trim();
+        const label = (el.innerText || "").replace(/\\s+/g, " ").trim();
+        return /^post$/i.test(aria) || /^post$/i.test(label);
+      });
+      const communityComposer = /share a |behind-the-scenes|image poll|visibility:/i.test(text.slice(0, 4000));
       return {
         url: href,
         inUrl,
         inHtml,
         matched: !!(inUrl || inHtml),
-        hasCompose: !!(
-          document.querySelector("button[aria-label='Add an image']")
-          || document.querySelector("#contenteditable-root, [aria-label='Write a message...']")
-          || [...document.querySelectorAll("button")].some((el) =>
-            /^post$/i.test((el.innerText || "").trim())
-          )
-        ),
-        snippet: text.slice(0, 180),
+        hasCompose: !!(hasAddImage || hasCaption || hasImageFile || (hasPost && communityComposer)),
+        hasAddImage,
+        hasCaption,
+        hasImageFile,
+        hasPost,
+        communityComposer,
+        snippet: text.slice(0, 220),
       };
     `,
         channelId,
@@ -117,7 +118,7 @@ async function diagnoseChannelContext(driver, channelId) {
 async function assertChannelContext(driver, channelId, label) {
     const state = await diagnoseChannelContext(driver, channelId);
     logger.info(
-        `content-publish yt channel-check matched=${state.matched} inUrl=${state.inUrl} url=${state.url}`,
+        `content-publish yt channel-check matched=${state.matched} inUrl=${state.inUrl} compose=${state.hasCompose} url=${state.url}`,
     );
     if (!state.matched) {
         await failStep(
@@ -129,48 +130,58 @@ async function assertChannelContext(driver, channelId, label) {
     return state;
 }
 
+async function switchViaAccountSwitcher(driver, channelId) {
+    logger.info("content-publish yt opening channel_switcher");
+    await openUrl(
+        driver,
+        `https://www.youtube.com/channel_switcher?next=${encodeURIComponent(
+            `/channel/${channelId}/posts?show_create_dialog=1`,
+        )}`,
+    );
+    await contentPublishSleep(4000);
+
+    const clicked = await driver.executeScript(
+        `
+      const wanted = String(arguments[0] || "");
+      const items = [...document.querySelectorAll(
+        "ytd-account-item-renderer, a[href*='channel/'], a[href*='/@'], tp-yt-paper-item"
+      )];
+      const hit = items.find((el) => {
+        const href = el.getAttribute("href")
+          || el.querySelector?.("a")?.getAttribute("href")
+          || "";
+        const text = ((el.innerText || "") + " " + href).replace(/\\s+/g, " ");
+        return href.includes(wanted) || text.includes(wanted);
+      });
+      if (!hit) {
+        return { ok: false, count: items.length };
+      }
+      const clickable = hit.querySelector("a") || hit;
+      clickable.click();
+      return { ok: true, text: (hit.innerText || "").replace(/\\s+/g, " ").trim().slice(0, 100) };
+    `,
+        channelId,
+    );
+    logger.info(`content-publish yt switcher click=${JSON.stringify(clicked)}`);
+    await contentPublishSleep(4500);
+    return clicked?.ok === true;
+}
+
 async function establishChannelContext(driver, channelId) {
-    // Studio channel URL forces the signed-in session onto that brand channel.
+    // Studio forces the session onto that brand channel when possible.
     logger.info(`content-publish yt switch studio channel=${channelId}`);
     await openUrl(driver, `https://studio.youtube.com/channel/${channelId}`);
     await contentPublishSleep(3500);
 
     let state = await diagnoseChannelContext(driver, channelId);
-    if (!state.matched) {
-        // Fallback: channel switcher with next=Studio for that channel
-        logger.info("content-publish yt studio switch missed, trying channel_switcher");
-        await openUrl(
-            driver,
-            `https://www.youtube.com/channel_switcher?next=${encodeURIComponent(
-                `/channel/${channelId}/posts`,
-            )}`,
-        );
-        await contentPublishSleep(4000);
-
-        // If switcher shows a list, click the entry that mentions this channel id / href.
-        await driver.executeScript(
-            `
-          const wanted = String(arguments[0] || "");
-          const links = [...document.querySelectorAll("a[href*='channel/'], ytd-account-item-renderer, tp-yt-paper-item")];
-          const hit = links.find((el) => {
-            const href = el.getAttribute?.("href") || el.querySelector?.("a")?.getAttribute("href") || "";
-            const text = (el.innerText || "") + " " + href;
-            return href.includes(wanted) || text.includes(wanted);
-          });
-          if (hit) {
-            const clickable = hit.closest("a, ytd-account-item-renderer, tp-yt-paper-item") || hit;
-            clickable.click();
-            return true;
-          }
-          return false;
-        `,
-            channelId,
-        );
-        await contentPublishSleep(3500);
-        state = await diagnoseChannelContext(driver, channelId);
+    if (state.matched && /studio\.youtube\.com\/channel\//i.test(state.url)) {
+        logger.info("content-publish yt studio channel context ok");
+        return;
     }
 
-    if (!state.matched) {
+    const switched = await switchViaAccountSwitcher(driver, channelId);
+    state = await diagnoseChannelContext(driver, channelId);
+    if (!state.matched && !switched) {
         await failStep(
             driver,
             `YouTube could not switch to channel ${channelId} (${JSON.stringify(state)})`,
@@ -179,126 +190,114 @@ async function establishChannelContext(driver, channelId) {
     }
 }
 
-async function openCreateOnChannelPosts(driver, channelId) {
-    const postsUrl = `https://www.youtube.com/channel/${channelId}/posts?show_create_dialog=1`;
-    logger.info(`content-publish yt open posts create ${postsUrl}`);
-    await openUrl(driver, postsUrl);
-    await contentPublishSleep(4500);
-    await ensureCommunityEnabled(driver);
-    await dismissCommunityIntro(driver);
-    return await diagnoseChannelContext(driver, channelId);
-}
-
-async function openCreateOnStudioCommunity(driver, channelId) {
-    const studioUrl = `https://studio.youtube.com/channel/${channelId}/community`;
-    logger.info(`content-publish yt open studio community ${studioUrl}`);
-    await openUrl(driver, studioUrl);
-    await contentPublishSleep(4000);
-    await dismissCommunityIntro(driver);
-
-    // Prefer an explicit create/post control on Studio community.
-    const opened = await driver.executeScript(`
-      const nodes = [...document.querySelectorAll("button, a, div[role='button'], yt-button-shape button")];
-      const create = nodes.find((el) => {
-        const label = ((el.getAttribute("aria-label") || "") + " " + (el.innerText || ""))
-          .replace(/\\s+/g, " ")
-          .trim();
-        return /^(create|new post|create post)$/i.test(label)
-          || /create (a )?post/i.test(label);
-      });
-      if (!create) return false;
-      create.click();
-      return true;
-    `);
-    if (opened) {
-        await contentPublishSleep(3500);
-    }
-    await dismissCommunityIntro(driver);
-    return await diagnoseChannelContext(driver, channelId);
-}
-
-async function waitForComposeReady(driver, timeoutMs = 20000) {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-        const ready = await driver.executeScript(`
-          return !!(
-            document.querySelector("button[aria-label='Add an image']")
-            || document.querySelector("#contenteditable-root, [aria-label='Write a message...']")
-            || [...document.querySelectorAll("button")].some((el) =>
-              /^post$/i.test((el.innerText || "").trim())
-            )
-          );
-        `);
-        if (ready) {
-            return true;
-        }
-        await contentPublishSleep(700);
-    }
-    return false;
-}
-
 async function openCreatePostDialog(driver, channelId) {
     await establishChannelContext(driver, channelId);
 
-    let state = await openCreateOnChannelPosts(driver, channelId);
-    await assertChannelContext(driver, channelId, "yt-posts-channel");
+    const postsUrl = `https://www.youtube.com/channel/${channelId}/posts?show_create_dialog=1`;
+    logger.info(`content-publish yt open posts create ${postsUrl}`);
+    await openUrl(driver, postsUrl);
+    await contentPublishSleep(5000);
+    await dismissCommunityIntro(driver);
 
-    if (state.hasCompose || (await waitForComposeReady(driver, 8000))) {
+    let state = await assertChannelContext(driver, channelId, "yt-posts-channel");
+    if (state.hasCompose) {
         logger.info("content-publish yt compose ready on channel posts");
         return;
     }
 
-    // Do NOT fall back to www.youtube.com Create — that uses the default/main channel.
-    state = await openCreateOnStudioCommunity(driver, channelId);
-    await assertChannelContext(driver, channelId, "yt-studio-channel");
-
-    if (state.hasCompose || (await waitForComposeReady(driver, 12000))) {
-        logger.info("content-publish yt compose ready on studio community");
-        return;
+    // Stay on this channel — wait longer; do not go to homepage Create.
+    logger.info("content-publish yt waiting for community composer on channel posts");
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+        state = await diagnoseChannelContext(driver, channelId);
+        if (!state.matched) {
+            await failStep(
+                driver,
+                `YouTube left channel context while waiting (${JSON.stringify(state)})`,
+                "yt-posts-channel-lost",
+            );
+        }
+        if (state.hasCompose) {
+            logger.info("content-publish yt compose became ready on channel posts");
+            return;
+        }
+        await contentPublishSleep(1000);
     }
 
-    await failStep(
-        driver,
-        `YouTube step2 create dialog missing for channel ${channelId} (${JSON.stringify(state)})`,
-        "yt-step2",
-    );
+    // Last resort: re-open posts after explicit switcher selection.
+    await switchViaAccountSwitcher(driver, channelId);
+    await openUrl(driver, postsUrl);
+    await contentPublishSleep(5000);
+    state = await assertChannelContext(driver, channelId, "yt-posts-after-switcher");
+    if (!state.hasCompose) {
+        await failStep(
+            driver,
+            `YouTube step2 create UI missing for channel ${channelId} (${JSON.stringify(state)})`,
+            "yt-step2",
+        );
+    }
 }
 
 async function attachImage(driver, mediaPath) {
-    await clickByLabel(driver, ["^add an image$"]);
-    await contentPublishSleep(1000);
+    // Must activate the community image flow first; bare file inputs can miss the composer.
+    logger.info("content-publish yt clicking Add an image");
+    const clicked = await clickByLabel(driver, ["^add an image$", "^image$"]);
+    if (!clicked) {
+        await failStep(driver, "YouTube step3 Add an image control missing", "yt-step3");
+    }
+    await contentPublishSleep(1500);
 
     const inputs = await driver.findElements({ css: "input[type=file]" });
-    let chosen = null;
+    const imageInputs = [];
     for (const input of inputs) {
-        const accept = (await input.getAttribute("accept")) || "";
-        const className = (await input.getAttribute("class")) || "";
-        if (/image\/\*/i.test(accept) || (/image/i.test(accept) && !/searchbox/i.test(className))) {
-            chosen = input;
-            if (/image\/\*/i.test(accept)) {
-                break;
-            }
+        const accept = String((await input.getAttribute("accept")) || "").toLowerCase();
+        const className = String((await input.getAttribute("class")) || "");
+        if (/image/.test(accept) && !/searchbox/i.test(className)) {
+            imageInputs.push({ input, accept });
         }
     }
-    if (!chosen) {
+    if (!imageInputs.length) {
         await failStep(driver, "YouTube step3 image file input missing", "yt-step3");
     }
 
+    // Prefer accept=image/* community uploader.
+    let chosen = imageInputs[0].input;
+    for (const item of imageInputs) {
+        if (item.accept.includes("image/*")) {
+            chosen = item.input;
+            break;
+        }
+    }
+
+    logger.info(`content-publish yt sending image inputs=${imageInputs.length}`);
     await chosen.sendKeys(mediaPath);
     await contentPublishSleep(4000);
     await dismissCommunityIntro(driver);
-    await clickByLabel(driver, ["^save images$"]);
-    await contentPublishSleep(1500);
 
-    const deadline = Date.now() + 20000;
+    // Image editor may show Save Images or Save Preview.
+    const saved = await clickByLabel(driver, ["^save images$", "^save preview$"]);
+    logger.info(`content-publish yt save images/preview clicked=${saved}`);
+    await contentPublishSleep(2000);
+
+    const deadline = Date.now() + 25000;
     while (Date.now() < deadline) {
         await dismissCommunityIntro(driver);
         const ready = await driver.executeScript(`
           const text = String(document.body?.innerText || "");
-          return /edit preview|delete|drag to reorder|write a message/i.test(text)
-            || !!document.querySelector("[aria-label='Write a message...']");
+          const editable = [...document.querySelectorAll("#contenteditable-root, [contenteditable='true']")]
+            .some((el) => el.getClientRects().length > 0);
+          const writeBox = !!document.querySelector(
+            "#contenteditable-root[aria-label='Write a message...'], [aria-label='Write a message...']"
+          );
+          return writeBox
+            || editable
+            || /edit preview|drag to reorder|reposition images|save images|write a message|delete/i.test(text);
         `);
         if (ready) {
+            // Ensure Save is completed if still showing.
+            await clickByLabel(driver, ["^save images$", "^save preview$"]);
+            await contentPublishSleep(1000);
+            logger.info("content-publish yt image preview ready");
             return;
         }
         await contentPublishSleep(700);
@@ -314,20 +313,35 @@ async function typeCaption(driver, title, description) {
 
     await driver.executeScript(`
       const box = [...document.querySelectorAll(
-        "#contenteditable-root, [aria-label='Write a message...'], [contenteditable='true']"
-      )].find((el) => el.getClientRects().length > 0);
+        "#contenteditable-root, [contenteditable='true']"
+      )].find((el) => {
+        const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+        // Prefer the community caption box; skip hidden poll/quiz fields when possible.
+        return el.id === "contenteditable-root"
+          || /message|share|photo|caption|post/i.test(aria)
+          || el.getClientRects().length > 0;
+      }) || [...document.querySelectorAll("#contenteditable-root, [contenteditable='true']")][0];
       if (box) {
         box.scrollIntoView({ block: "center" });
         box.focus();
         box.click();
       }
     `);
-    await contentPublishSleep(300);
+    await contentPublishSleep(400);
 
     const boxes = await driver.findElements({
-        css: "#contenteditable-root, [aria-label='Write a message...'], [contenteditable='true']",
+        css: "#contenteditable-root, [contenteditable='true']",
     });
-    const box = boxes[0];
+    let box = null;
+    for (const candidate of boxes) {
+        const aria = String((await candidate.getAttribute("aria-label")) || "").toLowerCase();
+        const id = String((await candidate.getAttribute("id")) || "");
+        if (id === "contenteditable-root" || /message|share|photo|caption|post/i.test(aria)) {
+            box = candidate;
+            break;
+        }
+    }
+    box = box || boxes[0];
     if (!box) {
         await failStep(driver, "YouTube step4 caption box missing", "yt-step4");
     }
@@ -337,16 +351,17 @@ async function typeCaption(driver, title, description) {
     } catch {
         await box.click();
     }
-    await contentPublishSleep(200);
+    await contentPublishSleep(250);
 
     const active = await driver.switchTo().activeElement();
     await active.sendKeys(Key.chord(Key.CONTROL, "a"));
     await active.sendKeys(Key.BACK_SPACE);
     await active.sendKeys(text);
-    await contentPublishSleep(800);
+    await contentPublishSleep(900);
 
     const applied = await driver.executeScript(`
-      const el = document.querySelector("#contenteditable-root, [aria-label='Write a message...']");
+      const el = document.querySelector("#contenteditable-root")
+        || document.querySelector("[contenteditable='true']");
       return String(el?.innerText || "").trim();
     `);
     const probe = text.slice(0, Math.min(12, text.length));
@@ -360,7 +375,7 @@ async function typeCaption(driver, title, description) {
 }
 
 async function clickPost(driver) {
-    const deadline = Date.now() + 20000;
+    const deadline = Date.now() + 25000;
     while (Date.now() < deadline) {
         await dismissCommunityIntro(driver);
         const posted = await driver.executeScript(`
@@ -372,6 +387,7 @@ async function clickPost(driver) {
             return (/^post$/i.test(aria) || /^post$/i.test(text)) && !disabled;
           });
           if (!el) return false;
+          el.scrollIntoView({ block: "center" });
           el.click();
           return true;
         `);
@@ -400,10 +416,10 @@ export async function publishYoutubeCommunityImagePost({
 
     logger.info(`content-publish yt publish start channel=${resolvedChannelId}`);
     await openCreatePostDialog(driver, resolvedChannelId);
-    // Re-check right before composing so we never silently post as default channel.
     await assertChannelContext(driver, resolvedChannelId, "yt-before-compose");
     logger.info("content-publish yt compose ready, attaching image");
     await attachImage(driver, mediaPath);
+    await assertChannelContext(driver, resolvedChannelId, "yt-after-image");
     logger.info("content-publish yt typing caption");
     await typeCaption(driver, title, description);
     logger.info("content-publish yt clicking Post");
