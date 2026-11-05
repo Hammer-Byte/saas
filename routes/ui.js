@@ -765,9 +765,19 @@ export const uiRoutes = new Elysia()
                     title: "Content Publishing — HammerByte",
                 })),
             )
+            .get("/app/content-publish-image", ({ render, session }) =>
+                render("content-publish-image", appPage(session, {
+                    title: "Image Publish — HammerByte",
+                })),
+            )
+            .get("/app/content-publish-video", ({ render, session }) =>
+                render("content-publish-video", appPage(session, {
+                    title: "Video Publish — HammerByte",
+                })),
+            )
             .get("/app/content-publish-start", async ({ render, session }) =>
                 render("content-publish-start", appPage(session, {
-                    title: "Publish — HammerByte",
+                    title: "Publish Image — HammerByte",
                     automationUsers: await getAllAutomationUsers(),
                     processing: contentPublishProcessing,
                 })),
@@ -786,7 +796,7 @@ export const uiRoutes = new Elysia()
                     targets: targetsByRunId.get(run.id) || [],
                 }));
                 return render("content-publish-history", appPage(session, {
-                    title: "Content Publish History — HammerByte",
+                    title: "Image Publish History — HammerByte",
                     runs,
                 }));
             })

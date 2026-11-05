@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const youtubeCookieInput = document.getElementById("automation-user-youtube-cookie");
     const youtubeChannelIdInput = document.getElementById("automation-user-youtube-channel-id");
     const linkedinCookieInput = document.getElementById("automation-user-linkedin-cookie");
+    const linkedinCompanyIdInput = document.getElementById("automation-user-linkedin-company-id");
     const submitButton = document.getElementById("automation-user-submit-btn");
 
     function showAlert(message, type) {
@@ -31,6 +32,9 @@ document.addEventListener("DOMContentLoaded", () => {
             youtubeChannelIdInput.value = "";
         }
         linkedinCookieInput.value = "";
+        if (linkedinCompanyIdInput) {
+            linkedinCompanyIdInput.value = "";
+        }
         submitButton.textContent = "Add user";
     }
 
@@ -45,6 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
             youtube_cookie: youtubeCookieInput.value.trim(),
             youtube_channel_id: youtubeChannelIdInput?.value.trim() || "",
             linkedin_cookie: linkedinCookieInput.value.trim(),
+            linkedin_company_id: linkedinCompanyIdInput?.value.trim() || "",
         };
 
         if (!payload.name) {
@@ -60,8 +65,20 @@ document.addEventListener("DOMContentLoaded", () => {
             showAlert("At least one platform cookie is required", "danger");
             return;
         }
-        if (payload.youtube_cookie && !/^UC[\w-]+$/i.test(payload.youtube_channel_id) && !/channel\/UC[\w-]+/i.test(payload.youtube_channel_id)) {
-            showAlert("YouTube channel id (UC… or channel URL) is required with a YouTube cookie", "danger");
+        if (
+            payload.youtube_channel_id &&
+            !/^UC[\w-]+$/i.test(payload.youtube_channel_id) &&
+            !/channel\/UC[\w-]+/i.test(payload.youtube_channel_id)
+        ) {
+            showAlert("YouTube channel id must be UC… or a channel URL", "danger");
+            return;
+        }
+        if (
+            payload.linkedin_company_id &&
+            !/^\d+$/.test(payload.linkedin_company_id) &&
+            !/company\/\d+/i.test(payload.linkedin_company_id)
+        ) {
+            showAlert("LinkedIn company id must be numeric or a company admin URL", "danger");
             return;
         }
 
@@ -105,6 +122,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 youtubeChannelIdInput.value = row.dataset.youtubeChannelId || "";
             }
             linkedinCookieInput.value = row.dataset.linkedinCookie || "";
+            if (linkedinCompanyIdInput) {
+                linkedinCompanyIdInput.value = row.dataset.linkedinCompanyId || "";
+            }
             submitButton.textContent = "Save changes";
             nameInput.focus();
             return;

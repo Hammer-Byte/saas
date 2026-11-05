@@ -21,9 +21,10 @@
                     <a href="/app" class="text-decoration-none">App</a> /
                     <a href="/app/automation" class="text-decoration-none">Automation</a> /
                     <a href="/app/content-publish" class="text-decoration-none">Content Publishing</a> /
+                    <a href="/app/content-publish-image" class="text-decoration-none">Image</a> /
                     Publish
                 </p>
-                <h1 class="h3 mb-1">Publish</h1>
+                <h1 class="h3 mb-1">Publish image</h1>
                 <p class="text-secondary mb-0">
                     Common image, then one automation user, then platforms that have cookies.
                     Manage cookies on
@@ -80,6 +81,8 @@
                                         data-instagram="<%= automationUser.instagram_cookie ? '1' : '0' %>"
                                         data-youtube="<%= automationUser.youtube_cookie ? '1' : '0' %>"
                                         data-linkedin="<%= automationUser.linkedin_cookie ? '1' : '0' %>"
+                                        data-youtube-channel-id="<%= automationUser.youtube_channel_id || '' %>"
+                                        data-linkedin-company-id="<%= automationUser.linkedin_company_id || '' %>"
                                     />
                                     <label class="form-check-label" for="content-publish-user-<%= automationUser.id %>">
                                         <%= automationUser.name %>
@@ -131,6 +134,13 @@
                             <label class="form-check-label" for="platform-youtube">YouTube</label>
                         </div>
                         <div id="platform-youtube-fields" class="mt-2 d-none">
+                            <label class="form-label small" for="youtube-channel-id">Channel id</label>
+                            <input
+                                type="text"
+                                class="form-control mb-2"
+                                id="youtube-channel-id"
+                                placeholder="UC… or channel URL"
+                            />
                             <label class="form-label small" for="youtube-title">Title</label>
                             <input type="text" class="form-control mb-2" id="youtube-title" />
                             <label class="form-label small" for="youtube-description">Description</label>
@@ -143,6 +153,13 @@
                             <label class="form-check-label" for="platform-linkedin">LinkedIn</label>
                         </div>
                         <div id="platform-linkedin-fields" class="mt-2 d-none">
+                            <label class="form-label small" for="linkedin-company-id">Page / company id</label>
+                            <input
+                                type="text"
+                                class="form-control mb-2"
+                                id="linkedin-company-id"
+                                placeholder="107008067 or company admin URL"
+                            />
                             <label class="form-label small" for="linkedin-caption">Caption</label>
                             <textarea class="form-control" id="linkedin-caption" rows="2"></textarea>
                         </div>

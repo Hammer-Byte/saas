@@ -27,6 +27,21 @@ function normalizeYoutubeChannelId(value) {
     return null;
 }
 
+function normalizeLinkedinCompanyId(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+        return null;
+    }
+    const fromUrl = text.match(/company\/(\d+)(?:\/|$)/i);
+    if (fromUrl) {
+        return fromUrl[1];
+    }
+    if (/^\d+$/.test(text)) {
+        return text;
+    }
+    return null;
+}
+
 function hasAnyCookie({ facebook_cookie, instagram_cookie, youtube_cookie, linkedin_cookie }) {
     return Boolean(facebook_cookie || instagram_cookie || youtube_cookie || linkedin_cookie);
 }
@@ -38,6 +53,7 @@ export async function addAutomationUser({ body, set }) {
     const youtube_cookie = normalizeCookie(body.youtube_cookie);
     const youtube_channel_id = normalizeYoutubeChannelId(body.youtube_channel_id);
     const linkedin_cookie = normalizeCookie(body.linkedin_cookie);
+    const linkedin_company_id = normalizeLinkedinCompanyId(body.linkedin_company_id);
 
     if (!name) {
         set.status = 400;
@@ -47,13 +63,6 @@ export async function addAutomationUser({ body, set }) {
         set.status = 400;
         return { error: "At least one platform cookie is required" };
     }
-    if (youtube_cookie && !youtube_channel_id) {
-        set.status = 400;
-        return {
-            error: "YouTube channel id (UC… or channel URL) is required when a YouTube cookie is set",
-        };
-    }
-
     const existingUser = await getAutomationUserByName({ name });
     if (existingUser) {
         set.status = 409;
@@ -67,6 +76,7 @@ export async function addAutomationUser({ body, set }) {
         youtube_cookie,
         youtube_channel_id,
         linkedin_cookie,
+        linkedin_company_id,
     });
     if (!id) {
         set.status = 400;
@@ -91,6 +101,7 @@ export async function updateAutomationUser({ params, body, set }) {
     const youtube_cookie = normalizeCookie(body.youtube_cookie);
     const youtube_channel_id = normalizeYoutubeChannelId(body.youtube_channel_id);
     const linkedin_cookie = normalizeCookie(body.linkedin_cookie);
+    const linkedin_company_id = normalizeLinkedinCompanyId(body.linkedin_company_id);
 
     if (!name) {
         set.status = 400;
@@ -100,13 +111,6 @@ export async function updateAutomationUser({ params, body, set }) {
         set.status = 400;
         return { error: "At least one platform cookie is required" };
     }
-    if (youtube_cookie && !youtube_channel_id) {
-        set.status = 400;
-        return {
-            error: "YouTube channel id (UC… or channel URL) is required when a YouTube cookie is set",
-        };
-    }
-
     const duplicateUser = await getAutomationUserByName({ name });
     if (duplicateUser && Number(duplicateUser.id) !== Number(existingUser.id)) {
         set.status = 409;
@@ -121,6 +125,7 @@ export async function updateAutomationUser({ params, body, set }) {
         youtube_cookie,
         youtube_channel_id,
         linkedin_cookie,
+        linkedin_company_id,
     });
 
     const automationUser = await getAutomationUserById({ id: existingUser.id });

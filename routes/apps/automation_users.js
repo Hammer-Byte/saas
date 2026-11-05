@@ -28,6 +28,7 @@ export default function (app) {
                 youtube_cookie: optionalCookie,
                 youtube_channel_id: optionalCookie,
                 linkedin_cookie: optionalCookie,
+                linkedin_company_id: optionalCookie,
             }),
             detail: {
                 tags: ["Automation Users"],
@@ -49,6 +50,7 @@ export default function (app) {
                 youtube_cookie: optionalCookie,
                 youtube_channel_id: optionalCookie,
                 linkedin_cookie: optionalCookie,
+                linkedin_company_id: optionalCookie,
             }),
             detail: {
                 tags: ["Automation Users"],

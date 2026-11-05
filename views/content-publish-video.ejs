@@ -1,0 +1,57 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/automation" class="text-decoration-none">Automation</a> /
+                <a href="/app/content-publish" class="text-decoration-none">Content Publishing</a> /
+                Video
+            </p>
+            <h1 class="h3 mb-1">Video publish</h1>
+            <p class="text-secondary mb-0">Video and Shorts automation will live here.</p>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4 p-md-5 text-center">
+                <div class="app-section-icon mx-auto mb-3">V</div>
+                <h2 class="h5 mb-2">Coming soon</h2>
+                <p class="text-secondary mb-0">
+                    This tile is a placeholder. Image publishing remains under
+                    <a href="/app/content-publish-image">Content Publishing → Image</a>.
+                </p>
+            </div>
+        </div>
+    </div>
+</main>
+
+<style>
+    .app-section-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.5rem;
+        background: #e9ecef;
+        color: #212529;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+    }
+</style>
+
+<script src="/public/app.js" defer></script>
+<%- include('common/footer') %>

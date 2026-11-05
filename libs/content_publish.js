@@ -44,6 +44,9 @@ export function startContentPublish({
             youtubeChannelId: target?.youtubeChannelId
                 ? String(target.youtubeChannelId).trim()
                 : null,
+            linkedinCompanyId: target?.linkedinCompanyId
+                ? String(target.linkedinCompanyId).trim()
+                : null,
         }))
         .filter((target) => target.targetId && target.platform && target.cookie);
 
@@ -101,6 +104,7 @@ export function startContentPublish({
                             driver,
                             mediaPath,
                             caption: linkedinCaption,
+                            companyId: target.linkedinCompanyId,
                         });
                     } else {
                         throw new Error(`Unsupported platform: ${target.platform}`);

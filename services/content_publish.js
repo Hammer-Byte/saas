@@ -41,6 +41,36 @@ function trimOrNull(value) {
     return text || null;
 }
 
+function normalizeYoutubeChannelId(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+        return null;
+    }
+    const fromUrl = text.match(/channel\/(UC[\w-]+)/i);
+    if (fromUrl) {
+        return fromUrl[1];
+    }
+    if (/^UC[\w-]+$/i.test(text)) {
+        return text;
+    }
+    return null;
+}
+
+function normalizeLinkedinCompanyId(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+        return null;
+    }
+    const fromUrl = text.match(/company\/(\d+)(?:\/|$)/i);
+    if (fromUrl) {
+        return fromUrl[1];
+    }
+    if (/^\d+$/.test(text)) {
+        return text;
+    }
+    return null;
+}
+
 export async function getContentPublishStatus({ set }) {
     set.status = 200;
     return { processing };
@@ -108,8 +138,14 @@ export async function startContentPublishRun({ body, set, cookie }) {
     const youtube_description = platforms.includes("youtube")
         ? trimOrNull(body.youtube_description)
         : null;
+    const youtube_channel_id = platforms.includes("youtube")
+        ? normalizeYoutubeChannelId(body.youtube_channel_id)
+        : null;
     const linkedin_caption = platforms.includes("linkedin")
         ? trimOrNull(body.linkedin_caption)
+        : null;
+    const linkedin_company_id = platforms.includes("linkedin")
+        ? normalizeLinkedinCompanyId(body.linkedin_company_id)
         : null;
 
     if (platforms.includes("facebook") && !facebook_caption) {
@@ -124,16 +160,23 @@ export async function startContentPublishRun({ body, set, cookie }) {
         set.status = 400;
         return { error: "YouTube title is required", processing: false };
     }
-    if (platforms.includes("youtube") && !String(automationUser.youtube_channel_id || "").trim()) {
+    if (platforms.includes("youtube") && !youtube_channel_id) {
         set.status = 400;
         return {
-            error: "Automation user is missing youtube_channel_id (UC…)",
+            error: "YouTube channel id (UC… or channel URL) is required",
             processing: false,
         };
     }
     if (platforms.includes("linkedin") && !linkedin_caption) {
         set.status = 400;
         return { error: "LinkedIn caption is required", processing: false };
+    }
+    if (platforms.includes("linkedin") && !linkedin_company_id) {
+        set.status = 400;
+        return {
+            error: "LinkedIn page / company id is required",
+            processing: false,
+        };
     }
 
     const runId = await createContentPublishRun({
@@ -164,10 +207,8 @@ export async function startContentPublishRun({ body, set, cookie }) {
             targetId,
             platform,
             cookie: String(automationUser[PLATFORM_COOKIE[platform]] || "").trim(),
-            youtubeChannelId:
-                platform === "youtube"
-                    ? String(automationUser.youtube_channel_id || "").trim() || null
-                    : null,
+            youtubeChannelId: platform === "youtube" ? youtube_channel_id : null,
+            linkedinCompanyId: platform === "linkedin" ? linkedin_company_id : null,
         });
     }
 

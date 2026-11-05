@@ -55,6 +55,18 @@
                             placeholder="Paste li_at value"
                         />
                     </div>
+                    <div class="col-md-4">
+                        <label for="automation-user-linkedin-company-id" class="form-label">
+                            LinkedIn company id <span class="text-secondary fw-normal">(optional prefill)</span>
+                        </label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="automation-user-linkedin-company-id"
+                            name="linkedin_company_id"
+                            placeholder="Asked at publish if LinkedIn is selected"
+                        />
+                    </div>
                     <div class="col-md-6">
                         <label for="automation-user-facebook-cookie" class="form-label">Facebook cookie</label>
                         <input
@@ -86,13 +98,15 @@
                         ></textarea>
                     </div>
                     <div class="col-md-4">
-                        <label for="automation-user-youtube-channel-id" class="form-label">YouTube channel id</label>
+                        <label for="automation-user-youtube-channel-id" class="form-label">
+                            YouTube channel id <span class="text-secondary fw-normal">(optional prefill)</span>
+                        </label>
                         <input
                             type="text"
                             class="form-control"
                             id="automation-user-youtube-channel-id"
                             name="youtube_channel_id"
-                            placeholder="UC…"
+                            placeholder="Asked at publish if YouTube is selected"
                         />
                     </div>
                     <div class="col-md-4 d-flex align-items-end">
@@ -135,6 +149,7 @@
                                     data-youtube-cookie="<%= automationUser.youtube_cookie || '' %>"
                                     data-youtube-channel-id="<%= automationUser.youtube_channel_id || '' %>"
                                     data-linkedin-cookie="<%= automationUser.linkedin_cookie || '' %>"
+                                    data-linkedin-company-id="<%= automationUser.linkedin_company_id || '' %>"
                                 >
                                     <td><%= automationUser.id %></td>
                                     <td><%= automationUser.name %></td>

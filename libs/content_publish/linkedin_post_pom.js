@@ -2,11 +2,15 @@ import { Key } from "selenium-webdriver";
 import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
 
 /**
- * LinkedIn feed image post — live-tuned.
+ * LinkedIn image post — live-tuned.
+ *
+ * Personal: /sharing/compose
+ * Company Page: /company/{id}/admin/page-posts/published/?share=true
+ *   (compose opens already as the Page, e.g. "HammerByte Post to Anyone")
  *
  * Flow:
- * 1. Open /sharing/compose
- * 2. Media → "Upload from computer"
+ * 1. Open compose (page admin share URL when companyId set)
+ * 2. Media / Add media → Upload from computer if needed
  * 3. input[type=file] sendKeys(image); wait for blob preview
  * 4. Next / Done if shown
  * 5. Caption via keyboard into contenteditable (ProseMirror)
@@ -27,15 +31,25 @@ function findStartPostControl() {
 }
 
 function findComposer() {
-  return document.querySelector("div.ProseMirror[contenteditable='true']")
-    || document.querySelector("div.tiptap[contenteditable='true']")
-    || document.querySelector("div[role='textbox'][contenteditable='true']")
-    || document.querySelector("div[contenteditable='true']")
+  const dialog = document.querySelector("div[role='dialog']");
+  const scope = dialog || document;
+  return scope.querySelector("div.ProseMirror[contenteditable='true']")
+    || scope.querySelector("div.tiptap[contenteditable='true']")
+    || scope.querySelector("div[role='textbox'][contenteditable='true']")
+    || scope.querySelector("div[contenteditable='true']")
     || null;
 }
 
 function findMediaButton() {
-  return document.querySelector("button[aria-label='Media']") || null;
+  const dialog = document.querySelector("div[role='dialog']");
+  const scope = dialog || document;
+  return scope.querySelector("button[aria-label='Media']")
+    || scope.querySelector("button[aria-label='Add media']")
+    || [...scope.querySelectorAll("button")].find((el) => {
+      const label = normalize(el.getAttribute("aria-label") || el.innerText || "");
+      return /^(media|add media)$/i.test(label);
+    })
+    || null;
 }
 
 function findUploadFromComputer() {
@@ -62,20 +76,54 @@ function findDoneButton() {
 }
 
 function findPostButton() {
-  return [...document.querySelectorAll("button")].find((el) => {
+  const dialog = document.querySelector("div[role='dialog']");
+  const scope = dialog || document;
+  return [...scope.querySelectorAll("button")].find((el) => {
     const label = normalize(el.getAttribute("aria-label") || el.innerText || "");
     const disabled = el.disabled || el.getAttribute("aria-disabled") === "true";
     return /^post$/i.test(label) && !disabled;
   }) || null;
 }
 
-function countBlobPreviews() {
+function countMediaPreviews() {
   return [...document.querySelectorAll("img")].filter((img) => {
     const src = img.currentSrc || img.src || "";
-    return src.startsWith("blob:") && img.naturalWidth > 40;
+    const alt = String(img.alt || "");
+    if (img.naturalWidth <= 40) return false;
+    return src.startsWith("blob:")
+      || src.startsWith("data:image/")
+      || /^Preview of /i.test(alt);
   }).length;
 }
+
+function mediaEditorReady() {
+  const dialog = document.querySelector("div[role='dialog']");
+  const text = normalize(dialog?.innerText || "");
+  return /\\b1 of 1\\b/i.test(text)
+    || /alternative text/i.test(text)
+    || countMediaPreviews() > 0;
+}
+
+function composeAuthorHint() {
+  const dialog = document.querySelector("div[role='dialog']");
+  return normalize(dialog?.innerText || "").slice(0, 160);
+}
 `;
+
+function normalizeCompanyId(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+        return "";
+    }
+    const fromAdmin = text.match(/company\/(\d+)(?:\/|$)/i);
+    if (fromAdmin) {
+        return fromAdmin[1];
+    }
+    if (/^\d+$/.test(text)) {
+        return text;
+    }
+    return "";
+}
 
 export async function diagnoseLinkedinPublish(driver) {
     return await driver.executeScript(`
@@ -87,11 +135,13 @@ export async function diagnoseLinkedinPublish(driver) {
         mediaButton: !!findMediaButton(),
         uploadFromComputer: !!findUploadFromComputer(),
         fileInput: !!document.querySelector("input[type='file']"),
-        blobPreviews: countBlobPreviews(),
+        mediaPreviews: countMediaPreviews(),
+        mediaEditor: mediaEditorReady(),
         nextButton: !!findNextButton(),
         doneButton: !!findDoneButton(),
         postButton: !!findPostButton(),
         caption: (findComposer()?.innerText || "").slice(0, 120),
+        authorHint: composeAuthorHint(),
       };
     `);
 }
@@ -115,7 +165,11 @@ async function waitForComposeReady(driver, timeoutMs = 30000) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
         const state = await diagnoseLinkedinPublish(driver);
-        const onCompose = /sharing\/compose/i.test(state.url);
+        const onCompose =
+            /sharing\/compose|share=true|page-posts/i.test(state.url)
+            || state.composer
+            || state.mediaButton
+            || state.postButton;
         if (onCompose && (state.composer || state.mediaButton || state.postButton)) {
             return state;
         }
@@ -156,7 +210,6 @@ async function attachImage(driver, mediaPath) {
         await contentPublishSleep(1000);
         inputs = await waitForFileInputs(driver, 4000);
 
-        // Some sessions open a submenu first.
         if (!inputs.length) {
             const clickedUpload = await driver.executeScript(`
               ${PAGE_HELPERS}
@@ -200,11 +253,11 @@ async function attachImage(driver, mediaPath) {
     const previewDeadline = Date.now() + 30000;
     let previewReady = false;
     while (Date.now() < previewDeadline) {
-        const blobCount = await driver.executeScript(`
+        const ready = await driver.executeScript(`
           ${PAGE_HELPERS}
-          return countBlobPreviews();
+          return mediaEditorReady();
         `);
-        if (blobCount > 0) {
+        if (ready) {
             previewReady = true;
             break;
         }
@@ -256,7 +309,7 @@ async function typeCaption(driver, caption) {
           return true;
         `);
         if (found) {
-            const editors = await driver.findElements({ css: "div[contenteditable='true']" });
+            const editors = await driver.findElements({ css: "div[role='dialog'] div[contenteditable='true'], div[contenteditable='true']" });
             editor = editors[0] || null;
             if (editor) {
                 break;
@@ -284,7 +337,6 @@ async function typeCaption(driver, caption) {
       return composer ? String(composer.innerText || "").trim() : "";
     `);
     if (text && !String(applied || "").includes(text.slice(0, Math.min(12, text.length)))) {
-        // Fallback for stubborn ProseMirror instances
         await driver.executeScript(
             `
           ${PAGE_HELPERS}
@@ -322,12 +374,12 @@ async function clickPost(driver) {
     throw new Error(`LinkedIn step5 Post button missing (${JSON.stringify(state)})`);
 }
 
-export async function publishLinkedinImagePost({ driver, mediaPath, caption }) {
+async function openPersonalCompose(driver) {
     await openUrl(driver, "https://www.linkedin.com/sharing/compose");
     await contentPublishSleep(2500);
 
     let state = await diagnoseLinkedinPublish(driver);
-    if (!/sharing\/compose/i.test(state.url)) {
+    if (!/sharing\/compose/i.test(state.url) && !state.composer) {
         await openUrl(driver, "https://www.linkedin.com/feed/");
         await contentPublishSleep(2500);
         state = await diagnoseLinkedinPublish(driver);
@@ -335,6 +387,61 @@ export async function publishLinkedinImagePost({ driver, mediaPath, caption }) {
             throw new Error(`LinkedIn step1 feed not ready (${JSON.stringify(state)})`);
         }
         await clickStartPost(driver);
+    }
+}
+
+async function openPageCompose(driver, companyId) {
+    await openUrl(
+        driver,
+        `https://www.linkedin.com/company/${companyId}/admin/page-posts/published/?share=true`,
+    );
+    await contentPublishSleep(3500);
+
+    let state = await diagnoseLinkedinPublish(driver);
+    if (state.composer || state.mediaButton || state.postButton) {
+        return;
+    }
+
+    // Fallback: open page posts then Start a post / Create
+    await openUrl(
+        driver,
+        `https://www.linkedin.com/company/${companyId}/admin/page-posts/published/`,
+    );
+    await contentPublishSleep(3000);
+    const opened = await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const nodes = [...document.querySelectorAll("button, a, div[role='button']")];
+      const start = nodes.find((el) => {
+        const label = normalize((el.getAttribute("aria-label") || "") + " " + (el.innerText || ""));
+        return /^start a post$/i.test(label);
+      });
+      const create = nodes.find((el) => {
+        const label = normalize((el.getAttribute("aria-label") || "") + " " + (el.innerText || ""));
+        return /^create$/i.test(label);
+      });
+      const target = start || create;
+      if (!target) return false;
+      target.click();
+      return true;
+    `);
+    if (!opened) {
+        state = await diagnoseLinkedinPublish(driver);
+        throw new Error(`LinkedIn step1 page compose missing (${JSON.stringify(state)})`);
+    }
+    await contentPublishSleep(2500);
+}
+
+export async function publishLinkedinImagePost({
+    driver,
+    mediaPath,
+    caption,
+    companyId = null,
+}) {
+    const resolvedCompanyId = normalizeCompanyId(companyId);
+    if (resolvedCompanyId) {
+        await openPageCompose(driver, resolvedCompanyId);
+    } else {
+        await openPersonalCompose(driver);
     }
 
     await waitForComposeReady(driver);
