@@ -154,7 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 showAlert(data.error || "Failed to start publish", "danger");
                 return;
             }
-            showAlert("Publish started", "success");
+            showAlert(data.message || "Publish queued", "success");
             window.location.href = "/app/content-publish-history";
         } catch (error) {
             showAlert(error instanceof Error ? error.message : String(error), "danger");

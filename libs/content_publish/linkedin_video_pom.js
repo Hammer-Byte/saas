@@ -1,10 +1,7 @@
 import { Key } from "selenium-webdriver";
 import { logger } from "@hammerbyte/utils";
 import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
-import {
-    attachScreenshotToError,
-    captureContentPublishScreenshot,
-} from "../content_publish_screenshot.js";
+import { failWithScreenshot } from "../content_publish_screenshot.js";
 
 /**
  * LinkedIn feed video post — same compose entry as image posts.
@@ -131,13 +128,7 @@ function normalizeCompanyId(value) {
 }
 
 async function failStep(driver, message, label = "li-video-fail") {
-    let screenshotFile = null;
-    try {
-        screenshotFile = await captureContentPublishScreenshot(driver, label);
-    } catch {
-        // keep original error
-    }
-    throw attachScreenshotToError(new Error(message), screenshotFile);
+    await failWithScreenshot(driver, message, label);
 }
 
 async function diagnoseLinkedinVideoPublish(driver) {

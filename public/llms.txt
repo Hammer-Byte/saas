@@ -9,8 +9,11 @@
 - Mobile application development for Android and iOS (Flutter, React Native, Java)
 - Digital products: games, desktop software, and IoT systems
 
+## Products
+- Your Institute — coaching centre / institute management software for India (batches, fees, courses, exams, roles). Page: https://hammerbyte.co.in/products/your-institute
+
 ## Industries
-- Education and EdTech (learning platforms, institute apps, university management)
+- Education and EdTech (learning platforms, institute apps, university management, coaching centre software)
 - Healthcare (care providers and health-product sites)
 - Retail and e-commerce (stores, food ordering, catalogues)
 - Manufacturing and engineering (industrial and interiors company websites)
@@ -22,6 +25,7 @@
 
 ## How to hire
 - Website: https://hammerbyte.co.in/#contact
+- Your Institute demos: https://hammerbyte.co.in/products/your-institute#inquiry
 - Email: support@hammerbyte.co.in
 - Phone: +91 97258-37442
 - LinkedIn: https://www.linkedin.com/company/hammerbyte/

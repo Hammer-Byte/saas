@@ -1,7 +1,11 @@
 import { SQL } from "bun";
 import { logger, CONSTANTS } from "@hammerbyte/utils";
 import { fromDbDateTime } from "./date.js";
-import { AUTHORITIES, AUTHORITY_DESCRIPTIONS } from "../constants.js";
+import {
+    AUTHORITIES,
+    AUTHORITY_DESCRIPTIONS,
+    CONTENT_PUBLISHER_SERVICE,
+} from "../constants.js";
 
 export const dbConnection = new SQL({
     adapter: Bun.env.MYSQL_DIALECT,
@@ -545,17 +549,22 @@ export async function generateDBTables() {
             ADD COLUMN instagram_user_id VARCHAR(64) NULL`,
         `CREATE TABLE IF NOT EXISTS CONTENT_PUBLISH_RUNS (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            status VARCHAR(32) NOT NULL DEFAULT 'running',
+            status VARCHAR(32) NOT NULL DEFAULT 'queued',
             media_id INT NOT NULL,
-            automation_user_id INT NOT NULL,
+            media_kind VARCHAR(16) NOT NULL DEFAULT 'image',
+            automation_user_id INT NULL,
             user_name VARCHAR(255) NOT NULL,
             facebook_caption TEXT NULL,
             instagram_caption TEXT NULL,
-            instagram_hashtags TEXT NULL,
             youtube_title VARCHAR(255) NULL,
             youtube_description TEXT NULL,
             linkedin_caption TEXT NULL,
+            source VARCHAR(32) NOT NULL DEFAULT 'user',
             created_by INT NULL,
+            application_id INT NULL,
+            application_service_id INT NULL,
+            scheduled_by_name VARCHAR(255) NULL,
+            run_options TEXT NULL,
             error_message TEXT NULL,
             started_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             finished_on DATETIME NULL
@@ -566,18 +575,40 @@ export async function generateDBTables() {
             platform VARCHAR(32) NOT NULL,
             status VARCHAR(32) NOT NULL DEFAULT 'pending',
             error_message TEXT NULL,
-            screenshot_file VARCHAR(255) NULL,
+            screenshot_files TEXT NULL,
             CONSTRAINT fk_content_publish_run_targets_run
                 FOREIGN KEY (run_id)
                 REFERENCES CONTENT_PUBLISH_RUNS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
-        // Existing installs created the table without screenshot_file.
-        `ALTER TABLE CONTENT_PUBLISH_RUN_TARGETS
-            ADD COLUMN screenshot_file VARCHAR(255) NULL`,
+        // Existing installs may predate these columns (duplicate ADD is ignored).
         `ALTER TABLE CONTENT_PUBLISH_RUN_TARGETS
             ADD COLUMN screenshot_files TEXT NULL`,
+        `ALTER TABLE CONTENT_PUBLISH_RUNS
+            ADD COLUMN media_kind VARCHAR(16) NOT NULL DEFAULT 'image'`,
+        `ALTER TABLE CONTENT_PUBLISH_RUNS
+            ADD COLUMN source VARCHAR(32) NOT NULL DEFAULT 'user'`,
+        `ALTER TABLE CONTENT_PUBLISH_RUNS
+            ADD COLUMN application_id INT NULL`,
+        `ALTER TABLE CONTENT_PUBLISH_RUNS
+            ADD COLUMN application_service_id INT NULL`,
+        `ALTER TABLE CONTENT_PUBLISH_RUNS
+            ADD COLUMN scheduled_by_name VARCHAR(255) NULL`,
+        `ALTER TABLE CONTENT_PUBLISH_RUNS
+            ADD COLUMN run_options TEXT NULL`,
+        `ALTER TABLE CONTENT_PUBLISH_RUNS
+            MODIFY COLUMN automation_user_id INT NULL`,
+        // Backfill legacy single screenshot_file into screenshot_files, then drop unused columns.
+        `UPDATE CONTENT_PUBLISH_RUN_TARGETS
+            SET screenshot_files = CONCAT('["', screenshot_file, '"]')
+            WHERE screenshot_file IS NOT NULL
+              AND screenshot_file != ''
+              AND (screenshot_files IS NULL OR screenshot_files = '')`,
+        `ALTER TABLE CONTENT_PUBLISH_RUN_TARGETS
+            DROP COLUMN screenshot_file`,
+        `ALTER TABLE CONTENT_PUBLISH_RUNS
+            DROP COLUMN instagram_hashtags`,
         `CREATE TABLE IF NOT EXISTS LINKEDIN_DESIGNATIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
@@ -716,6 +747,7 @@ export async function generateDBTables() {
         )`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,
+        `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONTENT_PUBLISHER_SERVICE}', 'publish images and videos to Instagram LinkedIn YouTube', 0.00);`,
         `INSERT IGNORE INTO USERS (full_name, email, super_admin) VALUES ('Admin', 'support@hammerbyte.co.in', TRUE);`,
         `INSERT IGNORE INTO CONTRACT_ATTACHMENTS (title) VALUES ('Signature'), ('Selfie'), ('Aadhar'), ('PAN'), ('Passport');`,
         `INSERT IGNORE INTO ROLES (title) VALUES ('ADMIN');`,
@@ -743,8 +775,12 @@ export async function generateDBTables() {
             await dbConnection.unsafe(table);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            // Ignore duplicate-column ALTERs on already-migrated DBs.
-            if (!/duplicate column name/i.test(message)) {
+            // Ignore idempotent migration noise on already-migrated DBs.
+            if (
+                !/duplicate column name|check that column\/key exists|can't drop|unknown column/i.test(
+                    message,
+                )
+            ) {
                 throw error;
             }
         }

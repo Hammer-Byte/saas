@@ -78,3 +78,16 @@ export function attachScreenshotToError(error, screenshotFile, screenshotFiles =
     }
     return error;
 }
+
+/** Capture page state and throw — used by Selenium POMs on step failures. */
+export async function failWithScreenshot(driver, message, label = "fail") {
+    let screenshotFile = null;
+    if (driver) {
+        try {
+            screenshotFile = await captureContentPublishScreenshot(driver, label);
+        } catch {
+            // keep original failure even if screenshot fails
+        }
+    }
+    throw attachScreenshotToError(new Error(message), screenshotFile);
+}

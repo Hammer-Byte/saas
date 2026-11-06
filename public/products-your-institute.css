@@ -339,6 +339,53 @@ a:hover {
     color: var(--yi-ink-soft);
 }
 
+.yi-faq-list {
+    display: grid;
+    gap: 0.85rem;
+    max-width: 44rem;
+}
+
+.yi-faq-item {
+    border-top: 1px solid var(--yi-line);
+    padding: 0.85rem 0 0.35rem;
+}
+
+.yi-faq-item:last-child {
+    border-bottom: 1px solid var(--yi-line);
+    padding-bottom: 1rem;
+}
+
+.yi-faq-item summary {
+    cursor: pointer;
+    list-style: none;
+    font-family: var(--yi-font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--yi-ink);
+}
+
+.yi-faq-item summary::-webkit-details-marker {
+    display: none;
+}
+
+.yi-faq-item summary::after {
+    content: "+";
+    float: right;
+    color: var(--yi-accent);
+    font-weight: 700;
+}
+
+.yi-faq-item[open] summary::after {
+    content: "–";
+}
+
+.yi-faq-item p {
+    margin: 0.65rem 0 0;
+    color: var(--yi-ink-soft);
+    max-width: 40rem;
+}
+
 .yi-inquiry {
     padding-bottom: 6rem;
 }

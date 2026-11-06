@@ -24,15 +24,6 @@ import {
 
 export { buildInstagramCaption } from "./caption.js";
 export {
-    assertPublicHttpsUrl,
-    createInstagramClient,
-    createInstagramMediaContainer,
-    instagramGraphRequest,
-    normalizeInstagramCredentials,
-    publishInstagramContainer,
-    waitForInstagramContainer,
-} from "./client.js";
-export {
     publishFeedCarousel,
     publishFeedImage,
     publishReel,

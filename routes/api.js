@@ -43,6 +43,9 @@ import monitoredServers from "./apps/monitored_servers.js";
 import serverMetrics from "./apps/server_metrics.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
+import canUseContentPublisher from "../middlewares/can_use_content_publisher.js";
+import contentPublisher from "./apps/content_publisher.js";
+import { CONTENT_PUBLISHER_SERVICE } from "../constants.js";
 import requireApiSession from "../middlewares/require_api_session.js";
 
 export const apiRoutes = new Elysia({ prefix: "/api" })
@@ -105,5 +108,8 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             )
             .guard({ beforeHandle: [canUseMailer] }, (protectedApp) =>
                 protectedApp.group(`/${CONSTANTS.SAAS.SERVICES.MAILER}`, mailer),
+            )
+            .guard({ beforeHandle: [canUseContentPublisher] }, (protectedApp) =>
+                protectedApp.group(`/${CONTENT_PUBLISHER_SERVICE}`, contentPublisher),
             ),
     );

@@ -1,5 +1,6 @@
 import { logger } from "@hammerbyte/utils";
 import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
+import { failWithScreenshot } from "../content_publish_screenshot.js";
 
 /**
  * Facebook personal feed image post.
@@ -20,14 +21,22 @@ export async function publishFacebookImagePost({ driver, mediaPath, caption }) {
       return true;
     `);
     if (!opened) {
-        throw new Error("Facebook step2 create-post control not found (needs live cookie tuning)");
+        await failWithScreenshot(
+            driver,
+            "Facebook step2 create-post control not found (needs live cookie tuning)",
+            "fb-step2-create",
+        );
     }
     logger.info("content-publish fb compose opened");
 
     await contentPublishSleep(1500);
     const inputs = await driver.findElements({ css: "input[type=file]" });
     if (!inputs.length) {
-        throw new Error("Facebook step3 file input not found (needs live cookie tuning)");
+        await failWithScreenshot(
+            driver,
+            "Facebook step3 file input not found (needs live cookie tuning)",
+            "fb-step3-file",
+        );
     }
     await inputs[0].sendKeys(mediaPath);
     logger.info("content-publish fb image attached");
@@ -45,7 +54,11 @@ export async function publishFacebookImagePost({ driver, mediaPath, caption }) {
         caption,
     );
     if (!typed) {
-        throw new Error("Facebook step4 caption box not found (needs live cookie tuning)");
+        await failWithScreenshot(
+            driver,
+            "Facebook step4 caption box not found (needs live cookie tuning)",
+            "fb-step4-caption",
+        );
     }
     logger.info("content-publish fb caption typed");
 
@@ -57,7 +70,11 @@ export async function publishFacebookImagePost({ driver, mediaPath, caption }) {
       return true;
     `);
     if (!posted) {
-        throw new Error("Facebook step5 Post button not found (needs live cookie tuning)");
+        await failWithScreenshot(
+            driver,
+            "Facebook step5 Post button not found (needs live cookie tuning)",
+            "fb-step5-post",
+        );
     }
     await contentPublishSleep(3000);
     logger.info("content-publish fb publish ok");

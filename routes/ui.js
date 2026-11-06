@@ -68,6 +68,7 @@ import {
 import { getAllAutomationUsers } from "../db/automation_users.js";
 import {
     getAllContentPublishRuns,
+    getContentPublishRunStatusCounts,
     getAllContentPublishRunTargets,
 } from "../db/content_publish_runs.js";
 import { processing as contentPublishProcessing } from "../libs/content_publish_browser.js";
@@ -781,19 +782,18 @@ export const uiRoutes = new Elysia()
                 render("content-publish-video-start", appPage(session, {
                     title: "Publish Video — HammerByte",
                     automationUsers: await getAllAutomationUsers(),
-                    processing: contentPublishProcessing,
                 })),
             )
             .get("/app/content-publish-start", async ({ render, session }) =>
                 render("content-publish-start", appPage(session, {
                     title: "Publish Image — HammerByte",
                     automationUsers: await getAllAutomationUsers(),
-                    processing: contentPublishProcessing,
                 })),
             )
             .get("/app/content-publish-history", async ({ render, session }) => {
                 const publishRuns = await getAllContentPublishRuns();
                 const publishTargets = await getAllContentPublishRunTargets();
+                const queue = await getContentPublishRunStatusCounts();
                 const targetsByRunId = new Map();
                 for (const target of publishTargets) {
                     const list = targetsByRunId.get(target.run_id) || [];
@@ -805,8 +805,10 @@ export const uiRoutes = new Elysia()
                     targets: targetsByRunId.get(run.id) || [],
                 }));
                 return render("content-publish-history", appPage(session, {
-                    title: "Image Publish History — HammerByte",
+                    title: "Publish History — HammerByte",
                     runs,
+                    queue,
+                    processing: contentPublishProcessing,
                 }));
             })
             .get("/app/linkedin", ({ render, session }) =>

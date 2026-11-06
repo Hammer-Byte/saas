@@ -32,6 +32,9 @@ export const SWAGGER = {
     APPLICATION: "Saas Mailer",
 };
 
+/** Application service title for external content publish API (also seeded in SERVICES). */
+export const CONTENT_PUBLISHER_SERVICE = "content-publisher";
+
 export const AUTHORITIES = {
     USE_PAGE_PROJECTS: "USE_PAGE_PROJECTS",
     USE_PAGE_EXPENSES: "USE_PAGE_EXPENSES",

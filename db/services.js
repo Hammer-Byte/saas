@@ -43,6 +43,17 @@ export async function getServiceById({ id }) {
         });
 }
 
+export async function getServiceByTitle({ title }) {
+    return await executeSQLQuery(
+        (sql) => sql`SELECT * FROM SERVICES WHERE title = ${title} LIMIT 1`,
+    )
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getServiceByTitle: ${error}`);
+            return null;
+        });
+}
+
 export async function getAllServices() {
     logger.info("Getting All Services");
     return await executeSQLQuery((sql) => sql`SELECT * FROM SERVICES ORDER BY id ASC`)

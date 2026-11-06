@@ -67,7 +67,7 @@ export default function (app) {
             }),
             detail: {
                 tags: ["Content Publish"],
-                summary: "Start content publish run",
+                summary: "Queue content publish run",
             },
         });
 }

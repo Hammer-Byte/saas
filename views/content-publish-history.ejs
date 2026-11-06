@@ -20,14 +20,52 @@
                 <p class="text-secondary small mb-1">
                     <a href="/app" class="text-decoration-none">App</a> /
                     <a href="/app/automation" class="text-decoration-none">Automation</a> /
-                    <a href="/app/content-publish" class="text-decoration-none">Content Publishing</a> /
-                    <a href="/app/content-publish-image" class="text-decoration-none">Image</a> /
                     History
                 </p>
-                <h1 class="h3 mb-1">Image publish history</h1>
-                <p class="text-secondary mb-0">Past image publish runs and per-platform results.</p>
+                <h1 class="h3 mb-1">Publish history</h1>
+                <p class="text-secondary mb-0">
+                    Queue and results for website and application service runs (image + video).
+                </p>
             </div>
-            <a href="/app/content-publish-start" class="btn btn-outline-primary">New publish</a>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="/app/content-publish-start" class="btn btn-outline-primary">Publish image</a>
+                <a href="/app/content-publish-video-start" class="btn btn-outline-primary">Publish video</a>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body py-3">
+                        <div class="text-secondary small">Queued</div>
+                        <div class="h4 mb-0"><%= (queue && queue.queued) || 0 %></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body py-3">
+                        <div class="text-secondary small">Running<%= processing ? " (worker busy)" : "" %></div>
+                        <div class="h4 mb-0"><%= (queue && queue.running) || 0 %></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body py-3">
+                        <div class="text-secondary small">Completed</div>
+                        <div class="h4 mb-0"><%= (queue && queue.completed) || 0 %></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body py-3">
+                        <div class="text-secondary small">Failed</div>
+                        <div class="h4 mb-0"><%= (queue && queue.failed) || 0 %></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="card border-0 shadow-sm">
@@ -41,7 +79,9 @@
                                 <tr>
                                     <th>ID</th>
                                     <th>Status</th>
-                                    <th>User</th>
+                                    <th>Kind</th>
+                                    <th>Scheduled by</th>
+                                    <th>Account</th>
                                     <th>Platforms</th>
                                     <th>Started</th>
                                     <th>Finished</th>
@@ -53,6 +93,11 @@
                                     <tr>
                                         <td><%= run.id %></td>
                                         <td><%= run.status %></td>
+                                        <td><%= run.media_kind || "image" %></td>
+                                        <td>
+                                            <div><%= run.scheduled_by_name || "—" %></div>
+                                            <div class="small text-secondary"><%= run.source || "user" %></div>
+                                        </td>
                                         <td><%= run.user_name %></td>
                                         <td>
                                             <% (run.targets || []).forEach(function (target) { %>
@@ -71,12 +116,9 @@
                                                                     ? JSON.parse(target.screenshot_files)
                                                                     : target.screenshot_files;
                                                                 if (Array.isArray(parsedShots)) {
-                                                                    shotFiles = parsedShots;
+                                                                    shotFiles = parsedShots.filter(Boolean);
                                                                 }
                                                             } catch (e) {}
-                                                        }
-                                                        if (!shotFiles.length && target.screenshot_file) {
-                                                            shotFiles = [target.screenshot_file];
                                                         }
                                                     %>
                                                     <% if (shotFiles.length) { %>

@@ -1,33 +1,40 @@
 import { logger } from "@hammerbyte/utils";
 import { toDbDateTime } from "./date.js";
 import {
-    acquireContentPublishProcessing,
     loginFacebookWithCookie,
     loginLinkedinWithCookie,
     loginYoutubeWithCookie,
     openFirefox,
-    releaseContentPublishProcessing,
 } from "./content_publish_browser.js";
 import {
     updateContentPublishRunById,
     updateContentPublishRunTargetById,
 } from "../db/content_publish_runs.js";
 import { notifyContentPublishRunComplete } from "./content_publish_notify.js";
-import { publishFacebookImagePost } from "./content_publish/facebook_post_pom.js";
-import { publishYoutubeCommunityImagePost } from "./content_publish/youtube_community_pom.js";
-import { publishYoutubeShort } from "./content_publish/youtube_shorts_pom.js";
-import { publishLinkedinImagePost } from "./content_publish/linkedin_post_pom.js";
-import { publishLinkedinVideoPost } from "./content_publish/linkedin_video_pom.js";
+import { publishImagePost as publishFacebookImagePost } from "./facebook/index.js";
 import { createInstagramPublisher } from "./instagram/index.js";
+import {
+    publishImagePost as publishLinkedinImagePost,
+    publishVideoPost as publishLinkedinVideoPost,
+} from "./linkedin/index.js";
+import {
+    publishCommunityImage as publishYoutubeCommunityImage,
+    publishShort as publishYoutubeShort,
+} from "./youtube/index.js";
 import { buildContentPublishPublicMediaUrl } from "./content_publish_public_media.js";
 import {
+    captureContentPublishScreenshot,
     normalizeScreenshotFiles,
     serializeScreenshotFiles,
 } from "./content_publish_screenshot.js";
 
 const PLATFORM_ORDER = ["facebook", "instagram", "youtube", "linkedin"];
 
-export function startContentPublish({
+/**
+ * Execute one content-publish run to completion (awaitable).
+ * Caller owns the processing lock / queue drain.
+ */
+export async function executeContentPublishRun({
     runId,
     mediaPath,
     mediaId = null,
@@ -41,10 +48,6 @@ export function startContentPublish({
     instagramDestination = "feed",
     youtubeDestination = "community",
 } = {}) {
-    if (!acquireContentPublishProcessing()) {
-        return false;
-    }
-
     const kind = String(mediaKind || "image").trim().toLowerCase() === "video"
         ? "video"
         : "image";
@@ -71,8 +74,7 @@ export function startContentPublish({
         .filter((target) => target.targetId && target.platform && target.cookie);
 
     if (!runId || !mediaPath || !targetList.length) {
-        releaseContentPublishProcessing();
-        return false;
+        throw new Error("Invalid content publish run payload");
     }
 
     targetList.sort(
@@ -81,230 +83,229 @@ export function startContentPublish({
     );
 
     logger.info(
-        `content-publish run=${runId} queued kind=${kind} platforms=${targetList
+        `content-publish run=${runId} executing kind=${kind} platforms=${targetList
             .map((target) => target.platform)
             .join(",")} media=${mediaPath}`,
     );
 
-    (async () => {
-        let runFailedMessage = null;
-        let completedCount = 0;
+    let runFailedMessage = null;
+    let completedCount = 0;
 
-        try {
-            for (const target of targetList) {
-                let driver = null;
-                try {
-                    logger.info(
-                        `content-publish run=${runId} platform=${target.platform} starting`,
+    try {
+        for (const target of targetList) {
+            let driver = null;
+            try {
+                logger.info(
+                    `content-publish run=${runId} platform=${target.platform} starting`,
+                );
+                await updateContentPublishRunTargetById({
+                    id: target.targetId,
+                    status: "running",
+                });
+
+                if (target.platform === "instagram") {
+                    if (!mediaId) {
+                        throw new Error("Instagram API publish requires media_id");
+                    }
+                    if (!target.instagramUserId) {
+                        throw new Error("Instagram user id is required for API publish");
+                    }
+                    const mediaUrl = buildContentPublishPublicMediaUrl(
+                        mediaId,
+                        kind === "video" ? 7200 : 3600,
                     );
-                    await updateContentPublishRunTargetById({
-                        id: target.targetId,
-                        status: "running",
+                    const instagram = createInstagramPublisher({
+                        accessToken: target.cookie,
+                        igUserId: target.instagramUserId,
                     });
 
-                    if (target.platform === "instagram") {
-                        if (!mediaId) {
-                            throw new Error("Instagram API publish requires media_id");
-                        }
-                        if (!target.instagramUserId) {
-                            throw new Error("Instagram user id is required for API publish");
-                        }
-                        const mediaUrl = buildContentPublishPublicMediaUrl(
-                            mediaId,
-                            kind === "video" ? 7200 : 3600,
-                        );
-                        const instagram = createInstagramPublisher({
-                            accessToken: target.cookie,
-                            igUserId: target.instagramUserId,
-                        });
-
-                        if (kind === "video") {
-                            if (igDestination === "story") {
-                                logger.info(
-                                    `content-publish run=${runId} platform=instagram publishing video story via Graph API ig_user=${target.instagramUserId} video_url=${mediaUrl}`,
-                                );
-                                await instagram.publishStory({ videoUrl: mediaUrl });
-                            } else {
-                                logger.info(
-                                    `content-publish run=${runId} platform=instagram publishing reel via Graph API ig_user=${target.instagramUserId} video_url=${mediaUrl}`,
-                                );
-                                await instagram.publishReel({
-                                    videoUrl: mediaUrl,
-                                    caption: instagramCaption,
-                                });
-                            }
+                    if (kind === "video") {
+                        if (igDestination === "story") {
+                            logger.info(
+                                `content-publish run=${runId} platform=instagram publishing video story via Graph API ig_user=${target.instagramUserId} video_url=${mediaUrl}`,
+                            );
+                            await instagram.publishStory({ videoUrl: mediaUrl });
                         } else {
                             logger.info(
-                                `content-publish run=${runId} platform=instagram publishing via Graph API ig_user=${target.instagramUserId} image_url=${mediaUrl}`,
+                                `content-publish run=${runId} platform=instagram publishing reel via Graph API ig_user=${target.instagramUserId} video_url=${mediaUrl}`,
                             );
-                            await instagram.publishFeedImage({
-                                imageUrl: mediaUrl,
+                            await instagram.publishReel({
+                                videoUrl: mediaUrl,
                                 caption: instagramCaption,
                             });
                         }
                     } else {
                         logger.info(
-                            `content-publish run=${runId} platform=${target.platform} opening firefox`,
+                            `content-publish run=${runId} platform=instagram publishing via Graph API ig_user=${target.instagramUserId} image_url=${mediaUrl}`,
                         );
-                        driver = await openFirefox();
-                        if (target.platform === "facebook") {
-                            if (kind !== "image") {
-                                throw new Error("Facebook video publish is not supported yet");
-                            }
+                        await instagram.publishFeedImage({
+                            imageUrl: mediaUrl,
+                            caption: instagramCaption,
+                        });
+                    }
+                } else {
+                    logger.info(
+                        `content-publish run=${runId} platform=${target.platform} opening firefox`,
+                    );
+                    driver = await openFirefox();
+                    if (target.platform === "facebook") {
+                        if (kind !== "image") {
+                            throw new Error("Facebook video publish is not supported yet");
+                        }
+                        logger.info(
+                            `content-publish run=${runId} platform=facebook logging in`,
+                        );
+                        await loginFacebookWithCookie(driver, target.cookie);
+                        logger.info(
+                            `content-publish run=${runId} platform=facebook publishing`,
+                        );
+                        await publishFacebookImagePost({
+                            driver,
+                            mediaPath,
+                            caption: facebookCaption,
+                        });
+                    } else if (target.platform === "youtube") {
+                        logger.info(
+                            `content-publish run=${runId} platform=youtube logging in channel=${target.youtubeChannelId || "?"}`,
+                        );
+                        await loginYoutubeWithCookie(driver, target.cookie);
+                        if (kind === "video" || ytDestination === "shorts") {
                             logger.info(
-                                `content-publish run=${runId} platform=facebook logging in`,
+                                `content-publish run=${runId} platform=youtube publishing shorts`,
                             );
-                            await loginFacebookWithCookie(driver, target.cookie);
-                            logger.info(
-                                `content-publish run=${runId} platform=facebook publishing`,
-                            );
-                            await publishFacebookImagePost({
+                            await publishYoutubeShort({
                                 driver,
                                 mediaPath,
-                                caption: facebookCaption,
+                                title: youtubeTitle,
+                                description: youtubeDescription,
+                                channelId: target.youtubeChannelId,
                             });
-                        } else if (target.platform === "youtube") {
-                            logger.info(
-                                `content-publish run=${runId} platform=youtube logging in channel=${target.youtubeChannelId || "?"}`,
-                            );
-                            await loginYoutubeWithCookie(driver, target.cookie);
-                            if (kind === "video" || ytDestination === "shorts") {
-                                logger.info(
-                                    `content-publish run=${runId} platform=youtube publishing shorts`,
-                                );
-                                await publishYoutubeShort({
-                                    driver,
-                                    mediaPath,
-                                    title: youtubeTitle,
-                                    description: youtubeDescription,
-                                    channelId: target.youtubeChannelId,
-                                });
-                            } else {
-                                logger.info(
-                                    `content-publish run=${runId} platform=youtube publishing community`,
-                                );
-                                await publishYoutubeCommunityImagePost({
-                                    driver,
-                                    mediaPath,
-                                    title: youtubeTitle,
-                                    description: youtubeDescription,
-                                    channelId: target.youtubeChannelId,
-                                });
-                            }
-                        } else if (target.platform === "linkedin") {
-                            logger.info(
-                                `content-publish run=${runId} platform=linkedin logging in company=${target.linkedinCompanyId || "?"}`,
-                            );
-                            await loginLinkedinWithCookie(driver, target.cookie);
-                            if (kind === "video") {
-                                logger.info(
-                                    `content-publish run=${runId} platform=linkedin publishing video`,
-                                );
-                                await publishLinkedinVideoPost({
-                                    driver,
-                                    mediaPath,
-                                    caption: linkedinCaption,
-                                    companyId: target.linkedinCompanyId,
-                                });
-                            } else {
-                                logger.info(
-                                    `content-publish run=${runId} platform=linkedin publishing`,
-                                );
-                                await publishLinkedinImagePost({
-                                    driver,
-                                    mediaPath,
-                                    caption: linkedinCaption,
-                                    companyId: target.linkedinCompanyId,
-                                });
-                            }
                         } else {
-                            throw new Error(`Unsupported platform: ${target.platform}`);
-                        }
-                    }
-
-                    await updateContentPublishRunTargetById({
-                        id: target.targetId,
-                        status: "completed",
-                    });
-                    completedCount += 1;
-                    logger.info(
-                        `content-publish run=${runId} platform=${target.platform} completed`,
-                    );
-                } catch (error) {
-                    const message = error instanceof Error ? error.message : String(error);
-                    const screenshotFiles = normalizeScreenshotFiles(
-                        error && typeof error === "object" ? error.screenshotFiles || error.screenshotFile : null,
-                    );
-                    const screenshotFile =
-                        screenshotFiles[screenshotFiles.length - 1]
-                        || (error && typeof error === "object" && error.screenshotFile
-                            ? String(error.screenshotFile)
-                            : null);
-                    logger.error(
-                        `content-publish run=${runId} platform=${target.platform} failed: ${message}${
-                            screenshotFiles.length
-                                ? ` screenshots=${screenshotFiles.length} last=${screenshotFile}`
-                                : ""
-                        }`,
-                    );
-                    if (screenshotFiles.length) {
-                        logger.info(
-                            `content-publish run=${runId} platform=${target.platform} screenshot files: ${screenshotFiles.join(", ")}`,
-                        );
-                    }
-                    runFailedMessage = message;
-                    await updateContentPublishRunTargetById({
-                        id: target.targetId,
-                        status: "failed",
-                        error_message: message,
-                        screenshot_file: screenshotFile,
-                        screenshot_files: serializeScreenshotFiles(screenshotFiles),
-                    });
-                } finally {
-                    if (driver) {
-                        try {
-                            await driver.quit();
                             logger.info(
-                                `content-publish run=${runId} platform=${target.platform} browser closed`,
+                                `content-publish run=${runId} platform=youtube publishing community`,
                             );
-                        } catch (quitError) {
-                            logger.error(
-                                `content-publish run=${runId} platform=${target.platform} driver quit: ${quitError}`,
-                            );
+                            await publishYoutubeCommunityImage({
+                                driver,
+                                mediaPath,
+                                title: youtubeTitle,
+                                description: youtubeDescription,
+                                channelId: target.youtubeChannelId,
+                            });
                         }
+                    } else if (target.platform === "linkedin") {
+                        logger.info(
+                            `content-publish run=${runId} platform=linkedin logging in company=${target.linkedinCompanyId || "?"}`,
+                        );
+                        await loginLinkedinWithCookie(driver, target.cookie);
+                        if (kind === "video") {
+                            logger.info(
+                                `content-publish run=${runId} platform=linkedin publishing video`,
+                            );
+                            await publishLinkedinVideoPost({
+                                driver,
+                                mediaPath,
+                                caption: linkedinCaption,
+                                companyId: target.linkedinCompanyId,
+                            });
+                        } else {
+                            logger.info(
+                                `content-publish run=${runId} platform=linkedin publishing`,
+                            );
+                            await publishLinkedinImagePost({
+                                driver,
+                                mediaPath,
+                                caption: linkedinCaption,
+                                companyId: target.linkedinCompanyId,
+                            });
+                        }
+                    } else {
+                        throw new Error(`Unsupported platform: ${target.platform}`);
+                    }
+                }
+
+                await updateContentPublishRunTargetById({
+                    id: target.targetId,
+                    status: "completed",
+                });
+                completedCount += 1;
+                logger.info(
+                    `content-publish run=${runId} platform=${target.platform} completed`,
+                );
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                let screenshotFiles = normalizeScreenshotFiles(
+                    error && typeof error === "object"
+                        ? error.screenshotFiles || error.screenshotFile
+                        : null,
+                );
+                // Safety net: any Selenium failure without a POM screenshot still captures the page.
+                if (driver && !screenshotFiles.length) {
+                    try {
+                        const fallback = await captureContentPublishScreenshot(
+                            driver,
+                            `${target.platform}-fail`,
+                        );
+                        if (fallback) {
+                            screenshotFiles = [fallback];
+                        }
+                    } catch {
+                        // keep original error
+                    }
+                }
+                logger.error(
+                    `content-publish run=${runId} platform=${target.platform} failed: ${message}${
+                        screenshotFiles.length
+                            ? ` screenshots=${screenshotFiles.length} last=${screenshotFiles[screenshotFiles.length - 1]}`
+                            : ""
+                    }`,
+                );
+                runFailedMessage = message;
+                await updateContentPublishRunTargetById({
+                    id: target.targetId,
+                    status: "failed",
+                    error_message: message,
+                    screenshot_files: serializeScreenshotFiles(screenshotFiles),
+                });
+            } finally {
+                if (driver) {
+                    try {
+                        await driver.quit();
+                        logger.info(
+                            `content-publish run=${runId} platform=${target.platform} browser closed`,
+                        );
+                    } catch (quitError) {
+                        logger.error(
+                            `content-publish run=${runId} platform=${target.platform} driver quit: ${quitError}`,
+                        );
                     }
                 }
             }
-
-            const status = completedCount > 0 ? "completed" : "failed";
-            await updateContentPublishRunById({
-                id: runId,
-                status,
-                error_message: runFailedMessage,
-                finished_on: toDbDateTime(new Date()),
-            });
-            logger.info(
-                `content-publish run=${runId} finished status=${status} completed=${completedCount}/${targetList.length}`,
-            );
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            logger.error(`content-publish run=${runId} failed: ${message}`);
-            await updateContentPublishRunById({
-                id: runId,
-                status: "failed",
-                error_message: message,
-                finished_on: toDbDateTime(new Date()),
-            });
-        } finally {
-            try {
-                await notifyContentPublishRunComplete({ runId });
-            } catch (notifyError) {
-                logger.error(`content-publish run=${runId} notify: ${notifyError}`);
-            }
-            releaseContentPublishProcessing();
-            logger.info(`content-publish run=${runId} processing released`);
         }
-    })();
 
-    return true;
+        const status = completedCount > 0 ? "completed" : "failed";
+        await updateContentPublishRunById({
+            id: runId,
+            status,
+            error_message: runFailedMessage,
+            finished_on: toDbDateTime(new Date()),
+        });
+        logger.info(
+            `content-publish run=${runId} finished status=${status} completed=${completedCount}/${targetList.length}`,
+        );
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error(`content-publish run=${runId} failed: ${message}`);
+        await updateContentPublishRunById({
+            id: runId,
+            status: "failed",
+            error_message: message,
+            finished_on: toDbDateTime(new Date()),
+        });
+    } finally {
+        try {
+            await notifyContentPublishRunComplete({ runId });
+        } catch (notifyError) {
+            logger.error(`content-publish run=${runId} notify: ${notifyError}`);
+        }
+    }
 }

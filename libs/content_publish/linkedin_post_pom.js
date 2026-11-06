@@ -1,6 +1,7 @@
 import { Key } from "selenium-webdriver";
 import { logger } from "@hammerbyte/utils";
 import { contentPublishSleep, openUrl } from "../content_publish_browser.js";
+import { failWithScreenshot } from "../content_publish_screenshot.js";
 
 /**
  * LinkedIn image post — live-tuned.
@@ -157,7 +158,11 @@ async function clickStartPost(driver) {
     `);
     if (!clicked) {
         const state = await diagnoseLinkedinPublish(driver);
-        throw new Error(`LinkedIn step2 start-post missing (${JSON.stringify(state)})`);
+        await failWithScreenshot(
+            driver,
+            `LinkedIn step2 start-post missing (${JSON.stringify(state)})`,
+            "li-img-start",
+        );
     }
     await contentPublishSleep(2000);
 }
@@ -177,7 +182,11 @@ async function waitForComposeReady(driver, timeoutMs = 30000) {
         await contentPublishSleep(500);
     }
     const state = await diagnoseLinkedinPublish(driver);
-    throw new Error(`LinkedIn step2 compose not ready (${JSON.stringify(state)})`);
+    await failWithScreenshot(
+        driver,
+        `LinkedIn step2 compose not ready (${JSON.stringify(state)})`,
+        "li-img-compose",
+    );
 }
 
 async function waitForFileInputs(driver, timeoutMs = 15000) {
@@ -206,7 +215,11 @@ async function attachImage(driver, mediaPath) {
         `);
         if (!clickedMedia) {
             const state = await diagnoseLinkedinPublish(driver);
-            throw new Error(`LinkedIn step3 Media button missing (${JSON.stringify(state)})`);
+            await failWithScreenshot(
+                driver,
+                `LinkedIn step3 Media button missing (${JSON.stringify(state)})`,
+                "li-img-media",
+            );
         }
         await contentPublishSleep(1000);
         inputs = await waitForFileInputs(driver, 4000);
@@ -221,8 +234,10 @@ async function attachImage(driver, mediaPath) {
             `);
             if (!clickedUpload) {
                 const state = await diagnoseLinkedinPublish(driver);
-                throw new Error(
+                await failWithScreenshot(
+                    driver,
                     `LinkedIn step3 upload control missing (${JSON.stringify(state)})`,
+                    "li-img-upload",
                 );
             }
             await contentPublishSleep(1000);
@@ -232,7 +247,11 @@ async function attachImage(driver, mediaPath) {
 
     if (!inputs.length) {
         const state = await diagnoseLinkedinPublish(driver);
-        throw new Error(`LinkedIn step3 file input missing (${JSON.stringify(state)})`);
+        await failWithScreenshot(
+            driver,
+            `LinkedIn step3 file input missing (${JSON.stringify(state)})`,
+            "li-img-file",
+        );
     }
 
     let chosen = inputs[0];
@@ -266,7 +285,11 @@ async function attachImage(driver, mediaPath) {
     }
     if (!previewReady) {
         const state = await diagnoseLinkedinPublish(driver);
-        throw new Error(`LinkedIn step3 image preview missing (${JSON.stringify(state)})`);
+        await failWithScreenshot(
+            driver,
+            `LinkedIn step3 image preview missing (${JSON.stringify(state)})`,
+            "li-img-preview",
+        );
     }
 
     await contentPublishSleep(1000);
@@ -321,7 +344,11 @@ async function typeCaption(driver, caption) {
 
     if (!editor) {
         const state = await diagnoseLinkedinPublish(driver);
-        throw new Error(`LinkedIn step4 caption editor missing (${JSON.stringify(state)})`);
+        await failWithScreenshot(
+            driver,
+            `LinkedIn step4 caption editor missing (${JSON.stringify(state)})`,
+            "li-img-caption",
+        );
     }
 
     await editor.click();
@@ -372,7 +399,11 @@ async function clickPost(driver) {
         await contentPublishSleep(500);
     }
     const state = await diagnoseLinkedinPublish(driver);
-    throw new Error(`LinkedIn step5 Post button missing (${JSON.stringify(state)})`);
+    await failWithScreenshot(
+        driver,
+        `LinkedIn step5 Post button missing (${JSON.stringify(state)})`,
+        "li-img-post",
+    );
 }
 
 async function openPersonalCompose(driver) {
@@ -385,7 +416,11 @@ async function openPersonalCompose(driver) {
         await contentPublishSleep(2500);
         state = await diagnoseLinkedinPublish(driver);
         if (!state.startPost) {
-            throw new Error(`LinkedIn step1 feed not ready (${JSON.stringify(state)})`);
+            await failWithScreenshot(
+                driver,
+                `LinkedIn step1 feed not ready (${JSON.stringify(state)})`,
+                "li-img-feed",
+            );
         }
         await clickStartPost(driver);
     }
@@ -427,7 +462,11 @@ async function openPageCompose(driver, companyId) {
     `);
     if (!opened) {
         state = await diagnoseLinkedinPublish(driver);
-        throw new Error(`LinkedIn step1 page compose missing (${JSON.stringify(state)})`);
+        await failWithScreenshot(
+            driver,
+            `LinkedIn step1 page compose missing (${JSON.stringify(state)})`,
+            "li-img-page",
+        );
     }
     await contentPublishSleep(2500);
 }
