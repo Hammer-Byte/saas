@@ -32,10 +32,34 @@ const IMAGE_EXTENSIONS = new Set([
     "bmp",
 ]);
 
-function isImageMedia(media) {
+const VIDEO_EXTENSIONS = new Set([
+    "mp4",
+    "mov",
+    "webm",
+    "m4v",
+]);
+
+function mediaExtension(media) {
     const name = String(media?.file || media?.name || "");
-    const extension = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
-    return IMAGE_EXTENSIONS.has(extension);
+    return name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+}
+
+function isImageMedia(media) {
+    return IMAGE_EXTENSIONS.has(mediaExtension(media));
+}
+
+function isVideoMedia(media) {
+    return VIDEO_EXTENSIONS.has(mediaExtension(media));
+}
+
+function detectMediaKind(media) {
+    if (isImageMedia(media)) {
+        return "image";
+    }
+    if (isVideoMedia(media)) {
+        return "video";
+    }
+    return null;
 }
 
 function trimOrNull(value) {
@@ -111,9 +135,10 @@ export async function startContentPublishRun({ body, set, cookie }) {
         set.status = 400;
         return { error: "Media not found", processing: false };
     }
-    if (!isImageMedia(media)) {
+    const mediaKind = detectMediaKind(media);
+    if (!mediaKind) {
         set.status = 400;
-        return { error: "Only image media is supported", processing: false };
+        return { error: "Unsupported media type (use image or video)", processing: false };
     }
 
     const automationUser = await getAutomationUserById({ id: body.automation_user_id });
@@ -126,6 +151,19 @@ export async function startContentPublishRun({ body, set, cookie }) {
     if (!platforms.length) {
         set.status = 400;
         return { error: "Select at least one platform", processing: false };
+    }
+
+    if (mediaKind === "video") {
+        const videoAllowed = new Set(["instagram", "youtube", "linkedin"]);
+        for (const platform of platforms) {
+            if (!videoAllowed.has(platform)) {
+                set.status = 400;
+                return {
+                    error: `Video publish does not support platform: ${platform}`,
+                    processing: false,
+                };
+            }
+        }
     }
 
     for (const platform of platforms) {
@@ -146,14 +184,12 @@ export async function startContentPublishRun({ body, set, cookie }) {
         }
     }
 
-    const facebook_caption = platforms.includes("facebook")
-        ? trimOrNull(body.facebook_caption)
-        : null;
+    const facebook_caption =
+        mediaKind === "image" && platforms.includes("facebook")
+            ? trimOrNull(body.facebook_caption)
+            : null;
     const instagram_caption = platforms.includes("instagram")
         ? trimOrNull(body.instagram_caption)
-        : null;
-    const instagram_hashtags = platforms.includes("instagram")
-        ? trimOrNull(body.instagram_hashtags)
         : null;
     const youtube_title = platforms.includes("youtube") ? trimOrNull(body.youtube_title) : null;
     const youtube_description = platforms.includes("youtube")
@@ -173,6 +209,14 @@ export async function startContentPublishRun({ body, set, cookie }) {
             body.instagram_user_id || automationUser.instagram_user_id,
         )
         : null;
+    const instagram_destination = platforms.includes("instagram")
+        ? String(body.instagram_destination || "feed").trim().toLowerCase()
+        : "feed";
+    const youtube_destination = platforms.includes("youtube")
+        ? String(body.youtube_destination || (mediaKind === "video" ? "shorts" : "community"))
+            .trim()
+            .toLowerCase()
+        : "community";
 
     if (platforms.includes("facebook") && !facebook_caption) {
         set.status = 400;
@@ -189,6 +233,17 @@ export async function startContentPublishRun({ body, set, cookie }) {
             processing: false,
         };
     }
+    if (
+        platforms.includes("instagram")
+        && mediaKind === "video"
+        && !["feed", "story"].includes(instagram_destination)
+    ) {
+        set.status = 400;
+        return {
+            error: "Instagram video destination must be feed or story",
+            processing: false,
+        };
+    }
     if (platforms.includes("youtube") && !youtube_title) {
         set.status = 400;
         return { error: "YouTube title is required", processing: false };
@@ -199,6 +254,10 @@ export async function startContentPublishRun({ body, set, cookie }) {
             error: "YouTube channel id (UC… or channel URL) is required",
             processing: false,
         };
+    }
+    if (platforms.includes("youtube") && mediaKind === "video" && youtube_destination !== "shorts") {
+        set.status = 400;
+        return { error: "YouTube video destination must be shorts", processing: false };
     }
     if (platforms.includes("linkedin") && !linkedin_caption) {
         set.status = 400;
@@ -218,7 +277,6 @@ export async function startContentPublishRun({ body, set, cookie }) {
         user_name: automationUser.name,
         facebook_caption,
         instagram_caption,
-        instagram_hashtags,
         youtube_title,
         youtube_description,
         linkedin_caption,
@@ -248,7 +306,7 @@ export async function startContentPublishRun({ body, set, cookie }) {
 
     const mediaPath = join(Bun.env.DIRECTORY_MEDIA, media.file);
     logger.info(
-        `content-publish start requested run=${runId} user=${automationUser.name} platforms=${platforms.join(",")} media_id=${media.id}${
+        `content-publish start requested run=${runId} user=${automationUser.name} kind=${mediaKind} platforms=${platforms.join(",")} media_id=${media.id}${
             instagram_user_id ? ` instagram_user=${instagram_user_id}` : ""
         }${youtube_channel_id ? ` youtube_channel=${youtube_channel_id}` : ""}${
             linkedin_company_id ? ` linkedin_company=${linkedin_company_id}` : ""
@@ -261,10 +319,12 @@ export async function startContentPublishRun({ body, set, cookie }) {
         targets,
         facebookCaption: facebook_caption,
         instagramCaption: instagram_caption,
-        instagramHashtags: instagram_hashtags,
         youtubeTitle: youtube_title,
         youtubeDescription: youtube_description,
         linkedinCaption: linkedin_caption,
+        mediaKind,
+        instagramDestination: instagram_destination,
+        youtubeDestination: youtube_destination,
     });
 
     if (!started) {

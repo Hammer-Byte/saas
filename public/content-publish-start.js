@@ -84,7 +84,6 @@ document.addEventListener("DOMContentLoaded", () => {
             facebook_caption: document.getElementById("facebook-caption")?.value || "",
             instagram_user_id: instagramUserIdInput?.value || "",
             instagram_caption: document.getElementById("instagram-caption")?.value || "",
-            instagram_hashtags: document.getElementById("instagram-hashtags")?.value || "",
             youtube_channel_id: youtubeChannelIdInput?.value || "",
             youtube_title: document.getElementById("youtube-title")?.value || "",
             youtube_description: document.getElementById("youtube-description")?.value || "",

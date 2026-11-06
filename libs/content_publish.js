@@ -15,7 +15,9 @@ import {
 import { notifyContentPublishRunComplete } from "./content_publish_notify.js";
 import { publishFacebookImagePost } from "./content_publish/facebook_post_pom.js";
 import { publishYoutubeCommunityImagePost } from "./content_publish/youtube_community_pom.js";
+import { publishYoutubeShort } from "./content_publish/youtube_shorts_pom.js";
 import { publishLinkedinImagePost } from "./content_publish/linkedin_post_pom.js";
+import { publishLinkedinVideoPost } from "./content_publish/linkedin_video_pom.js";
 import { createInstagramPublisher } from "./instagram/index.js";
 import { buildContentPublishPublicMediaUrl } from "./content_publish_public_media.js";
 import {
@@ -32,14 +34,24 @@ export function startContentPublish({
     targets = [],
     facebookCaption = null,
     instagramCaption = null,
-    instagramHashtags = null,
     youtubeTitle = null,
     youtubeDescription = null,
     linkedinCaption = null,
+    mediaKind = "image",
+    instagramDestination = "feed",
+    youtubeDestination = "community",
 } = {}) {
     if (!acquireContentPublishProcessing()) {
         return false;
     }
+
+    const kind = String(mediaKind || "image").trim().toLowerCase() === "video"
+        ? "video"
+        : "image";
+    const igDestination = String(instagramDestination || "feed").trim().toLowerCase();
+    const ytDestination = String(youtubeDestination || (kind === "video" ? "shorts" : "community"))
+        .trim()
+        .toLowerCase();
 
     const targetList = (targets || [])
         .map((target) => ({
@@ -69,7 +81,7 @@ export function startContentPublish({
     );
 
     logger.info(
-        `content-publish run=${runId} queued platforms=${targetList
+        `content-publish run=${runId} queued kind=${kind} platforms=${targetList
             .map((target) => target.platform)
             .join(",")} media=${mediaPath}`,
     );
@@ -97,25 +109,48 @@ export function startContentPublish({
                         if (!target.instagramUserId) {
                             throw new Error("Instagram user id is required for API publish");
                         }
-                        const imageUrl = buildContentPublishPublicMediaUrl(mediaId, 3600);
-                        logger.info(
-                            `content-publish run=${runId} platform=instagram publishing via Graph API ig_user=${target.instagramUserId} image_url=${imageUrl}`,
+                        const mediaUrl = buildContentPublishPublicMediaUrl(
+                            mediaId,
+                            kind === "video" ? 7200 : 3600,
                         );
                         const instagram = createInstagramPublisher({
                             accessToken: target.cookie,
                             igUserId: target.instagramUserId,
                         });
-                        await instagram.publishFeedImage({
-                            imageUrl,
-                            caption: instagramCaption,
-                            hashtags: instagramHashtags,
-                        });
+
+                        if (kind === "video") {
+                            if (igDestination === "story") {
+                                logger.info(
+                                    `content-publish run=${runId} platform=instagram publishing video story via Graph API ig_user=${target.instagramUserId} video_url=${mediaUrl}`,
+                                );
+                                await instagram.publishStory({ videoUrl: mediaUrl });
+                            } else {
+                                logger.info(
+                                    `content-publish run=${runId} platform=instagram publishing reel via Graph API ig_user=${target.instagramUserId} video_url=${mediaUrl}`,
+                                );
+                                await instagram.publishReel({
+                                    videoUrl: mediaUrl,
+                                    caption: instagramCaption,
+                                });
+                            }
+                        } else {
+                            logger.info(
+                                `content-publish run=${runId} platform=instagram publishing via Graph API ig_user=${target.instagramUserId} image_url=${mediaUrl}`,
+                            );
+                            await instagram.publishFeedImage({
+                                imageUrl: mediaUrl,
+                                caption: instagramCaption,
+                            });
+                        }
                     } else {
                         logger.info(
                             `content-publish run=${runId} platform=${target.platform} opening firefox`,
                         );
                         driver = await openFirefox();
                         if (target.platform === "facebook") {
+                            if (kind !== "image") {
+                                throw new Error("Facebook video publish is not supported yet");
+                            }
                             logger.info(
                                 `content-publish run=${runId} platform=facebook logging in`,
                             );
@@ -133,30 +168,55 @@ export function startContentPublish({
                                 `content-publish run=${runId} platform=youtube logging in channel=${target.youtubeChannelId || "?"}`,
                             );
                             await loginYoutubeWithCookie(driver, target.cookie);
-                            logger.info(
-                                `content-publish run=${runId} platform=youtube publishing`,
-                            );
-                            await publishYoutubeCommunityImagePost({
-                                driver,
-                                mediaPath,
-                                title: youtubeTitle,
-                                description: youtubeDescription,
-                                channelId: target.youtubeChannelId,
-                            });
+                            if (kind === "video" || ytDestination === "shorts") {
+                                logger.info(
+                                    `content-publish run=${runId} platform=youtube publishing shorts`,
+                                );
+                                await publishYoutubeShort({
+                                    driver,
+                                    mediaPath,
+                                    title: youtubeTitle,
+                                    description: youtubeDescription,
+                                    channelId: target.youtubeChannelId,
+                                });
+                            } else {
+                                logger.info(
+                                    `content-publish run=${runId} platform=youtube publishing community`,
+                                );
+                                await publishYoutubeCommunityImagePost({
+                                    driver,
+                                    mediaPath,
+                                    title: youtubeTitle,
+                                    description: youtubeDescription,
+                                    channelId: target.youtubeChannelId,
+                                });
+                            }
                         } else if (target.platform === "linkedin") {
                             logger.info(
                                 `content-publish run=${runId} platform=linkedin logging in company=${target.linkedinCompanyId || "?"}`,
                             );
                             await loginLinkedinWithCookie(driver, target.cookie);
-                            logger.info(
-                                `content-publish run=${runId} platform=linkedin publishing`,
-                            );
-                            await publishLinkedinImagePost({
-                                driver,
-                                mediaPath,
-                                caption: linkedinCaption,
-                                companyId: target.linkedinCompanyId,
-                            });
+                            if (kind === "video") {
+                                logger.info(
+                                    `content-publish run=${runId} platform=linkedin publishing video`,
+                                );
+                                await publishLinkedinVideoPost({
+                                    driver,
+                                    mediaPath,
+                                    caption: linkedinCaption,
+                                    companyId: target.linkedinCompanyId,
+                                });
+                            } else {
+                                logger.info(
+                                    `content-publish run=${runId} platform=linkedin publishing`,
+                                );
+                                await publishLinkedinImagePost({
+                                    driver,
+                                    mediaPath,
+                                    caption: linkedinCaption,
+                                    companyId: target.linkedinCompanyId,
+                                });
+                            }
                         } else {
                             throw new Error(`Unsupported platform: ${target.platform}`);
                         }

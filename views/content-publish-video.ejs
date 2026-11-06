@@ -23,23 +23,46 @@
                 Video
             </p>
             <h1 class="h3 mb-1">Video publish</h1>
-            <p class="text-secondary mb-0">Video and Shorts automation will live here.</p>
+            <p class="text-secondary mb-0">
+                Publish a video as an Instagram Reel or Story, LinkedIn feed post, or YouTube Short.
+            </p>
         </div>
 
-        <div class="card border-0 shadow-sm">
-            <div class="card-body p-4 p-md-5 text-center">
-                <div class="app-section-icon mx-auto mb-3">V</div>
-                <h2 class="h5 mb-2">Coming soon</h2>
-                <p class="text-secondary mb-0">
-                    This tile is a placeholder. Image publishing remains under
-                    <a href="/app/content-publish-image">Content Publishing → Image</a>.
-                </p>
+        <div class="row g-4">
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="/app/content-publish-video-start" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">P</div>
+                            <h2 class="h5 text-dark mb-2">Publish</h2>
+                            <p class="text-secondary small mb-0">Upload a video, pick a user and platforms, then start.</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="/app/content-publish-history" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">H</div>
+                            <h2 class="h5 text-dark mb-2">History</h2>
+                            <p class="text-secondary small mb-0">Review past publish runs and per-platform status.</p>
+                        </div>
+                    </div>
+                </a>
             </div>
         </div>
     </div>
 </main>
 
 <style>
+    .app-section-card {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .app-section-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+    }
     .app-section-icon {
         width: 2.5rem;
         height: 2.5rem;

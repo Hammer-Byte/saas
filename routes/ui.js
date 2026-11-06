@@ -777,6 +777,13 @@ export const uiRoutes = new Elysia()
                     title: "Video Publish — HammerByte",
                 })),
             )
+            .get("/app/content-publish-video-start", async ({ render, session }) =>
+                render("content-publish-video-start", appPage(session, {
+                    title: "Publish Video — HammerByte",
+                    automationUsers: await getAllAutomationUsers(),
+                    processing: contentPublishProcessing,
+                })),
+            )
             .get("/app/content-publish-start", async ({ render, session }) =>
                 render("content-publish-start", appPage(session, {
                     title: "Publish Image — HammerByte",

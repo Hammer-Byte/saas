@@ -42,7 +42,7 @@ export async function publishFeedImage(credentials, options = {}) {
 }
 
 /**
- * Feed carousel (2–10 images). Video items belong on the video tile later.
+ * Feed carousel (2–10 images).
  * @param {{ accessToken: string, igUserId: string } | ReturnType<typeof createInstagramClient>} credentials
  * @param {{ items: Array<{ imageUrl: string }>, caption?: string|null, hashtags?: string|null }} options
  */
@@ -91,30 +91,82 @@ export async function publishFeedCarousel(credentials, options = {}) {
 }
 
 /**
- * Image story. Stickers/polls/links are not supported by the API.
- * Video stories belong on the video tile later.
+ * Reel (feed video).
  * @param {{ accessToken: string, igUserId: string } | ReturnType<typeof createInstagramClient>} credentials
- * @param {{ imageUrl: string }} options
+ * @param {{ videoUrl: string, caption?: string|null, hashtags?: string|null, coverUrl?: string|null }} options
  */
-export async function publishStory(credentials, options = {}) {
+export async function publishReel(credentials, options = {}) {
     const { accessToken, igUserId } = withCredentials(credentials);
-    const imageUrl = assertPublicHttpsUrl(options.imageUrl, "image_url");
+    const videoUrl = assertPublicHttpsUrl(options.videoUrl, "video_url");
+    const caption = buildInstagramCaption(options.caption, options.hashtags);
+    const coverUrl = options.coverUrl
+        ? assertPublicHttpsUrl(options.coverUrl, "cover_url")
+        : null;
 
-    logger.info(`instagram publishStory ig_user=${igUserId} media=image`);
+    logger.info(
+        `instagram publishReel ig_user=${igUserId} video_url=${videoUrl} caption_len=${caption.length}`,
+    );
+
+    const params = {
+        media_type: "REELS",
+        video_url: videoUrl,
+        caption: caption || undefined,
+    };
+    if (coverUrl) {
+        params.cover_url = coverUrl;
+    }
 
     const { creationId } = await createInstagramMediaContainer({
         accessToken,
         igUserId,
-        params: {
-            media_type: "STORIES",
-            image_url: imageUrl,
-        },
+        params,
     });
 
     return publishInstagramContainer({
         accessToken,
         igUserId,
         creationId,
-        timeoutMs: 180_000,
+        timeoutMs: 600_000,
+    });
+}
+
+/**
+ * Story (image or video). Stickers/polls/links are not supported by the API.
+ * @param {{ accessToken: string, igUserId: string } | ReturnType<typeof createInstagramClient>} credentials
+ * @param {{ imageUrl?: string|null, videoUrl?: string|null }} options
+ */
+export async function publishStory(credentials, options = {}) {
+    const { accessToken, igUserId } = withCredentials(credentials);
+    const videoUrl = options.videoUrl
+        ? assertPublicHttpsUrl(options.videoUrl, "video_url")
+        : null;
+    const imageUrl = !videoUrl && options.imageUrl
+        ? assertPublicHttpsUrl(options.imageUrl, "image_url")
+        : null;
+
+    if (!videoUrl && !imageUrl) {
+        throw new Error("publishStory requires imageUrl or videoUrl");
+    }
+
+    logger.info(
+        `instagram publishStory ig_user=${igUserId} media=${videoUrl ? "video" : "image"}`,
+    );
+
+    const params = {
+        media_type: "STORIES",
+        ...(videoUrl ? { video_url: videoUrl } : { image_url: imageUrl }),
+    };
+
+    const { creationId } = await createInstagramMediaContainer({
+        accessToken,
+        igUserId,
+        params,
+    });
+
+    return publishInstagramContainer({
+        accessToken,
+        igUserId,
+        creationId,
+        timeoutMs: videoUrl ? 600_000 : 180_000,
     });
 }

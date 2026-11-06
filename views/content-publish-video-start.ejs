@@ -1,0 +1,192 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/automation" class="text-decoration-none">Automation</a> /
+                    <a href="/app/content-publish" class="text-decoration-none">Content Publishing</a> /
+                    <a href="/app/content-publish-video" class="text-decoration-none">Video</a> /
+                    Publish
+                </p>
+                <h1 class="h3 mb-1">Publish video</h1>
+                <p class="text-secondary mb-0">
+                    Common video, then one automation user, then platforms.
+                    Instagram uses Graph API (Reel or Story). LinkedIn and YouTube Shorts use Selenium.
+                    Put #hashtags inside captions/descriptions. Manage credentials on
+                    <a href="/app/automation-users">Automation Users</a>.
+                </p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="/app/content-publish-history" class="btn btn-outline-secondary">History</a>
+                <button
+                    type="button"
+                    class="btn btn-success"
+                    id="content-publish-start-btn"
+                    <% if (processing) { %>disabled<% } %>
+                >
+                    <% if (processing) { %>Running…<% } else { %>Start<% } %>
+                </button>
+            </div>
+        </div>
+
+        <div id="content-publish-alert" class="alert d-none" role="alert"></div>
+
+        <div class="row g-4">
+            <div class="col-12 col-lg-5">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <h2 class="h5 mb-3">1. Video</h2>
+                        <input type="file" class="form-control" id="content-publish-video" accept="video/*" />
+                        <p class="small text-secondary mt-2 mb-0">
+                            One video is shared across selected platforms (mp4, mov, webm).
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-7">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <h2 class="h5 mb-3">2. User</h2>
+                        <div
+                            id="content-publish-users-empty"
+                            class="text-secondary <%= automationUsers && automationUsers.length ? 'd-none' : '' %>"
+                        >
+                            No automation users yet.
+                            <a href="/app/automation-users">Add users</a>
+                            first.
+                        </div>
+                        <div id="content-publish-users-list" class="<%= !automationUsers || !automationUsers.length ? 'd-none' : '' %>">
+                            <% (automationUsers || []).forEach(function (automationUser) { %>
+                                <div class="form-check py-2 border-bottom">
+                                    <input
+                                        class="form-check-input content-publish-user-radio"
+                                        type="radio"
+                                        name="content-publish-user"
+                                        value="<%= automationUser.id %>"
+                                        id="content-publish-user-<%= automationUser.id %>"
+                                        data-instagram="<%= automationUser.instagram_cookie ? '1' : '0' %>"
+                                        data-youtube="<%= automationUser.youtube_cookie ? '1' : '0' %>"
+                                        data-linkedin="<%= automationUser.linkedin_cookie ? '1' : '0' %>"
+                                        data-instagram-user-id="<%= automationUser.instagram_user_id || '' %>"
+                                        data-youtube-channel-id="<%= automationUser.youtube_channel_id || '' %>"
+                                        data-linkedin-company-id="<%= automationUser.linkedin_company_id || '' %>"
+                                    />
+                                    <label class="form-check-label" for="content-publish-user-<%= automationUser.id %>">
+                                        <%= automationUser.name %>
+                                        <span class="text-secondary small">
+                                            <% if (automationUser.instagram_cookie) { %> IG<% } %>
+                                            <% if (automationUser.youtube_cookie) { %> YT<% } %>
+                                            <% if (automationUser.linkedin_cookie) { %> LI<% } %>
+                                        </span>
+                                    </label>
+                                </div>
+                            <% }) %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body p-4">
+                <h2 class="h5 mb-3">3. Platforms</h2>
+                <p class="small text-secondary mb-3">Select a user first. Platforms without credentials stay disabled.</p>
+                <div class="row g-3">
+                    <div class="col-md-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input content-publish-platform" type="checkbox" value="instagram" id="platform-instagram" disabled data-platform="instagram" />
+                            <label class="form-check-label" for="platform-instagram">Instagram</label>
+                        </div>
+                        <div id="platform-instagram-fields" class="mt-2 d-none">
+                            <label class="form-label small" for="instagram-user-id">Instagram user id</label>
+                            <input
+                                type="text"
+                                class="form-control mb-2"
+                                id="instagram-user-id"
+                                placeholder="IG professional account id"
+                            />
+                            <label class="form-label small" for="instagram-destination">Destination</label>
+                            <select class="form-select mb-2" id="instagram-destination">
+                                <option value="feed" selected>Feed (Reel)</option>
+                                <option value="story">Story</option>
+                            </select>
+                            <label class="form-label small" for="instagram-caption">Caption</label>
+                            <textarea
+                                class="form-control"
+                                id="instagram-caption"
+                                rows="3"
+                                placeholder="Write the post; include #hashtags here if needed"
+                            ></textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input content-publish-platform" type="checkbox" value="youtube" id="platform-youtube" disabled data-platform="youtube" />
+                            <label class="form-check-label" for="platform-youtube">YouTube</label>
+                        </div>
+                        <div id="platform-youtube-fields" class="mt-2 d-none">
+                            <label class="form-label small" for="youtube-channel-id">Channel id</label>
+                            <input
+                                type="text"
+                                class="form-control mb-2"
+                                id="youtube-channel-id"
+                                placeholder="UC… or channel URL"
+                            />
+                            <label class="form-label small" for="youtube-destination">Destination</label>
+                            <select class="form-select mb-2" id="youtube-destination" disabled>
+                                <option value="shorts" selected>Shorts</option>
+                            </select>
+                            <label class="form-label small" for="youtube-title">Title</label>
+                            <input type="text" class="form-control mb-2" id="youtube-title" />
+                            <label class="form-label small" for="youtube-description">Description</label>
+                            <textarea
+                                class="form-control"
+                                id="youtube-description"
+                                rows="2"
+                                placeholder="Include #hashtags here if needed"
+                            ></textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input content-publish-platform" type="checkbox" value="linkedin" id="platform-linkedin" disabled data-platform="linkedin" />
+                            <label class="form-check-label" for="platform-linkedin">LinkedIn</label>
+                        </div>
+                        <div id="platform-linkedin-fields" class="mt-2 d-none">
+                            <label class="form-label small" for="linkedin-company-id">Page / company id</label>
+                            <input
+                                type="text"
+                                class="form-control mb-2"
+                                id="linkedin-company-id"
+                                placeholder="107008067 or company admin URL"
+                            />
+                            <label class="form-label small" for="linkedin-caption">Caption</label>
+                            <textarea class="form-control" id="linkedin-caption" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/content-publish-video-start.js" defer></script>
+<%- include('common/footer') %>
