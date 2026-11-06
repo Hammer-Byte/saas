@@ -39,7 +39,7 @@ RUN apt-get update \
     && rm -f /tmp/wkhtmltox.deb /tmp/geckodriver.tar.gz \
     && rm -rf /var/lib/apt/lists/*
 
-ENV MOZ_HEADLESS=0
+ENV MOZ_HEADLESS=1
 ENV TZ=Asia/Kolkata
 
 WORKDIR /app

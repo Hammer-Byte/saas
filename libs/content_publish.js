@@ -7,7 +7,6 @@ import {
     loginYoutubeWithCookie,
     openFirefox,
     releaseContentPublishProcessing,
-    shouldUseContentPublishProxy,
 } from "./content_publish_browser.js";
 import {
     updateContentPublishRunById,
@@ -17,7 +16,7 @@ import { notifyContentPublishRunComplete } from "./content_publish_notify.js";
 import { publishFacebookImagePost } from "./content_publish/facebook_post_pom.js";
 import { publishYoutubeCommunityImagePost } from "./content_publish/youtube_community_pom.js";
 import { publishLinkedinImagePost } from "./content_publish/linkedin_post_pom.js";
-import { publishInstagramImageViaGraphApi } from "./instagram_graph_publish.js";
+import { createInstagramPublisher } from "./instagram/index.js";
 import { buildContentPublishPublicMediaUrl } from "./content_publish_public_media.js";
 import {
     normalizeScreenshotFiles,
@@ -102,19 +101,20 @@ export function startContentPublish({
                         logger.info(
                             `content-publish run=${runId} platform=instagram publishing via Graph API ig_user=${target.instagramUserId} image_url=${imageUrl}`,
                         );
-                        await publishInstagramImageViaGraphApi({
+                        const instagram = createInstagramPublisher({
                             accessToken: target.cookie,
                             igUserId: target.instagramUserId,
+                        });
+                        await instagram.publishFeedImage({
                             imageUrl,
                             caption: instagramCaption,
                             hashtags: instagramHashtags,
                         });
                     } else {
-                        const useProxy = shouldUseContentPublishProxy(target.platform);
                         logger.info(
-                            `content-publish run=${runId} platform=${target.platform} opening firefox proxy=${useProxy ? "1" : "0"}`,
+                            `content-publish run=${runId} platform=${target.platform} opening firefox`,
                         );
-                        driver = await openFirefox({ useProxy });
+                        driver = await openFirefox();
                         if (target.platform === "facebook") {
                             logger.info(
                                 `content-publish run=${runId} platform=facebook logging in`,
