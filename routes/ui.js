@@ -768,28 +768,25 @@ export const uiRoutes = new Elysia()
                     title: "Content Publishing — HammerByte",
                 })),
             )
-            .get("/app/content-publish-image", ({ render, session }) =>
-                render("content-publish-image", appPage(session, {
-                    title: "Image Publish — HammerByte",
-                })),
-            )
-            .get("/app/content-publish-video", ({ render, session }) =>
-                render("content-publish-video", appPage(session, {
-                    title: "Video Publish — HammerByte",
-                })),
-            )
-            .get("/app/content-publish-video-start", async ({ render, session }) =>
-                render("content-publish-video-start", appPage(session, {
-                    title: "Publish Video — HammerByte",
-                    automationUsers: await getAllAutomationUsers(),
-                })),
-            )
-            .get("/app/content-publish-start", async ({ render, session }) =>
+            .get("/app/content-publish-image", async ({ render, session }) =>
                 render("content-publish-start", appPage(session, {
                     title: "Publish Image — HammerByte",
                     automationUsers: await getAllAutomationUsers(),
                 })),
             )
+            .get("/app/content-publish-video", async ({ render, session }) =>
+                render("content-publish-video-start", appPage(session, {
+                    title: "Publish Video — HammerByte",
+                    automationUsers: await getAllAutomationUsers(),
+                })),
+            )
+            .get("/app/content-publish-video-start", ({ redirect }) =>
+                redirect("/app/content-publish-video"),
+            )
+            .get("/app/content-publish-start", ({ redirect }) =>
+                redirect("/app/content-publish-image"),
+            )
+
             .get("/app/content-publish-history", async ({ render, session }) => {
                 const publishRuns = await getAllContentPublishRuns();
                 const publishTargets = await getAllContentPublishRunTargets();
