@@ -158,9 +158,13 @@ export async function getContentPublishRunTargetsByRunId({ run_id }) {
 export async function getAllContentPublishRuns() {
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT *
-            FROM CONTENT_PUBLISH_RUNS
-            ORDER BY id DESC
+            SELECT
+                r.*,
+                m.name AS media_name,
+                m.file AS media_file
+            FROM CONTENT_PUBLISH_RUNS r
+            LEFT JOIN MEDIA m ON m.id = r.media_id
+            ORDER BY r.id DESC
         `,
     )
         .then((result) => Array.from(result ?? []))
