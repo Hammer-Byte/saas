@@ -18,7 +18,7 @@ export function releaseContentPublishProcessing() {
     processing = false;
 }
 
-/** Firefox for Facebook / YouTube / LinkedIn Selenium publish (Instagram uses Graph API). */
+/** Firefox for YouTube / LinkedIn Selenium publish (Instagram uses Graph API). */
 export async function openFirefox() {
     logger.info(
         `content-publish browser launch binary=${FIREFOX_BINARY} moz_headless=${Bun.env.MOZ_HEADLESS || "0"}`,
@@ -95,29 +95,6 @@ async function waitForLinkedinLogin(driver) {
 
     const url = await driver.getCurrentUrl();
     throw new Error(`LinkedIn login failed at ${url}`);
-}
-
-export async function loginFacebookWithCookie(driver, cookieValue) {
-    logger.info("content-publish facebook login start");
-    await openUrl(driver, "https://www.facebook.com/");
-    const parts = parseFacebookCookieBlob(cookieValue);
-    logger.info(`content-publish facebook cookies applied count=${parts.length}`);
-    for (const part of parts) {
-        await driver.manage().addCookie({
-            name: part.name,
-            value: part.value,
-            domain: ".facebook.com",
-            path: "/",
-            secure: true,
-        });
-    }
-    await openUrl(driver, "https://www.facebook.com/");
-    await contentPublishSleep(2000);
-    const url = await driver.getCurrentUrl();
-    if (/login|checkpoint/i.test(url)) {
-        throw new Error(`Facebook login failed at ${url}`);
-    }
-    logger.info("content-publish facebook login ok");
 }
 
 export async function loginYoutubeWithCookie(driver, cookieValue) {
@@ -257,14 +234,6 @@ async function waitForYoutubeLogin(driver) {
     }
     const url = await driver.getCurrentUrl();
     throw new Error(`YouTube login failed at ${url}`);
-}
-
-function parseFacebookCookieBlob(cookieValue) {
-    const trimmed = String(cookieValue || "").trim();
-    if (trimmed.includes("=") && (trimmed.includes("c_user") || trimmed.includes(";"))) {
-        return parseNameValueCookieBlob(trimmed);
-    }
-    return [{ name: "c_user", value: trimmed }];
 }
 
 function parseNameValueCookieBlob(cookieValue) {

@@ -1,7 +1,6 @@
 import { logger } from "@hammerbyte/utils";
 import { toDbDateTime } from "./date.js";
 import {
-    loginFacebookWithCookie,
     loginLinkedinWithCookie,
     loginYoutubeWithCookie,
     openFirefox,
@@ -11,7 +10,6 @@ import {
     updateContentPublishRunTargetById,
 } from "../db/content_publish_runs.js";
 import { notifyContentPublishRunComplete } from "./content_publish_notify.js";
-import { publishImagePost as publishFacebookImagePost } from "./facebook/index.js";
 import { createInstagramPublisher } from "./instagram/index.js";
 import {
     publishImagePost as publishLinkedinImagePost,
@@ -28,7 +26,7 @@ import {
     serializeScreenshotFiles,
 } from "./content_publish_screenshot.js";
 
-const PLATFORM_ORDER = ["facebook", "instagram", "youtube", "linkedin"];
+const PLATFORM_ORDER = ["instagram", "youtube", "linkedin"];
 
 /**
  * Execute one content-publish run to completion (awaitable).
@@ -39,19 +37,33 @@ export async function executeContentPublishRun({
     mediaPath,
     mediaId = null,
     targets = [],
-    facebookCaption = null,
     instagramCaption = null,
     youtubeTitle = null,
     youtubeDescription = null,
     linkedinCaption = null,
     mediaKind = "image",
+    instagramDestinations = null,
     instagramDestination = "feed",
     youtubeDestination = "community",
 } = {}) {
     const kind = String(mediaKind || "image").trim().toLowerCase() === "video"
         ? "video"
         : "image";
-    const igDestination = String(instagramDestination || "feed").trim().toLowerCase();
+    const allowedIg = new Set(["feed", "story"]);
+    let igDestinations = [];
+    if (Array.isArray(instagramDestinations) && instagramDestinations.length) {
+        igDestinations = [
+            ...new Set(
+                instagramDestinations
+                    .map((item) => String(item || "").trim().toLowerCase())
+                    .filter((item) => allowedIg.has(item)),
+            ),
+        ];
+    }
+    if (!igDestinations.length) {
+        const fallback = String(instagramDestination || "feed").trim().toLowerCase();
+        igDestinations = allowedIg.has(fallback) ? [fallback] : ["feed"];
+    }
     const ytDestination = String(youtubeDestination || (kind === "video" ? "shorts" : "community"))
         .trim()
         .toLowerCase();
@@ -119,52 +131,43 @@ export async function executeContentPublishRun({
                         igUserId: target.instagramUserId,
                     });
 
-                    if (kind === "video") {
-                        if (igDestination === "story") {
+                    for (const igDestination of igDestinations) {
+                        if (kind === "video") {
+                            if (igDestination === "story") {
+                                logger.info(
+                                    `content-publish run=${runId} platform=instagram publishing video story via Graph API ig_user=${target.instagramUserId} video_url=${mediaUrl}`,
+                                );
+                                await instagram.publishStory({ videoUrl: mediaUrl });
+                            } else {
+                                logger.info(
+                                    `content-publish run=${runId} platform=instagram publishing reel via Graph API ig_user=${target.instagramUserId} video_url=${mediaUrl}`,
+                                );
+                                await instagram.publishReel({
+                                    videoUrl: mediaUrl,
+                                    caption: instagramCaption,
+                                });
+                            }
+                        } else if (igDestination === "story") {
                             logger.info(
-                                `content-publish run=${runId} platform=instagram publishing video story via Graph API ig_user=${target.instagramUserId} video_url=${mediaUrl}`,
+                                `content-publish run=${runId} platform=instagram publishing image story via Graph API ig_user=${target.instagramUserId} image_url=${mediaUrl}`,
                             );
-                            await instagram.publishStory({ videoUrl: mediaUrl });
+                            await instagram.publishStory({ imageUrl: mediaUrl });
                         } else {
                             logger.info(
-                                `content-publish run=${runId} platform=instagram publishing reel via Graph API ig_user=${target.instagramUserId} video_url=${mediaUrl}`,
+                                `content-publish run=${runId} platform=instagram publishing feed image via Graph API ig_user=${target.instagramUserId} image_url=${mediaUrl}`,
                             );
-                            await instagram.publishReel({
-                                videoUrl: mediaUrl,
+                            await instagram.publishFeedImage({
+                                imageUrl: mediaUrl,
                                 caption: instagramCaption,
                             });
                         }
-                    } else {
-                        logger.info(
-                            `content-publish run=${runId} platform=instagram publishing via Graph API ig_user=${target.instagramUserId} image_url=${mediaUrl}`,
-                        );
-                        await instagram.publishFeedImage({
-                            imageUrl: mediaUrl,
-                            caption: instagramCaption,
-                        });
                     }
                 } else {
                     logger.info(
                         `content-publish run=${runId} platform=${target.platform} opening firefox`,
                     );
                     driver = await openFirefox();
-                    if (target.platform === "facebook") {
-                        if (kind !== "image") {
-                            throw new Error("Facebook video publish is not supported yet");
-                        }
-                        logger.info(
-                            `content-publish run=${runId} platform=facebook logging in`,
-                        );
-                        await loginFacebookWithCookie(driver, target.cookie);
-                        logger.info(
-                            `content-publish run=${runId} platform=facebook publishing`,
-                        );
-                        await publishFacebookImagePost({
-                            driver,
-                            mediaPath,
-                            caption: facebookCaption,
-                        });
-                    } else if (target.platform === "youtube") {
+                    if (target.platform === "youtube") {
                         logger.info(
                             `content-publish run=${runId} platform=youtube logging in channel=${target.youtubeChannelId || "?"}`,
                         );
@@ -238,7 +241,6 @@ export async function executeContentPublishRun({
                         ? error.screenshotFiles || error.screenshotFile
                         : null,
                 );
-                // Safety net: any Selenium failure without a POM screenshot still captures the page.
                 if (driver && !screenshotFiles.length) {
                     try {
                         const fallback = await captureContentPublishScreenshot(

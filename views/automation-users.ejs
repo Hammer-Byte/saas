@@ -23,7 +23,7 @@
             </p>
             <h1 class="h3 mb-1">Automation Users</h1>
             <p class="text-secondary mb-0">
-                Shared accounts: Facebook / YouTube / LinkedIn cookies, Instagram Graph access token + user id.
+                Shared accounts: YouTube / LinkedIn cookies, Instagram Graph access token + user id.
             </p>
         </div>
 
@@ -65,17 +65,7 @@
                             placeholder="107008067"
                         />
                     </div>
-                    <div class="col-md-6">
-                        <label for="automation-user-facebook-cookie" class="form-label">Facebook cookie</label>
-                        <input
-                            type="text"
-                            class="form-control"
-                            id="automation-user-facebook-cookie"
-                            name="facebook_cookie"
-                            placeholder="c_user=…; xs=… or paste values"
-                        />
-                    </div>
-                    <div class="col-md-6">
+                    <div class="col-md-8">
                         <label for="automation-user-instagram-cookie" class="form-label">Instagram access token</label>
                         <input
                             type="text"
@@ -150,7 +140,6 @@
                                 <tr
                                     data-id="<%= automationUser.id %>"
                                     data-name="<%= automationUser.name %>"
-                                    data-facebook-cookie="<%= automationUser.facebook_cookie || '' %>"
                                     data-instagram-cookie="<%= automationUser.instagram_cookie || '' %>"
                                     data-instagram-user-id="<%= automationUser.instagram_user_id || '' %>"
                                     data-youtube-cookie="<%= automationUser.youtube_cookie || '' %>"
@@ -161,7 +150,6 @@
                                     <td><%= automationUser.id %></td>
                                     <td><%= automationUser.name %></td>
                                     <td>
-                                        <% if (automationUser.facebook_cookie) { %><span class="badge text-bg-secondary me-1">FB</span><% } %>
                                         <% if (automationUser.instagram_cookie) { %><span class="badge text-bg-secondary me-1">IG</span><% } %>
                                         <% if (automationUser.youtube_cookie) { %><span class="badge text-bg-secondary me-1">YT</span><% } %>
                                         <% if (automationUser.linkedin_cookie) { %><span class="badge text-bg-secondary me-1">LI</span><% } %>

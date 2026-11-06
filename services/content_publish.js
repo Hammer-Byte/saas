@@ -19,11 +19,12 @@ import { resolveContentPublishScreenshotPath } from "../libs/content_publish_scr
 import { getCurrentUser } from "./authentication.js";
 
 const PLATFORM_COOKIE = {
-    facebook: "facebook_cookie",
     instagram: "instagram_cookie",
     youtube: "youtube_cookie",
     linkedin: "linkedin_cookie",
 };
+
+const SUPPORTED_PLATFORMS = new Set(["instagram", "youtube", "linkedin"]);
 
 const IMAGE_EXTENSIONS = new Set([
     "jpg",
@@ -40,8 +41,6 @@ const VIDEO_EXTENSIONS = new Set([
     "webm",
     "m4v",
 ]);
-
-const EXTERNAL_PLATFORMS = new Set(["instagram", "youtube", "linkedin"]);
 
 function mediaExtension(media) {
     const name = String(media?.file || media?.name || "");
@@ -136,53 +135,120 @@ function parsePlatforms(raw) {
     return [...new Set(text.split(",").map((part) => part.trim()).filter(Boolean))];
 }
 
+function normalizeInstagramDestinations(body) {
+    const allowed = new Set(["feed", "story"]);
+    const raw = body?.instagram_destinations ?? body?.instagram_destination;
+    let list = [];
+    if (Array.isArray(raw)) {
+        list = raw.map((item) => String(item || "").trim().toLowerCase());
+    } else if (raw != null && String(raw).trim()) {
+        const text = String(raw).trim();
+        try {
+            const parsed = JSON.parse(text);
+            if (Array.isArray(parsed)) {
+                list = parsed.map((item) => String(item || "").trim().toLowerCase());
+            } else {
+                list = text.split(/[,\s]+/).map((part) => part.trim().toLowerCase());
+            }
+        } catch {
+            list = text.split(/[,\s]+/).map((part) => part.trim().toLowerCase());
+        }
+    }
+    const destinations = [...new Set(list.filter((item) => allowed.has(item)))];
+    return destinations.length ? destinations : ["feed"];
+}
+
+export function parseContentPublishRunOptions(run) {
+    let options = {};
+    const raw = run?.run_options;
+    if (raw && typeof raw === "object") {
+        options = raw;
+    } else if (raw != null && String(raw).trim()) {
+        try {
+            options = JSON.parse(String(raw));
+        } catch {
+            options = {};
+        }
+    }
+    const allowedIg = new Set(["feed", "story"]);
+    let instagram_destinations = [];
+    if (Array.isArray(options.instagram_destinations)) {
+        instagram_destinations = [
+            ...new Set(
+                options.instagram_destinations
+                    .map((item) => String(item || "").trim().toLowerCase())
+                    .filter((item) => allowedIg.has(item)),
+            ),
+        ];
+    } else if (options.instagram_destination) {
+        const single = String(options.instagram_destination).trim().toLowerCase();
+        if (allowedIg.has(single)) {
+            instagram_destinations = [single];
+        }
+    }
+    const youtube_destination = options.youtube_destination
+        ? String(options.youtube_destination).trim().toLowerCase()
+        : null;
+    return {
+        ...options,
+        instagram_destinations,
+        youtube_destination,
+    };
+}
+
+export function decorateContentPublishRun(run) {
+    if (!run) {
+        return run;
+    }
+    const options = parseContentPublishRunOptions(run);
+    return {
+        ...run,
+        run_options: options,
+        instagram_destinations: options.instagram_destinations,
+        youtube_destination: options.youtube_destination,
+    };
+}
+
 function validatePublishFields({
     platforms,
     mediaKind,
-    facebook_caption,
     instagram_caption,
     instagram_user_id,
-    instagram_destination,
+    instagram_destinations,
     youtube_title,
     youtube_channel_id,
     youtube_destination,
     linkedin_caption,
     linkedin_company_id,
-    allowFacebook,
 }) {
     if (!platforms.length) {
-        return "Select at least one platform";
+        return "Select at least one platform (instagram, youtube, linkedin)";
     }
     for (const platform of platforms) {
-        if (allowFacebook && platform === "facebook") {
-            continue;
-        }
-        if (!EXTERNAL_PLATFORMS.has(platform) && !(allowFacebook && platform === "facebook")) {
+        if (!SUPPORTED_PLATFORMS.has(platform)) {
             return `Unsupported platform: ${platform}`;
         }
-    }
-    if (mediaKind === "video") {
-        for (const platform of platforms) {
-            if (!EXTERNAL_PLATFORMS.has(platform)) {
-                return `Video publish does not support platform: ${platform}`;
-            }
-        }
-    }
-    if (platforms.includes("facebook") && !facebook_caption) {
-        return "Facebook caption is required";
-    }
-    if (platforms.includes("instagram") && !instagram_caption) {
-        return "Instagram caption is required";
     }
     if (platforms.includes("instagram") && !instagram_user_id) {
         return "Instagram user id is required (Graph IG professional account id)";
     }
+    if (platforms.includes("instagram") && !instagram_destinations?.length) {
+        return "Select at least one Instagram destination (feed and/or story)";
+    }
+    if (platforms.includes("instagram")) {
+        for (const destination of instagram_destinations) {
+            if (!["feed", "story"].includes(destination)) {
+                return "Instagram destination must be feed or story";
+            }
+        }
+    }
+    // Feed posts need a caption; Stories use the media only (Graph STORIES has no caption).
     if (
         platforms.includes("instagram")
-        && mediaKind === "video"
-        && !["feed", "story"].includes(instagram_destination)
+        && instagram_destinations.includes("feed")
+        && !instagram_caption
     ) {
-        return "Instagram video destination must be feed or story";
+        return "Instagram caption is required for feed posts";
     }
     if (platforms.includes("youtube") && !youtube_title) {
         return "YouTube title is required";
@@ -192,6 +258,13 @@ function validatePublishFields({
     }
     if (platforms.includes("youtube") && mediaKind === "video" && youtube_destination !== "shorts") {
         return "YouTube video destination must be shorts";
+    }
+    if (
+        platforms.includes("youtube")
+        && mediaKind === "image"
+        && youtube_destination !== "community"
+    ) {
+        return "YouTube image destination must be community";
     }
     if (platforms.includes("linkedin") && !linkedin_caption) {
         return "LinkedIn caption is required";
@@ -232,7 +305,16 @@ export async function startContentPublishRun({ body, set, cookie }) {
         return { error: "Automation user not found", processing: false };
     }
 
-    const platforms = parsePlatforms(body.platforms);
+    const platforms = parsePlatforms(body.platforms).filter((platform) =>
+        SUPPORTED_PLATFORMS.has(platform),
+    );
+    if (!platforms.length) {
+        set.status = 400;
+        return {
+            error: "Select at least one platform (instagram, youtube, linkedin)",
+            processing: false,
+        };
+    }
 
     for (const platform of platforms) {
         const cookieField = PLATFORM_COOKIE[platform];
@@ -252,10 +334,6 @@ export async function startContentPublishRun({ body, set, cookie }) {
         }
     }
 
-    const facebook_caption =
-        mediaKind === "image" && platforms.includes("facebook")
-            ? trimOrNull(body.facebook_caption)
-            : null;
     const instagram_caption = platforms.includes("instagram")
         ? trimOrNull(body.instagram_caption)
         : null;
@@ -277,9 +355,9 @@ export async function startContentPublishRun({ body, set, cookie }) {
             body.instagram_user_id || automationUser.instagram_user_id,
         )
         : null;
-    const instagram_destination = platforms.includes("instagram")
-        ? String(body.instagram_destination || "feed").trim().toLowerCase()
-        : "feed";
+    const instagram_destinations = platforms.includes("instagram")
+        ? normalizeInstagramDestinations(body)
+        : [];
     const youtube_destination = platforms.includes("youtube")
         ? String(body.youtube_destination || (mediaKind === "video" ? "shorts" : "community"))
             .trim()
@@ -289,16 +367,14 @@ export async function startContentPublishRun({ body, set, cookie }) {
     const validationError = validatePublishFields({
         platforms,
         mediaKind,
-        facebook_caption,
         instagram_caption,
         instagram_user_id,
-        instagram_destination,
+        instagram_destinations,
         youtube_title,
         youtube_channel_id,
         youtube_destination,
         linkedin_caption,
         linkedin_company_id,
-        allowFacebook: true,
     });
     if (validationError) {
         set.status = 400;
@@ -309,7 +385,7 @@ export async function startContentPublishRun({ body, set, cookie }) {
         String(currentUser.full_name || currentUser.email || "user").trim() || "user";
 
     const runOptions = {
-        instagram_destination,
+        instagram_destinations,
         youtube_destination,
         instagram_user_id,
         youtube_channel_id,
@@ -321,7 +397,6 @@ export async function startContentPublishRun({ body, set, cookie }) {
         media_kind: mediaKind,
         automation_user_id: automationUser.id,
         user_name: automationUser.name,
-        facebook_caption,
         instagram_caption,
         youtube_title,
         youtube_description,
@@ -356,20 +431,19 @@ export async function startContentPublishRun({ body, set, cookie }) {
 
     const mediaPath = join(Bun.env.DIRECTORY_MEDIA, media.file);
     logger.info(
-        `content-publish enqueue run=${runId} source=user user=${automationUser.name} kind=${mediaKind} platforms=${platforms.join(",")} media_id=${media.id}`,
+        `content-publish enqueue run=${runId} source=user user=${automationUser.name} kind=${mediaKind} platforms=${platforms.join(",")} ig_dest=${instagram_destinations.join("+") || "-"} yt_dest=${youtube_destination} media_id=${media.id}`,
     );
     enqueueContentPublishRun(runId, {
         runId,
         mediaPath,
         mediaId: media.id,
         targets,
-        facebookCaption: facebook_caption,
         instagramCaption: instagram_caption,
         youtubeTitle: youtube_title,
         youtubeDescription: youtube_description,
         linkedinCaption: linkedin_caption,
         mediaKind,
-        instagramDestination: instagram_destination,
+        instagramDestinations: instagram_destinations,
         youtubeDestination: youtube_destination,
     });
 
@@ -378,7 +452,9 @@ export async function startContentPublishRun({ body, set, cookie }) {
         message: "Content publish queued",
         processing,
         run_id: runId,
-        run: await getContentPublishRunById({ id: runId }),
+        instagram_destinations: platforms.includes("instagram") ? instagram_destinations : null,
+        youtube_destination: platforms.includes("youtube") ? youtube_destination : null,
+        run: decorateContentPublishRun(await getContentPublishRunById({ id: runId })),
     };
 }
 
@@ -408,7 +484,7 @@ export async function startContentPublishServiceRun({ body, application, set }) 
     }
 
     const platforms = parsePlatforms(body.platforms).filter((platform) =>
-        EXTERNAL_PLATFORMS.has(platform),
+        SUPPORTED_PLATFORMS.has(platform),
     );
     if (!platforms.length) {
         set.status = 400;
@@ -422,11 +498,9 @@ export async function startContentPublishServiceRun({ body, application, set }) 
     const instagram_caption = platforms.includes("instagram")
         ? trimOrNull(body.instagram_caption)
         : null;
-    const instagram_destination = platforms.includes("instagram")
-        ? String(body.instagram_destination || (mediaKind === "video" ? "feed" : "feed"))
-            .trim()
-            .toLowerCase()
-        : "feed";
+    const instagram_destinations = platforms.includes("instagram")
+        ? normalizeInstagramDestinations(body)
+        : [];
 
     const youtube_cookie = trimOrNull(body.youtube_cookie);
     const youtube_title = platforms.includes("youtube") ? trimOrNull(body.youtube_title) : null;
@@ -466,16 +540,14 @@ export async function startContentPublishServiceRun({ body, application, set }) 
     const validationError = validatePublishFields({
         platforms,
         mediaKind,
-        facebook_caption: null,
         instagram_caption,
         instagram_user_id,
-        instagram_destination,
+        instagram_destinations,
         youtube_title,
         youtube_channel_id,
         youtube_destination,
         linkedin_caption,
         linkedin_company_id,
-        allowFacebook: false,
     });
     if (validationError) {
         set.status = 400;
@@ -484,7 +556,7 @@ export async function startContentPublishServiceRun({ body, application, set }) 
 
     const scheduledByName = String(application?.title || "application").trim() || "application";
     const runOptions = {
-        instagram_destination,
+        instagram_destinations,
         youtube_destination,
         instagram_user_id,
         youtube_channel_id,
@@ -496,7 +568,6 @@ export async function startContentPublishServiceRun({ body, application, set }) 
         media_kind: mediaKind,
         automation_user_id: null,
         user_name: scheduledByName,
-        facebook_caption: null,
         instagram_caption,
         youtube_title,
         youtube_description,
@@ -540,25 +611,30 @@ export async function startContentPublishServiceRun({ body, application, set }) 
     }
 
     logger.info(
-        `content-publish enqueue run=${runId} source=application app=${scheduledByName} kind=${mediaKind} platforms=${platforms.join(",")}`,
+        `content-publish enqueue run=${runId} source=application app=${scheduledByName} kind=${mediaKind} platforms=${platforms.join(",")} ig_dest=${instagram_destinations.join("+")} yt_dest=${youtube_destination}`,
     );
     enqueueContentPublishRun(runId, {
         runId,
         mediaPath: join(Bun.env.DIRECTORY_MEDIA, media.file),
         mediaId: media.id,
         targets,
-        facebookCaption: null,
         instagramCaption: instagram_caption,
         youtubeTitle: youtube_title,
         youtubeDescription: youtube_description,
         linkedinCaption: linkedin_caption,
         mediaKind,
-        instagramDestination: instagram_destination,
+        instagramDestinations: instagram_destinations,
         youtubeDestination: youtube_destination,
     });
 
     set.status = 202;
-    return { run_id: runId };
+    return {
+        run_id: runId,
+        media_kind: mediaKind,
+        platforms,
+        instagram_destinations: platforms.includes("instagram") ? instagram_destinations : null,
+        youtube_destination: platforms.includes("youtube") ? youtube_destination : null,
+    };
 }
 
 export async function getContentPublishServiceRun({ params, application, set }) {
@@ -574,7 +650,7 @@ export async function getContentPublishServiceRun({ params, application, set }) 
     set.status = 200;
     return {
         run: {
-            ...run,
+            ...decorateContentPublishRun(run),
             targets: targets.map((target) => ({
                 ...target,
                 screenshot_urls: (() => {
@@ -617,7 +693,7 @@ export async function getContentPublishRuns({ set }) {
     set.status = 200;
     return {
         contentPublishRuns: runs.map((run) => ({
-            ...run,
+            ...decorateContentPublishRun(run),
             targets: targetsByRunId.get(run.id) || [],
         })),
         processing,
@@ -635,7 +711,7 @@ export async function getContentPublishRun({ params, set }) {
     set.status = 200;
     return {
         contentPublishRun: {
-            ...run,
+            ...decorateContentPublishRun(run),
             targets: await getContentPublishRunTargetsByRunId({ run_id: run.id }),
         },
         processing,

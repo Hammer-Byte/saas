@@ -82,7 +82,10 @@ document.addEventListener("DOMContentLoaded", () => {
             automation_user_id: Number(user.value),
             platforms,
             instagram_user_id: instagramUserIdInput?.value || "",
-            instagram_destination: document.getElementById("instagram-destination")?.value || "feed",
+            instagram_destinations: [
+                document.getElementById("instagram-dest-feed")?.checked ? "feed" : null,
+                document.getElementById("instagram-dest-story")?.checked ? "story" : null,
+            ].filter(Boolean),
             instagram_caption: document.getElementById("instagram-caption")?.value || "",
             youtube_channel_id: youtubeChannelIdInput?.value || "",
             youtube_destination: "shorts",
@@ -92,8 +95,16 @@ document.addEventListener("DOMContentLoaded", () => {
             linkedin_caption: document.getElementById("linkedin-caption")?.value || "",
         };
 
-        if (platforms.includes("instagram") && !payload.instagram_caption.trim()) {
-            showAlert("Instagram caption is required", "danger");
+        if (platforms.includes("instagram") && !payload.instagram_destinations.length) {
+            showAlert("Select at least one Instagram destination (Feed and/or Story)", "danger");
+            return;
+        }
+        if (
+            platforms.includes("instagram")
+            && payload.instagram_destinations.includes("feed")
+            && !payload.instagram_caption.trim()
+        ) {
+            showAlert("Instagram caption is required for feed (Reel) posts", "danger");
             return;
         }
         if (platforms.includes("instagram") && !/^\d{5,}$/.test(payload.instagram_user_id.trim())) {

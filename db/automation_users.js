@@ -3,7 +3,6 @@ import { executeSQLQuery } from "../libs/db.js";
 
 export async function createAutomationUser({
     name,
-    facebook_cookie = null,
     instagram_cookie = null,
     instagram_user_id = null,
     youtube_cookie = null,
@@ -16,7 +15,6 @@ export async function createAutomationUser({
             INSERT INTO AUTOMATION_USERS ${sql(
                 {
                     name,
-                    facebook_cookie,
                     instagram_cookie,
                     instagram_user_id,
                     youtube_cookie,
@@ -25,7 +23,6 @@ export async function createAutomationUser({
                     linkedin_company_id,
                 },
                 "name",
-                "facebook_cookie",
                 "instagram_cookie",
                 "instagram_user_id",
                 "youtube_cookie",
@@ -44,7 +41,6 @@ export async function createAutomationUser({
 export async function updateAutomationUserById({
     id,
     name,
-    facebook_cookie = null,
     instagram_cookie = null,
     instagram_user_id = null,
     youtube_cookie = null,
@@ -57,7 +53,6 @@ export async function updateAutomationUserById({
             UPDATE AUTOMATION_USERS
             SET
                 name = ${name},
-                facebook_cookie = ${facebook_cookie},
                 instagram_cookie = ${instagram_cookie},
                 instagram_user_id = ${instagram_user_id},
                 youtube_cookie = ${youtube_cookie},

@@ -80,6 +80,7 @@
                                     <th>ID</th>
                                     <th>Status</th>
                                     <th>Kind</th>
+                                    <th>Destinations</th>
                                     <th>Scheduled by</th>
                                     <th>Account</th>
                                     <th>Platforms</th>
@@ -94,6 +95,18 @@
                                         <td><%= run.id %></td>
                                         <td><%= run.status %></td>
                                         <td><%= run.media_kind || "image" %></td>
+                                        <td class="small">
+                                            <% var igDests = run.instagram_destinations || []; %>
+                                            <% if (igDests.length) { %>
+                                                <div>IG: <%= igDests.join(" + ") %></div>
+                                            <% } %>
+                                            <% if (run.youtube_destination) { %>
+                                                <div>YT: <%= run.youtube_destination %></div>
+                                            <% } %>
+                                            <% if (!igDests.length && !run.youtube_destination) { %>
+                                                —
+                                            <% } %>
+                                        </td>
                                         <td>
                                             <div><%= run.scheduled_by_name || "—" %></div>
                                             <div class="small text-secondary"><%= run.source || "user" %></div>

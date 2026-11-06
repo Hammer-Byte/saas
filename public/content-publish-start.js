@@ -81,22 +81,30 @@ document.addEventListener("DOMContentLoaded", () => {
         const payload = {
             automation_user_id: Number(user.value),
             platforms,
-            facebook_caption: document.getElementById("facebook-caption")?.value || "",
             instagram_user_id: instagramUserIdInput?.value || "",
+            instagram_destinations: [
+                document.getElementById("instagram-dest-feed")?.checked ? "feed" : null,
+                document.getElementById("instagram-dest-story")?.checked ? "story" : null,
+            ].filter(Boolean),
             instagram_caption: document.getElementById("instagram-caption")?.value || "",
             youtube_channel_id: youtubeChannelIdInput?.value || "",
+            youtube_destination: "community",
             youtube_title: document.getElementById("youtube-title")?.value || "",
             youtube_description: document.getElementById("youtube-description")?.value || "",
             linkedin_company_id: linkedinCompanyIdInput?.value || "",
             linkedin_caption: document.getElementById("linkedin-caption")?.value || "",
         };
 
-        if (platforms.includes("facebook") && !payload.facebook_caption.trim()) {
-            showAlert("Facebook caption is required", "danger");
+        if (platforms.includes("instagram") && !payload.instagram_destinations.length) {
+            showAlert("Select at least one Instagram destination (Feed and/or Story)", "danger");
             return;
         }
-        if (platforms.includes("instagram") && !payload.instagram_caption.trim()) {
-            showAlert("Instagram caption is required", "danger");
+        if (
+            platforms.includes("instagram")
+            && payload.instagram_destinations.includes("feed")
+            && !payload.instagram_caption.trim()
+        ) {
+            showAlert("Instagram caption is required for feed posts", "danger");
             return;
         }
         if (platforms.includes("instagram") && !/^\d{5,}$/.test(payload.instagram_user_id.trim())) {

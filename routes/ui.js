@@ -72,6 +72,7 @@ import {
     getAllContentPublishRunTargets,
 } from "../db/content_publish_runs.js";
 import { processing as contentPublishProcessing } from "../libs/content_publish_browser.js";
+import { decorateContentPublishRun } from "../services/content_publish.js";
 import { getAllLinkedinDesignations } from "../db/linkedin_designations.js";
 import { getAllLinkedinDesignationMessages } from "../db/linkedin_designation_messages.js";
 import {
@@ -798,7 +799,7 @@ export const uiRoutes = new Elysia()
                     targetsByRunId.set(target.run_id, list);
                 }
                 const runs = publishRuns.map((run) => ({
-                    ...run,
+                    ...decorateContentPublishRun(run),
                     targets: targetsByRunId.get(run.id) || [],
                 }));
                 return render("content-publish-history", appPage(session, {

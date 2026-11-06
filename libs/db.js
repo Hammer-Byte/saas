@@ -531,7 +531,6 @@ export async function generateDBTables() {
         `CREATE TABLE IF NOT EXISTS AUTOMATION_USERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
-            facebook_cookie TEXT NULL,
             instagram_cookie TEXT NULL,
             instagram_user_id VARCHAR(64) NULL,
             youtube_cookie TEXT NULL,
@@ -554,7 +553,6 @@ export async function generateDBTables() {
             media_kind VARCHAR(16) NOT NULL DEFAULT 'image',
             automation_user_id INT NULL,
             user_name VARCHAR(255) NOT NULL,
-            facebook_caption TEXT NULL,
             instagram_caption TEXT NULL,
             youtube_title VARCHAR(255) NULL,
             youtube_description TEXT NULL,
@@ -609,6 +607,10 @@ export async function generateDBTables() {
             DROP COLUMN screenshot_file`,
         `ALTER TABLE CONTENT_PUBLISH_RUNS
             DROP COLUMN instagram_hashtags`,
+        `ALTER TABLE CONTENT_PUBLISH_RUNS
+            DROP COLUMN facebook_caption`,
+        `ALTER TABLE AUTOMATION_USERS
+            DROP COLUMN facebook_cookie`,
         `CREATE TABLE IF NOT EXISTS LINKEDIN_DESIGNATIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,

@@ -19,7 +19,6 @@ import { executeContentPublishRun } from "./content_publish.js";
 const pendingPayloads = new Map();
 
 const PLATFORM_COOKIE = {
-    facebook: "facebook_cookie",
     instagram: "instagram_cookie",
     youtube: "youtube_cookie",
     linkedin: "linkedin_cookie",
@@ -109,13 +108,15 @@ async function rebuildWebsitePayload(run) {
         mediaPath: join(Bun.env.DIRECTORY_MEDIA, media.file),
         mediaId: media.id,
         targets,
-        facebookCaption: run.facebook_caption,
         instagramCaption: run.instagram_caption,
         youtubeTitle: run.youtube_title,
         youtubeDescription: run.youtube_description,
         linkedinCaption: run.linkedin_caption,
         mediaKind: run.media_kind || "image",
-        instagramDestination: options.instagram_destination || "feed",
+        instagramDestinations: Array.isArray(options.instagram_destinations)
+            && options.instagram_destinations.length
+            ? options.instagram_destinations
+            : [options.instagram_destination || "feed"],
         youtubeDestination:
             options.youtube_destination
             || (run.media_kind === "video" ? "shorts" : "community"),

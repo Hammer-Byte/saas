@@ -45,23 +45,28 @@ export default function (app) {
                 automation_user_id: t.Numeric({ minimum: 1 }),
                 platforms: t.Array(
                     t.Union([
-                        t.Literal("facebook"),
                         t.Literal("instagram"),
                         t.Literal("youtube"),
                         t.Literal("linkedin"),
                     ]),
                     { minItems: 1 },
                 ),
-                facebook_caption: t.Optional(t.String()),
                 instagram_caption: t.Optional(t.String()),
                 instagram_user_id: t.Optional(t.String()),
+                instagram_destinations: t.Optional(
+                    t.Array(t.Union([t.Literal("feed"), t.Literal("story")]), {
+                        minItems: 1,
+                    }),
+                ),
                 instagram_destination: t.Optional(
                     t.Union([t.Literal("feed"), t.Literal("story")]),
                 ),
                 youtube_channel_id: t.Optional(t.String()),
                 youtube_title: t.Optional(t.String()),
                 youtube_description: t.Optional(t.String()),
-                youtube_destination: t.Optional(t.Literal("shorts")),
+                youtube_destination: t.Optional(
+                    t.Union([t.Literal("community"), t.Literal("shorts")]),
+                ),
                 linkedin_company_id: t.Optional(t.String()),
                 linkedin_caption: t.Optional(t.String()),
             }),

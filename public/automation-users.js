@@ -6,7 +6,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("automation-user-form");
     const idInput = document.getElementById("automation-user-id");
     const nameInput = document.getElementById("automation-user-name");
-    const facebookCookieInput = document.getElementById("automation-user-facebook-cookie");
     const instagramCookieInput = document.getElementById("automation-user-instagram-cookie");
     const instagramUserIdInput = document.getElementById("automation-user-instagram-user-id");
     const youtubeCookieInput = document.getElementById("automation-user-youtube-cookie");
@@ -26,7 +25,6 @@ document.addEventListener("DOMContentLoaded", () => {
     function resetForm() {
         idInput.value = "";
         nameInput.value = "";
-        facebookCookieInput.value = "";
         instagramCookieInput.value = "";
         if (instagramUserIdInput) {
             instagramUserIdInput.value = "";
@@ -48,7 +46,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const isEdit = userId >= 1;
         const payload = {
             name: nameInput.value.trim(),
-            facebook_cookie: facebookCookieInput.value.trim(),
             instagram_cookie: instagramCookieInput.value.trim(),
             instagram_user_id: instagramUserIdInput?.value.trim() || "",
             youtube_cookie: youtubeCookieInput.value.trim(),
@@ -61,12 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
             showAlert("Name is required", "danger");
             return;
         }
-        if (
-            !payload.facebook_cookie &&
-            !payload.instagram_cookie &&
-            !payload.youtube_cookie &&
-            !payload.linkedin_cookie
-        ) {
+        if (!payload.instagram_cookie && !payload.youtube_cookie && !payload.linkedin_cookie) {
             showAlert("At least one platform credential is required", "danger");
             return;
         }
@@ -124,7 +116,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             idInput.value = row.dataset.id || "";
             nameInput.value = row.dataset.name || "";
-            facebookCookieInput.value = row.dataset.facebookCookie || "";
             instagramCookieInput.value = row.dataset.instagramCookie || "";
             if (instagramUserIdInput) {
                 instagramUserIdInput.value = row.dataset.instagramUserId || "";
@@ -180,5 +171,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!tableBody?.children.length) {
         tableWrap?.classList.add("d-none");
         emptyState?.classList.remove("d-none");
+        resetForm();
     }
 });

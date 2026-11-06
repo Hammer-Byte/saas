@@ -59,13 +59,12 @@ function normalizeInstagramUserId(value) {
     return digits ? digits[1] : null;
 }
 
-function hasAnyCredential({ facebook_cookie, instagram_cookie, youtube_cookie, linkedin_cookie }) {
-    return Boolean(facebook_cookie || instagram_cookie || youtube_cookie || linkedin_cookie);
+function hasAnyCredential({ instagram_cookie, youtube_cookie, linkedin_cookie }) {
+    return Boolean(instagram_cookie || youtube_cookie || linkedin_cookie);
 }
 
 export async function addAutomationUser({ body, set }) {
     const name = body.name.trim();
-    const facebook_cookie = normalizeCookie(body.facebook_cookie);
     const instagram_cookie = normalizeCookie(body.instagram_cookie);
     const instagram_user_id = normalizeInstagramUserId(body.instagram_user_id);
     const youtube_cookie = normalizeCookie(body.youtube_cookie);
@@ -77,7 +76,7 @@ export async function addAutomationUser({ body, set }) {
         set.status = 400;
         return { error: "Name is required" };
     }
-    if (!hasAnyCredential({ facebook_cookie, instagram_cookie, youtube_cookie, linkedin_cookie })) {
+    if (!hasAnyCredential({ instagram_cookie, youtube_cookie, linkedin_cookie })) {
         set.status = 400;
         return { error: "At least one platform credential is required" };
     }
@@ -108,7 +107,6 @@ export async function addAutomationUser({ body, set }) {
 
     const id = await createAutomationUser({
         name,
-        facebook_cookie,
         instagram_cookie,
         instagram_user_id,
         youtube_cookie,
@@ -134,7 +132,6 @@ export async function updateAutomationUser({ params, body, set }) {
     }
 
     const name = body.name.trim();
-    const facebook_cookie = normalizeCookie(body.facebook_cookie);
     const instagram_cookie = normalizeCookie(body.instagram_cookie);
     const instagram_user_id = normalizeInstagramUserId(body.instagram_user_id);
     const youtube_cookie = normalizeCookie(body.youtube_cookie);
@@ -146,7 +143,7 @@ export async function updateAutomationUser({ params, body, set }) {
         set.status = 400;
         return { error: "Name is required" };
     }
-    if (!hasAnyCredential({ facebook_cookie, instagram_cookie, youtube_cookie, linkedin_cookie })) {
+    if (!hasAnyCredential({ instagram_cookie, youtube_cookie, linkedin_cookie })) {
         set.status = 400;
         return { error: "At least one platform credential is required" };
     }
@@ -178,7 +175,6 @@ export async function updateAutomationUser({ params, body, set }) {
     await updateAutomationUserById({
         id: existingUser.id,
         name,
-        facebook_cookie,
         instagram_cookie,
         instagram_user_id,
         youtube_cookie,
