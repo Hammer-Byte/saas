@@ -55,6 +55,7 @@ export default function (app) {
                 facebook_caption: t.Optional(t.String()),
                 instagram_caption: t.Optional(t.String()),
                 instagram_hashtags: t.Optional(t.String()),
+                instagram_user_id: t.Optional(t.String()),
                 youtube_channel_id: t.Optional(t.String()),
                 youtube_title: t.Optional(t.String()),
                 youtube_description: t.Optional(t.String()),

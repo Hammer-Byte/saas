@@ -5,6 +5,7 @@
     const keywordFilter = document.getElementById("gem-filter-keyword");
     const assigneeFilter = document.getElementById("gem-filter-assignee");
     const showAllFilter = document.getElementById("gem-filter-show-all");
+    const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
     const searchInput = document.getElementById("gem-tenders-search");
     const tableBody = document.getElementById("gem-tenders-tbody");
     const tableWrap = document.getElementById("gem-tenders-table-wrap");
@@ -72,6 +73,10 @@
         const keywordId = (keywordFilter?.value || "").trim();
         const assigneeValue = (assigneeFilter?.value || "").trim();
         const showAll = !!showAllFilter?.checked;
+        const quantityUptoRaw = (quantityUptoFilter?.value || "").trim();
+        const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
+        const hasQuantityUpto =
+            quantityUpto != null && Number.isFinite(quantityUpto) && quantityUpto >= 0;
         const activeFilters = columnFilters
             .map((select) => ({
                 column: select.dataset.column,
@@ -101,12 +106,18 @@
                 return cellValue === filter.value;
             });
 
+            const rowQuantity = Number(row.dataset.quantity || 0);
+            const matchesQuantity =
+                !hasQuantityUpto ||
+                (Number.isFinite(rowQuantity) && rowQuantity <= quantityUpto);
+
             const visible =
                 matchesHidden &&
                 matchesKeyword &&
                 matchesAssignee &&
                 matchesSearch &&
-                matchesColumns;
+                matchesColumns &&
+                matchesQuantity;
             row.classList.toggle("d-none", !visible);
             if (visible) visibleCount += 1;
         }
@@ -128,6 +139,7 @@
     keywordFilter?.addEventListener("change", applyFilters);
     assigneeFilter?.addEventListener("change", applyFilters);
     showAllFilter?.addEventListener("change", applyFilters);
+    quantityUptoFilter?.addEventListener("input", applyFilters);
     searchInput?.addEventListener("input", applyFilters);
 
     const filtersCollapse = document.getElementById("gem-tenders-filters");

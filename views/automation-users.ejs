@@ -23,7 +23,7 @@
             </p>
             <h1 class="h3 mb-1">Automation Users</h1>
             <p class="text-secondary mb-0">
-                Shared accounts with Facebook, Instagram, YouTube, and LinkedIn cookies.
+                Shared accounts: Facebook / YouTube / LinkedIn cookies, Instagram Graph access token + user id.
             </p>
         </div>
 
@@ -76,13 +76,23 @@
                         />
                     </div>
                     <div class="col-md-6">
-                        <label for="automation-user-instagram-cookie" class="form-label">Instagram cookie</label>
+                        <label for="automation-user-instagram-cookie" class="form-label">Instagram access token</label>
                         <input
                             type="text"
                             class="form-control"
                             id="automation-user-instagram-cookie"
                             name="instagram_cookie"
-                            placeholder="sessionid=… or cookie string"
+                            placeholder="Graph API access token (not session cookie)"
+                        />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="automation-user-instagram-user-id" class="form-label">Instagram user id</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="automation-user-instagram-user-id"
+                            name="instagram_user_id"
+                            placeholder="IG professional account id"
                         />
                     </div>
                     <div class="col-md-8">
@@ -142,6 +152,7 @@
                                     data-name="<%= automationUser.name %>"
                                     data-facebook-cookie="<%= automationUser.facebook_cookie || '' %>"
                                     data-instagram-cookie="<%= automationUser.instagram_cookie || '' %>"
+                                    data-instagram-user-id="<%= automationUser.instagram_user_id || '' %>"
                                     data-youtube-cookie="<%= automationUser.youtube_cookie || '' %>"
                                     data-youtube-channel-id="<%= automationUser.youtube_channel_id || '' %>"
                                     data-linkedin-cookie="<%= automationUser.linkedin_cookie || '' %>"

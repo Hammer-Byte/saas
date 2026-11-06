@@ -454,6 +454,7 @@ export async function generateDBTables() {
             mse_turnover_relaxation VARCHAR(32) NULL,
             asked_documents TEXT NULL,
             specification_links TEXT NULL,
+            quantity INT NOT NULL DEFAULT 0,
             eligible VARCHAR(32) NOT NULL DEFAULT 'need_to_check',
             filed BOOLEAN NOT NULL DEFAULT FALSE,
             quote TEXT NULL,
@@ -528,6 +529,7 @@ export async function generateDBTables() {
             name VARCHAR(255) NOT NULL,
             facebook_cookie TEXT NULL,
             instagram_cookie TEXT NULL,
+            instagram_user_id VARCHAR(64) NULL,
             youtube_cookie TEXT NULL,
             youtube_channel_id VARCHAR(128) NULL,
             linkedin_cookie TEXT NULL,
@@ -539,6 +541,8 @@ export async function generateDBTables() {
             ADD COLUMN youtube_channel_id VARCHAR(128) NULL`,
         `ALTER TABLE AUTOMATION_USERS
             ADD COLUMN linkedin_company_id VARCHAR(64) NULL`,
+        `ALTER TABLE AUTOMATION_USERS
+            ADD COLUMN instagram_user_id VARCHAR(64) NULL`,
         `CREATE TABLE IF NOT EXISTS CONTENT_PUBLISH_RUNS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             status VARCHAR(32) NOT NULL DEFAULT 'running',

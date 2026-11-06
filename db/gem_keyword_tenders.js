@@ -34,7 +34,12 @@ export async function createGemKeywordTender({
     mse_turnover_relaxation = null,
     asked_documents = null,
     specification_links = null,
+    quantity = 0,
 }) {
+    const quantityValue = Number(quantity);
+    const safeQuantity =
+        Number.isFinite(quantityValue) && quantityValue > 0 ? Math.round(quantityValue) : 0;
+
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO GEM_KEYWORD_TENDERS ${sql(
@@ -57,6 +62,7 @@ export async function createGemKeywordTender({
                     mse_turnover_relaxation,
                     asked_documents,
                     specification_links: serializeSpecificationLinks(specification_links),
+                    quantity: safeQuantity,
                 },
                 "keyword_id",
                 "tender_id",
@@ -76,6 +82,7 @@ export async function createGemKeywordTender({
                 "mse_turnover_relaxation",
                 "asked_documents",
                 "specification_links",
+                "quantity",
             )}
         `,
     )
@@ -103,7 +110,12 @@ export async function updateGemKeywordTenderScanDetailsById({
     mse_turnover_relaxation = null,
     asked_documents = null,
     specification_links = null,
+    quantity = 0,
 }) {
+    const quantityValue = Number(quantity);
+    const safeQuantity =
+        Number.isFinite(quantityValue) && quantityValue > 0 ? Math.round(quantityValue) : 0;
+
     await executeSQLQuery(
         (sql) => sql`
             UPDATE GEM_KEYWORD_TENDERS
@@ -123,7 +135,8 @@ export async function updateGemKeywordTenderScanDetailsById({
                 mse_experience_relaxation = ${mse_experience_relaxation},
                 mse_turnover_relaxation = ${mse_turnover_relaxation},
                 asked_documents = ${asked_documents},
-                specification_links = ${serializeSpecificationLinks(specification_links)}
+                specification_links = ${serializeSpecificationLinks(specification_links)},
+                quantity = ${safeQuantity}
             WHERE id = ${id}
         `,
     ).catch((error) => {

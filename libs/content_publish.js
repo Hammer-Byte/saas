@@ -3,7 +3,6 @@ import { toDbDateTime } from "./date.js";
 import {
     acquireContentPublishProcessing,
     loginFacebookWithCookie,
-    loginInstagramWithCookie,
     loginLinkedinWithCookie,
     loginYoutubeWithCookie,
     openFirefox,
@@ -16,9 +15,10 @@ import {
 } from "../db/content_publish_runs.js";
 import { notifyContentPublishRunComplete } from "./content_publish_notify.js";
 import { publishFacebookImagePost } from "./content_publish/facebook_post_pom.js";
-import { publishInstagramImagePost } from "./content_publish/instagram_post_pom.js";
 import { publishYoutubeCommunityImagePost } from "./content_publish/youtube_community_pom.js";
 import { publishLinkedinImagePost } from "./content_publish/linkedin_post_pom.js";
+import { publishInstagramImageViaGraphApi } from "./instagram_graph_publish.js";
+import { buildContentPublishPublicMediaUrl } from "./content_publish_public_media.js";
 import {
     normalizeScreenshotFiles,
     serializeScreenshotFiles,
@@ -29,6 +29,7 @@ const PLATFORM_ORDER = ["facebook", "instagram", "youtube", "linkedin"];
 export function startContentPublish({
     runId,
     mediaPath,
+    mediaId = null,
     targets = [],
     facebookCaption = null,
     instagramCaption = null,
@@ -51,6 +52,9 @@ export function startContentPublish({
                 : null,
             linkedinCompanyId: target?.linkedinCompanyId
                 ? String(target.linkedinCompanyId).trim()
+                : null,
+            instagramUserId: target?.instagramUserId
+                ? String(target.instagramUserId).trim()
                 : null,
         }))
         .filter((target) => target.targetId && target.platform && target.cookie);
@@ -87,69 +91,75 @@ export function startContentPublish({
                         status: "running",
                     });
 
-                    const useProxy = shouldUseContentPublishProxy(target.platform);
-                    logger.info(
-                        `content-publish run=${runId} platform=${target.platform} opening firefox proxy=${useProxy ? "1" : "0"}`,
-                    );
-                    driver = await openFirefox({ useProxy });
-                    if (target.platform === "facebook") {
+                    if (target.platform === "instagram") {
+                        if (!mediaId) {
+                            throw new Error("Instagram API publish requires media_id");
+                        }
+                        if (!target.instagramUserId) {
+                            throw new Error("Instagram user id is required for API publish");
+                        }
+                        const imageUrl = buildContentPublishPublicMediaUrl(mediaId, 3600);
                         logger.info(
-                            `content-publish run=${runId} platform=facebook logging in`,
+                            `content-publish run=${runId} platform=instagram publishing via Graph API ig_user=${target.instagramUserId} image_url=${imageUrl}`,
                         );
-                        await loginFacebookWithCookie(driver, target.cookie);
-                        logger.info(
-                            `content-publish run=${runId} platform=facebook publishing`,
-                        );
-                        await publishFacebookImagePost({
-                            driver,
-                            mediaPath,
-                            caption: facebookCaption,
-                        });
-                    } else if (target.platform === "instagram") {
-                        logger.info(
-                            `content-publish run=${runId} platform=instagram logging in`,
-                        );
-                        await loginInstagramWithCookie(driver, target.cookie);
-                        logger.info(
-                            `content-publish run=${runId} platform=instagram publishing`,
-                        );
-                        await publishInstagramImagePost({
-                            driver,
-                            mediaPath,
+                        await publishInstagramImageViaGraphApi({
+                            accessToken: target.cookie,
+                            igUserId: target.instagramUserId,
+                            imageUrl,
                             caption: instagramCaption,
                             hashtags: instagramHashtags,
                         });
-                    } else if (target.platform === "youtube") {
-                        logger.info(
-                            `content-publish run=${runId} platform=youtube logging in channel=${target.youtubeChannelId || "?"}`,
-                        );
-                        await loginYoutubeWithCookie(driver, target.cookie);
-                        logger.info(
-                            `content-publish run=${runId} platform=youtube publishing`,
-                        );
-                        await publishYoutubeCommunityImagePost({
-                            driver,
-                            mediaPath,
-                            title: youtubeTitle,
-                            description: youtubeDescription,
-                            channelId: target.youtubeChannelId,
-                        });
-                    } else if (target.platform === "linkedin") {
-                        logger.info(
-                            `content-publish run=${runId} platform=linkedin logging in company=${target.linkedinCompanyId || "?"}`,
-                        );
-                        await loginLinkedinWithCookie(driver, target.cookie);
-                        logger.info(
-                            `content-publish run=${runId} platform=linkedin publishing`,
-                        );
-                        await publishLinkedinImagePost({
-                            driver,
-                            mediaPath,
-                            caption: linkedinCaption,
-                            companyId: target.linkedinCompanyId,
-                        });
                     } else {
-                        throw new Error(`Unsupported platform: ${target.platform}`);
+                        const useProxy = shouldUseContentPublishProxy(target.platform);
+                        logger.info(
+                            `content-publish run=${runId} platform=${target.platform} opening firefox proxy=${useProxy ? "1" : "0"}`,
+                        );
+                        driver = await openFirefox({ useProxy });
+                        if (target.platform === "facebook") {
+                            logger.info(
+                                `content-publish run=${runId} platform=facebook logging in`,
+                            );
+                            await loginFacebookWithCookie(driver, target.cookie);
+                            logger.info(
+                                `content-publish run=${runId} platform=facebook publishing`,
+                            );
+                            await publishFacebookImagePost({
+                                driver,
+                                mediaPath,
+                                caption: facebookCaption,
+                            });
+                        } else if (target.platform === "youtube") {
+                            logger.info(
+                                `content-publish run=${runId} platform=youtube logging in channel=${target.youtubeChannelId || "?"}`,
+                            );
+                            await loginYoutubeWithCookie(driver, target.cookie);
+                            logger.info(
+                                `content-publish run=${runId} platform=youtube publishing`,
+                            );
+                            await publishYoutubeCommunityImagePost({
+                                driver,
+                                mediaPath,
+                                title: youtubeTitle,
+                                description: youtubeDescription,
+                                channelId: target.youtubeChannelId,
+                            });
+                        } else if (target.platform === "linkedin") {
+                            logger.info(
+                                `content-publish run=${runId} platform=linkedin logging in company=${target.linkedinCompanyId || "?"}`,
+                            );
+                            await loginLinkedinWithCookie(driver, target.cookie);
+                            logger.info(
+                                `content-publish run=${runId} platform=linkedin publishing`,
+                            );
+                            await publishLinkedinImagePost({
+                                driver,
+                                mediaPath,
+                                caption: linkedinCaption,
+                                companyId: target.linkedinCompanyId,
+                            });
+                        } else {
+                            throw new Error(`Unsupported platform: ${target.platform}`);
+                        }
                     }
 
                     await updateContentPublishRunTargetById({

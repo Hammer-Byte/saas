@@ -35,6 +35,11 @@ const TENDER_DETAIL_REGEXES = {
     SKIP_VALUE: /Years of Past Experience|MSE|Startup|Document required/i,
     DEVANAGARI_START: /^[\u0900-\u097F]/,
     SCOPE_OF_WORK_FILE: /Scope\s+of\s+Work\s*:?\s*([0-9]+\.pdf)/gi,
+    TOTAL_QUANTITY: /Total\s*Quantity\s+(\d+(?:\.\d+)?)/i,
+    BID_QUANTITY: /\bBid\s*Quantity\s*[:=]?\s*(\d+(?:\.\d+)?)/i,
+    CONSIGNEES_SECTION: /Consignees\/Reporting Officer(?:\s+and\s+Quantity)?/i,
+    CONSIGNEE_QTY_ROW:
+        /^\s*\d+\s+.+\s+(\d{1,7})\s+(\d{1,4})\s*$/gm,
 };
 
 const sleep = (driver, ms) => driver.sleep(ms);
@@ -193,6 +198,54 @@ function extractSpecificationLinks({ buffer, pdfText }) {
     return links.length ? links : null;
 }
 
+function parseQuantityNumber(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) {
+        return 0;
+    }
+    return Math.round(number);
+}
+
+function extractQuantityFromConsignees(text) {
+    const sectionMatch = text.match(TENDER_DETAIL_REGEXES.CONSIGNEES_SECTION);
+    if (!sectionMatch || sectionMatch.index == null) {
+        return 0;
+    }
+
+    const sectionStart = sectionMatch.index;
+    const sectionEnd = Math.min(text.length, sectionStart + 6000);
+    const section = text.slice(sectionStart, sectionEnd);
+    let total = 0;
+    let matchedRows = 0;
+
+    for (const match of section.matchAll(TENDER_DETAIL_REGEXES.CONSIGNEE_QTY_ROW)) {
+        const quantity = parseQuantityNumber(match[1]);
+        const deliveryDays = parseQuantityNumber(match[2]);
+        // Skip obvious page markers / non-quantity pairs.
+        if (quantity <= 0 || deliveryDays <= 0 || deliveryDays > 3650) {
+            continue;
+        }
+        total += quantity;
+        matchedRows += 1;
+    }
+
+    return matchedRows ? total : 0;
+}
+
+function extractQuantity(text) {
+    const totalMatch = text.match(TENDER_DETAIL_REGEXES.TOTAL_QUANTITY);
+    if (totalMatch?.[1]) {
+        return parseQuantityNumber(totalMatch[1]);
+    }
+
+    const bidMatch = text.match(TENDER_DETAIL_REGEXES.BID_QUANTITY);
+    if (bidMatch?.[1]) {
+        return parseQuantityNumber(bidMatch[1]);
+    }
+
+    return extractQuantityFromConsignees(text);
+}
+
 const extractTenderDetails = (text, buffer) => {
     const end_date_time =
         text.match(TENDER_DETAIL_REGEXES.BID_END_DATE_TIME)?.[1] ||
@@ -226,6 +279,7 @@ const extractTenderDetails = (text, buffer) => {
             null,
         asked_documents: extractDocumentsRequired(text),
         specification_links: extractSpecificationLinks({ buffer, pdfText: text }),
+        quantity: extractQuantity(text),
     };
 };
 
@@ -282,8 +336,11 @@ export const processTender = async ({
         const needsSpecBackfill =
             !hasSpecificationLinks(existingTender.specification_links) &&
             hasSpecificationLinks(gemTenderDetails.specification_links);
+        const existingQuantity = Number(existingTender.quantity || 0);
+        const needsQuantityBackfill =
+            existingQuantity <= 0 && Number(gemTenderDetails.quantity || 0) > 0;
 
-        if (!datesChanged && !needsSpecBackfill) {
+        if (!datesChanged && !needsSpecBackfill && !needsQuantityBackfill) {
             logger.info(`Tender unchanged, skipping update: ${tender_id}`);
             return false;
         }

@@ -110,6 +110,8 @@ export const uiRoutes = new Elysia()
     .get("/robots.txt", () => Bun.file(join(import.meta.dir, "../public/robots.txt")))
     .get("/sitemap.xml", () => Bun.file(join(import.meta.dir, "../public/sitemap.xml")))
     .get("/llms.txt", () => Bun.file(join(import.meta.dir, "../public/llms.txt")))
+    .get("/privacy", () => Bun.file(join(import.meta.dir, "../public/privacy.html")))
+    .get("/data-deletion", () => Bun.file(join(import.meta.dir, "../public/data-deletion.html")))
     .get("/login", async ({ render, cookie, redirect }) => {
         if (await getCurrentUser({ cookie })) {
             return redirect("/app");

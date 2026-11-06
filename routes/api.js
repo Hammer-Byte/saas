@@ -28,6 +28,7 @@ import gemKeywordTenders from "./apps/gem_keyword_tenders.js";
 import gemKeywordTenderComments from "./apps/gem_keyword_tender_comments.js";
 import automationUsers from "./apps/automation_users.js";
 import contentPublish from "./apps/content_publish.js";
+import { getContentPublishPublicMedia } from "../services/content_publish.js";
 import linkedinDesignations from "./apps/linkedin_designations.js";
 import linkedinGrowNetwork from "./apps/linkedin_grow_network.js";
 import linkedinSearchNetwork from "./apps/linkedin_search_network.js";
@@ -54,6 +55,13 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
     .group("/inquiries", inquiries)
     .group("/contracts", contractsSign)
     .group("/servers", servers)
+    // Meta Instagram Graph API must fetch image_url without a session cookie.
+    .get("/content-publish/public-media/:token", getContentPublishPublicMedia, {
+        detail: {
+            tags: ["Content Publish"],
+            summary: "Public signed media URL for Instagram Graph publishing",
+        },
+    })
     .guard({ beforeHandle: [requireApiSession] }, (app) =>
         app
             .group("/monitored-servers", monitoredServers)

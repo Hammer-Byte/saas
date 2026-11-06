@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const nameInput = document.getElementById("automation-user-name");
     const facebookCookieInput = document.getElementById("automation-user-facebook-cookie");
     const instagramCookieInput = document.getElementById("automation-user-instagram-cookie");
+    const instagramUserIdInput = document.getElementById("automation-user-instagram-user-id");
     const youtubeCookieInput = document.getElementById("automation-user-youtube-cookie");
     const youtubeChannelIdInput = document.getElementById("automation-user-youtube-channel-id");
     const linkedinCookieInput = document.getElementById("automation-user-linkedin-cookie");
@@ -27,6 +28,9 @@ document.addEventListener("DOMContentLoaded", () => {
         nameInput.value = "";
         facebookCookieInput.value = "";
         instagramCookieInput.value = "";
+        if (instagramUserIdInput) {
+            instagramUserIdInput.value = "";
+        }
         youtubeCookieInput.value = "";
         if (youtubeChannelIdInput) {
             youtubeChannelIdInput.value = "";
@@ -46,6 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
             name: nameInput.value.trim(),
             facebook_cookie: facebookCookieInput.value.trim(),
             instagram_cookie: instagramCookieInput.value.trim(),
+            instagram_user_id: instagramUserIdInput?.value.trim() || "",
             youtube_cookie: youtubeCookieInput.value.trim(),
             youtube_channel_id: youtubeChannelIdInput?.value.trim() || "",
             linkedin_cookie: linkedinCookieInput.value.trim(),
@@ -62,7 +67,11 @@ document.addEventListener("DOMContentLoaded", () => {
             !payload.youtube_cookie &&
             !payload.linkedin_cookie
         ) {
-            showAlert("At least one platform cookie is required", "danger");
+            showAlert("At least one platform credential is required", "danger");
+            return;
+        }
+        if (payload.instagram_cookie && !/^\d{5,}$/.test(payload.instagram_user_id)) {
+            showAlert("Instagram user id is required with an Instagram access token", "danger");
             return;
         }
         if (
@@ -117,6 +126,9 @@ document.addEventListener("DOMContentLoaded", () => {
             nameInput.value = row.dataset.name || "";
             facebookCookieInput.value = row.dataset.facebookCookie || "";
             instagramCookieInput.value = row.dataset.instagramCookie || "";
+            if (instagramUserIdInput) {
+                instagramUserIdInput.value = row.dataset.instagramUserId || "";
+            }
             youtubeCookieInput.value = row.dataset.youtubeCookie || "";
             if (youtubeChannelIdInput) {
                 youtubeChannelIdInput.value = row.dataset.youtubeChannelId || "";
@@ -140,7 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const confirmed = await showConfirm({
             title: "Delete automation user?",
-            description: "This removes the account and its stored cookies.",
+            description: "This removes the account and its stored credentials.",
             choices: [
                 { label: "Cancel", value: false, className: "btn-outline-secondary" },
                 { label: "Delete", value: true, className: "btn-danger" },

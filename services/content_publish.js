@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { logger } from "@hammerbyte/utils";
+import { filer, logger } from "@hammerbyte/utils";
 import { getAutomationUserById } from "../db/automation_users.js";
 import { getMediaById } from "../db/media.js";
 import {
@@ -12,6 +12,7 @@ import {
 } from "../db/content_publish_runs.js";
 import { processing } from "../libs/content_publish_browser.js";
 import { startContentPublish } from "../libs/content_publish.js";
+import { resolveContentPublishPublicMediaFile } from "../libs/content_publish_public_media.js";
 import { resolveContentPublishScreenshotPath } from "../libs/content_publish_screenshot.js";
 import { getCurrentUser } from "./authentication.js";
 
@@ -72,6 +73,22 @@ function normalizeLinkedinCompanyId(value) {
     return null;
 }
 
+function normalizeInstagramUserId(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+        return null;
+    }
+    if (/^\d{5,}$/.test(text)) {
+        return text;
+    }
+    const fromQuery = text.match(/[?&](?:ig_user_id|instagram_business_account)(?:=|%3D)(\d+)/i);
+    if (fromQuery) {
+        return fromQuery[1];
+    }
+    const digits = text.match(/\b(\d{5,})\b/);
+    return digits ? digits[1] : null;
+}
+
 export async function getContentPublishStatus({ set }) {
     set.status = 200;
     return { processing };
@@ -120,7 +137,10 @@ export async function startContentPublishRun({ body, set, cookie }) {
         if (!String(automationUser[cookieField] || "").trim()) {
             set.status = 400;
             return {
-                error: `User is missing a ${platform} cookie`,
+                error:
+                    platform === "instagram"
+                        ? "User is missing an Instagram access token"
+                        : `User is missing a ${platform} cookie`,
                 processing: false,
             };
         }
@@ -148,6 +168,11 @@ export async function startContentPublishRun({ body, set, cookie }) {
     const linkedin_company_id = platforms.includes("linkedin")
         ? normalizeLinkedinCompanyId(body.linkedin_company_id)
         : null;
+    const instagram_user_id = platforms.includes("instagram")
+        ? normalizeInstagramUserId(
+            body.instagram_user_id || automationUser.instagram_user_id,
+        )
+        : null;
 
     if (platforms.includes("facebook") && !facebook_caption) {
         set.status = 400;
@@ -156,6 +181,13 @@ export async function startContentPublishRun({ body, set, cookie }) {
     if (platforms.includes("instagram") && !instagram_caption) {
         set.status = 400;
         return { error: "Instagram caption is required", processing: false };
+    }
+    if (platforms.includes("instagram") && !instagram_user_id) {
+        set.status = 400;
+        return {
+            error: "Instagram user id is required (Graph IG professional account id)",
+            processing: false,
+        };
     }
     if (platforms.includes("youtube") && !youtube_title) {
         set.status = 400;
@@ -210,18 +242,22 @@ export async function startContentPublishRun({ body, set, cookie }) {
             cookie: String(automationUser[PLATFORM_COOKIE[platform]] || "").trim(),
             youtubeChannelId: platform === "youtube" ? youtube_channel_id : null,
             linkedinCompanyId: platform === "linkedin" ? linkedin_company_id : null,
+            instagramUserId: platform === "instagram" ? instagram_user_id : null,
         });
     }
 
     const mediaPath = join(Bun.env.DIRECTORY_MEDIA, media.file);
     logger.info(
         `content-publish start requested run=${runId} user=${automationUser.name} platforms=${platforms.join(",")} media_id=${media.id}${
-            youtube_channel_id ? ` youtube_channel=${youtube_channel_id}` : ""
-        }${linkedin_company_id ? ` linkedin_company=${linkedin_company_id}` : ""}`,
+            instagram_user_id ? ` instagram_user=${instagram_user_id}` : ""
+        }${youtube_channel_id ? ` youtube_channel=${youtube_channel_id}` : ""}${
+            linkedin_company_id ? ` linkedin_company=${linkedin_company_id}` : ""
+        }`,
     );
     const started = startContentPublish({
         runId,
         mediaPath,
+        mediaId: media.id,
         targets,
         facebookCaption: facebook_caption,
         instagramCaption: instagram_caption,
@@ -298,6 +334,23 @@ export async function getContentPublishScreenshot({ params, set }) {
 
     set.headers["Content-Type"] = "image/png";
     set.headers["Content-Disposition"] = `inline; filename="${params.file}"`;
+    set.status = 200;
+    return diskFile;
+}
+
+/** Unauthenticated — Meta fetches image_url for Instagram Graph publishing. */
+export async function getContentPublishPublicMedia({ params, set }) {
+    const resolved = await resolveContentPublishPublicMediaFile(params.token);
+    if (!resolved) {
+        set.status = 404;
+        return { error: "Media not found or token expired" };
+    }
+
+    const { media, diskFile } = resolved;
+    set.headers["Content-Disposition"] = `inline; filename="${String(media.name || media.file).replace(/"/g, "")}"`;
+    set.headers["Content-Type"] =
+        filer.getContentTypeByFileName(media.file) || "application/octet-stream";
+    set.headers["Cache-Control"] = "private, max-age=300";
     set.status = 200;
     return diskFile;
 }

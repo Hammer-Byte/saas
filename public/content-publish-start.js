@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const imageInput = document.getElementById("content-publish-image");
     const userRadios = [...document.querySelectorAll(".content-publish-user-radio")];
     const platformChecks = [...document.querySelectorAll(".content-publish-platform")];
+    const instagramUserIdInput = document.getElementById("instagram-user-id");
     const youtubeChannelIdInput = document.getElementById("youtube-channel-id");
     const linkedinCompanyIdInput = document.getElementById("linkedin-company-id");
 
@@ -20,6 +21,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function applyDestinationPrefills(user) {
+        if (instagramUserIdInput) {
+            instagramUserIdInput.value = user?.dataset.instagramUserId || "";
+        }
         if (youtubeChannelIdInput) {
             youtubeChannelIdInput.value = user?.dataset.youtubeChannelId || "";
         }
@@ -78,6 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
             automation_user_id: Number(user.value),
             platforms,
             facebook_caption: document.getElementById("facebook-caption")?.value || "",
+            instagram_user_id: instagramUserIdInput?.value || "",
             instagram_caption: document.getElementById("instagram-caption")?.value || "",
             instagram_hashtags: document.getElementById("instagram-hashtags")?.value || "",
             youtube_channel_id: youtubeChannelIdInput?.value || "",
@@ -93,6 +98,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (platforms.includes("instagram") && !payload.instagram_caption.trim()) {
             showAlert("Instagram caption is required", "danger");
+            return;
+        }
+        if (platforms.includes("instagram") && !/^\d{5,}$/.test(payload.instagram_user_id.trim())) {
+            showAlert("Instagram user id is required", "danger");
             return;
         }
         if (platforms.includes("youtube") && !payload.youtube_title.trim()) {

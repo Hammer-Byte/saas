@@ -42,7 +42,24 @@ function normalizeLinkedinCompanyId(value) {
     return null;
 }
 
-function hasAnyCookie({ facebook_cookie, instagram_cookie, youtube_cookie, linkedin_cookie }) {
+/** Instagram professional account id (numeric), optionally from Graph URLs. */
+function normalizeInstagramUserId(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+        return null;
+    }
+    if (/^\d{5,}$/.test(text)) {
+        return text;
+    }
+    const fromQuery = text.match(/[?&](?:ig_user_id|instagram_business_account)(?:=|%3D)(\d+)/i);
+    if (fromQuery) {
+        return fromQuery[1];
+    }
+    const digits = text.match(/\b(\d{5,})\b/);
+    return digits ? digits[1] : null;
+}
+
+function hasAnyCredential({ facebook_cookie, instagram_cookie, youtube_cookie, linkedin_cookie }) {
     return Boolean(facebook_cookie || instagram_cookie || youtube_cookie || linkedin_cookie);
 }
 
@@ -50,6 +67,7 @@ export async function addAutomationUser({ body, set }) {
     const name = body.name.trim();
     const facebook_cookie = normalizeCookie(body.facebook_cookie);
     const instagram_cookie = normalizeCookie(body.instagram_cookie);
+    const instagram_user_id = normalizeInstagramUserId(body.instagram_user_id);
     const youtube_cookie = normalizeCookie(body.youtube_cookie);
     const youtube_channel_id = normalizeYoutubeChannelId(body.youtube_channel_id);
     const linkedin_cookie = normalizeCookie(body.linkedin_cookie);
@@ -59,9 +77,15 @@ export async function addAutomationUser({ body, set }) {
         set.status = 400;
         return { error: "Name is required" };
     }
-    if (!hasAnyCookie({ facebook_cookie, instagram_cookie, youtube_cookie, linkedin_cookie })) {
+    if (!hasAnyCredential({ facebook_cookie, instagram_cookie, youtube_cookie, linkedin_cookie })) {
         set.status = 400;
-        return { error: "At least one platform cookie is required" };
+        return { error: "At least one platform credential is required" };
+    }
+    if (instagram_cookie && !instagram_user_id) {
+        set.status = 400;
+        return {
+            error: "Instagram user id is required when an Instagram access token is set",
+        };
     }
     if (youtube_cookie && !youtube_channel_id) {
         set.status = 400;
@@ -86,6 +110,7 @@ export async function addAutomationUser({ body, set }) {
         name,
         facebook_cookie,
         instagram_cookie,
+        instagram_user_id,
         youtube_cookie,
         youtube_channel_id,
         linkedin_cookie,
@@ -111,6 +136,7 @@ export async function updateAutomationUser({ params, body, set }) {
     const name = body.name.trim();
     const facebook_cookie = normalizeCookie(body.facebook_cookie);
     const instagram_cookie = normalizeCookie(body.instagram_cookie);
+    const instagram_user_id = normalizeInstagramUserId(body.instagram_user_id);
     const youtube_cookie = normalizeCookie(body.youtube_cookie);
     const youtube_channel_id = normalizeYoutubeChannelId(body.youtube_channel_id);
     const linkedin_cookie = normalizeCookie(body.linkedin_cookie);
@@ -120,9 +146,15 @@ export async function updateAutomationUser({ params, body, set }) {
         set.status = 400;
         return { error: "Name is required" };
     }
-    if (!hasAnyCookie({ facebook_cookie, instagram_cookie, youtube_cookie, linkedin_cookie })) {
+    if (!hasAnyCredential({ facebook_cookie, instagram_cookie, youtube_cookie, linkedin_cookie })) {
         set.status = 400;
-        return { error: "At least one platform cookie is required" };
+        return { error: "At least one platform credential is required" };
+    }
+    if (instagram_cookie && !instagram_user_id) {
+        set.status = 400;
+        return {
+            error: "Instagram user id is required when an Instagram access token is set",
+        };
     }
     if (youtube_cookie && !youtube_channel_id) {
         set.status = 400;
@@ -148,6 +180,7 @@ export async function updateAutomationUser({ params, body, set }) {
         name,
         facebook_cookie,
         instagram_cookie,
+        instagram_user_id,
         youtube_cookie,
         youtube_channel_id,
         linkedin_cookie,
