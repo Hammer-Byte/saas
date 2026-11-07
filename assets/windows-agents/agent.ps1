@@ -20,7 +20,7 @@ $HostUrl = "https://hammerbyte.co.in"
 $MetricsUrl = "$HostUrl/api/servers/metrics"
 $MetricsIntervalSeconds = 900
 $SendsPerRun = 2
-$AgentVersion = "0.3.0-ps"
+$AgentVersion = "0.3.1-ps-stable"
 $InstallDir = Join-Path $env:ProgramData "HammerByte\ServerMonitor"
 $AgentLogFile = Join-Path $InstallDir "agent.log"
 
@@ -301,14 +301,18 @@ function Send-Metrics {
         Write-AgentLog ("cpu {0}% | ram {1}% | processes {2}" -f `
             $payload.processor.usage_percent, $payload.memory.used_percent, $payload.processes.total)
         if ($payload.temperatures -and $payload.temperatures.available) {
-            Write-AgentLog ("temperatures max {0}°C" -f $payload.temperatures.celsius_max)
+            Write-AgentLog ("temperatures max {0} C" -f $payload.temperatures.celsius_max)
         }
         if ($payload.collection_error) {
             Write-AgentLog ("collection warning: {0}" -f $payload.collection_error)
         }
         Write-AgentLog "health check done"
 
-        $json = $payload | ConvertTo-Json -Compress -Depth 8
+        # JavaScriptSerializer avoids PS 3/4 ConvertTo-Json array wrapping ({value,Count}).
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+        $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        $serializer.MaxJsonLength = [int]::MaxValue
+        $json = $serializer.Serialize($payload)
         $webClient = New-Object System.Net.WebClient
         try {
             $webClient.Headers["Content-Type"] = "application/json"

@@ -1,0 +1,21 @@
+HammerByte Windows agents - Server 2012 stable
+drive-sync=0.2.0-ps-stable
+monitor-agent=0.3.1-ps-stable
+
+Includes:
+- install-monitor.cmd + supervisor.ps1 + agent.ps1
+- install-drive-sync.cmd + drive-sync.ps1
+
+Server 2012 notes fixed in this build:
+- No Bun EXE (ClosePseudoConsole)
+- Config uses hand-built JSON (no ConvertTo-Json nested "bad form")
+- Metrics use JavaScriptSerializer (no PS3 array value/Count wrap)
+- No double-quoted regex with backslash-paren
+- ASCII-only script text
+- Config round-trip verified before sync starts
+- Installer deletes old config.json before -Setup
+- Script path resolved via PSCommandPath (safe inside functions)
+- PULL ONLY: Assert-PullOnlyPaths + robocopy SOURCE->LOCAL; /PURGE is local-only
+- Destination must be local disk DriveType 2/3 (rejects network-mapped letters)
+
+On child after deploy: download ALL files into one folder, run .cmd as Administrator once.

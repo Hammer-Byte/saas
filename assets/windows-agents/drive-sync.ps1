@@ -1,8 +1,17 @@
 #Requires -Version 3.0
 <#
 .SYNOPSIS
-  HammerByte Drive Sync (Windows Server 2012+ PowerShell)
-  Child pulls from source UNC shares onto local paths every N seconds.
+  HammerByte Drive Sync - Windows Server 2012+ (PowerShell 3/4 safe)
+  Child pulls from source UNC shares onto local paths on an interval.
+  Version: 0.2.0-ps-stable
+
+.NOTES
+  SOURCE SAFETY (live production):
+  - Direction is ALWAYS source UNC -> local path on THIS machine.
+  - Robocopy source is first arg; destination second. Source is never written.
+  - /MIR (/E+/PURGE) only deletes extras on the LOCAL destination.
+  - No Remove-Item / Copy-Item / Set-Content / icacls against UNC source.
+  - Prefer a READ-ONLY share account on the production server.
 #>
 param(
     [switch]$Setup
@@ -24,7 +33,7 @@ $LogFile = Join-Path $InstallDir "drive-sync.log"
 $TagFile = Join-Path $InstallDir ".server-tag"
 $MonitorTagFile = Join-Path $env:ProgramData "HammerByte\ServerMonitor\.server-tag"
 $ScriptFile = Join-Path $InstallDir "drive-sync.ps1"
-$AgentVersion = "0.1.0-ps"
+$AgentVersion = "0.2.0-ps-stable"
 $DefaultInterval = 300
 $script:CycleEvents = New-Object System.Collections.ArrayList
 
@@ -46,6 +55,29 @@ function Write-SyncLog {
         }
         Add-Content -Path $LogFile -Value $line -Encoding UTF8
     } catch {}
+}
+
+function Get-ThisScriptPath {
+    # Prefer $PSCommandPath (PS 3+). $MyInvocation inside functions is unreliable on PS 3/4.
+    if ($PSCommandPath) { return $PSCommandPath }
+    if ($script:MyInvocation -and $script:MyInvocation.MyCommand -and $script:MyInvocation.MyCommand.Path) {
+        return $script:MyInvocation.MyCommand.Path
+    }
+    return $null
+}
+
+function Assert-ScriptParses {
+    $path = Get-ThisScriptPath
+    if (-not $path) { return }
+    $tokens = $null
+    $errors = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
+    if ($errors -and $errors.Count -gt 0) {
+        foreach ($err in $errors) {
+            Write-Host ("PARSE ERROR: {0}" -f $err.ToString()) -ForegroundColor Red
+        }
+        throw "drive-sync.ps1 failed parse check - redeploy this script file"
+    }
 }
 
 function Test-IsElevated {
@@ -84,17 +116,62 @@ function ConvertTo-Unc {
 function Normalize-LocalPath {
     param([string]$PathValue)
     $value = ($PathValue -replace "/", "\").Trim()
-    if ($value -match "^[A-Za-z]:$") { $value = "$value\" }
+    if ($value -match '^[A-Za-z]:$') { $value = "$value\" }
     return $value
+}
+
+function Test-IsUncPath {
+    param([string]$PathValue)
+    if (-not $PathValue) { return $false }
+    return ($PathValue -match '^\\\\[^\\]+\\[^\\]')
+}
+
+function Test-IsLocalDrivePath {
+    param([string]$PathValue)
+    if (-not $PathValue) { return $false }
+    if ($PathValue.StartsWith("\\")) { return $false }
+    return ($PathValue -match '^[A-Za-z]:\\')
+}
+
+function Assert-PullOnlyPaths {
+    # Hard stop if args could ever write to production / remote source.
+    param(
+        [string]$SourceUnc,
+        [string]$LocalPath
+    )
+    if (-not (Test-IsUncPath -PathValue $SourceUnc)) {
+        throw ("REFUSING SYNC: source must be a UNC share like \\server\share (got '{0}')" -f $SourceUnc)
+    }
+    if (-not (Test-IsLocalDrivePath -PathValue $LocalPath)) {
+        throw ("REFUSING SYNC: destination must be a local drive path like G:\ (got '{0}')" -f $LocalPath)
+    }
+    if (Test-IsUncPath -PathValue $LocalPath) {
+        throw ("REFUSING SYNC: destination is UNC - never copy onto a remote path ('{0}')" -f $LocalPath)
+    }
+    $srcNorm = $SourceUnc.TrimEnd('\').ToLowerInvariant()
+    $dstNorm = $LocalPath.TrimEnd('\').ToLowerInvariant()
+    if ($srcNorm -eq $dstNorm) {
+        throw "REFUSING SYNC: source and destination resolve to the same path"
+    }
+}
+
+function Escape-JsonString {
+    param([string]$Text)
+    if ($null -eq $Text) { return "" }
+    $s = [string]$Text
+    $s = $s.Replace([string]'\', [string]'\\')
+    $s = $s.Replace([string]'"', [string]'\"')
+    $s = $s.Replace([string]("`r"), [string]'')
+    $s = $s.Replace([string]("`n"), [string]'\n')
+    $s = $s.Replace([string]("`t"), [string]'\t')
+    return $s
 }
 
 function Install-Self {
     if (-not (Test-Path $InstallDir)) {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     }
-    $sourceScript = $MyInvocation.PSCommandPath
-    if (-not $sourceScript) { $sourceScript = $PSCommandPath }
-    # Skip when already running from ProgramData (installer copied us here).
+    $sourceScript = Get-ThisScriptPath
     if ($sourceScript -and (Test-Path $sourceScript)) {
         $srcFull = [System.IO.Path]::GetFullPath($sourceScript)
         $dstFull = [System.IO.Path]::GetFullPath($ScriptFile)
@@ -111,89 +188,25 @@ function Install-Self {
     }
 }
 
-function Get-JsonSerializer {
-    # ConvertTo-Json on PS 3/4 (Server 2012) breaks on nested hashtables ("bad form").
-    # JavaScriptSerializer is available with .NET 4.x on Server 2012.
-    Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
-    $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
-    $serializer.MaxJsonLength = [int]::MaxValue
-    return $serializer
-}
-
-function Convert-ConfigToMap {
-    param($Config)
-    $pairMaps = New-Object System.Collections.ArrayList
-    foreach ($pair in @($Config.pairs)) {
-        [void]$pairMaps.Add(@{
-            source_unc = [string]$pair.source_unc
-            local_path = [string]$pair.local_path
-        })
-    }
-    return @{
-        source_host = [string]$Config.source_host
-        username = [string]$Config.username
-        password = [string]$Config.password
-        interval_seconds = [int]$Config.interval_seconds
-        updated_at = [string]$Config.updated_at
-        pairs = $pairMaps.ToArray()
-    }
-}
-
-function Convert-MapToConfig {
-    param($Map)
-    if ($null -eq $Map) { return $null }
-    $pairs = New-Object System.Collections.ArrayList
-    foreach ($pair in @($Map.pairs)) {
-        $sourceUnc = $null
-        $localPath = $null
-        if ($pair -is [System.Collections.IDictionary]) {
-            $sourceUnc = $pair["source_unc"]
-            $localPath = $pair["local_path"]
-        } else {
-            $sourceUnc = $pair.source_unc
-            $localPath = $pair.local_path
-        }
-        if (-not $sourceUnc -or -not $localPath) { continue }
-        [void]$pairs.Add(@{
-            source_unc = [string]$sourceUnc
-            local_path = Normalize-LocalPath -PathValue ([string]$localPath)
-        })
-    }
-    return @{
-        source_host = [string]$Map.source_host
-        username = [string]$Map.username
-        password = [string]$Map.password
-        interval_seconds = [int]$Map.interval_seconds
-        updated_at = [string]$Map.updated_at
-        pairs = $pairs.ToArray()
-    }
-}
-
-function Read-Config {
-    if (-not (Test-Path $ConfigFile)) { return $null }
-    try {
-        $raw = Get-Content -Path $ConfigFile -Raw -ErrorAction Stop
-        if (-not $raw -or -not $raw.Trim()) { return $null }
-        $serializer = Get-JsonSerializer
-        $map = $serializer.DeserializeObject($raw)
-        $config = Convert-MapToConfig -Map $map
-        if (-not $config -or -not $config.pairs -or $config.pairs.Count -lt 1) {
-            throw "config has no valid drive pairs"
-        }
-        return $config
-    } catch {
-        Write-SyncLog ("config parse failed: {0}" -f $_.Exception.Message) -Level "error" -Event
-        return $null
-    }
-}
-
 function Save-Config {
     param($Config)
     try {
-        $serializer = Get-JsonSerializer
-        $map = Convert-ConfigToMap -Config $Config
-        $json = $serializer.Serialize($map)
-        Set-Content -Path $ConfigFile -Value $json -Encoding UTF8
+        $pairParts = New-Object System.Collections.ArrayList
+        foreach ($pair in @($Config.pairs)) {
+            $part = '{{"source_unc":"{0}","local_path":"{1}"}}' -f `
+                (Escape-JsonString ([string]$pair.source_unc)), `
+                (Escape-JsonString ([string]$pair.local_path))
+            [void]$pairParts.Add($part)
+        }
+        $pairsJson = "[" + ($pairParts -join ",") + "]"
+        $json = ('{{"source_host":"{0}","username":"{1}","password":"{2}","interval_seconds":{3},"updated_at":"{4}","pairs":{5}}}' -f `
+            (Escape-JsonString ([string]$Config.source_host)), `
+            (Escape-JsonString ([string]$Config.username)), `
+            (Escape-JsonString ([string]$Config.password)), `
+            ([int]$Config.interval_seconds), `
+            (Escape-JsonString ([string]$Config.updated_at)), `
+            $pairsJson)
+        Set-Content -Path $ConfigFile -Value $json -Encoding ASCII
         try {
             & icacls.exe $ConfigFile /inheritance:r /grant:r Administrators:F /grant:r SYSTEM:F | Out-Null
         } catch {}
@@ -205,9 +218,49 @@ function Save-Config {
     }
 }
 
+function Read-Config {
+    if (-not (Test-Path $ConfigFile)) { return $null }
+    try {
+        $raw = Get-Content -Path $ConfigFile -Raw -ErrorAction Stop
+        if (-not $raw -or -not $raw.Trim()) { return $null }
+        $obj = $raw | ConvertFrom-Json
+        $pairs = New-Object System.Collections.ArrayList
+        foreach ($pair in @($obj.pairs)) {
+            $sourceUnc = [string]$pair.source_unc
+            $localPath = Normalize-LocalPath -PathValue ([string]$pair.local_path)
+            if (-not $sourceUnc -or -not $localPath) { continue }
+            try {
+                Assert-PullOnlyPaths -SourceUnc $sourceUnc -LocalPath $localPath
+            } catch {
+                Write-SyncLog $_.Exception.Message -Level "error" -Event
+                continue
+            }
+            [void]$pairs.Add(@{
+                source_unc = $sourceUnc
+                local_path = $localPath
+            })
+        }
+        if ($pairs.Count -lt 1) { throw "config has no valid drive pairs" }
+        return @{
+            source_host = [string]$obj.source_host
+            username = [string]$obj.username
+            password = [string]$obj.password
+            interval_seconds = [int]$obj.interval_seconds
+            updated_at = [string]$obj.updated_at
+            pairs = $pairs.ToArray()
+        }
+    } catch {
+        Write-SyncLog ("config parse failed: {0}" -f $_.Exception.Message) -Level "error" -Event
+        return $null
+    }
+}
+
 function Invoke-Setup {
     Write-Host ""
     Write-Host "=== Setup (saved for future runs) ==="
+    Write-Host "PULL ONLY: reads from production UNC, writes only to local disks on THIS PC."
+    Write-Host "Production source files are never modified or deleted by this tool."
+    Write-Host "Prefer a READ-ONLY Windows account on the source shares."
     Write-Host ""
 
     $sourceHost = Read-Host "Source host IP or name"
@@ -228,7 +281,6 @@ function Invoke-Setup {
     $pairCountRaw = Read-Host "How many drive pairs to sync? [1]"
     if (-not $pairCountRaw) { $pairCountRaw = "1" }
     $pairCount = [math]::Max(1, [int]$pairCountRaw)
-    # Use ArrayList — "$array += @{...}" collapses to one Hashtable on PS 3/4.
     $pairs = New-Object System.Collections.ArrayList
 
     for ($i = 1; $i -le $pairCount; $i++) {
@@ -236,14 +288,24 @@ function Invoke-Setup {
         Write-Host ("--- Pair {0} ---" -f $i)
         $share = Read-Host "Source share name or UNC (e.g. g  or  \\192.168.1.1\g)"
         $defaultLocal = ""
-        if ($share -match "^[A-Za-z0-9._-]+$") { $defaultLocal = ($share.ToUpper() + ":\") }
-        $localPrompt = if ($defaultLocal) { "Local destination path on this machine [$defaultLocal]" } else { "Local destination path on this machine" }
+        if ($share -match '^[A-Za-z0-9._-]+$') { $defaultLocal = ($share.ToUpper() + ":\") }
+        if ($defaultLocal) {
+            $localPrompt = "Local destination path on this machine [$defaultLocal]"
+        } else {
+            $localPrompt = "Local destination path on this machine"
+        }
         $local = Read-Host $localPrompt
         if (-not $local -and $defaultLocal) { $local = $defaultLocal }
         if (-not $share -or -not $local) { throw ("pair {0} requires source and local path" -f $i) }
+        $localNorm = Normalize-LocalPath -PathValue $local
+        $sourceUnc = ConvertTo-Unc -SourceHost $sourceHost -ShareOrUnc $share
+        Assert-PullOnlyPaths -SourceUnc $sourceUnc -LocalPath $localNorm
+        if (-not (Test-LocalDestination -LocalPath $localNorm)) {
+            throw ("pair {0} destination must be a local fixed/removable drive (not a network map): {1}" -f $i, $localNorm)
+        }
         [void]$pairs.Add(@{
-            source_unc = ConvertTo-Unc -SourceHost $sourceHost -ShareOrUnc $share
-            local_path = Normalize-LocalPath -PathValue $local
+            source_unc = $sourceUnc
+            local_path = $localNorm
         })
     }
 
@@ -261,7 +323,19 @@ function Invoke-Setup {
     }
     $saved = Save-Config -Config $config
     if (-not $saved) {
-        throw "failed to save config.json — fix JSON/permissions and run with -Setup again"
+        throw "failed to save config.json - check permissions and run with -Setup again"
+    }
+
+    # Verify round-trip immediately so a bad save cannot start a broken loop.
+    $verify = Read-Config
+    if (-not $verify) {
+        throw "config saved but could not be re-read - check config.json"
+    }
+    foreach ($pair in @($verify.pairs)) {
+        Write-Host ("  VERIFY {0}  ->  {1}" -f $pair.source_unc, $pair.local_path)
+        if ($pair.local_path -notmatch '^[A-Za-z]:\\') {
+            throw ("verified local path invalid: {0}" -f $pair.local_path)
+        }
     }
 
     Write-Host ""
@@ -272,7 +346,7 @@ function Invoke-Setup {
     }
     Write-Host ("  interval: {0}s" -f $interval)
     Write-Host ""
-    return $config
+    return $verify
 }
 
 function Connect-Share {
@@ -300,26 +374,49 @@ function Parse-RobocopyStats {
     }
     $failedPaths = New-Object System.Collections.ArrayList
     foreach ($line in ($Text -split "`r?`n")) {
-        if ($line -match "^\s*Files\s*:\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)") {
+        if ($line -match '^\s*Files\s*:\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)') {
             $stats.files_copied = [int]$Matches[2]
             $stats.files_skipped = [int]$Matches[3]
             $stats.files_failed = [int]$Matches[5]
             $stats.extras_deleted = [int]$Matches[6]
         }
-        if ($line -match "ERROR\s+\d+\s*\(" -or $line -match "\s+FAILED\s+") {
+        if ($line -match 'ERROR\s+\d+\s*\(' -or $line -match '\s+FAILED\s+') {
             [void]$failedPaths.Add($line.Trim())
         }
     }
     return @{ stats = $stats; failedPaths = @($failedPaths | Select-Object -First 50) }
 }
 
+function Test-LocalDestination {
+    param([string]$LocalPath)
+    # Only fixed (3) or removable (2) disks. Reject network-mapped letters (4)
+    # so we never write onto another server by accident.
+    try {
+        if (-not (Test-IsLocalDrivePath -PathValue $LocalPath)) { return $false }
+        $driveLetter = $LocalPath.Substring(0, 2).ToUpperInvariant()
+        $disk = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='$driveLetter'" -ErrorAction SilentlyContinue
+        if (-not $disk) { return $false }
+        $driveType = [int]$disk.DriveType
+        if ($driveType -ne 2 -and $driveType -ne 3) {
+            Write-SyncLog ("destination {0} is DriveType={1} (need local 2/3, not network 4)" -f $driveLetter, $driveType) -Level "error" -Event
+            return $false
+        }
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 function Invoke-MirrorPair {
     param($Pair, [string]$Username, [string]$Password)
 
     $started = Get-Date
+    $sourceUnc = [string]$Pair.source_unc
+    $localPath = Normalize-LocalPath -PathValue ([string]$Pair.local_path)
+
     $result = @{
-        source_unc = $Pair.source_unc
-        local_path = $Pair.local_path
+        source_unc = $sourceUnc
+        local_path = $localPath
         status = "error"
         source_alive = $false
         local_alive = $false
@@ -330,31 +427,20 @@ function Invoke-MirrorPair {
         duration_ms = 0
         robocopy_exit_code = $null
         errors = New-Object System.Collections.ArrayList
-        events = New-Object System.Collections.ArrayList
     }
 
-    $localPath = Normalize-LocalPath -PathValue ([string]$Pair.local_path)
-    $result.local_path = $localPath
-    if (-not $localPath -or $localPath -notmatch '^[A-Za-z]:\\') {
-        $msg = "local destination looks invalid (expected like G:\): '$localPath'"
+    try {
+        Assert-PullOnlyPaths -SourceUnc $sourceUnc -LocalPath $localPath
+    } catch {
+        $msg = $_.Exception.Message
         [void]$result.errors.Add($msg)
         Write-SyncLog $msg -Level "error" -Event
         $result.duration_ms = [int]((Get-Date) - $started).TotalMilliseconds
         return $result
     }
-    $localOk = $false
-    try {
-        if (Test-Path -LiteralPath $localPath) { $localOk = $true }
-    } catch {}
-    if (-not $localOk) {
-        try {
-            $driveLetter = $localPath.Substring(0, 2).ToUpperInvariant()
-            $disk = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='$driveLetter'" -ErrorAction SilentlyContinue
-            if ($disk) { $localOk = $true }
-        } catch {}
-    }
-    if (-not $localOk) {
-        $msg = "local destination not accessible: $localPath"
+
+    if (-not (Test-LocalDestination -LocalPath $localPath)) {
+        $msg = "local destination not accessible or not a local disk: $localPath"
         [void]$result.errors.Add($msg)
         Write-SyncLog $msg -Level "error" -Event
         $result.duration_ms = [int]((Get-Date) - $started).TotalMilliseconds
@@ -362,29 +448,61 @@ function Invoke-MirrorPair {
     }
     $result.local_alive = $true
 
-    Write-SyncLog ("connecting share {0} as {1}" -f $Pair.source_unc, $Username) -Event
-    $connected = Connect-Share -Unc $Pair.source_unc -Username $Username -Password $Password
+    Write-SyncLog ("connecting share READ path {0} as {1} (source is never modified)" -f $sourceUnc, $Username) -Event
+    $connected = Connect-Share -Unc $sourceUnc -Username $Username -Password $Password
     if (-not $connected.ok) {
-        $msg = "share auth/connect failed for $($Pair.source_unc): $($connected.error)"
+        $msg = "share auth/connect failed for ${sourceUnc}: $($connected.error)"
         [void]$result.errors.Add($msg)
         Write-SyncLog $msg -Level "error" -Event
         $result.duration_ms = [int]((Get-Date) - $started).TotalMilliseconds
         return $result
     }
 
-    if (-not (Test-Path -LiteralPath $Pair.source_unc)) {
-        $msg = "source path not found/accessible: $($Pair.source_unc)"
+    if (-not (Test-Path -LiteralPath $sourceUnc)) {
+        $msg = "source path not found/accessible: $sourceUnc"
         [void]$result.errors.Add($msg)
         Write-SyncLog $msg -Level "error" -Event
-        Disconnect-Share -Unc $Pair.source_unc
+        Disconnect-Share -Unc $sourceUnc
         $result.duration_ms = [int]((Get-Date) - $started).TotalMilliseconds
         return $result
     }
     $result.source_alive = $true
 
-    Write-SyncLog ("starting robocopy /MIR {0} -> {1}" -f $Pair.source_unc, $Pair.local_path) -Event
-    # Same flags as Bun utility: mirror, low retries (skip locked), restartable copy.
-    $roboOutput = & robocopy.exe $Pair.source_unc $Pair.local_path /MIR /R:1 /W:1 /XJ /FFT /Z /NP /BYTES 2>&1 | Out-String
+    # SAFETY: robocopy <SOURCE> <DEST> - only DEST (/E+/PURGE) can change.
+    # /COPY:DAT = data+attrs+times on DEST only; no /SEC /COPYALL.
+    # Re-check paths immediately before spawn so args cannot be swapped.
+    try {
+        Assert-PullOnlyPaths -SourceUnc $sourceUnc -LocalPath $localPath
+    } catch {
+        $msg = $_.Exception.Message
+        [void]$result.errors.Add($msg)
+        Write-SyncLog $msg -Level "error" -Event
+        Disconnect-Share -Unc $sourceUnc
+        $result.duration_ms = [int]((Get-Date) - $started).TotalMilliseconds
+        return $result
+    }
+
+    # Arg0 = production UNC (read). Arg1 = local path (write/purge). Never reverse.
+    $roboSource = $sourceUnc
+    $roboDest = $localPath
+    Assert-PullOnlyPaths -SourceUnc $roboSource -LocalPath $roboDest
+    $roboArgs = @(
+        $roboSource,
+        $roboDest,
+        "/E",
+        "/PURGE",
+        "/COPY:DAT",
+        "/DCOPY:T",
+        "/R:1",
+        "/W:1",
+        "/XJ",
+        "/FFT",
+        "/Z",
+        "/NP",
+        "/BYTES"
+    )
+    Write-SyncLog ("PULL ONLY robocopy SOURCE->LOCAL: {0} -> {1} (purge extras on LOCAL only; production source never written)" -f $roboSource, $roboDest) -Event
+    $roboOutput = & robocopy.exe @roboArgs 2>&1 | Out-String
     $exitCode = $LASTEXITCODE
     $result.robocopy_exit_code = $exitCode
     $parsed = Parse-RobocopyStats -Text $roboOutput
@@ -398,12 +516,17 @@ function Invoke-MirrorPair {
         Write-SyncLog ("copy issue: {0}" -f $failedLine) -Level "warning" -Event
     }
 
-    # robocopy 0–7 = success / extras / mismatches; >=8 = failure (same as Bun).
+    $logLevel = "warning"
     if ($exitCode -ge 0 -and $exitCode -le 7) {
-        if (($result.failed -as [int]) -gt 0) { $result.status = "partial" } else { $result.status = "ok" }
-        Write-SyncLog ("pair done exit={0} copied={1} deleted={2} skipped={3} failed={4}" -f `
+        if (($result.failed -as [int]) -gt 0) {
+            $result.status = "partial"
+        } else {
+            $result.status = "ok"
+            $logLevel = "info"
+        }
+        Write-SyncLog ("pair done exit={0} copied={1} local_extras_deleted={2} skipped={3} failed={4} (source untouched)" -f `
             $exitCode, $result.copied, $result.deleted, $result.skipped, $result.failed) `
-            -Level $(if ($result.status -eq "ok") { "info" } else { "warning" }) -Event
+            -Level $logLevel -Event
     } else {
         $detail = ""
         if ($roboOutput) {
@@ -417,26 +540,49 @@ function Invoke-MirrorPair {
         $result.status = "error"
     }
 
-    Disconnect-Share -Unc $Pair.source_unc
+    Disconnect-Share -Unc $sourceUnc
     $result.duration_ms = [int]((Get-Date) - $started).TotalMilliseconds
     return $result
 }
 
 function ConvertTo-JsonSafe {
     param($Object)
-    try {
-        $serializer = Get-JsonSerializer
-        return $serializer.Serialize($Object)
-    } catch {
-        # Fallback for simpler objects
-        return ($Object | ConvertTo-Json -Compress -Depth 8)
-    }
+    # Prefer JavaScriptSerializer. PS 3/4 ConvertTo-Json wraps arrays as {value,Count}.
+    Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+    $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+    $serializer.MaxJsonLength = [int]::MaxValue
+    return $serializer.Serialize($Object)
 }
 
 function Send-Status {
     param([string]$Tag, $Payload)
     try {
-        $json = ConvertTo-JsonSafe -Object $Payload
+        $json = $null
+        try {
+            $json = ConvertTo-JsonSafe -Object $Payload
+        } catch {
+            # Minimal hand-built fallback so a missing serializer never blocks sync.
+            $status = "error"
+            $sourceHost = ""
+            $agentVer = $AgentVersion
+            $hostName = $env:COMPUTERNAME
+            if ($Payload -is [hashtable]) {
+                if ($Payload.ContainsKey("status")) { $status = [string]$Payload.status }
+                if ($Payload.ContainsKey("source_host") -and $Payload.source_host) { $sourceHost = [string]$Payload.source_host }
+                if ($Payload.ContainsKey("agent_version")) { $agentVer = [string]$Payload.agent_version }
+                if ($Payload.ContainsKey("hostname")) { $hostName = [string]$Payload.hostname }
+            } else {
+                try { $status = [string]$Payload.status } catch {}
+                try { if ($Payload.source_host) { $sourceHost = [string]$Payload.source_host } } catch {}
+            }
+            $json = ('{{"type":"drive_sync","agent_version":"{0}","hostname":"{1}","source_host":"{2}","status":"{3}","errors":["serializer unavailable; sync still ran"],"collected_at":"{4}"}}' -f `
+                (Escape-JsonString $agentVer), `
+                (Escape-JsonString $hostName), `
+                (Escape-JsonString $sourceHost), `
+                (Escape-JsonString $status), `
+                (Escape-JsonString ((Get-Date).ToUniversalTime().ToString("o"))))
+            Write-SyncLog ("json serializer fallback used: {0}" -f $_.Exception.Message) -Level "warning" -Event
+        }
         $webClient = New-Object System.Net.WebClient
         try {
             $webClient.Headers["Content-Type"] = "application/json"
@@ -459,14 +605,14 @@ function Invoke-SyncCycle {
     $startedAt = (Get-Date).ToUniversalTime().ToString("o")
     Write-SyncLog ("==== sync cycle start ==== source={0}" -f $Config.source_host)
 
-    $pairResults = @()
+    $pairResults = New-Object System.Collections.ArrayList
     foreach ($pair in @($Config.pairs)) {
         try {
-            $pairResults += ,(Invoke-MirrorPair -Pair $pair -Username $Config.username -Password $Config.password)
+            [void]$pairResults.Add((Invoke-MirrorPair -Pair $pair -Username $Config.username -Password $Config.password))
         } catch {
             $message = "pair crashed $($pair.source_unc): $($_.Exception.Message)"
             Write-SyncLog $message -Level "error" -Event
-            $pairResults += ,(@{
+            [void]$pairResults.Add(@{
                 source_unc = $pair.source_unc
                 local_path = $pair.local_path
                 status = "error"
@@ -486,8 +632,10 @@ function Invoke-SyncCycle {
     $statuses = @($pairResults | ForEach-Object { $_.status })
     $status = "error"
     if ($statuses.Count -gt 0) {
-        if (@($statuses | Where-Object { $_ -ne "ok" }).Count -eq 0) { $status = "ok" }
-        elseif (@($statuses | Where-Object { $_ -ne "error" }).Count -eq 0) { $status = "error" }
+        $nonOk = @($statuses | Where-Object { $_ -ne "ok" })
+        $nonError = @($statuses | Where-Object { $_ -ne "error" })
+        if ($nonOk.Count -eq 0) { $status = "ok" }
+        elseif ($nonError.Count -eq 0) { $status = "error" }
         else { $status = "partial" }
     }
 
@@ -508,38 +656,50 @@ function Invoke-SyncCycle {
     Write-SyncLog ("==== sync cycle end ==== status={0} copied={1} deleted={2} skipped={3} failed={4}" -f `
         $status, $totals.copied, $totals.deleted, $totals.skipped, $totals.failed)
 
-    $errors = @()
+    $errors = New-Object System.Collections.ArrayList
     foreach ($pair in $pairResults) {
-        foreach ($err in @($pair.errors)) { $errors += $err }
+        foreach ($err in @($pair.errors)) { [void]$errors.Add([string]$err) }
+    }
+
+    $pairPayload = New-Object System.Collections.ArrayList
+    foreach ($pair in $pairResults) {
+        [void]$pairPayload.Add(@{
+            source_unc = [string]$pair.source_unc
+            local_path = [string]$pair.local_path
+            status = [string]$pair.status
+            source_alive = [bool]$pair.source_alive
+            local_alive = [bool]$pair.local_alive
+            copied = $pair.copied
+            deleted = $pair.deleted
+            skipped = $pair.skipped
+            failed = $pair.failed
+            duration_ms = $pair.duration_ms
+            robocopy_exit_code = $pair.robocopy_exit_code
+            errors = @($pair.errors | ForEach-Object { [string]$_ })
+        })
+    }
+
+    $eventPayload = New-Object System.Collections.ArrayList
+    foreach ($ev in @($script:CycleEvents | Select-Object -Last 200)) {
+        [void]$eventPayload.Add(@{
+            at = [string]$ev.at
+            level = [string]$ev.level
+            message = [string]$ev.message
+        })
     }
 
     $payload = @{
         type = "drive_sync"
         agent_version = $AgentVersion
         hostname = $env:COMPUTERNAME
-        source_host = $Config.source_host
+        source_host = [string]$Config.source_host
         status = $status
         started_at = $startedAt
         finished_at = $finishedAt
-        interval_seconds = $Config.interval_seconds
+        interval_seconds = [int]$Config.interval_seconds
         totals = $totals
-        pairs = @($pairResults | ForEach-Object {
-            @{
-                source_unc = $_.source_unc
-                local_path = $_.local_path
-                status = $_.status
-                source_alive = $_.source_alive
-                local_alive = $_.local_alive
-                copied = $_.copied
-                deleted = $_.deleted
-                skipped = $_.skipped
-                failed = $_.failed
-                duration_ms = $_.duration_ms
-                robocopy_exit_code = $_.robocopy_exit_code
-                errors = @($_.errors)
-            }
-        })
-        events = @($script:CycleEvents | Select-Object -Last 200)
+        pairs = $pairPayload.ToArray()
+        events = $eventPayload.ToArray()
         errors = @($errors | Select-Object -First 100)
         collected_at = $finishedAt
     }
@@ -549,18 +709,20 @@ function Invoke-SyncCycle {
 
 Write-Host ""
 Write-Host "  ============================================"
-Write-Host "   HammerByte  ·  Drive Sync"
-Write-Host "   Windows Server 2012+ PowerShell"
+Write-Host "   HammerByte  -  Drive Sync"
+Write-Host "   Windows Server 2012+ PowerShell ($AgentVersion)"
 Write-Host "  ============================================"
 Write-Host ""
 
+Assert-ScriptParses
+
 if (-not (Test-IsElevated)) {
     Write-Host "Administrator required. Re-launching elevated..."
-    $scriptPath = $MyInvocation.PSCommandPath
-    if (-not $scriptPath) { $scriptPath = $PSCommandPath }
-    $argsList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`"")
-    if ($Setup) { $argsList += "-Setup" }
-    Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $argsList
+    $scriptPath = Get-ThisScriptPath
+    if (-not $scriptPath) { throw "cannot resolve drive-sync.ps1 path for elevation" }
+    $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
+    if ($Setup) { $argList = "$argList -Setup" }
+    Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $argList
     exit 0
 }
 
@@ -568,6 +730,12 @@ Install-Self
 $tag = Get-OrCreateTag
 Write-SyncLog ("tag {0}" -f $tag)
 Write-SyncLog ("host {0}" -f $HostUrl)
+Write-SyncLog ("version {0}" -f $AgentVersion)
+
+if ($Setup -and (Test-Path $ConfigFile)) {
+    Write-SyncLog "Setup requested - removing old config.json"
+    Remove-Item -Path $ConfigFile -Force -ErrorAction SilentlyContinue
+}
 
 $config = Read-Config
 if ($Setup -or -not $config) {
@@ -576,20 +744,23 @@ if ($Setup -or -not $config) {
 
 while ($true) {
     try {
-        $config = Read-Config
+        $loaded = Read-Config
+        if ($loaded) { $config = $loaded }
         if (-not $config) { $config = Invoke-Setup }
         Invoke-SyncCycle -Config $config -Tag $tag
     } catch {
         Write-SyncLog ("cycle failed: {0}" -f $_.Exception.Message) -Level "error" -Event
+        $sourceHostValue = $null
+        if ($config) { $sourceHostValue = $config.source_host }
         try {
             Send-Status -Tag $tag -Payload @{
                 type = "drive_sync"
                 agent_version = $AgentVersion
                 hostname = $env:COMPUTERNAME
-                source_host = $(if ($config) { $config.source_host } else { $null })
+                source_host = $sourceHostValue
                 status = "error"
                 errors = @($_.Exception.Message)
-                events = @($script:CycleEvents | Select-Object -Last 50)
+                events = @()
                 collected_at = (Get-Date).ToUniversalTime().ToString("o")
             } | Out-Null
         } catch {}

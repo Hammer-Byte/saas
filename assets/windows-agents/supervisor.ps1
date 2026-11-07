@@ -118,8 +118,8 @@ function Start-AgentOnce {
     if (-not (Test-Path $AgentFile)) {
         throw "agent.ps1 not found"
     }
-    # Do NOT capture output into a variable — that buffers until the agent exits
-    # (~15–30 min for two sends with 900s wait) and looks "stuck".
+    # Do NOT capture output into a variable - that buffers until the agent exits
+    # (~15-30 min for two sends with 900s wait) and looks "stuck".
     Write-SuperLog "starting agent (2 health checks, ~15 min apart; live logs below / agent.log)"
     $agentOut = Join-Path $InstallDir "agent-console.log"
     $agentErr = Join-Path $InstallDir "agent-console.err.log"
@@ -174,7 +174,7 @@ function Start-AgentOnce {
 
 Write-Host ""
 Write-Host "  ============================================"
-Write-Host "   HammerByte  ·  Server Supervisor"
+Write-Host "   HammerByte  -  Server Supervisor"
 Write-Host "   Windows Server 2012+ PowerShell"
 Write-Host "  ============================================"
 Write-Host ""

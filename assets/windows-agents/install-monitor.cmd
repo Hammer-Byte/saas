@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-REM HammerByte Server Monitor installer — Windows Server 2012+
+REM HammerByte Server Monitor installer - Windows Server 2012+
 REM Double-click or Run as administrator.
 
 cd /d "%~dp0"
