@@ -124,3 +124,15 @@ export async function updateServerProjectById({ id, project_id = null }) {
         logger.error(`updateServerProjectById: ${error}`);
     });
 }
+
+export async function updateServerAlertById({ id, alert }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET alert = ${alert}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerAlertById: ${error}`);
+    });
+}

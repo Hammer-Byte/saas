@@ -6,6 +6,7 @@ import {
     updateServerLastSeenById,
     updateServerNameById,
     updateServerProjectById,
+    updateServerAlertById,
     updateServerSyncStatusById,
 } from "../db/servers.js";
 import { createServerMetric, getServerMetricsByServerId } from "../db/server_metrics.js";
@@ -119,6 +120,10 @@ export async function updateMonitoredServer({ body, set }) {
             }
         }
         await updateServerProjectById({ id: server.id, project_id: body.project_id });
+    }
+
+    if (body.alert !== undefined) {
+        await updateServerAlertById({ id: server.id, alert: body.alert });
     }
 
     const updatedServer = await getServerById({ id: server.id });

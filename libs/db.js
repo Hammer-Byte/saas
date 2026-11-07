@@ -734,6 +734,7 @@ export async function generateDBTables() {
             last_sync_at DATETIME NULL,
             last_sync_status VARCHAR(16) NULL,
             last_sync_summary VARCHAR(512) NULL,
+            alert BOOLEAN NOT NULL DEFAULT FALSE,
             active BOOLEAN NOT NULL DEFAULT TRUE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -747,6 +748,7 @@ export async function generateDBTables() {
         `ALTER TABLE SERVERS ADD COLUMN last_sync_at DATETIME NULL`,
         `ALTER TABLE SERVERS ADD COLUMN last_sync_status VARCHAR(16) NULL`,
         `ALTER TABLE SERVERS ADD COLUMN last_sync_summary VARCHAR(512) NULL`,
+        `ALTER TABLE SERVERS ADD COLUMN alert BOOLEAN NOT NULL DEFAULT FALSE`,
         `CREATE TABLE IF NOT EXISTS SERVER_METRICS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             server_id INT NOT NULL,

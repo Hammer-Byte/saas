@@ -84,7 +84,20 @@
                     <% if (snap && snap.hostname) { %> · Host <strong><%= snap.hostname %></strong><% } %>
                 </p>
             </div>
-            <a href="/app/servers" class="btn btn-sm btn-outline-secondary">Back to fleet</a>
+            <div class="d-flex flex-column align-items-end gap-2">
+                <a href="/app/servers" class="btn btn-sm btn-outline-secondary">Back to fleet</a>
+                <div class="form-check">
+                    <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="server-alert"
+                        data-id="<%= server.id %>"
+                        <%= server.alert ? "checked" : "" %>
+                    />
+                    <label class="form-check-label" for="server-alert">Require alert</label>
+                </div>
+                <div id="server-alert-feedback" class="small text-secondary d-none" role="status"></div>
+            </div>
         </div>
 
         <div class="card border-0 shadow-sm mb-4">
@@ -571,5 +584,6 @@
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
+<script src="/public/server.js" defer></script>
 
 <%- include('common/footer') %>

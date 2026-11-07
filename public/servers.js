@@ -2,16 +2,11 @@
     const pageAlert = document.getElementById("servers-alert");
     const selectAll = document.getElementById("select-all-servers");
     const deleteLogsButton = document.getElementById("delete-logs-btn");
-    const renameForm = document.getElementById("rename-form");
-    const renameFormAlert = document.getElementById("rename-form-alert");
-    const renameModalElement = document.getElementById("rename-modal");
-    const renameIdInput = document.getElementById("rename-id");
-    const renameNameInput = document.getElementById("rename-name");
-    const renameTagLabel = document.getElementById("rename-tag-label");
     const editServerForm = document.getElementById("edit-server-form");
     const editServerFormAlert = document.getElementById("edit-server-form-alert");
     const editServerModalElement = document.getElementById("edit-server-modal");
     const editServerIdInput = document.getElementById("edit-server-id");
+    const editServerNameInput = document.getElementById("edit-server-name");
     const editServerProjectIdSelect = document.getElementById("edit-server-project-id");
     const editServerTagLabel = document.getElementById("edit-server-tag-label");
     const deleteLogsForm = document.getElementById("delete-logs-form");
@@ -62,51 +57,11 @@
         });
     });
 
-    document.querySelectorAll(".server-rename-btn").forEach((button) => {
-        button.addEventListener("click", () => {
-            hideAlert(renameFormAlert);
-            if (renameIdInput) renameIdInput.value = button.dataset.id || "";
-            if (renameNameInput) renameNameInput.value = button.dataset.name || "";
-            if (renameTagLabel) renameTagLabel.textContent = `Tag: ${button.dataset.tag || ""}`;
-            const modal = bootstrap.Modal.getOrCreateInstance(renameModalElement);
-            modal.show();
-        });
-    });
-
-    renameForm?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        hideAlert(renameFormAlert);
-
-        const id = Number(renameIdInput?.value || 0);
-        const name = renameNameInput?.value?.trim() || "";
-        if (!id) {
-            showAlert(renameFormAlert, "Invalid server.", "danger");
-            return;
-        }
-
-        try {
-            const response = await fetch("/api/monitored-servers", {
-                method: "PATCH",
-                credentials: "same-origin",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id, name }),
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                showAlert(renameFormAlert, data.error || "Failed to update name.", "danger");
-                return;
-            }
-            window.location.reload();
-        } catch (error) {
-            console.error(error);
-            showAlert(renameFormAlert, "Failed to update name.", "danger");
-        }
-    });
-
     document.querySelectorAll(".server-edit-btn").forEach((button) => {
         button.addEventListener("click", () => {
             hideAlert(editServerFormAlert);
             if (editServerIdInput) editServerIdInput.value = button.dataset.id || "";
+            if (editServerNameInput) editServerNameInput.value = button.dataset.name || "";
             if (editServerTagLabel) editServerTagLabel.textContent = `Tag: ${button.dataset.tag || ""}`;
             if (editServerProjectIdSelect) {
                 editServerProjectIdSelect.value = button.dataset.projectId || "";
@@ -126,6 +81,7 @@
             return;
         }
 
+        const name = editServerNameInput?.value?.trim() || "";
         const projectValue = editServerProjectIdSelect?.value || "";
         const project_id = projectValue ? Number(projectValue) : null;
 
@@ -134,7 +90,7 @@
                 method: "PATCH",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id, project_id }),
+                body: JSON.stringify({ id, name, project_id }),
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {

@@ -31,10 +31,11 @@ export default function (app) {
                 project_id: t.Optional(
                     t.Union([t.Numeric({ minimum: 1 }), t.Null()]),
                 ),
+                alert: t.Optional(t.Boolean()),
             }),
             detail: {
                 tags: ["Monitored Servers"],
-                summary: "Update monitored server name or project",
+                summary: "Update monitored server name, project, or alert",
             },
         });
 }
