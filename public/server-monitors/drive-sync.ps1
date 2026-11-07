@@ -94,8 +94,13 @@ function Install-Self {
     }
     $sourceScript = $MyInvocation.PSCommandPath
     if (-not $sourceScript) { $sourceScript = $PSCommandPath }
+    # Skip when already running from ProgramData (installer copied us here).
     if ($sourceScript -and (Test-Path $sourceScript)) {
-        Copy-Item -Path $sourceScript -Destination $ScriptFile -Force
+        $srcFull = [System.IO.Path]::GetFullPath($sourceScript)
+        $dstFull = [System.IO.Path]::GetFullPath($ScriptFile)
+        if ($srcFull.ToLowerInvariant() -ne $dstFull.ToLowerInvariant()) {
+            Copy-Item -Path $sourceScript -Destination $ScriptFile -Force
+        }
     }
     $tr = ("powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"{0}`"" -f $ScriptFile)
     & schtasks.exe /Create /TN $TaskName /SC ONSTART /RL HIGHEST /RU SYSTEM /F /TR $tr | Out-Null

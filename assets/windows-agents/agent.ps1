@@ -328,15 +328,17 @@ function Send-Metrics {
 Write-AgentLog ("host {0}" -f $HostUrl)
 Write-AgentLog ("tag {0}" -f $Tag)
 Write-AgentLog ("frequency {0}s ({1} sends then exit)" -f $MetricsIntervalSeconds, $SendsPerRun)
+Write-AgentLog "collecting metrics now..."
 
 for ($i = 1; $i -le $SendsPerRun; $i++) {
+    Write-AgentLog ("send {0}/{1} starting" -f $i, $SendsPerRun)
     try {
         Send-Metrics -ServerTag $Tag | Out-Null
     } catch {
         Write-AgentLog ("send cycle failed: {0}" -f $_.Exception.Message)
     }
     if ($i -lt $SendsPerRun) {
-        Write-AgentLog ("waiting {0}s before next send" -f $MetricsIntervalSeconds)
+        Write-AgentLog ("waiting {0}s before next send (this is normal)" -f $MetricsIntervalSeconds)
         Start-Sleep -Seconds $MetricsIntervalSeconds
     }
 }

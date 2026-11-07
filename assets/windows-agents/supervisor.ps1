@@ -57,8 +57,13 @@ function Install-Self {
 
     $sourceScript = $MyInvocation.PSCommandPath
     if (-not $sourceScript) { $sourceScript = $PSCommandPath }
+    # Skip when already running from ProgramData (installer copied us here).
     if ($sourceScript -and (Test-Path $sourceScript)) {
-        Copy-Item -Path $sourceScript -Destination $SupervisorFile -Force
+        $srcFull = [System.IO.Path]::GetFullPath($sourceScript)
+        $dstFull = [System.IO.Path]::GetFullPath($SupervisorFile)
+        if ($srcFull.ToLowerInvariant() -ne $dstFull.ToLowerInvariant()) {
+            Copy-Item -Path $sourceScript -Destination $SupervisorFile -Force
+        }
     }
 
     Write-SuperLog ("install dir {0}" -f $InstallDir)
@@ -113,16 +118,58 @@ function Start-AgentOnce {
     if (-not (Test-Path $AgentFile)) {
         throw "agent.ps1 not found"
     }
-    Write-SuperLog "starting agent"
-    # Capture agent stdout/stderr into supervisor.log (same as Bun supervisor forwarding).
-    $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $AgentFile -Tag $Tag 2>&1
-    foreach ($line in @($output)) {
-        $text = "$line"
-        if (-not $text) { continue }
-        Write-Host $text
-        try { Add-Content -Path $LogFile -Value $text -Encoding UTF8 } catch {}
+    # Do NOT capture output into a variable — that buffers until the agent exits
+    # (~15–30 min for two sends with 900s wait) and looks "stuck".
+    Write-SuperLog "starting agent (2 health checks, ~15 min apart; live logs below / agent.log)"
+    $agentOut = Join-Path $InstallDir "agent-console.log"
+    $agentErr = Join-Path $InstallDir "agent-console.err.log"
+    try { if (Test-Path $agentOut) { Remove-Item $agentOut -Force } } catch {}
+    try { if (Test-Path $agentErr) { Remove-Item $agentErr -Force } } catch {}
+
+    $proc = Start-Process -FilePath "powershell.exe" -ArgumentList @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $AgentFile, "-Tag", $Tag
+    ) -WorkingDirectory $InstallDir -PassThru -WindowStyle Hidden `
+      -RedirectStandardOutput $agentOut -RedirectStandardError $agentErr
+
+    $lastOutLen = 0
+    $lastErrLen = 0
+    while (-not $proc.HasExited) {
+        foreach ($pair in @(
+            @{ Path = $agentOut; Len = [ref]$lastOutLen },
+            @{ Path = $agentErr; Len = [ref]$lastErrLen }
+        )) {
+            if (-not (Test-Path $pair.Path)) { continue }
+            try {
+                $content = Get-Content -Path $pair.Path -Raw -ErrorAction SilentlyContinue
+                if (-not $content) { continue }
+                if ($content.Length -gt $pair.Len.Value) {
+                    $chunk = $content.Substring($pair.Len.Value)
+                    $pair.Len.Value = $content.Length
+                    foreach ($line in ($chunk -split "`r?`n")) {
+                        if (-not $line) { continue }
+                        Write-Host $line
+                        try { Add-Content -Path $LogFile -Value $line -Encoding UTF8 } catch {}
+                    }
+                }
+            } catch {}
+        }
+        Start-Sleep -Seconds 2
     }
-    Write-SuperLog ("agent exited (code {0}); restarting after refresh" -f $LASTEXITCODE)
+
+    # Flush any remaining lines after exit.
+    Start-Sleep -Milliseconds 500
+    foreach ($path in @($agentOut, $agentErr)) {
+        if (-not (Test-Path $path)) { continue }
+        try {
+            Get-Content -Path $path -ErrorAction SilentlyContinue | ForEach-Object {
+                if (-not $_) { return }
+                Write-Host $_
+                try { Add-Content -Path $LogFile -Value $_ -Encoding UTF8 } catch {}
+            }
+        } catch {}
+    }
+
+    Write-SuperLog ("agent exited (code {0}); refreshing agent then looping" -f $proc.ExitCode)
 }
 
 Write-Host ""
