@@ -105,7 +105,16 @@ function Install-Self {
 function Read-Config {
     if (-not (Test-Path $ConfigFile)) { return $null }
     try {
-        return (Get-Content -Path $ConfigFile -Raw | ConvertFrom-Json)
+        $config = Get-Content -Path $ConfigFile -Raw | ConvertFrom-Json
+        # PS 3 ConvertFrom-Json: single pair becomes one object, not an array.
+        if ($config.pairs -and $config.pairs -isnot [System.Array]) {
+            $config.pairs = @($config.pairs)
+        } elseif (-not $config.pairs) {
+            $config.pairs = @()
+        } else {
+            $config.pairs = @($config.pairs)
+        }
+        return $config
     } catch {
         Write-SyncLog ("config parse failed: {0}" -f $_.Exception.Message) -Level "error" -Event
         return $null
@@ -275,6 +284,7 @@ function Invoke-MirrorPair {
     $result.source_alive = $true
 
     Write-SyncLog ("starting robocopy /MIR {0} -> {1}" -f $Pair.source_unc, $Pair.local_path) -Event
+    # Same flags as Bun utility: mirror, low retries (skip locked), restartable copy.
     $roboOutput = & robocopy.exe $Pair.source_unc $Pair.local_path /MIR /R:1 /W:1 /XJ /FFT /Z /NP /BYTES 2>&1 | Out-String
     $exitCode = $LASTEXITCODE
     $result.robocopy_exit_code = $exitCode
@@ -289,13 +299,20 @@ function Invoke-MirrorPair {
         Write-SyncLog ("copy issue: {0}" -f $failedLine) -Level "warning" -Event
     }
 
+    # robocopy 0–7 = success / extras / mismatches; >=8 = failure (same as Bun).
     if ($exitCode -ge 0 -and $exitCode -le 7) {
         if (($result.failed -as [int]) -gt 0) { $result.status = "partial" } else { $result.status = "ok" }
         Write-SyncLog ("pair done exit={0} copied={1} deleted={2} skipped={3} failed={4}" -f `
             $exitCode, $result.copied, $result.deleted, $result.skipped, $result.failed) `
             -Level $(if ($result.status -eq "ok") { "info" } else { "warning" }) -Event
     } else {
+        $detail = ""
+        if ($roboOutput) {
+            $trim = $roboOutput.Trim()
+            if ($trim.Length -gt 1000) { $detail = $trim.Substring($trim.Length - 1000) } else { $detail = $trim }
+        }
         $msg = "robocopy failed exit=$exitCode"
+        if ($detail) { $msg = "$msg : $detail" }
         [void]$result.errors.Add($msg)
         Write-SyncLog $msg -Level "error" -Event
         $result.status = "error"

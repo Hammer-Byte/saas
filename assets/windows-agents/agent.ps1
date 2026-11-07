@@ -17,11 +17,52 @@ $MetricsUrl = "$HostUrl/api/servers/metrics"
 $MetricsIntervalSeconds = 900
 $SendsPerRun = 2
 $AgentVersion = "0.3.0-ps"
+$InstallDir = Join-Path $env:ProgramData "HammerByte\ServerMonitor"
+$AgentLogFile = Join-Path $InstallDir "agent.log"
 
 function Write-AgentLog {
     param([string]$Message)
     $stamp = (Get-Date).ToUniversalTime().ToString("o")
-    Write-Host "[agent $stamp] $Message"
+    $line = "[agent $stamp] $Message"
+    Write-Host $line
+    try {
+        if (-not (Test-Path $InstallDir)) {
+            New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+        }
+        Add-Content -Path $AgentLogFile -Value $line -Encoding UTF8
+    } catch {}
+}
+
+function New-EmptyPayload {
+    param([string]$CollectionError = $null)
+    return @{
+        type = "metrics"
+        agent_version = $AgentVersion
+        hostname = $env:COMPUTERNAME
+        pid = $PID
+        platform = "win32"
+        arch = $env:PROCESSOR_ARCHITECTURE
+        os_type = "Windows_NT"
+        os_release = $null
+        uptime_seconds = $null
+        loadavg = @(0, 0, 0)
+        cpu_count = $null
+        processor = @{
+            name = $null; packages = $null; core_count = $null; logical_count = $null
+            max_clock_mhz = $null; load_percent_wmi = $null; usage_percent = $null
+        }
+        memory = @{
+            total_mb = $null; free_mb = $null; used_mb = $null; used_percent = $null
+        }
+        processes = @{ total = $null; top_cpu = @(); top_memory = @() }
+        services = @{ total = $null; running = $null; stopped = $null }
+        disks = @()
+        os = $null
+        hardware = $null
+        temperatures = @{ available = $false; celsius_max = $null; zones = @() }
+        collected_at = (Get-Date).ToUniversalTime().ToString("o")
+        collection_error = $CollectionError
+    }
 }
 
 function Get-Rounded {
@@ -244,10 +285,23 @@ function Collect-Metrics {
 
 function Send-Metrics {
     param([string]$ServerTag)
+    $payload = $null
     try {
         $payload = Collect-Metrics
+    } catch {
+        Write-AgentLog ("collectMetrics failed: {0}" -f $_.Exception.Message)
+        $payload = New-EmptyPayload -CollectionError $_.Exception.Message
+    }
+
+    try {
         Write-AgentLog ("cpu {0}% | ram {1}% | processes {2}" -f `
             $payload.processor.usage_percent, $payload.memory.used_percent, $payload.processes.total)
+        if ($payload.temperatures -and $payload.temperatures.available) {
+            Write-AgentLog ("temperatures max {0}°C" -f $payload.temperatures.celsius_max)
+        }
+        if ($payload.collection_error) {
+            Write-AgentLog ("collection warning: {0}" -f $payload.collection_error)
+        }
         Write-AgentLog "health check done"
 
         $json = $payload | ConvertTo-Json -Compress -Depth 8

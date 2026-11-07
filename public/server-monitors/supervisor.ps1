@@ -100,7 +100,14 @@ function Start-AgentOnce {
         throw "agent.ps1 not found"
     }
     Write-SuperLog "starting agent"
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $AgentFile -Tag $Tag
+    # Capture agent stdout/stderr into supervisor.log (same as Bun supervisor forwarding).
+    $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $AgentFile -Tag $Tag 2>&1
+    foreach ($line in @($output)) {
+        $text = "$line"
+        if (-not $text) { continue }
+        Write-Host $text
+        try { Add-Content -Path $LogFile -Value $text -Encoding UTF8 } catch {}
+    }
     Write-SuperLog ("agent exited (code {0}); restarting after refresh" -f $LASTEXITCODE)
 }
 
