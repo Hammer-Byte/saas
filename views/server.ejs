@@ -25,6 +25,7 @@
     }
 
     const snap = latest && latest.data ? latest.data : null;
+    const sync = typeof latestSync !== "undefined" && latestSync && latestSync.data ? latestSync.data : null;
     const processor = snap && snap.processor ? snap.processor : {};
     const memory = snap && snap.memory ? snap.memory : {};
     const processes = snap && snap.processes ? snap.processes : {};
@@ -37,6 +38,19 @@
     const topMemory = Array.isArray(processes.top_memory) ? processes.top_memory : [];
     const cpuPct = pct(processor.usage_percent);
     const ramPct = pct(memory.used_percent);
+    const syncStatus = sync ? String(sync.status || "").toLowerCase() : String(server.last_sync_status || "").toLowerCase();
+    const syncBadge =
+        syncStatus === "ok"
+            ? "text-bg-success"
+            : syncStatus === "partial"
+              ? "text-bg-warning"
+              : syncStatus === "error"
+                ? "text-bg-danger"
+                : "text-bg-secondary";
+    const syncPairs = sync && Array.isArray(sync.pairs) ? sync.pairs : [];
+    const syncErrors = sync && Array.isArray(sync.errors) ? sync.errors : [];
+    const syncEvents = sync && Array.isArray(sync.events) ? sync.events : [];
+    const syncTotals = sync && sync.totals ? sync.totals : {};
 %>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -73,13 +87,112 @@
             <a href="/app/servers" class="btn btn-sm btn-outline-secondary">Back to fleet</a>
         </div>
 
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <h2 class="h5 mb-0">Drive sync</h2>
+                <% if (syncStatus) { %>
+                    <span class="badge <%= syncBadge %>"><%= syncStatus %></span>
+                <% } %>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <% if (!sync && !server.last_sync_at) { %>
+                    <p class="text-secondary mb-0">No drive sync runs received yet. Install <code>drive-sync.exe</code> on the child VM.</p>
+                <% } else { %>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-3">
+                            <div class="text-secondary small">Source</div>
+                            <div class="fw-semibold"><%= fmt(sync && sync.source_host) %></div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-secondary small">Last sync</div>
+                            <div
+                                class="fw-semibold"
+                                data-readable-date="<%= (latestSync && latestSync.collected_at) || server.last_sync_at || '' %>"
+                                data-date-format="DD/MM/YYYY HH:mm:ss"
+                            ></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-secondary small">Totals</div>
+                            <div class="fw-semibold">
+                                copied <%= fmt(syncTotals.copied) %>
+                                · deleted <%= fmt(syncTotals.deleted) %>
+                                · skipped <%= fmt(syncTotals.skipped) %>
+                                · failed <%= fmt(syncTotals.failed) %>
+                            </div>
+                            <% if (server.last_sync_summary) { %>
+                                <div class="small text-secondary mt-1"><%= server.last_sync_summary %></div>
+                            <% } %>
+                        </div>
+                    </div>
+
+                    <% if (syncPairs.length) { %>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Source</th>
+                                        <th>Local</th>
+                                        <th>Status</th>
+                                        <th>Copied</th>
+                                        <th>Deleted</th>
+                                        <th>Skipped</th>
+                                        <th>Failed</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% syncPairs.forEach(function (pair) {
+                                        const pairStatus = String(pair.status || "").toLowerCase();
+                                        const pairBadge =
+                                            pairStatus === "ok"
+                                                ? "text-bg-success"
+                                                : pairStatus === "partial"
+                                                  ? "text-bg-warning"
+                                                  : "text-bg-danger";
+                                    %>
+                                        <tr>
+                                            <td class="small"><code><%= fmt(pair.source_unc) %></code></td>
+                                            <td class="small"><code><%= fmt(pair.local_path) %></code></td>
+                                            <td><span class="badge <%= pairBadge %>"><%= pairStatus || "—" %></span></td>
+                                            <td><%= fmt(pair.copied) %></td>
+                                            <td><%= fmt(pair.deleted) %></td>
+                                            <td><%= fmt(pair.skipped) %></td>
+                                            <td><%= fmt(pair.failed) %></td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% } %>
+
+                    <% if (syncErrors.length) { %>
+                        <div class="alert alert-danger py-2 small mb-3">
+                            <div class="fw-semibold mb-1">Errors</div>
+                            <ul class="mb-0 ps-3">
+                                <% syncErrors.slice(0, 20).forEach(function (err) { %>
+                                    <li><%= err %></li>
+                                <% }) %>
+                            </ul>
+                        </div>
+                    <% } %>
+
+                    <% if (syncEvents.length) { %>
+                        <details>
+                            <summary class="small text-secondary">Events (<%= syncEvents.length %>)</summary>
+                            <pre class="small mt-2 mb-0 text-break" style="white-space: pre-wrap; max-height: 14rem; overflow: auto"><%= syncEvents.map(function (ev) { return (ev.at || "") + " [" + (ev.level || "info") + "] " + (ev.message || ""); }).join("\n") %></pre>
+                        </details>
+                    <% } %>
+                <% } %>
+            </div>
+        </div>
+
         <% if (!snap) { %>
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body p-4 text-center text-secondary">
-                    No metrics received yet.
+                    No monitoring metrics received yet.
                 </div>
             </div>
         <% } else { %>
+            <h2 class="h5 mb-3">Monitoring</h2>
             <div class="row g-3 mb-4">
                 <div class="col-md-6 col-xl-3">
                     <div class="card border-0 shadow-sm h-100">
@@ -373,18 +486,28 @@
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 pt-4 px-4">
                 <h2 class="h5 mb-0">History</h2>
-                <p class="text-secondary small mb-0 mt-1">Previous check-ins with a quick summary. Expand a row for raw JSON if needed.</p>
+                <p class="text-secondary small mb-0 mt-1">Monitor snapshots and drive sync runs. Expand for errors/events and raw JSON.</p>
             </div>
             <div class="card-body p-0">
                 <% if (!metrics || metrics.length === 0) { %>
-                    <div class="p-4 text-center text-secondary">No metrics received yet.</div>
+                    <div class="p-4 text-center text-secondary">No logs received yet.</div>
                 <% } else { %>
                     <div class="accordion accordion-flush" id="metrics-history">
                         <% metrics.forEach(function (metric, index) {
                             const data = metric.data || {};
+                            const isSync = metric.kind === "drive_sync";
                             const proc = data.processor || {};
                             const mem = data.memory || {};
                             const collapseId = "metric-" + (metric.id || index);
+                            const rowStatus = String(data.status || "").toLowerCase();
+                            const rowBadge =
+                                rowStatus === "ok"
+                                    ? "text-bg-success"
+                                    : rowStatus === "partial"
+                                      ? "text-bg-warning"
+                                      : rowStatus === "error"
+                                        ? "text-bg-danger"
+                                        : "text-bg-light border";
                         %>
                             <div class="accordion-item">
                                 <h3 class="accordion-header">
@@ -401,13 +524,18 @@
                                                 data-readable-date="<%= metric.collected_at || '' %>"
                                                 data-date-format="DD/MM/YYYY HH:mm:ss"
                                             ></span>
-                                            <% if (metric.data) { %>
+                                            <% if (isSync) { %>
+                                                <span class="badge text-bg-primary">Drive sync</span>
+                                                <span class="badge <%= rowBadge %>"><%= rowStatus || "unknown" %></span>
+                                                <% if (data.totals) { %>
+                                                    <span class="badge text-bg-light border">copied <%= fmt(data.totals.copied) %></span>
+                                                    <span class="badge text-bg-light border">failed <%= fmt(data.totals.failed) %></span>
+                                                <% } %>
+                                            <% } else if (metric.data) { %>
+                                                <span class="badge text-bg-secondary">Monitor</span>
                                                 <span class="badge text-bg-light border">CPU <%= fmt(proc.usage_percent, "%") %></span>
                                                 <span class="badge text-bg-light border">RAM <%= fmt(mem.used_percent, "%") %></span>
                                                 <span class="badge text-bg-light border">Procs <%= fmt((data.processes || {}).total) %></span>
-                                                <% if (data.temperatures && data.temperatures.available) { %>
-                                                    <span class="badge text-bg-light border"><%= fmt(data.temperatures.celsius_max, "°C") %></span>
-                                                <% } %>
                                             <% } else { %>
                                                 <span class="badge text-bg-warning">Unparsed payload</span>
                                             <% } %>
@@ -420,6 +548,15 @@
                                     data-bs-parent="#metrics-history"
                                 >
                                     <div class="accordion-body bg-light">
+                                        <% if (isSync && Array.isArray(data.errors) && data.errors.length) { %>
+                                            <div class="alert alert-danger py-2 small mb-3">
+                                                <ul class="mb-0 ps-3">
+                                                    <% data.errors.slice(0, 30).forEach(function (err) { %>
+                                                        <li><%= err %></li>
+                                                    <% }) %>
+                                                </ul>
+                                            </div>
+                                        <% } %>
                                         <pre class="small mb-0 text-break" style="white-space: pre-wrap; max-height: 24rem; overflow: auto"><%= metric.raw %></pre>
                                     </div>
                                 </div>

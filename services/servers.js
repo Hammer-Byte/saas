@@ -6,6 +6,7 @@ import {
     updateServerLastSeenById,
     updateServerNameById,
     updateServerProjectById,
+    updateServerSyncStatusById,
 } from "../db/servers.js";
 import { createServerMetric, getServerMetricsByServerId } from "../db/server_metrics.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
@@ -31,15 +32,40 @@ export async function addServerMetrics({ request, body, set }) {
         }
     }
 
-    const agentVersion =
-        body && typeof body === "object" && body.agent_version != null
-            ? String(body.agent_version).slice(0, 32)
-            : null;
+    const isDriveSync =
+        body && typeof body === "object" && String(body.type || "").toLowerCase() === "drive_sync";
 
-    await updateServerLastSeenById({
-        id: server.id,
-        agent_version: agentVersion,
-    });
+    if (isDriveSync) {
+        const status = String(body.status || "error").slice(0, 16);
+        const totals = body.totals && typeof body.totals === "object" ? body.totals : {};
+        const summary = [
+            `status=${status}`,
+            `copied=${totals.copied ?? 0}`,
+            `deleted=${totals.deleted ?? 0}`,
+            `skipped=${totals.skipped ?? 0}`,
+            `failed=${totals.failed ?? 0}`,
+            body.source_host ? `source=${body.source_host}` : null,
+        ]
+            .filter(Boolean)
+            .join(" · ")
+            .slice(0, 512);
+
+        await updateServerSyncStatusById({
+            id: server.id,
+            last_sync_status: status,
+            last_sync_summary: summary,
+        });
+    } else {
+        const agentVersion =
+            body && typeof body === "object" && body.agent_version != null
+                ? String(body.agent_version).slice(0, 32)
+                : null;
+
+        await updateServerLastSeenById({
+            id: server.id,
+            agent_version: agentVersion,
+        });
+    }
 
     const payload = JSON.stringify(body ?? {});
     await createServerMetric({

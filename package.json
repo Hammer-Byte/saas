@@ -4,7 +4,7 @@
     "type": "module",
     "private": true,
     "scripts": {
-        "build:windows-agents": "mkdir -p public/server-monitors && bun build --compile --target=bun-windows-x64 ./assets/supervisor.js --outfile ./public/server-monitors/supervisor.exe && bun build --compile --target=bun-windows-x64 ./assets/agent.js --outfile ./public/server-monitors/agent.exe"
+        "build:windows-agents": "mkdir -p public/server-monitors && bun build --compile --target=bun-windows-x64 ./assets/supervisor.js --outfile ./public/server-monitors/supervisor.exe && bun build --compile --target=bun-windows-x64 ./assets/agent.js --outfile ./public/server-monitors/agent.exe && bun build --compile --target=bun-windows-x64 ./assets/drive-sync.js --outfile ./public/server-monitors/drive-sync.exe"
     },
     "dependencies": {
         "@elysiajs/cors": "^1.4.1",

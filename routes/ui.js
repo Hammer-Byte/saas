@@ -416,9 +416,14 @@ export const uiRoutes = new Elysia()
                     } catch {
                         data = null;
                     }
+                    const kind =
+                        data && String(data.type || "").toLowerCase() === "drive_sync"
+                            ? "drive_sync"
+                            : "metrics";
                     return {
                         id: metric.id,
                         collected_at: metric.collected_at,
+                        kind,
                         data,
                         raw:
                             typeof metric.payload === "string"
@@ -426,11 +431,16 @@ export const uiRoutes = new Elysia()
                                 : JSON.stringify(metric.payload ?? {}, null, 2),
                     };
                 });
+                const latestMonitor =
+                    metrics.find((metric) => metric.kind === "metrics" && metric.data) || null;
+                const latestSync =
+                    metrics.find((metric) => metric.kind === "drive_sync" && metric.data) || null;
                 return render("server", appPage(session, {
                     title: `${server.name || server.tag} — Servers — HammerByte`,
                     server,
                     metrics,
-                    latest: metrics[0] || null,
+                    latest: latestMonitor,
+                    latestSync,
                 }));
             })
             .get("/app/expenses", async ({ render, session, query }) => {

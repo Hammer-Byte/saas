@@ -79,6 +79,28 @@ export async function updateServerLastSeenById({ id, agent_version = null }) {
     });
 }
 
+export async function updateServerSyncStatusById({
+    id,
+    last_sync_status = null,
+    last_sync_summary = null,
+}) {
+    const last_sync_at = getIstDateTime();
+    const last_seen_at = last_sync_at;
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET
+                last_seen_at = ${last_seen_at},
+                last_sync_at = ${last_sync_at},
+                last_sync_status = ${last_sync_status},
+                last_sync_summary = ${last_sync_summary}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerSyncStatusById: ${error}`);
+    });
+}
+
 export async function updateServerNameById({ id, name = null }) {
     await executeSQLQuery(
         (sql) => sql`
