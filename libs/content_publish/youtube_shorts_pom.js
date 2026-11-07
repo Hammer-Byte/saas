@@ -33,6 +33,37 @@ async function failStep(driver, message, label = "yt-shorts-fail") {
     await failWithScreenshot(driver, message, label);
 }
 
+async function detectGoogleChallenge(driver) {
+    return await driver.executeScript(`
+      const text = String(document.body?.innerText || "");
+      const html = String(document.documentElement?.innerHTML || "");
+      const title = String(document.title || "");
+      const hay = (text + "\\n" + title).slice(0, 8000);
+      const verifyItsYou = /verify it'?s you/i.test(hay);
+      const confirmItsYou = /confirm it'?s really you/i.test(hay);
+      const accountRecovery = /account recovery|unusual activity|sign in to continue/i.test(hay);
+      const captcha = /recaptcha|captcha/i.test(hay) || /recaptcha/i.test(html);
+      if (verifyItsYou || confirmItsYou) {
+        return "Google asked to Verify it's you (complete this once in a normal browser for the same account, then refresh the YouTube cookie)";
+      }
+      if (accountRecovery) {
+        return "Google sign-in / account challenge blocked YouTube Studio";
+      }
+      if (captcha) {
+        return "Google captcha blocked YouTube Studio";
+      }
+      return null;
+    `);
+}
+
+async function failUnlessReady(driver, message, label) {
+    const challenge = await detectGoogleChallenge(driver);
+    if (challenge) {
+        await failStep(driver, challenge, label);
+    }
+    await failStep(driver, message, label);
+}
+
 async function clickByLabel(driver, patterns) {
     return await driver.executeScript(
         `
@@ -140,7 +171,7 @@ async function establishChannelContext(driver, channelId) {
     await contentPublishSleep(4000);
     state = await diagnoseUpload(driver, channelId);
     if (!state.channelMatched) {
-        await failStep(
+        await failUnlessReady(
             driver,
             `YouTube Shorts could not switch to channel ${channelId} (${JSON.stringify(state)})`,
             "yt-shorts-channel",
@@ -175,7 +206,7 @@ async function openUploadDialog(driver, channelId) {
 
     state = await diagnoseUpload(driver, channelId);
     if (!state.fileInputs.length) {
-        await failStep(
+        await failUnlessReady(
             driver,
             `YouTube Shorts upload dialog missing (${JSON.stringify(state)})`,
             "yt-shorts-upload-ui",
@@ -218,7 +249,7 @@ async function attachVideo(driver, mediaPath) {
         await contentPublishSleep(1500);
     }
     const state = await diagnoseUpload(driver, "");
-    await failStep(
+    await failUnlessReady(
         driver,
         `YouTube Shorts details form missing after upload (${JSON.stringify(state)})`,
         "yt-shorts-details",
@@ -253,7 +284,11 @@ async function fillTitleAndDescription(driver, title, description) {
             css: "#title-textarea #textbox, #textbox, [contenteditable='true']",
         });
         if (!editors.length) {
-            await failStep(driver, "YouTube Shorts title box missing", "yt-shorts-title");
+            await failUnlessReady(
+                driver,
+                "YouTube Shorts title box missing",
+                "yt-shorts-title",
+            );
         }
         const editor = editors[0];
         await editor.click();
@@ -333,7 +368,7 @@ async function clickThroughToPublish(driver) {
     const done = await clickByLabel(driver, ["^publish$", "^done$", "^save$"]);
     if (!done) {
         const state = await diagnoseUpload(driver, "");
-        await failStep(
+        await failUnlessReady(
             driver,
             `YouTube Shorts publish control missing (${JSON.stringify(state)})`,
             "yt-shorts-publish",
