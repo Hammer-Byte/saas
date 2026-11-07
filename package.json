@@ -4,7 +4,7 @@
     "type": "module",
     "private": true,
     "scripts": {
-        "build:windows-agents": "mkdir -p public/server-monitors && cp -f assets/windows-agents/supervisor.ps1 assets/windows-agents/agent.ps1 assets/windows-agents/drive-sync.ps1 assets/windows-agents/install-monitor.cmd assets/windows-agents/install-drive-sync.cmd assets/windows-agents/README.txt assets/windows-agents/VERSION.txt public/server-monitors/"
+        "build:windows-agents": "mkdir -p public/server-monitors && cp -f assets/windows-agents/supervisor.ps1 assets/windows-agents/agent.ps1 assets/windows-agents/drive-sync.ps1 assets/windows-agents/install-monitor.cmd assets/windows-agents/install-drive-sync.cmd assets/windows-agents/README.txt assets/windows-agents/VERSION.txt public/server-monitors/ && bun scripts/zip-windows-agents.js"
     },
     "dependencies": {
         "@elysiajs/cors": "^1.4.1",

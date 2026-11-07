@@ -7,6 +7,7 @@ RUN apt-get update \
         ca-certificates \
         wget \
         curl \
+        zip \
         unzip \
         xfonts-75dpi \
         xfonts-base \

@@ -30,7 +30,7 @@ import {
 } from "../db/customer_projects.js";
 import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
 import { getAllInternalDocuments } from "../db/internal_documents.js";
-import { getAllServers, getServerById } from "../db/servers.js";
+import { getAllServers, getServerById, getServersByProjectId } from "../db/servers.js";
 import { getServerMetricsByServerId } from "../db/server_metrics.js";
 import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
 import {
@@ -352,6 +352,9 @@ export const uiRoutes = new Elysia()
                     customer,
                     customerProject,
                     applications: await getProjectApplicationsByProjectId({
+                        project_id: customerProject.id,
+                    }),
+                    servers: await getServersByProjectId({
                         project_id: customerProject.id,
                     }),
                     invoices: await getCustomerInvoicesByProjectId({

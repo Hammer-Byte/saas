@@ -3,7 +3,7 @@
 .SYNOPSIS
   HammerByte Drive Sync - Windows Server 2012+ (PowerShell 3/4 safe)
   Child pulls from source UNC shares onto local paths on an interval.
-  Version: 0.2.1-ps-stable
+  Version: 0.2.2-ps-stable
 
 .NOTES
   SOURCE SAFETY (live production):
@@ -28,13 +28,15 @@ try {
 $HostUrl = "https://hammerbyte.co.in"
 $MetricsUrl = "$HostUrl/api/servers/metrics"
 $TaskName = "HammerByteDriveSync"
-$InstallDir = Join-Path $env:ProgramData "HammerByte\DriveSync"
+$HammerByteRoot = Join-Path $env:ProgramData "HammerByte"
+$InstallDir = Join-Path $HammerByteRoot "DriveSync"
 $ConfigFile = Join-Path $InstallDir "config.json"
 $LogFile = Join-Path $InstallDir "drive-sync.log"
-$TagFile = Join-Path $InstallDir ".server-tag"
-$MonitorTagFile = Join-Path $env:ProgramData "HammerByte\ServerMonitor\.server-tag"
+$SharedTagFile = Join-Path $HammerByteRoot ".server-tag"
+$LegacyMonitorTagFile = Join-Path $HammerByteRoot "ServerMonitor\.server-tag"
+$LegacyDriveSyncTagFile = Join-Path $InstallDir ".server-tag"
 $ScriptFile = Join-Path $InstallDir "drive-sync.ps1"
-$AgentVersion = "0.2.1-ps-stable"
+$AgentVersion = "0.2.2-ps-stable"
 $DefaultInterval = 300
 $script:CycleEvents = New-Object System.Collections.ArrayList
 
@@ -88,21 +90,27 @@ function Test-IsElevated {
 }
 
 function Get-OrCreateTag {
-    if (Test-Path $MonitorTagFile) {
-        $existing = (Get-Content -Path $MonitorTagFile -ErrorAction SilentlyContinue | Select-Object -First 1)
-        if ($existing) {
-            Write-SyncLog ("using ServerMonitor tag {0}" -f $existing.Trim())
-            Set-Content -Path $TagFile -Value $existing.Trim() -Encoding ASCII
-            return $existing.Trim()
-        }
+    # Single machine identity shared by monitor + drive-sync.
+    if (-not (Test-Path $HammerByteRoot)) {
+        New-Item -ItemType Directory -Path $HammerByteRoot -Force | Out-Null
     }
-    if (Test-Path $TagFile) {
-        $existing = (Get-Content -Path $TagFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if (Test-Path $SharedTagFile) {
+        $existing = (Get-Content -Path $SharedTagFile -ErrorAction SilentlyContinue | Select-Object -First 1)
         if ($existing) { return $existing.Trim() }
     }
+    foreach ($legacy in @($LegacyMonitorTagFile, $LegacyDriveSyncTagFile)) {
+        if (-not (Test-Path $legacy)) { continue }
+        $existing = (Get-Content -Path $legacy -ErrorAction SilentlyContinue | Select-Object -First 1)
+        if ($existing) {
+            $tag = $existing.Trim()
+            Set-Content -Path $SharedTagFile -Value $tag -Encoding ASCII
+            Write-SyncLog ("migrated legacy tag to shared path {0}" -f $tag)
+            return $tag
+        }
+    }
     $tag = [guid]::NewGuid().ToString()
-    Set-Content -Path $TagFile -Value $tag -Encoding ASCII
-    Write-SyncLog ("generated tag {0}" -f $tag)
+    Set-Content -Path $SharedTagFile -Value $tag -Encoding ASCII
+    Write-SyncLog ("generated shared tag {0}" -f $tag)
     return $tag
 }
 
@@ -458,9 +466,8 @@ function Invoke-RobocopyWithProgress {
 
     Write-SyncLog ("STARTING COPY: {0}  ->  {1}" -f $Source, $Dest) -Event
     Write-SyncLog "Incremental: only NEW or CHANGED files transfer; identical files are skipped." -Event
-    Write-SyncLog "Please wait. First sync of a large share can take a long time; later runs are much faster." -Event
-    Write-SyncLog ("Progress lines print below. You can also watch files appear under {0}" -f $Dest) -Event
-    Write-SyncLog "Copying... (robocopy running; heartbeats every 30s if quiet)" -Event
+    Write-SyncLog "Please wait. Heartbeats every 30s. Failures are logged as copy issue lines." -Event
+    Write-SyncLog ("Watch destination grow if needed: {0}  |  raw robocopy: {1}" -f $Dest, $outFile) -Event
 
     $p = Start-Process -FilePath "robocopy.exe" -ArgumentList $argString `
         -RedirectStandardOutput $outFile -RedirectStandardError $errFile `
@@ -471,28 +478,18 @@ function Invoke-RobocopyWithProgress {
     $errPos = [int64]0
     $sb = New-Object System.Text.StringBuilder
     $lastBeat = Get-Date
-    $progressLines = 0
-    $lastProgressLog = Get-Date
+    $issueCount = 0
 
     while ($true) {
         $chunk = Read-NewFileText -Path $outFile -Position ([ref]$outPos)
         if ($chunk) {
             [void]$sb.Append($chunk)
             foreach ($line in ($chunk -split "`r?`n")) {
-                if ($null -eq $line) { continue }
-                if ($line.Length -eq 0) { continue }
-                Write-Host $line
-                $isProgress = $false
-                if ($line -match 'New File|Newer|Older|\*EXTRA|ERROR|FAILED') { $isProgress = $true }
-                if ($line -match '^\s*Files\s*:') { $isProgress = $true }
-                if ($line -match '^\s*Dirs\s*:') { $isProgress = $true }
-                if ($line -match '^\s*Bytes\s*:') { $isProgress = $true }
-                if ($line -match '%') { $isProgress = $true }
-                if ($isProgress) {
-                    $progressLines++
-                    if ($progressLines -eq 1 -or ((Get-Date) - $lastProgressLog).TotalSeconds -ge 15) {
-                        Write-SyncLog ("copying... seen {0} robocopy progress line(s)" -f $progressLines)
-                        $lastProgressLog = Get-Date
+                if (-not $line) { continue }
+                if ($line -match 'ERROR\s+\d+\s*\(' -or $line -match '\s+FAILED\s+') {
+                    $issueCount++
+                    if ($issueCount -le 50) {
+                        Write-SyncLog ("copy issue: {0}" -f $line.Trim()) -Level "warning" -Event
                     }
                 }
             }
@@ -502,7 +499,11 @@ function Invoke-RobocopyWithProgress {
         if ($errChunk) {
             [void]$sb.Append($errChunk)
             foreach ($line in ($errChunk -split "`r?`n")) {
-                if ($line) { Write-Host $line }
+                if (-not $line) { continue }
+                $issueCount++
+                if ($issueCount -le 50) {
+                    Write-SyncLog ("copy issue: {0}" -f $line.Trim()) -Level "warning" -Event
+                }
             }
         }
 
@@ -510,8 +511,8 @@ function Invoke-RobocopyWithProgress {
 
         if (((Get-Date) - $lastBeat).TotalSeconds -ge 30) {
             $elapsed = [int]((Get-Date) - $started).TotalSeconds
-            Write-SyncLog ("still copying... please wait (elapsed {0}s, pid {1}, progress lines {2})" -f `
-                $elapsed, $p.Id, $progressLines)
+            Write-SyncLog ("still copying... please wait (elapsed {0}s, pid {1}, issues {2})" -f `
+                $elapsed, $p.Id, $issueCount)
             $lastBeat = Get-Date
         }
         Start-Sleep -Milliseconds 700
@@ -524,27 +525,28 @@ function Invoke-RobocopyWithProgress {
     if ($chunk) {
         [void]$sb.Append($chunk)
         foreach ($line in ($chunk -split "`r?`n")) {
-            if ($line) { Write-Host $line }
+            if (-not $line) { continue }
+            if ($line -match 'ERROR\s+\d+\s*\(' -or $line -match '\s+FAILED\s+') {
+                $issueCount++
+                if ($issueCount -le 50) {
+                    Write-SyncLog ("copy issue: {0}" -f $line.Trim()) -Level "warning" -Event
+                }
+            }
         }
     }
     $errChunk = Read-NewFileText -Path $errFile -Position ([ref]$errPos)
-    if ($errChunk) {
-        [void]$sb.Append($errChunk)
-        foreach ($line in ($errChunk -split "`r?`n")) {
-            if ($line) { Write-Host $line }
-        }
-    }
+    if ($errChunk) { [void]$sb.Append($errChunk) }
 
     $exitCode = 0
     try { $exitCode = [int]$p.ExitCode } catch { $exitCode = -1 }
     $elapsedTotal = [int]((Get-Date) - $started).TotalSeconds
-    Write-SyncLog ("robocopy finished in {0}s (exit {1})" -f $elapsedTotal, $exitCode) -Event
+    Write-SyncLog ("robocopy finished in {0}s (exit {1}, issue lines {2})" -f $elapsedTotal, $exitCode, $issueCount) -Event
 
     return @{
         Output = $sb.ToString()
         ExitCode = $exitCode
         ElapsedSeconds = $elapsedTotal
-        ProgressLines = $progressLines
+        IssueCount = $issueCount
     }
 }
 

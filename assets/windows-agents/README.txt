@@ -1,22 +1,28 @@
 HammerByte Windows agents (Server 2012+)
 ========================================
-Stable build: 0.2.1-ps-stable (drive-sync) / 0.3.1-ps-stable (monitor)
+Stable build: 0.2.2-ps-stable (drive-sync) / 0.3.1-ps-stable (monitor)
 
 DO NOT use supervisor.exe / agent.exe / drive-sync.exe on Server 2012.
 Those Bun builds need Windows 10 / Server 2016+ (ClosePseudoConsole error).
 
 ONE-TIME install on the TARGET/CHILD machine
 --------------------------------------------
-1. Download from https://hammerbyte.co.in/app/servers (or /public/server-monitors/):
-     install-monitor.cmd
-     install-drive-sync.cmd
-   Optional offline: also put supervisor.ps1, agent.ps1, drive-sync.ps1 in the SAME folder.
+1. From https://hammerbyte.co.in/app/servers download:
+     hammerbyte-monitor.zip
+     hammerbyte-drive-sync.zip
+   Unzip each package into its own folder.
 
 2. Right-click install-monitor.cmd -> Run as administrator
 
 3. Right-click install-drive-sync.cmd -> Run as administrator
-   Banner must say: 0.2.0-ps-stable
+   Banner must say: 0.2.2-ps-stable
    Installer deletes old config.json automatically.
+
+Shared identity
+---------------
+Both utilities use one tag file:
+  %ProgramData%\HammerByte\.server-tag
+Install either utility first; the other reuses the same server identity.
 
 4. Drive-sync prompts (example for \\192.168.0.6 shares g and h):
      Source host: 192.168.0.6

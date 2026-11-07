@@ -749,6 +749,17 @@ export async function generateDBTables() {
         `ALTER TABLE SERVERS ADD COLUMN last_sync_status VARCHAR(16) NULL`,
         `ALTER TABLE SERVERS ADD COLUMN last_sync_summary VARCHAR(512) NULL`,
         `ALTER TABLE SERVERS ADD COLUMN alert BOOLEAN NOT NULL DEFAULT FALSE`,
+        `ALTER TABLE SERVERS ADD COLUMN alert_cpu_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
+        `ALTER TABLE SERVERS ADD COLUMN alert_cpu_percent INT NOT NULL DEFAULT 80`,
+        `ALTER TABLE SERVERS ADD COLUMN alert_memory_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
+        `ALTER TABLE SERVERS ADD COLUMN alert_memory_percent INT NOT NULL DEFAULT 80`,
+        `ALTER TABLE SERVERS ADD COLUMN alert_ping_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
+        `ALTER TABLE SERVERS ADD COLUMN alert_ping_seconds INT NOT NULL DEFAULT 2700`,
+        `UPDATE SERVERS
+            SET alert_memory_enabled = TRUE,
+                alert_memory_percent = 90
+            WHERE alert = TRUE
+              AND alert_memory_enabled = FALSE`,
         `CREATE TABLE IF NOT EXISTS SERVER_METRICS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             server_id INT NOT NULL,

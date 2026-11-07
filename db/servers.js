@@ -50,6 +50,25 @@ export async function getAllServers() {
         });
 }
 
+export async function getServersByProjectId({ project_id }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                SERVERS.*,
+                CUSTOMER_PROJECTS.title AS project_title
+            FROM SERVERS
+            LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = SERVERS.project_id
+            WHERE SERVERS.project_id = ${project_id}
+            ORDER BY SERVERS.last_seen_at DESC, SERVERS.created_on DESC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getServersByProjectId: ${error}`);
+            return [];
+        });
+}
+
 export async function updateServerLastSeenById({ id, agent_version = null }) {
     const last_seen_at = getIstDateTime();
 
@@ -84,13 +103,12 @@ export async function updateServerSyncStatusById({
     last_sync_status = null,
     last_sync_summary = null,
 }) {
+    // Do not bump last_seen_at here — ping alerts track monitoring metrics only.
     const last_sync_at = getIstDateTime();
-    const last_seen_at = last_sync_at;
     await executeSQLQuery(
         (sql) => sql`
             UPDATE SERVERS
             SET
-                last_seen_at = ${last_seen_at},
                 last_sync_at = ${last_sync_at},
                 last_sync_status = ${last_sync_status},
                 last_sync_summary = ${last_sync_summary}
@@ -135,4 +153,70 @@ export async function updateServerAlertById({ id, alert }) {
     ).catch((error) => {
         logger.error(`updateServerAlertById: ${error}`);
     });
+}
+
+function clampPercent(value, fallback = 80) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+        return fallback;
+    }
+    return Math.min(100, Math.max(1, Math.round(n)));
+}
+
+function clampPingSeconds(value, fallback = 2700) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+        return fallback;
+    }
+    return Math.min(604800, Math.max(60, Math.round(n)));
+}
+
+export async function updateServerAlertSettingsById({
+    id,
+    alert_cpu_enabled,
+    alert_cpu_percent,
+    alert_memory_enabled,
+    alert_memory_percent,
+    alert_ping_enabled,
+    alert_ping_seconds,
+}) {
+    const cpuEnabled = Boolean(alert_cpu_enabled);
+    const memoryEnabled = Boolean(alert_memory_enabled);
+    const pingEnabled = Boolean(alert_ping_enabled);
+    const cpuPercent = clampPercent(alert_cpu_percent, 80);
+    const memoryPercent = clampPercent(alert_memory_percent, 80);
+    const pingSeconds = clampPingSeconds(alert_ping_seconds, 2700);
+
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET
+                alert_cpu_enabled = ${cpuEnabled},
+                alert_cpu_percent = ${cpuPercent},
+                alert_memory_enabled = ${memoryEnabled},
+                alert_memory_percent = ${memoryPercent},
+                alert_ping_enabled = ${pingEnabled},
+                alert_ping_seconds = ${pingSeconds},
+                alert = ${memoryEnabled}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerAlertSettingsById: ${error}`);
+    });
+}
+
+export async function getServersWithPingAlertEnabled() {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *
+            FROM SERVERS
+            WHERE alert_ping_enabled = TRUE
+              AND active = TRUE
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getServersWithPingAlertEnabled: ${error}`);
+            return [];
+        });
 }

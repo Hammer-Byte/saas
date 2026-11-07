@@ -7,11 +7,12 @@ import {
     updateServerNameById,
     updateServerProjectById,
     updateServerAlertById,
+    updateServerAlertSettingsById,
     updateServerSyncStatusById,
 } from "../db/servers.js";
 import { createServerMetric, getServerMetricsByServerId } from "../db/server_metrics.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
-import { notifyServerHighMemoryAlertIfNeeded } from "../libs/server_alert_notify.js";
+import { notifyServerMetricAlertsIfNeeded } from "../libs/server_alert_notify.js";
 
 export async function addServerMetrics({ request, body, set }) {
     const tag = String(request.headers.get("x-server-tag") || "").trim();
@@ -75,7 +76,7 @@ export async function addServerMetrics({ request, body, set }) {
         payload,
     });
 
-    await notifyServerHighMemoryAlertIfNeeded({ server, body });
+    await notifyServerMetricAlertsIfNeeded({ server, body });
 
     set.status = 200;
     return { ok: true, server_id: server.id };
@@ -127,6 +128,56 @@ export async function updateMonitoredServer({ body, set }) {
 
     if (body.alert !== undefined) {
         await updateServerAlertById({ id: server.id, alert: body.alert });
+        if (body.alert_memory_enabled === undefined) {
+            await updateServerAlertSettingsById({
+                id: server.id,
+                alert_cpu_enabled: server.alert_cpu_enabled,
+                alert_cpu_percent: server.alert_cpu_percent,
+                alert_memory_enabled: body.alert,
+                alert_memory_percent: server.alert_memory_percent ?? 80,
+                alert_ping_enabled: server.alert_ping_enabled,
+                alert_ping_seconds: server.alert_ping_seconds ?? 2700,
+            });
+        }
+    }
+
+    const hasAlertSettings =
+        body.alert_cpu_enabled !== undefined ||
+        body.alert_cpu_percent !== undefined ||
+        body.alert_memory_enabled !== undefined ||
+        body.alert_memory_percent !== undefined ||
+        body.alert_ping_enabled !== undefined ||
+        body.alert_ping_seconds !== undefined;
+
+    if (hasAlertSettings) {
+        const latest = await getServerById({ id: server.id });
+        await updateServerAlertSettingsById({
+            id: server.id,
+            alert_cpu_enabled:
+                body.alert_cpu_enabled !== undefined
+                    ? body.alert_cpu_enabled
+                    : latest?.alert_cpu_enabled,
+            alert_cpu_percent:
+                body.alert_cpu_percent !== undefined
+                    ? body.alert_cpu_percent
+                    : latest?.alert_cpu_percent,
+            alert_memory_enabled:
+                body.alert_memory_enabled !== undefined
+                    ? body.alert_memory_enabled
+                    : latest?.alert_memory_enabled,
+            alert_memory_percent:
+                body.alert_memory_percent !== undefined
+                    ? body.alert_memory_percent
+                    : latest?.alert_memory_percent,
+            alert_ping_enabled:
+                body.alert_ping_enabled !== undefined
+                    ? body.alert_ping_enabled
+                    : latest?.alert_ping_enabled,
+            alert_ping_seconds:
+                body.alert_ping_seconds !== undefined
+                    ? body.alert_ping_seconds
+                    : latest?.alert_ping_seconds,
+        });
     }
 
     const updatedServer = await getServerById({ id: server.id });

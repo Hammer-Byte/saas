@@ -32,10 +32,16 @@ export default function (app) {
                     t.Union([t.Numeric({ minimum: 1 }), t.Null()]),
                 ),
                 alert: t.Optional(t.Boolean()),
+                alert_cpu_enabled: t.Optional(t.Boolean()),
+                alert_cpu_percent: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
+                alert_memory_enabled: t.Optional(t.Boolean()),
+                alert_memory_percent: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
+                alert_ping_enabled: t.Optional(t.Boolean()),
+                alert_ping_seconds: t.Optional(t.Numeric({ minimum: 60, maximum: 604800 })),
             }),
             detail: {
                 tags: ["Monitored Servers"],
-                summary: "Update monitored server name, project, or alert",
+                summary: "Update monitored server name, project, or alert settings",
             },
         });
 }

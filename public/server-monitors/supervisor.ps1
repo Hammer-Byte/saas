@@ -14,8 +14,11 @@ $ErrorActionPreference = "Continue"
 $HostUrl = "https://hammerbyte.co.in"
 $AgentUrl = "$HostUrl/public/server-monitors/agent.ps1"
 $TaskName = "HammerByteServerMonitor"
-$InstallDir = Join-Path $env:ProgramData "HammerByte\ServerMonitor"
-$TagFile = Join-Path $InstallDir ".server-tag"
+$HammerByteRoot = Join-Path $env:ProgramData "HammerByte"
+$InstallDir = Join-Path $HammerByteRoot "ServerMonitor"
+$SharedTagFile = Join-Path $HammerByteRoot ".server-tag"
+$LegacyMonitorTagFile = Join-Path $InstallDir ".server-tag"
+$LegacyDriveSyncTagFile = Join-Path $HammerByteRoot "DriveSync\.server-tag"
 $LogFile = Join-Path $InstallDir "supervisor.log"
 $AgentFile = Join-Path $InstallDir "agent.ps1"
 $SupervisorFile = Join-Path $InstallDir "supervisor.ps1"
@@ -40,13 +43,27 @@ function Test-IsElevated {
 }
 
 function Get-OrCreateTag {
-    if (Test-Path $TagFile) {
-        $existing = (Get-Content -Path $TagFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    # Single machine identity for all HammerByte utilities.
+    if (-not (Test-Path $HammerByteRoot)) {
+        New-Item -ItemType Directory -Path $HammerByteRoot -Force | Out-Null
+    }
+    if (Test-Path $SharedTagFile) {
+        $existing = (Get-Content -Path $SharedTagFile -ErrorAction SilentlyContinue | Select-Object -First 1)
         if ($existing) { return $existing.Trim() }
     }
+    foreach ($legacy in @($LegacyMonitorTagFile, $LegacyDriveSyncTagFile)) {
+        if (-not (Test-Path $legacy)) { continue }
+        $existing = (Get-Content -Path $legacy -ErrorAction SilentlyContinue | Select-Object -First 1)
+        if ($existing) {
+            $tag = $existing.Trim()
+            Set-Content -Path $SharedTagFile -Value $tag -Encoding ASCII
+            Write-SuperLog ("migrated legacy tag to shared path {0}" -f $tag)
+            return $tag
+        }
+    }
     $tag = [guid]::NewGuid().ToString()
-    Set-Content -Path $TagFile -Value $tag -Encoding ASCII
-    Write-SuperLog ("generated tag {0}" -f $tag)
+    Set-Content -Path $SharedTagFile -Value $tag -Encoding ASCII
+    Write-SuperLog ("generated shared tag {0}" -f $tag)
     return $tag
 }
 

@@ -18,7 +18,8 @@
         <div class="mb-4">
             <p class="text-secondary small mb-1">
                 <a href="/app" class="text-decoration-none">App</a> /
-                <a href="/app/projects" class="text-decoration-none">Projects</a> /
+                <a href="/app/customers" class="text-decoration-none">Customers</a> /
+                <a href="/app/customers/<%= customer.id %>" class="text-decoration-none"><%= customer.full_name %></a> /
                 <%= customerProject.title %>
             </p>
             <h1 class="h3 mb-1"><%= customerProject.title %></h1>
@@ -130,6 +131,62 @@
                         <a href="/app/customers/<%= customer.id %>" class="btn btn-outline-secondary">Back to customer</a>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 px-4">
+                <h2 class="h5 mb-0">Servers</h2>
+                <a href="/app/servers" class="btn btn-sm btn-outline-secondary">Fleet / assign project</a>
+            </div>
+            <div class="card-body p-0">
+                <% if (!servers || servers.length === 0) { %>
+                    <div class="p-4 text-center text-secondary">
+                        No servers assigned to this project yet. Assign one from the
+                        <a href="/app/servers">Servers</a> fleet page (Edit → Project).
+                    </div>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">Tag</th>
+                                    <th scope="col">Last seen</th>
+                                    <th scope="col">Sync</th>
+                                    <th scope="col"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% servers.forEach(function (server) { %>
+                                    <tr>
+                                        <td><%= server.name || "Unnamed server" %></td>
+                                        <td><code><%= server.tag %></code></td>
+                                        <td
+                                            data-readable-date="<%= server.last_seen_at || '' %>"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                                        ><%= server.last_seen_at ? "" : "—" %></td>
+                                        <td>
+                                            <% const syncStatus = String(server.last_sync_status || "").toLowerCase(); %>
+                                            <% if (!syncStatus) { %>
+                                                <span class="text-secondary">—</span>
+                                            <% } else if (syncStatus === "ok") { %>
+                                                <span class="badge text-bg-success">ok</span>
+                                            <% } else if (syncStatus === "partial") { %>
+                                                <span class="badge text-bg-warning">partial</span>
+                                            <% } else { %>
+                                                <span class="badge text-bg-danger"><%= syncStatus %></span>
+                                            <% } %>
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="/app/servers/<%= server.id %>" class="btn btn-sm btn-outline-primary">View</a>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
             </div>
         </div>
 
