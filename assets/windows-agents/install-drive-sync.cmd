@@ -53,7 +53,7 @@ if exist "%INSTALL_DIR%\config.json" (
 )
 
 echo.
-echo Starting drive sync setup (version banner should say 0.2.0-ps-stable)...
+echo Starting drive sync setup (version banner should say 0.2.1-ps-stable)...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%INSTALL_DIR%\drive-sync.ps1" -Setup
 set "ERR=%ERRORLEVEL%"
 echo.

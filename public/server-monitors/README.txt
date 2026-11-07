@@ -1,6 +1,6 @@
 HammerByte Windows agents (Server 2012+)
 ========================================
-Stable build: 0.2.0-ps-stable (drive-sync) / 0.3.1-ps-stable (monitor)
+Stable build: 0.2.1-ps-stable (drive-sync) / 0.3.1-ps-stable (monitor)
 
 DO NOT use supervisor.exe / agent.exe / drive-sync.exe on Server 2012.
 Those Bun builds need Windows 10 / Server 2016+ (ClosePseudoConsole error).
@@ -36,6 +36,13 @@ Drive sync is PULL ONLY: robocopy SOURCE UNC -> LOCAL disk on the child.
 - /PURGE only removes extras on the LOCAL destination.
 - Destination must be a local fixed/removable drive letter (not a network map).
 - Prefer a READ-ONLY share account on the production server.
+
+INCREMENTAL COPY
+----------------
+Robocopy does NOT re-copy every file every cycle.
+- First run: copies everything missing on the child (can take a long time).
+- Later runs: only NEW or CHANGED files (size/timestamp) transfer; unchanged are skipped.
+- Extras on the LOCAL destination only may be deleted to match source (/PURGE).
 
 Offline install
 ---------------

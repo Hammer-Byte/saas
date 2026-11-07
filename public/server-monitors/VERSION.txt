@@ -1,5 +1,5 @@
 HammerByte Windows agents - Server 2012 stable
-drive-sync=0.2.0-ps-stable
+drive-sync=0.2.1-ps-stable
 monitor-agent=0.3.1-ps-stable
 
 Includes:
@@ -17,5 +17,7 @@ Server 2012 notes fixed in this build:
 - Script path resolved via PSCommandPath (safe inside functions)
 - PULL ONLY: Assert-PullOnlyPaths + robocopy SOURCE->LOCAL; /PURGE is local-only
 - Destination must be local disk DriveType 2/3 (rejects network-mapped letters)
+- Live robocopy progress + 30s heartbeats (no silent freeze)
+- Incremental: robocopy skips identical files; only new/changed transfer
 
 On child after deploy: download ALL files into one folder, run .cmd as Administrator once.

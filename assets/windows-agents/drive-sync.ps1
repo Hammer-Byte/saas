@@ -3,7 +3,7 @@
 .SYNOPSIS
   HammerByte Drive Sync - Windows Server 2012+ (PowerShell 3/4 safe)
   Child pulls from source UNC shares onto local paths on an interval.
-  Version: 0.2.0-ps-stable
+  Version: 0.2.1-ps-stable
 
 .NOTES
   SOURCE SAFETY (live production):
@@ -12,6 +12,7 @@
   - /MIR (/E+/PURGE) only deletes extras on the LOCAL destination.
   - No Remove-Item / Copy-Item / Set-Content / icacls against UNC source.
   - Prefer a READ-ONLY share account on the production server.
+  - Incremental: robocopy skips identical files; only new/changed transfer.
 #>
 param(
     [switch]$Setup
@@ -33,7 +34,7 @@ $LogFile = Join-Path $InstallDir "drive-sync.log"
 $TagFile = Join-Path $InstallDir ".server-tag"
 $MonitorTagFile = Join-Path $env:ProgramData "HammerByte\ServerMonitor\.server-tag"
 $ScriptFile = Join-Path $InstallDir "drive-sync.ps1"
-$AgentVersion = "0.2.0-ps-stable"
+$AgentVersion = "0.2.1-ps-stable"
 $DefaultInterval = 300
 $script:CycleEvents = New-Object System.Collections.ArrayList
 
@@ -371,20 +372,180 @@ function Parse-RobocopyStats {
         files_skipped = $null
         files_failed = $null
         extras_deleted = $null
+        dirs_total = $null
+        bytes_copied = $null
     }
     $failedPaths = New-Object System.Collections.ArrayList
     foreach ($line in ($Text -split "`r?`n")) {
+        if ($line -match '^\s*Dirs\s*:\s*(\d+)') {
+            $stats.dirs_total = [int]$Matches[1]
+        }
         if ($line -match '^\s*Files\s*:\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)') {
             $stats.files_copied = [int]$Matches[2]
             $stats.files_skipped = [int]$Matches[3]
             $stats.files_failed = [int]$Matches[5]
             $stats.extras_deleted = [int]$Matches[6]
         }
+        if ($line -match '^\s*Bytes\s*:\s*(\S+)\s+(\S+)') {
+            $stats.bytes_copied = $Matches[2]
+        }
         if ($line -match 'ERROR\s+\d+\s*\(' -or $line -match '\s+FAILED\s+') {
             [void]$failedPaths.Add($line.Trim())
         }
     }
     return @{ stats = $stats; failedPaths = @($failedPaths | Select-Object -First 50) }
+}
+
+function Quote-ProcessArg {
+    param([string]$Value)
+    if ($null -eq $Value) { return '""' }
+    if ($Value -match '[\s"]') {
+        return ('"{0}"' -f ($Value.Replace('"', '""')))
+    }
+    return $Value
+}
+
+function Read-NewFileText {
+    param(
+        [string]$Path,
+        [ref]$Position
+    )
+    if (-not (Test-Path -LiteralPath $Path)) { return "" }
+    try {
+        $fs = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::ReadWrite
+        )
+        try {
+            $pos = [int64]$Position.Value
+            if ($pos -gt $fs.Length) { $pos = 0 }
+            $fs.Position = $pos
+            $sr = New-Object System.IO.StreamReader($fs, [System.Text.Encoding]::Default, $true)
+            $chunk = $sr.ReadToEnd()
+            $Position.Value = $fs.Position
+            return $chunk
+        } finally {
+            $fs.Close()
+        }
+    } catch {
+        return ""
+    }
+}
+
+function Invoke-RobocopyWithProgress {
+    # Streams robocopy output live + heartbeats so the console does not look frozen.
+    param(
+        [string]$Source,
+        [string]$Dest,
+        [string[]]$Options
+    )
+
+    if (-not (Test-Path $InstallDir)) {
+        New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    }
+    $outFile = Join-Path $InstallDir "robocopy-live.out.log"
+    $errFile = Join-Path $InstallDir "robocopy-live.err.log"
+    try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch {}
+    try { Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue } catch {}
+
+    $argParts = New-Object System.Collections.ArrayList
+    [void]$argParts.Add((Quote-ProcessArg $Source))
+    [void]$argParts.Add((Quote-ProcessArg $Dest))
+    foreach ($opt in @($Options)) { [void]$argParts.Add([string]$opt) }
+    $argString = [string]::Join(" ", $argParts.ToArray())
+
+    Write-SyncLog ("STARTING COPY: {0}  ->  {1}" -f $Source, $Dest) -Event
+    Write-SyncLog "Incremental: only NEW or CHANGED files transfer; identical files are skipped." -Event
+    Write-SyncLog "Please wait. First sync of a large share can take a long time; later runs are much faster." -Event
+    Write-SyncLog ("Progress lines print below. You can also watch files appear under {0}" -f $Dest) -Event
+    Write-SyncLog "Copying... (robocopy running; heartbeats every 30s if quiet)" -Event
+
+    $p = Start-Process -FilePath "robocopy.exe" -ArgumentList $argString `
+        -RedirectStandardOutput $outFile -RedirectStandardError $errFile `
+        -NoNewWindow -PassThru
+
+    $started = Get-Date
+    $outPos = [int64]0
+    $errPos = [int64]0
+    $sb = New-Object System.Text.StringBuilder
+    $lastBeat = Get-Date
+    $progressLines = 0
+    $lastProgressLog = Get-Date
+
+    while ($true) {
+        $chunk = Read-NewFileText -Path $outFile -Position ([ref]$outPos)
+        if ($chunk) {
+            [void]$sb.Append($chunk)
+            foreach ($line in ($chunk -split "`r?`n")) {
+                if ($null -eq $line) { continue }
+                if ($line.Length -eq 0) { continue }
+                Write-Host $line
+                $isProgress = $false
+                if ($line -match 'New File|Newer|Older|\*EXTRA|ERROR|FAILED') { $isProgress = $true }
+                if ($line -match '^\s*Files\s*:') { $isProgress = $true }
+                if ($line -match '^\s*Dirs\s*:') { $isProgress = $true }
+                if ($line -match '^\s*Bytes\s*:') { $isProgress = $true }
+                if ($line -match '%') { $isProgress = $true }
+                if ($isProgress) {
+                    $progressLines++
+                    if ($progressLines -eq 1 -or ((Get-Date) - $lastProgressLog).TotalSeconds -ge 15) {
+                        Write-SyncLog ("copying... seen {0} robocopy progress line(s)" -f $progressLines)
+                        $lastProgressLog = Get-Date
+                    }
+                }
+            }
+        }
+
+        $errChunk = Read-NewFileText -Path $errFile -Position ([ref]$errPos)
+        if ($errChunk) {
+            [void]$sb.Append($errChunk)
+            foreach ($line in ($errChunk -split "`r?`n")) {
+                if ($line) { Write-Host $line }
+            }
+        }
+
+        if ($p.HasExited) { break }
+
+        if (((Get-Date) - $lastBeat).TotalSeconds -ge 30) {
+            $elapsed = [int]((Get-Date) - $started).TotalSeconds
+            Write-SyncLog ("still copying... please wait (elapsed {0}s, pid {1}, progress lines {2})" -f `
+                $elapsed, $p.Id, $progressLines)
+            $lastBeat = Get-Date
+        }
+        Start-Sleep -Milliseconds 700
+    }
+
+    try { $null = $p.WaitForExit(5000) } catch {}
+    Start-Sleep -Milliseconds 400
+
+    $chunk = Read-NewFileText -Path $outFile -Position ([ref]$outPos)
+    if ($chunk) {
+        [void]$sb.Append($chunk)
+        foreach ($line in ($chunk -split "`r?`n")) {
+            if ($line) { Write-Host $line }
+        }
+    }
+    $errChunk = Read-NewFileText -Path $errFile -Position ([ref]$errPos)
+    if ($errChunk) {
+        [void]$sb.Append($errChunk)
+        foreach ($line in ($errChunk -split "`r?`n")) {
+            if ($line) { Write-Host $line }
+        }
+    }
+
+    $exitCode = 0
+    try { $exitCode = [int]$p.ExitCode } catch { $exitCode = -1 }
+    $elapsedTotal = [int]((Get-Date) - $started).TotalSeconds
+    Write-SyncLog ("robocopy finished in {0}s (exit {1})" -f $elapsedTotal, $exitCode) -Event
+
+    return @{
+        Output = $sb.ToString()
+        ExitCode = $exitCode
+        ElapsedSeconds = $elapsedTotal
+        ProgressLines = $progressLines
+    }
 }
 
 function Test-LocalDestination {
@@ -483,12 +644,11 @@ function Invoke-MirrorPair {
     }
 
     # Arg0 = production UNC (read). Arg1 = local path (write/purge). Never reverse.
+    # Robocopy default: skip identical files (same size + timestamp); only new/changed copy.
     $roboSource = $sourceUnc
     $roboDest = $localPath
     Assert-PullOnlyPaths -SourceUnc $roboSource -LocalPath $roboDest
-    $roboArgs = @(
-        $roboSource,
-        $roboDest,
+    $roboOptions = @(
         "/E",
         "/PURGE",
         "/COPY:DAT",
@@ -498,18 +658,24 @@ function Invoke-MirrorPair {
         "/XJ",
         "/FFT",
         "/Z",
-        "/NP",
+        "/ETA",
         "/BYTES"
     )
     Write-SyncLog ("PULL ONLY robocopy SOURCE->LOCAL: {0} -> {1} (purge extras on LOCAL only; production source never written)" -f $roboSource, $roboDest) -Event
-    $roboOutput = & robocopy.exe @roboArgs 2>&1 | Out-String
-    $exitCode = $LASTEXITCODE
+    $roboRun = Invoke-RobocopyWithProgress -Source $roboSource -Dest $roboDest -Options $roboOptions
+    $roboOutput = [string]$roboRun.Output
+    $exitCode = [int]$roboRun.ExitCode
     $result.robocopy_exit_code = $exitCode
     $parsed = Parse-RobocopyStats -Text $roboOutput
     $result.copied = $parsed.stats.files_copied
     $result.deleted = $parsed.stats.extras_deleted
     $result.skipped = $parsed.stats.files_skipped
     $result.failed = $parsed.stats.files_failed
+
+    if ($null -ne $parsed.stats.files_copied -or $null -ne $parsed.stats.dirs_total) {
+        Write-SyncLog ("summary: dirs={0} copied={1} skipped_unchanged={2} failed={3} local_extras_deleted={4} bytes_copied={5}" -f `
+            $parsed.stats.dirs_total, $result.copied, $result.skipped, $result.failed, $result.deleted, $parsed.stats.bytes_copied) -Event
+    }
 
     foreach ($failedLine in $parsed.failedPaths) {
         [void]$result.errors.Add($failedLine)
@@ -524,8 +690,8 @@ function Invoke-MirrorPair {
             $result.status = "ok"
             $logLevel = "info"
         }
-        Write-SyncLog ("pair done exit={0} copied={1} local_extras_deleted={2} skipped={3} failed={4} (source untouched)" -f `
-            $exitCode, $result.copied, $result.deleted, $result.skipped, $result.failed) `
+        Write-SyncLog ("pair done exit={0} copied={1} skipped_unchanged={2} local_extras_deleted={3} failed={4} (source untouched)" -f `
+            $exitCode, $result.copied, $result.skipped, $result.deleted, $result.failed) `
             -Level $logLevel -Event
     } else {
         $detail = ""
