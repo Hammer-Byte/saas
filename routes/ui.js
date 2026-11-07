@@ -395,6 +395,7 @@ export const uiRoutes = new Elysia()
                 render("servers", appPage(session, {
                     title: "Servers — HammerByte",
                     servers: await getAllServers(),
+                    projects: await getAllCustomerProjects(),
                 })),
             )
             .get("/app/servers/:id", async ({ render, session, params, redirect }) => {

@@ -8,6 +8,12 @@
     const renameIdInput = document.getElementById("rename-id");
     const renameNameInput = document.getElementById("rename-name");
     const renameTagLabel = document.getElementById("rename-tag-label");
+    const editServerForm = document.getElementById("edit-server-form");
+    const editServerFormAlert = document.getElementById("edit-server-form-alert");
+    const editServerModalElement = document.getElementById("edit-server-modal");
+    const editServerIdInput = document.getElementById("edit-server-id");
+    const editServerProjectIdSelect = document.getElementById("edit-server-project-id");
+    const editServerTagLabel = document.getElementById("edit-server-tag-label");
     const deleteLogsForm = document.getElementById("delete-logs-form");
     const deleteLogsFormAlert = document.getElementById("delete-logs-form-alert");
     const deleteLogsModalElement = document.getElementById("delete-logs-modal");
@@ -94,6 +100,51 @@
         } catch (error) {
             console.error(error);
             showAlert(renameFormAlert, "Failed to update name.", "danger");
+        }
+    });
+
+    document.querySelectorAll(".server-edit-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+            hideAlert(editServerFormAlert);
+            if (editServerIdInput) editServerIdInput.value = button.dataset.id || "";
+            if (editServerTagLabel) editServerTagLabel.textContent = `Tag: ${button.dataset.tag || ""}`;
+            if (editServerProjectIdSelect) {
+                editServerProjectIdSelect.value = button.dataset.projectId || "";
+            }
+            const modal = bootstrap.Modal.getOrCreateInstance(editServerModalElement);
+            modal.show();
+        });
+    });
+
+    editServerForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        hideAlert(editServerFormAlert);
+
+        const id = Number(editServerIdInput?.value || 0);
+        if (!id) {
+            showAlert(editServerFormAlert, "Invalid server.", "danger");
+            return;
+        }
+
+        const projectValue = editServerProjectIdSelect?.value || "";
+        const project_id = projectValue ? Number(projectValue) : null;
+
+        try {
+            const response = await fetch("/api/monitored-servers", {
+                method: "PATCH",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id, project_id }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showAlert(editServerFormAlert, data.error || "Failed to update server.", "danger");
+                return;
+            }
+            window.location.reload();
+        } catch (error) {
+            console.error(error);
+            showAlert(editServerFormAlert, "Failed to update server.", "danger");
         }
     });
 

@@ -728,12 +728,18 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             tag VARCHAR(64) NOT NULL,
             name VARCHAR(128) NULL,
+            project_id INT NULL,
             last_seen_at DATETIME NULL,
             agent_version VARCHAR(32) NULL,
             active BOOLEAN NOT NULL DEFAULT TRUE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_server_tag (tag)
+            UNIQUE KEY unique_server_tag (tag),
+            CONSTRAINT fk_servers_customer_project
+                FOREIGN KEY (project_id)
+                REFERENCES CUSTOMER_PROJECTS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
         )`,
         `CREATE TABLE IF NOT EXISTS SERVER_METRICS (
             id INT AUTO_INCREMENT PRIMARY KEY,

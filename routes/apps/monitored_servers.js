@@ -28,10 +28,13 @@ export default function (app) {
                 name: t.Optional(
                     t.Union([t.String({ maxLength: 128 }), t.Literal(""), t.Null()]),
                 ),
+                project_id: t.Optional(
+                    t.Union([t.Numeric({ minimum: 1 }), t.Null()]),
+                ),
             }),
             detail: {
                 tags: ["Monitored Servers"],
-                summary: "Update monitored server name",
+                summary: "Update monitored server name or project",
             },
         });
 }

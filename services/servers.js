@@ -5,8 +5,10 @@ import {
     getServerByTag,
     updateServerLastSeenById,
     updateServerNameById,
+    updateServerProjectById,
 } from "../db/servers.js";
 import { createServerMetric, getServerMetricsByServerId } from "../db/server_metrics.js";
+import { getCustomerProjectById } from "../db/customer_projects.js";
 
 export async function addServerMetrics({ request, body, set }) {
     const tag = String(request.headers.get("x-server-tag") || "").trim();
@@ -74,12 +76,25 @@ export async function updateMonitoredServer({ body, set }) {
         return { error: "Server not found" };
     }
 
-    const name =
-        body.name == null || String(body.name).trim() === ""
-            ? null
-            : String(body.name).trim().slice(0, 128);
+    if (body.name !== undefined) {
+        const name =
+            body.name == null || String(body.name).trim() === ""
+                ? null
+                : String(body.name).trim().slice(0, 128);
+        await updateServerNameById({ id: server.id, name });
+    }
 
-    await updateServerNameById({ id: server.id, name });
+    if (body.project_id !== undefined) {
+        if (body.project_id != null) {
+            const existingProject = await getCustomerProjectById({ id: body.project_id });
+            if (!existingProject) {
+                set.status = 404;
+                return { error: "Project not found" };
+            }
+        }
+        await updateServerProjectById({ id: server.id, project_id: body.project_id });
+    }
+
     const updatedServer = await getServerById({ id: server.id });
     set.status = 200;
     return { message: "Server updated", server: updatedServer };

@@ -35,8 +35,12 @@ export async function getServerByTag({ tag }) {
 export async function getAllServers() {
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT * FROM SERVERS
-            ORDER BY last_seen_at DESC, created_on DESC
+            SELECT
+                SERVERS.*,
+                CUSTOMER_PROJECTS.title AS project_title
+            FROM SERVERS
+            LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = SERVERS.project_id
+            ORDER BY SERVERS.last_seen_at DESC, SERVERS.created_on DESC
         `,
     )
         .then((result) => Array.from(result ?? []))
@@ -84,5 +88,17 @@ export async function updateServerNameById({ id, name = null }) {
         `,
     ).catch((error) => {
         logger.error(`updateServerNameById: ${error}`);
+    });
+}
+
+export async function updateServerProjectById({ id, project_id = null }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET project_id = ${project_id}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerProjectById: ${error}`);
     });
 }
