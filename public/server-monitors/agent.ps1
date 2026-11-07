@@ -10,7 +10,11 @@ param(
 )
 
 $ErrorActionPreference = "Continue"
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+} catch {
+    [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
+}
 
 $HostUrl = "https://hammerbyte.co.in"
 $MetricsUrl = "$HostUrl/api/servers/metrics"
@@ -305,17 +309,16 @@ function Send-Metrics {
         Write-AgentLog "health check done"
 
         $json = $payload | ConvertTo-Json -Compress -Depth 8
-        $headers = @{
-            "Content-Type" = "application/json"
-            "X-Server-Tag" = $ServerTag
+        $webClient = New-Object System.Net.WebClient
+        try {
+            $webClient.Headers["Content-Type"] = "application/json"
+            $webClient.Headers["X-Server-Tag"] = $ServerTag
+            $null = $webClient.UploadString($MetricsUrl, "POST", $json)
+        } finally {
+            $webClient.Dispose()
         }
-        $response = Invoke-WebRequest -Uri $MetricsUrl -Method POST -Headers $headers -Body $json -UseBasicParsing
-        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
-            Write-AgentLog "health check sent"
-            return $true
-        }
-        Write-AgentLog ("failed to send (HTTP {0})" -f $response.StatusCode)
-        return $false
+        Write-AgentLog "health check sent"
+        return $true
     } catch {
         Write-AgentLog ("failed to connect: {0}" -f $_.Exception.Message)
         return $false

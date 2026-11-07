@@ -9,7 +9,11 @@ param(
 )
 
 $ErrorActionPreference = "Continue"
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+} catch {
+    [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
+}
 
 $HostUrl = "https://hammerbyte.co.in"
 $MetricsUrl = "$HostUrl/api/servers/metrics"
@@ -327,17 +331,16 @@ function Send-Status {
     param([string]$Tag, $Payload)
     try {
         $json = $Payload | ConvertTo-Json -Compress -Depth 8
-        $headers = @{
-            "Content-Type" = "application/json"
-            "X-Server-Tag" = $Tag
+        $webClient = New-Object System.Net.WebClient
+        try {
+            $webClient.Headers["Content-Type"] = "application/json"
+            $webClient.Headers["X-Server-Tag"] = $Tag
+            $null = $webClient.UploadString($MetricsUrl, "POST", $json)
+        } finally {
+            $webClient.Dispose()
         }
-        $response = Invoke-WebRequest -Uri $MetricsUrl -Method POST -Headers $headers -Body $json -UseBasicParsing
-        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
-            Write-SyncLog "posted status to hammerbyte.co.in"
-            return $true
-        }
-        Write-SyncLog ("failed to post status (HTTP {0})" -f $response.StatusCode) -Level "error" -Event
-        return $false
+        Write-SyncLog "posted status to hammerbyte.co.in"
+        return $true
     } catch {
         Write-SyncLog ("failed to post status: {0}" -f $_.Exception.Message) -Level "error" -Event
         return $false

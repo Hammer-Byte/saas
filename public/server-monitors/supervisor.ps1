@@ -72,12 +72,26 @@ function Install-Self {
     }
 }
 
+function Set-Tls12 {
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    } catch {
+        [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
+    }
+}
+
 function Update-Agent {
     Write-SuperLog "updating agent"
     try {
+        Set-Tls12
         $tmp = "$AgentFile.new"
-        Invoke-WebRequest -Uri $AgentUrl -OutFile $tmp -UseBasicParsing
-        if ((Get-Item $tmp).Length -le 0) { throw "empty agent download" }
+        $webClient = New-Object System.Net.WebClient
+        try {
+            $webClient.DownloadFile($AgentUrl, $tmp)
+        } finally {
+            $webClient.Dispose()
+        }
+        if (-not (Test-Path $tmp) -or (Get-Item $tmp).Length -le 0) { throw "empty agent download" }
         Move-Item -Path $tmp -Destination $AgentFile -Force
         Write-SuperLog "agent updated"
         return $true
