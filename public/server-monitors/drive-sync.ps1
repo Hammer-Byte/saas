@@ -111,17 +111,74 @@ function Install-Self {
     }
 }
 
+function Get-JsonSerializer {
+    # ConvertTo-Json on PS 3/4 (Server 2012) breaks on nested hashtables ("bad form").
+    # JavaScriptSerializer is available with .NET 4.x on Server 2012.
+    Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+    $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+    $serializer.MaxJsonLength = [int]::MaxValue
+    return $serializer
+}
+
+function Convert-ConfigToMap {
+    param($Config)
+    $pairMaps = New-Object System.Collections.ArrayList
+    foreach ($pair in @($Config.pairs)) {
+        [void]$pairMaps.Add(@{
+            source_unc = [string]$pair.source_unc
+            local_path = [string]$pair.local_path
+        })
+    }
+    return @{
+        source_host = [string]$Config.source_host
+        username = [string]$Config.username
+        password = [string]$Config.password
+        interval_seconds = [int]$Config.interval_seconds
+        updated_at = [string]$Config.updated_at
+        pairs = $pairMaps.ToArray()
+    }
+}
+
+function Convert-MapToConfig {
+    param($Map)
+    if ($null -eq $Map) { return $null }
+    $pairs = New-Object System.Collections.ArrayList
+    foreach ($pair in @($Map.pairs)) {
+        $sourceUnc = $null
+        $localPath = $null
+        if ($pair -is [System.Collections.IDictionary]) {
+            $sourceUnc = $pair["source_unc"]
+            $localPath = $pair["local_path"]
+        } else {
+            $sourceUnc = $pair.source_unc
+            $localPath = $pair.local_path
+        }
+        if (-not $sourceUnc -or -not $localPath) { continue }
+        [void]$pairs.Add(@{
+            source_unc = [string]$sourceUnc
+            local_path = Normalize-LocalPath -PathValue ([string]$localPath)
+        })
+    }
+    return @{
+        source_host = [string]$Map.source_host
+        username = [string]$Map.username
+        password = [string]$Map.password
+        interval_seconds = [int]$Map.interval_seconds
+        updated_at = [string]$Map.updated_at
+        pairs = $pairs.ToArray()
+    }
+}
+
 function Read-Config {
     if (-not (Test-Path $ConfigFile)) { return $null }
     try {
-        $config = Get-Content -Path $ConfigFile -Raw | ConvertFrom-Json
-        # PS 3 ConvertFrom-Json: single pair becomes one object, not an array.
-        if ($config.pairs -and $config.pairs -isnot [System.Array]) {
-            $config.pairs = @($config.pairs)
-        } elseif (-not $config.pairs) {
-            $config.pairs = @()
-        } else {
-            $config.pairs = @($config.pairs)
+        $raw = Get-Content -Path $ConfigFile -Raw -ErrorAction Stop
+        if (-not $raw -or -not $raw.Trim()) { return $null }
+        $serializer = Get-JsonSerializer
+        $map = $serializer.DeserializeObject($raw)
+        $config = Convert-MapToConfig -Map $map
+        if (-not $config -or -not $config.pairs -or $config.pairs.Count -lt 1) {
+            throw "config has no valid drive pairs"
         }
         return $config
     } catch {
@@ -132,11 +189,20 @@ function Read-Config {
 
 function Save-Config {
     param($Config)
-    ($Config | ConvertTo-Json -Depth 6) | Set-Content -Path $ConfigFile -Encoding UTF8
     try {
-        & icacls.exe $ConfigFile /inheritance:r /grant:r Administrators:F /grant:r SYSTEM:F | Out-Null
-    } catch {}
-    Write-SyncLog ("config saved ({0} pair(s), interval {1}s)" -f $Config.pairs.Count, $Config.interval_seconds)
+        $serializer = Get-JsonSerializer
+        $map = Convert-ConfigToMap -Config $Config
+        $json = $serializer.Serialize($map)
+        Set-Content -Path $ConfigFile -Value $json -Encoding UTF8
+        try {
+            & icacls.exe $ConfigFile /inheritance:r /grant:r Administrators:F /grant:r SYSTEM:F | Out-Null
+        } catch {}
+        Write-SyncLog ("config saved ({0} pair(s), interval {1}s)" -f @($Config.pairs).Count, $Config.interval_seconds)
+        return $true
+    } catch {
+        Write-SyncLog ("config save failed: {0}" -f $_.Exception.Message) -Level "error" -Event
+        return $false
+    }
 }
 
 function Invoke-Setup {
@@ -162,7 +228,8 @@ function Invoke-Setup {
     $pairCountRaw = Read-Host "How many drive pairs to sync? [1]"
     if (-not $pairCountRaw) { $pairCountRaw = "1" }
     $pairCount = [math]::Max(1, [int]$pairCountRaw)
-    $pairs = @()
+    # Use ArrayList — "$array += @{...}" collapses to one Hashtable on PS 3/4.
+    $pairs = New-Object System.Collections.ArrayList
 
     for ($i = 1; $i -le $pairCount; $i++) {
         Write-Host ""
@@ -174,10 +241,10 @@ function Invoke-Setup {
         $local = Read-Host $localPrompt
         if (-not $local -and $defaultLocal) { $local = $defaultLocal }
         if (-not $share -or -not $local) { throw ("pair {0} requires source and local path" -f $i) }
-        $pairs += @{
+        [void]$pairs.Add(@{
             source_unc = ConvertTo-Unc -SourceHost $sourceHost -ShareOrUnc $share
             local_path = Normalize-LocalPath -PathValue $local
-        }
+        })
     }
 
     $intervalRaw = Read-Host ("Check interval in seconds [{0}]" -f $DefaultInterval)
@@ -188,16 +255,19 @@ function Invoke-Setup {
         source_host = $sourceHost
         username = $username
         password = $password
-        pairs = $pairs
+        pairs = $pairs.ToArray()
         interval_seconds = $interval
         updated_at = (Get-Date).ToUniversalTime().ToString("o")
     }
-    Save-Config -Config $config
+    $saved = Save-Config -Config $config
+    if (-not $saved) {
+        throw "failed to save config.json — fix JSON/permissions and run with -Setup again"
+    }
 
     Write-Host ""
     Write-Host "Saved config:"
     Write-Host ("  source: {0}" -f $sourceHost)
-    foreach ($pair in $pairs) {
+    foreach ($pair in $config.pairs) {
         Write-Host ("  {0}  ->  {1}" -f $pair.source_unc, $pair.local_path)
     }
     Write-Host ("  interval: {0}s" -f $interval)
@@ -263,8 +333,28 @@ function Invoke-MirrorPair {
         events = New-Object System.Collections.ArrayList
     }
 
-    if (-not (Test-Path -LiteralPath $Pair.local_path)) {
-        $msg = "local destination not accessible: $($Pair.local_path)"
+    $localPath = Normalize-LocalPath -PathValue ([string]$Pair.local_path)
+    $result.local_path = $localPath
+    if (-not $localPath -or $localPath -notmatch '^[A-Za-z]:\\') {
+        $msg = "local destination looks invalid (expected like G:\): '$localPath'"
+        [void]$result.errors.Add($msg)
+        Write-SyncLog $msg -Level "error" -Event
+        $result.duration_ms = [int]((Get-Date) - $started).TotalMilliseconds
+        return $result
+    }
+    $localOk = $false
+    try {
+        if (Test-Path -LiteralPath $localPath) { $localOk = $true }
+    } catch {}
+    if (-not $localOk) {
+        try {
+            $driveLetter = $localPath.Substring(0, 2).ToUpperInvariant()
+            $disk = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='$driveLetter'" -ErrorAction SilentlyContinue
+            if ($disk) { $localOk = $true }
+        } catch {}
+    }
+    if (-not $localOk) {
+        $msg = "local destination not accessible: $localPath"
         [void]$result.errors.Add($msg)
         Write-SyncLog $msg -Level "error" -Event
         $result.duration_ms = [int]((Get-Date) - $started).TotalMilliseconds
@@ -332,10 +422,21 @@ function Invoke-MirrorPair {
     return $result
 }
 
+function ConvertTo-JsonSafe {
+    param($Object)
+    try {
+        $serializer = Get-JsonSerializer
+        return $serializer.Serialize($Object)
+    } catch {
+        # Fallback for simpler objects
+        return ($Object | ConvertTo-Json -Compress -Depth 8)
+    }
+}
+
 function Send-Status {
     param([string]$Tag, $Payload)
     try {
-        $json = $Payload | ConvertTo-Json -Compress -Depth 8
+        $json = ConvertTo-JsonSafe -Object $Payload
         $webClient = New-Object System.Net.WebClient
         try {
             $webClient.Headers["Content-Type"] = "application/json"
