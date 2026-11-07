@@ -11,6 +11,7 @@ import {
 } from "../db/servers.js";
 import { createServerMetric, getServerMetricsByServerId } from "../db/server_metrics.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
+import { notifyServerHighMemoryAlertIfNeeded } from "../libs/server_alert_notify.js";
 
 export async function addServerMetrics({ request, body, set }) {
     const tag = String(request.headers.get("x-server-tag") || "").trim();
@@ -73,6 +74,8 @@ export async function addServerMetrics({ request, body, set }) {
         server_id: server.id,
         payload,
     });
+
+    await notifyServerHighMemoryAlertIfNeeded({ server, body });
 
     set.status = 200;
     return { ok: true, server_id: server.id };
