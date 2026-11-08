@@ -123,7 +123,7 @@
             <div class="col-6 col-md-4 col-xl-2">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
-                        <p class="text-secondary small mb-1">Need to check</p>
+                        <p class="text-secondary small mb-1">Assigned (pending)</p>
                         <p class="h4 mb-0"><%= report.totals.need_to_check %></p>
                     </div>
                 </div>
@@ -131,8 +131,8 @@
             <div class="col-6 col-md-4 col-xl-2">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
-                        <p class="text-secondary small mb-1">Waiting for quote</p>
-                        <p class="h4 mb-0"><%= report.totals.waiting_for_quote || 0 %></p>
+                        <p class="text-secondary small mb-1">Out of scope</p>
+                        <p class="h4 mb-0"><%= report.totals.hidden || 0 %></p>
                     </div>
                 </div>
             </div>
@@ -260,7 +260,7 @@
                 <div class="p-3 p-md-4 border-bottom">
                     <h2 class="h5 mb-1">Assignee working summary</h2>
                     <p class="text-secondary small mb-0">
-                        Untouched = assigned, still New, eligibility still Need to check, not filed.
+                        Untouched = still in Assigned stage (pending eligibility decision).
                         Use this to spot people who are assigned but not progressing.
                     </p>
                 </div>
@@ -276,11 +276,10 @@
                                     <th>Untouched</th>
                                     <th>Progressed</th>
                                     <th>Progress %</th>
-                                    <th>Need check</th>
+                                    <th>Assigned stage</th>
                                     <th>Eligible</th>
+                                    <th>Not eligible</th>
                                     <th>Filed</th>
-                                    <th>WIP</th>
-                                    <th>Quote req</th>
                                     <th>Activities</th>
                                     <th>Status</th>
                                 </tr>
@@ -293,11 +292,10 @@
                                         <td><%= row.untouched %></td>
                                         <td><%= row.progressed %></td>
                                         <td><%= row.progress_rate %>%</td>
-                                        <td><%= row.need_to_check %></td>
-                                        <td><%= row.eligible %></td>
-                                        <td><%= row.filed %></td>
-                                        <td><%= row.stage_work_in_progress %></td>
-                                        <td><%= row.stage_requested_for_quote %></td>
+                                        <td><%= row.stage_assigned %></td>
+                                        <td><%= row.stage_eligible %></td>
+                                        <td><%= row.stage_not_eligible %></td>
+                                        <td><%= row.stage_filed %></td>
                                         <td><%= row.activity_count %></td>
                                         <td>
                                             <% if (row.status === "On track") { %>
@@ -324,20 +322,16 @@
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 small">
-                        <thead class="table-light">
+                            <thead class="table-light">
                             <tr>
                                 <th>Assignee</th>
+                                <th>Count</th>
+                                <th>New</th>
+                                <th>Out of scope</th>
                                 <th>Assigned</th>
-                                <th>Need check</th>
                                 <th>Eligible</th>
                                 <th>Not eligible</th>
                                 <th>Filed</th>
-                                <th>Hidden</th>
-                                <th>New</th>
-                                <th>WIP</th>
-                                <th>Quote req</th>
-                                <th>Waiting tech</th>
-                                <th>Waiting finance</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -345,16 +339,12 @@
                                 <tr>
                                     <td><%= row.label %></td>
                                     <td><%= row.assigned_count %></td>
-                                    <td><%= row.need_to_check %></td>
-                                    <td><%= row.eligible %></td>
-                                    <td><%= row.not_eligible %></td>
-                                    <td><%= row.filed %></td>
-                                    <td><%= row.hidden %></td>
                                     <td><%= row.stage_new %></td>
-                                    <td><%= row.stage_work_in_progress %></td>
-                                    <td><%= row.stage_requested_for_quote %></td>
-                                    <td><%= row.stage_waiting_for_technical %></td>
-                                    <td><%= row.stage_waiting_for_financial %></td>
+                                    <td><%= row.stage_out_of_scope %></td>
+                                    <td><%= row.stage_assigned %></td>
+                                    <td><%= row.stage_eligible %></td>
+                                    <td><%= row.stage_not_eligible %></td>
+                                    <td><%= row.stage_filed %></td>
                                 </tr>
                             <% }) %>
                         </tbody>

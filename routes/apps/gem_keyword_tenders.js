@@ -1,8 +1,5 @@
 import { t } from "elysia";
-import {
-    GEM_KEYWORD_TENDER_ELIGIBILITY,
-    GEM_KEYWORD_TENDER_STAGES,
-} from "../../constants.js";
+import { GEM_KEYWORD_TENDER_STAGES } from "../../constants.js";
 import { updateGemKeywordTender } from "../../services/gem_keyword_tenders.js";
 
 export default function (app) {
@@ -11,24 +8,15 @@ export default function (app) {
             id: t.Numeric(),
         }),
         body: t.Object({
-            hidden: t.Optional(t.Boolean()),
-            eligible: t.Optional(
-                t.Union([
-                    t.Literal(GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK),
-                    t.Literal(GEM_KEYWORD_TENDER_ELIGIBILITY.ELIGIBLE),
-                    t.Literal(GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE),
-                ]),
-            ),
-            filed: t.Optional(t.Boolean()),
             quote: t.Optional(t.String()),
             stage: t.Optional(
                 t.Union([
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.NEW),
-                    t.Literal(GEM_KEYWORD_TENDER_STAGES.WORK_IN_PROGRESS),
-                    t.Literal(GEM_KEYWORD_TENDER_STAGES.REQUESTED_FOR_QUOTE),
+                    t.Literal(GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE),
+                    t.Literal(GEM_KEYWORD_TENDER_STAGES.ASSIGNED),
+                    t.Literal(GEM_KEYWORD_TENDER_STAGES.ELIGIBLE),
+                    t.Literal(GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE),
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.FILED),
-                    t.Literal(GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_TECHNICAL),
-                    t.Literal(GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_FINANCIAL),
                 ]),
             ),
             assignee_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),

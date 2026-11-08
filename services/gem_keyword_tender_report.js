@@ -1,45 +1,39 @@
 import {
-    GEM_KEYWORD_TENDER_ELIGIBILITY,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
     GEM_KEYWORD_TENDER_STAGES,
 } from "../constants.js";
 import { getGemKeywordTenderActivityCountsByActor } from "../db/gem_keyword_tender_activities.js";
 import { getAllGemKeywordTenders } from "../db/gem_keyword_tenders.js";
 
-function normalizeEligibility(value) {
-    if (
-        value === GEM_KEYWORD_TENDER_ELIGIBILITY.ELIGIBLE ||
-        value === true ||
-        value === 1 ||
-        value === "1"
-    ) {
-        return GEM_KEYWORD_TENDER_ELIGIBILITY.ELIGIBLE;
-    }
-    if (value === GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE) {
-        return GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE;
-    }
-    return GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK;
-}
-
 function emptyAssigneeBucket(key, label) {
     return {
         key,
         label,
         assigned_count: 0,
-        need_to_check: 0,
-        eligible: 0,
-        not_eligible: 0,
-        filed: 0,
-        hidden: 0,
         stage_new: 0,
-        stage_work_in_progress: 0,
-        stage_requested_for_quote: 0,
+        stage_out_of_scope: 0,
+        stage_assigned: 0,
+        stage_eligible: 0,
+        stage_not_eligible: 0,
         stage_filed: 0,
-        stage_waiting_for_technical: 0,
-        stage_waiting_for_financial: 0,
         untouched: 0,
         activity_count: 0,
     };
+}
+
+function normalizeStage(value) {
+    if (Object.values(GEM_KEYWORD_TENDER_STAGES).includes(value)) {
+        return value;
+    }
+    if (value === "work_in_progress") return GEM_KEYWORD_TENDER_STAGES.ASSIGNED;
+    if (
+        value === "requested_for_quote" ||
+        value === "waiting_for_technical" ||
+        value === "waiting_for_financial"
+    ) {
+        return GEM_KEYWORD_TENDER_STAGES.ELIGIBLE;
+    }
+    return GEM_KEYWORD_TENDER_STAGES.NEW;
 }
 
 export async function buildGemKeywordTenderReport({ from, to }) {
@@ -53,16 +47,15 @@ export async function buildGemKeywordTenderReport({ from, to }) {
     }
 
     let unassignedCount = 0;
-    let hiddenCount = 0;
+    let outOfScopeCount = 0;
     let filedCount = 0;
     let eligibleCount = 0;
-    let needToCheckCount = 0;
+    let assignedStageCount = 0;
     let notEligibleCount = 0;
     let untouchedAssignedCount = 0;
 
     for (const tender of tenders) {
-        const eligibility = normalizeEligibility(tender.eligible);
-        const stage = tender.stage || GEM_KEYWORD_TENDER_STAGES.NEW;
+        const stage = normalizeStage(tender.stage);
         const assigneeKey = tender.assignee_user_id
             ? String(tender.assignee_user_id)
             : "unassigned";
@@ -76,51 +69,35 @@ export async function buildGemKeywordTenderReport({ from, to }) {
         const bucket = assigneeBuckets.get(assigneeKey);
         bucket.assigned_count += 1;
 
-        if (eligibility === GEM_KEYWORD_TENDER_ELIGIBILITY.ELIGIBLE) {
-            bucket.eligible += 1;
-            eligibleCount += 1;
-        } else if (eligibility === GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE) {
-            bucket.not_eligible += 1;
-            notEligibleCount += 1;
-        } else {
-            bucket.need_to_check += 1;
-            needToCheckCount += 1;
-        }
-
-        if (tender.filed) {
-            bucket.filed += 1;
-            filedCount += 1;
-        }
-        if (tender.hidden) {
-            bucket.hidden += 1;
-            hiddenCount += 1;
-        }
-
         if (stageTotals[stage] == null) {
             stageTotals[stage] = 0;
         }
         stageTotals[stage] += 1;
 
         if (stage === GEM_KEYWORD_TENDER_STAGES.NEW) bucket.stage_new += 1;
-        if (stage === GEM_KEYWORD_TENDER_STAGES.WORK_IN_PROGRESS) {
-            bucket.stage_work_in_progress += 1;
+        if (stage === GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE) {
+            bucket.stage_out_of_scope += 1;
+            outOfScopeCount += 1;
         }
-        if (stage === GEM_KEYWORD_TENDER_STAGES.REQUESTED_FOR_QUOTE) {
-            bucket.stage_requested_for_quote += 1;
+        if (stage === GEM_KEYWORD_TENDER_STAGES.ASSIGNED) {
+            bucket.stage_assigned += 1;
+            assignedStageCount += 1;
         }
-        if (stage === GEM_KEYWORD_TENDER_STAGES.FILED) bucket.stage_filed += 1;
-        if (stage === GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_TECHNICAL) {
-            bucket.stage_waiting_for_technical += 1;
+        if (stage === GEM_KEYWORD_TENDER_STAGES.ELIGIBLE) {
+            bucket.stage_eligible += 1;
+            eligibleCount += 1;
         }
-        if (stage === GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_FINANCIAL) {
-            bucket.stage_waiting_for_financial += 1;
+        if (stage === GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE) {
+            bucket.stage_not_eligible += 1;
+            notEligibleCount += 1;
+        }
+        if (stage === GEM_KEYWORD_TENDER_STAGES.FILED) {
+            bucket.stage_filed += 1;
+            filedCount += 1;
         }
 
         const untouched =
-            !!tender.assignee_user_id &&
-            stage === GEM_KEYWORD_TENDER_STAGES.NEW &&
-            eligibility === GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK &&
-            !tender.filed;
+            !!tender.assignee_user_id && stage === GEM_KEYWORD_TENDER_STAGES.ASSIGNED;
         if (untouched) {
             bucket.untouched += 1;
             untouchedAssignedCount += 1;
@@ -175,9 +152,6 @@ export async function buildGemKeywordTenderReport({ from, to }) {
         });
 
     const chartAssignees = assigneeSummary.filter((row) => row.key !== "unassigned");
-    const waitingForQuoteCount = Number(
-        stageTotals[GEM_KEYWORD_TENDER_STAGES.REQUESTED_FOR_QUOTE] || 0,
-    );
     const stageTotalsList = Object.entries(stageTotals).map(([stage, count]) => ({
         stage,
         label: GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage,
@@ -193,12 +167,12 @@ export async function buildGemKeywordTenderReport({ from, to }) {
             tenders: tenders.length,
             assigned: tenders.length - unassignedCount,
             unassigned: unassignedCount,
-            hidden: hiddenCount,
+            hidden: outOfScopeCount,
             filed: filedCount,
             eligible: eligibleCount,
-            need_to_check: needToCheckCount,
+            need_to_check: assignedStageCount,
             not_eligible: notEligibleCount,
-            waiting_for_quote: waitingForQuoteCount,
+            waiting_for_quote: eligibleCount,
             untouched_assigned: untouchedAssignedCount,
             actors_with_activity: activityRows.length,
         },
@@ -217,8 +191,8 @@ export async function buildGemKeywordTenderReport({ from, to }) {
                 values: chartAssignees.map((row) => row.assigned_count),
             },
             eligibilityOverall: {
-                labels: ["Need to check", "Eligible", "Not eligible"],
-                values: [needToCheckCount, eligibleCount, notEligibleCount],
+                labels: ["Assigned (pending)", "Eligible", "Not eligible"],
+                values: [assignedStageCount, eligibleCount, notEligibleCount],
             },
             stagesOverall: {
                 labels: Object.entries(stageTotals).map(

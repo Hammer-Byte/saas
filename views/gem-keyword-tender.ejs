@@ -3,18 +3,14 @@
 <%
     const canAssignOthers = (authorities || []).includes(AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE);
     const currentUserId = Number(userId || 0);
+    const isSuperAdmin = !!super_admin;
     const assigneeUserId = tender.assignee_user_id ? Number(tender.assignee_user_id) : null;
     const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
     const stageValues = Object.keys(stageLabels);
-    const eligibilityValues = GEM_KEYWORD_TENDER_ELIGIBILITY || {};
-    const eligibilityLabels = GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS || {};
-    const currentEligibility =
-        tender.eligible === true || tender.eligible === 1 || tender.eligible === "1"
-            ? eligibilityValues.ELIGIBLE
-            : tender.eligible === false || tender.eligible === 0 || tender.eligible === "0"
-              ? eligibilityValues.NEED_TO_CHECK
-              : (tender.eligible || eligibilityValues.NEED_TO_CHECK);
-    const isEligible = currentEligibility === eligibilityValues.ELIGIBLE;
+    const currentStage = tender.stage || "new";
+    const isEligibleStage = currentStage === "eligible";
+    const canEditQuote =
+        isEligibleStage && (isSuperAdmin || (assigneeUserId && assigneeUserId === currentUserId));
 
     let specificationLinks = [];
     if (tender.specification_links) {
@@ -66,16 +62,6 @@
                 </h1>
                 <p class="text-secondary mb-0">Keyword: <%= tender.keyword || "-" %></p>
             </div>
-            <div class="d-flex flex-wrap gap-2">
-                <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    id="gem-tender-hide-btn"
-                    <%= isEligible ? "disabled" : "" %>
-                >
-                    <%= tender.hidden ? "Restore to scope" : "Out of service scope" %>
-                </button>
-            </div>
         </div>
 
         <div id="gem-tender-alert" class="alert d-none" role="alert"></div>
@@ -84,13 +70,11 @@
             class="card border-0 shadow-sm mb-4"
             id="gem-tender-detail"
             data-id="<%= tender.id %>"
-            data-eligible="<%= currentEligibility %>"
-            data-filed="<%= tender.filed ? '1' : '0' %>"
-            data-hidden="<%= tender.hidden ? '1' : '0' %>"
-            data-stage="<%= tender.stage || 'new' %>"
+            data-stage="<%= currentStage %>"
             data-assignee-user-id="<%= assigneeUserId || '' %>"
             data-quote="<%= encodeURIComponent(tender.quote || '') %>"
             data-current-user-id="<%= currentUserId %>"
+            data-super-admin="<%= isSuperAdmin ? '1' : '0' %>"
             data-can-assign-others="<%= canAssignOthers ? '1' : '0' %>"
         >
             <div class="card-body p-4">
@@ -101,7 +85,8 @@
                             <% stageValues.forEach(function (stage) { %>
                                 <option
                                     value="<%= stage %>"
-                                    <%= (tender.stage || 'new') === stage ? 'selected' : '' %>
+                                    <%= currentStage === stage ? 'selected' : '' %>
+                                    <%= stage === 'assigned' && !assigneeUserId ? 'disabled' : '' %>
                                 >
                                     <%= stageLabels[stage] %>
                                 </option>
@@ -143,53 +128,27 @@
                 </div>
 
                 <div class="row g-3 mb-4">
-                    <div class="col-12 col-lg-6">
-                        <label class="form-label d-block">Eligibility</label>
-                        <div class="btn-group flex-wrap" role="group" aria-label="Eligibility">
-                            <% Object.keys(eligibilityLabels).forEach(function (value) { %>
-                                <input
-                                    type="radio"
-                                    class="btn-check gem-tender-eligible-option"
-                                    name="gem-tender-eligible"
-                                    id="gem-tender-eligible-<%= value %>"
-                                    value="<%= value %>"
-                                    autocomplete="off"
-                                    <%= currentEligibility === value ? "checked" : "" %>
-                                />
-                                <label class="btn btn-outline-secondary" for="gem-tender-eligible-<%= value %>">
-                                    <%= eligibilityLabels[value] %>
-                                </label>
-                            <% }) %>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-check mt-4">
-                            <input
-                                class="form-check-input"
-                                type="checkbox"
-                                id="gem-tender-filed"
-                                <%= tender.filed ? "checked" : "" %>
-                                <%= !isEligible ? "disabled" : "" %>
-                            />
-                            <label class="form-check-label" for="gem-tender-filed">Filed</label>
-                        </div>
-                    </div>
-                    <div class="col-md-6 col-lg-3">
+                    <div class="col-md-8 col-lg-6">
                         <label for="gem-tender-quote" class="form-label">Quote</label>
                         <textarea
                             class="form-control"
                             id="gem-tender-quote"
                             rows="3"
-                            <%= !isEligible ? "disabled" : "" %>
+                            <%= !canEditQuote ? "disabled" : "" %>
                         ><%= tender.quote || "" %></textarea>
                         <button
                             type="button"
                             class="btn btn-sm btn-primary mt-2"
                             id="gem-tender-quote-save-btn"
-                            <%= !isEligible ? "disabled" : "" %>
+                            <%= !canEditQuote ? "disabled" : "" %>
                         >
                             Save quote
                         </button>
+                        <% if (isEligibleStage && !canEditQuote) { %>
+                            <p class="form-text mb-0">Only the assignee or a super admin can edit the quote.</p>
+                        <% } else if (!isEligibleStage) { %>
+                            <p class="form-text mb-0">Set stage to Eligible to request a quote and enable this field.</p>
+                        <% } %>
                     </div>
                 </div>
 
@@ -208,7 +167,6 @@
                             data-date-format="DD/MM/YYYY HH:mm:ss"
                         ></span>
                     </div>
-                    <div class="col-md-4"><strong>Out of service scope</strong><br /><span id="gem-tender-hidden-label"><%= tender.hidden ? "Yes" : "No" %></span></div>
                     <div class="col-md-4"><strong>Ministry</strong><br /><%= tender.ministry || "-" %></div>
                     <div class="col-md-4"><strong>Department</strong><br /><%= tender.department || "-" %></div>
                     <div class="col-md-4"><strong>Organization</strong><br /><%= tender.organization || "-" %></div>

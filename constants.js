@@ -91,20 +91,20 @@ export const TASK_PRIORITY_LABELS = {
 
 export const GEM_KEYWORD_TENDER_STAGES = {
     NEW: "new",
-    WORK_IN_PROGRESS: "work_in_progress",
-    REQUESTED_FOR_QUOTE: "requested_for_quote",
+    OUT_OF_SCOPE: "out_of_scope",
+    ASSIGNED: "assigned",
+    ELIGIBLE: "eligible",
+    NOT_ELIGIBLE: "not_eligible",
     FILED: "filed",
-    WAITING_FOR_TECHNICAL: "waiting_for_technical",
-    WAITING_FOR_FINANCIAL: "waiting_for_financial",
 };
 
 export const GEM_KEYWORD_TENDER_STAGE_LABELS = {
     [GEM_KEYWORD_TENDER_STAGES.NEW]: "New",
-    [GEM_KEYWORD_TENDER_STAGES.WORK_IN_PROGRESS]: "Work in progress",
-    [GEM_KEYWORD_TENDER_STAGES.REQUESTED_FOR_QUOTE]: "Requested for quote",
+    [GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE]: "Out of scope",
+    [GEM_KEYWORD_TENDER_STAGES.ASSIGNED]: "Assigned",
+    [GEM_KEYWORD_TENDER_STAGES.ELIGIBLE]: "Eligible",
+    [GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE]: "Not eligible",
     [GEM_KEYWORD_TENDER_STAGES.FILED]: "Filed",
-    [GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_TECHNICAL]: "Waiting for technical",
-    [GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_FINANCIAL]: "Waiting for financial",
 };
 
 export const GEM_KEYWORD_TENDER_ELIGIBILITY = {

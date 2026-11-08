@@ -480,6 +480,34 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
+        // Migrate legacy GEM tender stages into the stage-centric workflow.
+        `UPDATE GEM_KEYWORD_TENDERS SET stage = 'out_of_scope' WHERE hidden = TRUE`,
+        `UPDATE GEM_KEYWORD_TENDERS SET stage = 'filed' WHERE hidden = FALSE AND filed = TRUE`,
+        `UPDATE GEM_KEYWORD_TENDERS SET stage = 'eligible' WHERE hidden = FALSE AND filed = FALSE AND eligible = 'eligible'`,
+        `UPDATE GEM_KEYWORD_TENDERS SET stage = 'not_eligible' WHERE hidden = FALSE AND filed = FALSE AND eligible = 'not_eligible'`,
+        `UPDATE GEM_KEYWORD_TENDERS
+            SET stage = 'assigned'
+            WHERE hidden = FALSE
+              AND filed = FALSE
+              AND eligible = 'need_to_check'
+              AND assignee_user_id IS NOT NULL`,
+        `UPDATE GEM_KEYWORD_TENDERS
+            SET stage = 'new'
+            WHERE hidden = FALSE
+              AND filed = FALSE
+              AND eligible = 'need_to_check'
+              AND assignee_user_id IS NULL
+              AND stage IN (
+                    'new',
+                    'work_in_progress',
+                    'requested_for_quote',
+                    'waiting_for_technical',
+                    'waiting_for_financial'
+              )`,
+        `UPDATE GEM_KEYWORD_TENDERS SET stage = 'assigned' WHERE stage = 'work_in_progress'`,
+        `UPDATE GEM_KEYWORD_TENDERS
+            SET stage = 'eligible'
+            WHERE stage IN ('requested_for_quote', 'waiting_for_technical', 'waiting_for_financial')`,
         `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDER_ACTIVITIES (
             id INT AUTO_INCREMENT PRIMARY KEY,
             gem_keyword_tender_id INT NOT NULL,

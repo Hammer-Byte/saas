@@ -60,8 +60,6 @@ import { getAllGemTenderScanRuns } from "../db/gem_tender_scan_runs.js";
 import { buildGemKeywordTenderReport } from "../services/gem_keyword_tender_report.js";
 import {
     AUTHORITIES,
-    GEM_KEYWORD_TENDER_ELIGIBILITY,
-    GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
     TASK_PRIORITIES,
     TASK_PRIORITY_LABELS,
@@ -804,8 +802,6 @@ export const uiRoutes = new Elysia()
                         to: rangeTo,
                     }),
                     GEM_KEYWORD_TENDER_STAGE_LABELS,
-                    GEM_KEYWORD_TENDER_ELIGIBILITY,
-                    GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS,
                 }));
             })
             .get("/app/gem-keyword-tender-report", async ({ render, session, query }) => {
@@ -855,8 +851,6 @@ export const uiRoutes = new Elysia()
                             gem_keyword_tender_id: tender.id,
                         }),
                         GEM_KEYWORD_TENDER_STAGE_LABELS,
-                        GEM_KEYWORD_TENDER_ELIGIBILITY,
-                        GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS,
                     }));
                 },
             )

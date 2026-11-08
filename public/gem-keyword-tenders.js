@@ -4,6 +4,7 @@
     const fromInput = document.getElementById("gem-tenders-from");
     const toInput = document.getElementById("gem-tenders-to");
     const keywordFilter = document.getElementById("gem-filter-keyword");
+    const stageFilter = document.getElementById("gem-filter-stage");
     const assigneeFilter = document.getElementById("gem-filter-assignee");
     const showAllFilter = document.getElementById("gem-filter-show-all");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
@@ -12,7 +13,6 @@
     const tableWrap = document.getElementById("gem-tenders-table-wrap");
     const emptyState = document.getElementById("gem-tenders-empty");
     const filterStatus = document.getElementById("gem-tenders-filter-status");
-    const columnFilters = Array.from(document.querySelectorAll(".gem-tender-column-filter"));
     const selectAllCheckbox = document.getElementById("gem-tenders-select-all");
     const bulkBar = document.getElementById("gem-tenders-bulk-assign-bar");
     const bulkAssignee = document.getElementById("gem-bulk-assignee");
@@ -43,21 +43,15 @@
     }
 
     function collectFilters() {
-        const columnValues = {};
-        for (const select of columnFilters) {
-            const column = select.dataset.column;
-            if (!column) continue;
-            columnValues[column] = select.value || "";
-        }
         return {
             from: window.getWritableDate?.("YYYY-MM-DD", fromInput?.value || "") || "",
             to: window.getWritableDate?.("YYYY-MM-DD", toInput?.value || "") || "",
             keywordId: keywordFilter?.value || "",
+            stage: stageFilter?.value || "",
             assignee: assigneeFilter?.value || "",
             search: searchInput?.value || "",
             showAll: !!showAllFilter?.checked,
             quantityUpto: quantityUptoFilter?.value || "",
-            columns: columnValues,
         };
     }
 
@@ -178,45 +172,6 @@
         });
     }
 
-    function uniqueColumnValues(column) {
-        const values = new Set();
-        for (const row of rows) {
-            const value = (row.dataset[column] || "").trim();
-            if (value) values.add(value);
-        }
-        return Array.from(values).sort((left, right) =>
-            left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }),
-        );
-    }
-
-    function fillColumnFilter(select) {
-        const column = select.dataset.column;
-        if (!column) return;
-
-        if (column === "eligible" || column === "filed") {
-            return;
-        }
-
-        const current = select.value;
-        select.replaceChildren();
-
-        const allOption = document.createElement("option");
-        allOption.value = "";
-        allOption.textContent = "All";
-        select.appendChild(allOption);
-
-        for (const value of uniqueColumnValues(column)) {
-            const option = document.createElement("option");
-            option.value = value;
-            option.textContent = value;
-            select.appendChild(option);
-        }
-
-        if ([...select.options].some((option) => option.value === current)) {
-            select.value = current;
-        }
-    }
-
     function visibleRows() {
         return rows.filter((row) => !row.classList.contains("d-none"));
     }
@@ -274,26 +229,27 @@
     function applyFilters() {
         const query = (searchInput?.value || "").trim().toLowerCase();
         const keywordId = (keywordFilter?.value || "").trim();
+        const stageValue = (stageFilter?.value || "").trim();
         const assigneeValue = (assigneeFilter?.value || "").trim();
-        const showAll = !!showAllFilter?.checked;
+        const showOutOfScope = !!showAllFilter?.checked;
         const quantityUptoRaw = String(quantityUptoFilter?.value ?? "").trim();
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
         const hasQuantityUpto =
             quantityUpto != null && Number.isFinite(quantityUpto) && quantityUpto > 0;
-        const activeFilters = columnFilters
-            .map((select) => ({
-                column: select.dataset.column,
-                value: (select.value || "").trim().toLowerCase(),
-            }))
-            .filter((filter) => filter.column && filter.value);
 
         let visibleCount = 0;
 
         for (const row of rows) {
-            const matchesHidden = showAll || row.dataset.hidden !== "1";
+            const rowStage = String(row.dataset.stage || "new");
+            const matchesOutOfScope =
+                showOutOfScope ||
+                stageValue === "out_of_scope" ||
+                rowStage !== "out_of_scope";
 
             const matchesKeyword =
                 !keywordId || String(row.dataset.keywordId || "") === keywordId;
+
+            const matchesStage = !stageValue || rowStage === stageValue;
 
             const rowAssigneeId = String(row.dataset.assigneeUserId || "");
             const matchesAssignee =
@@ -304,22 +260,17 @@
 
             const matchesSearch = !query || row.textContent.toLowerCase().includes(query);
 
-            const matchesColumns = activeFilters.every((filter) => {
-                const cellValue = (row.dataset[filter.column] || "").trim().toLowerCase();
-                return cellValue === filter.value;
-            });
-
             const rowQuantity = rowQuantityValue(row);
             // Known qty only: NA (0 / missing) is excluded when a max is set.
             const matchesQuantity =
                 !hasQuantityUpto || (rowQuantity > 0 && rowQuantity <= quantityUpto);
 
             const visible =
-                matchesHidden &&
+                matchesOutOfScope &&
                 matchesKeyword &&
+                matchesStage &&
                 matchesAssignee &&
                 matchesSearch &&
-                matchesColumns &&
                 matchesQuantity;
             row.classList.toggle("d-none", !visible);
             if (!visible) {
@@ -351,6 +302,9 @@
         if (keywordFilter && filters.keywordId != null) {
             keywordFilter.value = filters.keywordId;
         }
+        if (stageFilter && filters.stage != null) {
+            stageFilter.value = filters.stage;
+        }
         if (assigneeFilter && filters.assignee != null) {
             assigneeFilter.value = filters.assignee;
         }
@@ -365,27 +319,12 @@
             quantityUptoFilter.value =
                 Number.isFinite(restoredQty) && restoredQty > 0 ? String(restoredQty) : "";
         }
-        if (filters.columns && typeof filters.columns === "object") {
-            for (const select of columnFilters) {
-                const column = select.dataset.column;
-                if (!column) continue;
-                const value = filters.columns[column];
-                if (value == null) continue;
-                if ([...select.options].some((option) => option.value === value)) {
-                    select.value = value;
-                }
-            }
-        }
-    }
-
-    for (const select of columnFilters) {
-        fillColumnFilter(select);
-        select.addEventListener("change", applyFilters);
     }
 
     restoreClientFilters(storedFilters);
 
     keywordFilter?.addEventListener("change", applyFilters);
+    stageFilter?.addEventListener("change", applyFilters);
     assigneeFilter?.addEventListener("change", applyFilters);
     showAllFilter?.addEventListener("change", applyFilters);
     quantityUptoFilter?.addEventListener("input", applyFilters);

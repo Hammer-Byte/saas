@@ -1,5 +1,5 @@
 import { logger } from "@hammerbyte/utils";
-import { GEM_KEYWORD_TENDER_ELIGIBILITY } from "../constants.js";
+import { GEM_KEYWORD_TENDER_STAGES } from "../constants.js";
 import { executeSQLQuery } from "../libs/db.js";
 import { getIstDateTime, toDbDateTime } from "../libs/date.js";
 
@@ -312,7 +312,7 @@ export async function getGemKeywordTendersPendingEligibilityReminder({
             INNER JOIN USERS
                 ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
             WHERE GEM_KEYWORD_TENDERS.assignee_user_id IS NOT NULL
-              AND GEM_KEYWORD_TENDERS.eligible = ${GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK}
+              AND GEM_KEYWORD_TENDERS.stage = ${GEM_KEYWORD_TENDER_STAGES.ASSIGNED}
               AND (
                     GEM_KEYWORD_TENDERS.eligibility_reminder_sent_on IS NULL
                  OR GEM_KEYWORD_TENDERS.eligibility_reminder_sent_on <= ${cutoff}

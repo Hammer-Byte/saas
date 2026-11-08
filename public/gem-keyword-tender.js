@@ -5,14 +5,8 @@
     const assigneeSelect = document.getElementById("gem-tender-assignee");
     const assignMeButton = document.getElementById("gem-tender-assign-me-btn");
     const assignMeWrap = document.getElementById("gem-tender-assign-me-wrap");
-    const eligibilityOptions = Array.from(
-        document.querySelectorAll(".gem-tender-eligible-option"),
-    );
-    const filedCheckbox = document.getElementById("gem-tender-filed");
     const quoteInput = document.getElementById("gem-tender-quote");
     const quoteSaveButton = document.getElementById("gem-tender-quote-save-btn");
-    const hideButton = document.getElementById("gem-tender-hide-btn");
-    const hiddenLabel = document.getElementById("gem-tender-hidden-label");
     const commentForm = document.getElementById("gem-tender-comment-form");
     const commentText = document.getElementById("gem-tender-comment-text");
     const commentFile = document.getElementById("gem-tender-comment-file");
@@ -30,6 +24,7 @@
 
     const tenderId = Number(detail.dataset.id || 0);
     const currentUserId = Number(detail.dataset.currentUserId || 0);
+    const isSuperAdmin = detail.dataset.superAdmin === "1";
 
     function showAlert(message, type) {
         if (!alertElement) return;
@@ -51,32 +46,38 @@
         editAlert.textContent = "";
     }
 
-    function isMarkedEligible() {
-        return detail.dataset.eligible === "eligible";
+    function currentAssigneeId() {
+        return String(detail.dataset.assigneeUserId || "").trim();
+    }
+
+    function canEditQuote() {
+        const stage = detail.dataset.stage || "new";
+        if (stage !== "eligible") return false;
+        if (isSuperAdmin) return true;
+        const assigneeUserId = Number(currentAssigneeId() || 0);
+        return assigneeUserId >= 1 && assigneeUserId === currentUserId;
+    }
+
+    function syncAssignedOption() {
+        if (!stageSelect) return;
+        const assignedOption = stageSelect.querySelector('option[value="assigned"]');
+        if (!assignedOption) return;
+        assignedOption.disabled = !currentAssigneeId();
     }
 
     function syncControls() {
-        const eligible = isMarkedEligible();
-        const hidden = detail.dataset.hidden === "1";
-        const assigneeUserId = detail.dataset.assigneeUserId || "";
+        const assigneeUserId = currentAssigneeId();
+        const quoteEnabled = canEditQuote();
 
-        for (const option of eligibilityOptions) {
-            option.checked = option.value === detail.dataset.eligible;
-        }
-        if (filedCheckbox) filedCheckbox.disabled = !eligible;
-        if (quoteInput) quoteInput.disabled = !eligible;
-        if (quoteSaveButton) quoteSaveButton.disabled = !eligible;
-        if (hideButton) {
-            hideButton.disabled = !hidden && eligible;
-            hideButton.textContent = hidden ? "Restore to scope" : "Out of service scope";
-        }
-        if (hiddenLabel) hiddenLabel.textContent = hidden ? "Yes" : "No";
+        if (quoteInput) quoteInput.disabled = !quoteEnabled;
+        if (quoteSaveButton) quoteSaveButton.disabled = !quoteEnabled;
         if (assignMeWrap) {
             assignMeWrap.classList.toggle("d-none", !!assigneeUserId);
         }
         if (assignMeButton) {
             assignMeButton.disabled = !!assigneeUserId;
         }
+        syncAssignedOption();
     }
 
     async function patchTender(payload) {
@@ -110,6 +111,11 @@
     stageSelect?.addEventListener("change", async () => {
         const previous = detail.dataset.stage || "new";
         const stage = stageSelect.value;
+        if (stage === "assigned" && !currentAssigneeId()) {
+            showAlert("Assign someone before selecting Assigned.", "danger");
+            stageSelect.value = previous;
+            return;
+        }
         const ok = await applyPatch({ stage }, (tender) => {
             detail.dataset.stage = tender.stage || stage;
             window.location.reload();
@@ -125,6 +131,7 @@
             detail.dataset.assigneeUserId = tender.assignee_user_id
                 ? String(tender.assignee_user_id)
                 : "";
+            detail.dataset.stage = tender.stage || detail.dataset.stage;
             window.location.reload();
         });
         if (!ok) assigneeSelect.value = previous;
@@ -138,43 +145,8 @@
         if (!ok) syncControls();
     });
 
-    for (const option of eligibilityOptions) {
-        option.addEventListener("change", async () => {
-            if (!option.checked) return;
-            const previous = detail.dataset.eligible || "need_to_check";
-            const eligible = option.value;
-            const ok = await applyPatch({ eligible }, (tender) => {
-                detail.dataset.eligible = tender.eligible || eligible;
-                if (tender.eligible !== "eligible") {
-                    detail.dataset.filed = "0";
-                    if (filedCheckbox) filedCheckbox.checked = false;
-                }
-                window.location.reload();
-            });
-            if (!ok) {
-                for (const eligibilityOption of eligibilityOptions) {
-                    eligibilityOption.checked = eligibilityOption.value === previous;
-                }
-            }
-        });
-    }
-
-    filedCheckbox?.addEventListener("change", async () => {
-        if (!isMarkedEligible()) {
-            filedCheckbox.checked = false;
-            filedCheckbox.disabled = true;
-            return;
-        }
-        const value = filedCheckbox.checked;
-        const ok = await applyPatch({ filed: value }, (tender) => {
-            detail.dataset.filed = tender.filed ? "1" : "0";
-            window.location.reload();
-        });
-        if (!ok) filedCheckbox.checked = !value;
-    });
-
     quoteSaveButton?.addEventListener("click", async () => {
-        if (!isMarkedEligible()) return;
+        if (!canEditQuote()) return;
         quoteSaveButton.disabled = true;
         const quote = quoteInput?.value || "";
         const ok = await applyPatch({ quote }, (tender) => {
@@ -184,18 +156,6 @@
         });
         if (!ok) syncControls();
         else quoteSaveButton.disabled = false;
-    });
-
-    hideButton?.addEventListener("click", async () => {
-        const currentlyHidden = detail.dataset.hidden === "1";
-        if (!currentlyHidden && isMarkedEligible()) return;
-        const nextHidden = !currentlyHidden;
-        hideButton.disabled = true;
-        const ok = await applyPatch({ hidden: nextHidden }, (tender) => {
-            detail.dataset.hidden = tender.hidden ? "1" : "0";
-            window.location.reload();
-        });
-        if (!ok) syncControls();
     });
 
     function decodeComment(value) {

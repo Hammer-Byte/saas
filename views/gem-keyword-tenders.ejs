@@ -2,16 +2,9 @@
 
 <%
     const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
-    const eligibilityValues = GEM_KEYWORD_TENDER_ELIGIBILITY || {};
-    const eligibilityLabels = GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS || {};
+    const stageValues = Object.keys(stageLabels);
     const canAssignOthers = (authorities || []).includes(AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE);
     const currentUserId = Number(userId || 0);
-
-    function resolveEligibility(value) {
-        if (value === true || value === 1 || value === "1") return eligibilityValues.ELIGIBLE;
-        if (value === false || value === 0 || value === "0") return eligibilityValues.NEED_TO_CHECK;
-        return value || eligibilityValues.NEED_TO_CHECK;
-    }
 %>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -150,6 +143,15 @@
                             </select>
                         </div>
                         <div class="col-6 col-md-4 col-xl-2">
+                            <label for="gem-filter-stage" class="form-label">Stage</label>
+                            <select class="form-select form-select-sm" id="gem-filter-stage">
+                                <option value="">All</option>
+                                <% stageValues.forEach(function (stage) { %>
+                                    <option value="<%= stage %>"><%= stageLabels[stage] %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl-2">
                             <label for="gem-tenders-search" class="form-label">Search</label>
                             <input
                                 type="search"
@@ -159,7 +161,7 @@
                                 autocomplete="off"
                             />
                         </div>
-                        <div class="col-6 col-md-4 col-xl-1">
+                        <div class="col-6 col-md-4 col-xl-2">
                             <label for="gem-filter-assignee" class="form-label">Assignee</label>
                             <select class="form-select form-select-sm" id="gem-filter-assignee">
                                 <option value="">All</option>
@@ -167,45 +169,6 @@
                                 <% (users || []).forEach(function (user) { %>
                                     <option value="<%= user.id %>"><%= user.full_name %></option>
                                 <% }) %>
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-4 col-xl-1">
-                            <label for="gem-filter-past-experience" class="form-label">Past exp.</label>
-                            <select
-                                class="form-select form-select-sm gem-tender-column-filter"
-                                id="gem-filter-past-experience"
-                                data-column="pastExperience"
-                            >
-                                <option value="">All</option>
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-4 col-xl-1">
-                            <label for="gem-filter-mse-exp" class="form-label">MSE exp exc…</label>
-                            <select class="form-select form-select-sm gem-tender-column-filter" id="gem-filter-mse-exp" data-column="mseExp">
-                                <option value="">All</option>
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-4 col-xl-1">
-                            <label for="gem-filter-mse-turnover" class="form-label">MSE turn exc…</label>
-                            <select class="form-select form-select-sm gem-tender-column-filter" id="gem-filter-mse-turnover" data-column="mseTurnover">
-                                <option value="">All</option>
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-4 col-xl-1">
-                            <label for="gem-filter-eligible" class="form-label">Eligibility</label>
-                            <select class="form-select form-select-sm gem-tender-column-filter" id="gem-filter-eligible" data-column="eligible">
-                                <option value="">All</option>
-                                <% Object.keys(eligibilityLabels).forEach(function (value) { %>
-                                    <option value="<%= value %>"><%= eligibilityLabels[value] %></option>
-                                <% }) %>
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-4 col-xl-1">
-                            <label for="gem-filter-filed" class="form-label">Filed</label>
-                            <select class="form-select form-select-sm gem-tender-column-filter" id="gem-filter-filed" data-column="filed">
-                                <option value="">All</option>
-                                <option value="1">Yes</option>
-                                <option value="0">No</option>
                             </select>
                         </div>
                         <div class="col-6 col-md-4 col-xl-2">
@@ -228,7 +191,7 @@
                                     id="gem-filter-show-all"
                                 />
                                 <label class="form-check-label small" for="gem-filter-show-all">
-                                    Show all
+                                    Show out of scope
                                 </label>
                             </div>
                         </div>
@@ -287,25 +250,16 @@
                                 >
                                     Qty <span class="gem-tenders-sort-indicator" aria-hidden="true"></span>
                                 </th>
-                                <th scope="col">MSE Experience Relaxation</th>
-                                <th scope="col">MSE Turnover Relaxation</th>
-                                <th scope="col">Eligible</th>
-                                <th scope="col">Filed</th>
                             </tr>
                         </thead>
                         <tbody id="gem-tenders-tbody">
                                 <% (tenders || []).forEach(function (tender) { %>
-                                    <% const eligibility = resolveEligibility(tender.eligible); %>
+                                    <% const stage = tender.stage || "new"; %>
                                     <tr
                                         data-id="<%= tender.id %>"
                                         data-keyword-id="<%= tender.keyword_id %>"
                                         data-assignee-user-id="<%= tender.assignee_user_id || '' %>"
-                                        data-past-experience="<%= tender.required_past_experice_years || '' %>"
-                                        data-mse-exp="<%= tender.mse_experience_relaxation || '' %>"
-                                        data-mse-turnover="<%= tender.mse_turnover_relaxation || '' %>"
-                                        data-eligible="<%= eligibility %>"
-                                        data-filed="<%= tender.filed ? '1' : '0' %>"
-                                        data-hidden="<%= tender.hidden ? '1' : '0' %>"
+                                        data-stage="<%= stage %>"
                                         data-quantity="<%= Number(tender.quantity || 0) %>"
                                         data-end-at="<%= tender.end_date_time || '' %>"
                                     >
@@ -327,7 +281,7 @@
                                         </a>
                                     </td>
                                     <td><%= tender.keyword || "-" %></td>
-                                    <td><%= stageLabels[tender.stage] || tender.stage || "New" %></td>
+                                    <td><%= stageLabels[stage] || stage || "New" %></td>
                                     <td><%= tender.assignee_full_name || "-" %></td>
                                     <td
                                         data-readable-date="<%= tender.end_date_time || '' %>"
@@ -349,10 +303,6 @@
                                         <% } %>
                                     </td>
                                     <td><%= Number(tender.quantity || 0) > 0 ? Number(tender.quantity) : "NA" %></td>
-                                    <td><%= tender.mse_experience_relaxation || "-" %></td>
-                                    <td><%= tender.mse_turnover_relaxation || "-" %></td>
-                                        <td><%= eligibilityLabels[eligibility] || eligibility || "-" %></td>
-                                        <td><%= tender.filed ? "Yes" : "No" %></td>
                                 </tr>
                             <% }) %>
                         </tbody>
