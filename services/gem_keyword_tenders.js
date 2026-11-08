@@ -5,11 +5,13 @@ import {
     GEM_KEYWORD_TENDER_STAGES,
 } from "../constants.js";
 import { createGemKeywordTenderActivity } from "../db/gem_keyword_tender_activities.js";
+import { createGemKeywordTenderComment } from "../db/gem_keyword_tender_comments.js";
 import {
     getGemKeywordTenderById,
     updateGemKeywordTenderById,
 } from "../db/gem_keyword_tenders.js";
 import { getUserById } from "../db/users.js";
+import { hasAuthority } from "../libs/app_page.js";
 import {
     notifyGemKeywordTenderAssigned,
     notifyGemKeywordTenderQuoteRequested,
@@ -345,4 +347,107 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
 
     set.status = 200;
     return { message: "Tender updated", gemKeywordTender: updatedGemKeywordTender };
+}
+
+export async function bulkMarkGemKeywordTendersOutOfScope({ body, cookie, set }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+    }
+
+    if (
+        !hasAuthority(
+            currentUser.authorities,
+            AUTHORITIES.MARK_GEM_TENDER_OUT_OF_SCOPE,
+        )
+    ) {
+        set.status = 403;
+        return { error: "Missing authority to mark tenders out of scope" };
+    }
+
+    const comment = asText(body?.comment).trim();
+    if (!comment) {
+        set.status = 400;
+        return { error: "Comment is required" };
+    }
+
+    const ids = Array.isArray(body?.ids)
+        ? [...new Set(body.ids.map((id) => Number(id)).filter((id) => id >= 1))]
+        : [];
+    if (!ids.length) {
+        set.status = 400;
+        return { error: "Select at least one tender" };
+    }
+
+    const flags = flagsForStage(GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE);
+    let successCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+    const failures = [];
+
+    for (const id of ids) {
+        const gemKeywordTender = await getGemKeywordTenderById({ id });
+        if (!gemKeywordTender) {
+            failedCount += 1;
+            failures.push({ id, error: "Tender not found" });
+            continue;
+        }
+
+        const previousStage = normalizeStage(gemKeywordTender.stage);
+        if (previousStage === GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE) {
+            skippedCount += 1;
+            continue;
+        }
+
+        try {
+            await updateGemKeywordTenderById({
+                id: gemKeywordTender.id,
+                hidden: flags.hidden,
+                eligible: flags.eligible,
+                filed: flags.filed,
+                quote: gemKeywordTender.quote,
+                stage: GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE,
+                assignee_user_id: gemKeywordTender.assignee_user_id
+                    ? Number(gemKeywordTender.assignee_user_id)
+                    : null,
+            });
+
+            const commentId = await createGemKeywordTenderComment({
+                gem_keyword_tender_id: gemKeywordTender.id,
+                user_id: currentUser.id,
+                comment,
+            });
+            if (!commentId) {
+                failedCount += 1;
+                failures.push({ id, error: "Failed to add comment" });
+                continue;
+            }
+
+            await logActivities({
+                gem_keyword_tender_id: gemKeywordTender.id,
+                user_id: currentUser.id,
+                activities: [
+                    `Changed stage from ${stageLabel(previousStage)} to ${stageLabel(GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE)}`,
+                    `Added comment: "${quotePreview(comment)}"`,
+                ],
+            });
+
+            successCount += 1;
+        } catch (error) {
+            failedCount += 1;
+            failures.push({ id, error: "Failed to mark out of scope" });
+        }
+    }
+
+    set.status = failedCount && !successCount ? 400 : 200;
+    return {
+        message: `Marked ${successCount} out of scope` +
+            (skippedCount ? `, skipped ${skippedCount}` : "") +
+            (failedCount ? `, failed ${failedCount}` : ""),
+        successCount,
+        skippedCount,
+        failedCount,
+        failures,
+    };
 }

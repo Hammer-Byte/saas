@@ -40,13 +40,25 @@ const TENDER_DETAIL_REGEXES = {
     TOTAL_QUANTITY_MULTILINE:
         /Total\s*Quantity[^\d\n]{0,80}\n[^\d\n]{0,40}(\d+(?:\.\d+)?)/i,
     ITEM_PIECES_LINE: /^.{0,160}?\(\s*(\d+)\s*pieces?\s*\)\s*$/i,
+    ITEM_PIECES_ONLY: /^\(\s*(\d+)\s*pieces?\s*\)$/i,
     BID_QUANTITY: /\bBid\s*Quantity\s*[:=\-]?\s*(\d+(?:\.\d+)?)/i,
     CONSIGNEES_SECTION: /Consignees\/Reporting Officer(?:\s+and\s+Quantity)?/gi,
     CONSIGNEE_QTY_ROW: /^\s*\d+\s+.+\s+(\d{1,7})\s+(\d{1,4})\s*$/gm,
     CONSIGNEE_QTY_DAYS_ONLY: /^\s*(\d{1,7})\s+(\d{1,4})\s*$/gm,
+    // AMC / service consignee columns: "Number of each Asset", "Number of Devices",
+    // "Quantity of Data Center Assets", etc. (not goods qty+delivery-days tables).
+    SERVICE_CONSIGNEE_COLUMN:
+        /\/\s*Number of|\/\s*Quantity of|each\s+Asset|for\s+AMC|Resources\s+to/i,
+    SERVICE_CONSIGNEE_QTY_ROW:
+        /^\s*\d+\s+[A-Za-z*][^\n/]{3,}?\s+(\d{1,7})\s*(?:Resident engineers|N\/A)?\s*$/gm,
     RESOURCE_HIRE_MARKERS: /Resources\s+to[\s\S]{0,80}?be\s+hired/i,
     RESOURCE_QTY_ROW:
         /^\s*\d+\s+[^\n]*?\*{3,}[^\n]*?\*{3,}[^\n]*?\s+(\d{1,6})\b/gm,
+    SERVICE_ITEM_DOC_MARKERS: /Annual Maintenance|each\s+Asset|for\s+AMC/i,
+    SERVICE_ITEM_PAREN_SAME: /\(\s*(\d+)\s*\)\s*$/,
+    SERVICE_ITEM_PAREN_ONLY: /^\(\s*(\d+)\s*\)$/,
+    SERVICE_ITEM_PAREN_OPEN: /\(\s*$/,
+    SERVICE_ITEM_PAREN_CLOSE: /^(\d+)\s*\)$/,
     ATC_QTY_NOS: /\b(\d+(?:\.\d+)?)\s*Nos\.?\b/gi,
 };
 
@@ -234,25 +246,45 @@ function extractQuantityFromTotalLabel(text) {
 
 /**
  * Way 2: Sum item headers like "Desktop Computer ( 11 pieces )".
+ * Also handles split lines: title then "( 11 pieces )" on the next line.
  * Skips "Additional Specification Parameters - … ( N pieces )" duplicates.
  */
 function extractQuantityFromItemPieces(text) {
+    const lines = String(text || "")
+        .split(/\n/)
+        .map((line) => line.replace(/\f/g, "").trim());
     let total = 0;
     let matched = 0;
 
-    for (const rawLine of text.split(/\n/)) {
-        const line = rawLine.replace(/\f/g, "").trim();
+    for (let i = 0; i < lines.length; i += 1) {
+        const line = lines[i];
         if (!line || /Additional Specification Parameters/i.test(line)) {
             continue;
         }
-        if (!/\(\s*\d+\s*pieces?\s*\)$/i.test(line)) {
-            continue;
+
+        let quantity = 0;
+        const sameLine = line.match(TENDER_DETAIL_REGEXES.ITEM_PIECES_LINE);
+        if (sameLine?.[1] && !TENDER_DETAIL_REGEXES.ITEM_PIECES_ONLY.test(line)) {
+            quantity = parseQuantityNumber(sameLine[1]);
+        } else if (TENDER_DETAIL_REGEXES.ITEM_PIECES_ONLY.test(line)) {
+            const only = line.match(TENDER_DETAIL_REGEXES.ITEM_PIECES_ONLY);
+            const previous = [...lines.slice(0, i)].reverse().find(Boolean) || "";
+            if (
+                only?.[1] &&
+                previous &&
+                previous.length >= 8 &&
+                !/Additional Specification Parameters/i.test(previous)
+            ) {
+                quantity = parseQuantityNumber(only[1]);
+            }
+        } else if (/\(\s*$/.test(line) && i + 1 < lines.length) {
+            const next = lines[i + 1].match(/^(\d+)\s*pieces?\s*\)$/i);
+            if (next?.[1] && line.length >= 8) {
+                quantity = parseQuantityNumber(next[1]);
+                i += 1;
+            }
         }
-        const match = line.match(TENDER_DETAIL_REGEXES.ITEM_PIECES_LINE);
-        if (!match?.[1]) {
-            continue;
-        }
-        const quantity = parseQuantityNumber(match[1]);
+
         if (quantity <= 0) {
             continue;
         }
@@ -345,7 +377,113 @@ function extractQuantityFromResources(text) {
     return matched ? total : 0;
 }
 
-/** Way 6: ATC tables with "13.0 Nos." near a QTY header. */
+/**
+ * Way 6: Service/AMC consignee columns — "Number of each Asset for AMC",
+ * "Number of Devices", "Quantity of Data Center Assets", etc.
+ */
+function extractQuantityFromServiceConsignees(text) {
+    let total = 0;
+    let matchedRows = 0;
+    const sectionStarts = [...text.matchAll(TENDER_DETAIL_REGEXES.CONSIGNEES_SECTION)]
+        .map((match) => match.index)
+        .filter((index) => index != null);
+
+    for (let i = 0; i < sectionStarts.length; i += 1) {
+        const sectionStart = sectionStarts[i];
+        const nextStart = sectionStarts[i + 1] ?? text.length;
+        const section = text.slice(sectionStart, Math.min(nextStart, sectionStart + 8000));
+        if (!TENDER_DETAIL_REGEXES.SERVICE_CONSIGNEE_COLUMN.test(section)) {
+            continue;
+        }
+
+        for (const match of section.matchAll(TENDER_DETAIL_REGEXES.SERVICE_CONSIGNEE_QTY_ROW)) {
+            const quantity = parseQuantityNumber(match[1]);
+            if (quantity <= 0) {
+                continue;
+            }
+            total += quantity;
+            matchedRows += 1;
+        }
+    }
+
+    return matchedRows ? total : 0;
+}
+
+/**
+ * Way 7: AMC/service item titles ending with "( N )" (not "pieces"),
+ * including split title / "( N )" lines. Gated to AMC-style documents.
+ */
+function extractQuantityFromServiceItemTitles(text) {
+    if (!TENDER_DETAIL_REGEXES.SERVICE_ITEM_DOC_MARKERS.test(text)) {
+        return 0;
+    }
+
+    const lines = String(text || "")
+        .split(/\n/)
+        .map((line) => line.replace(/\f/g, "").trim());
+    let total = 0;
+    let matched = 0;
+
+    for (let i = 0; i < lines.length; i += 1) {
+        const line = lines[i];
+        if (!line || /Additional Specification Parameters/i.test(line)) {
+            continue;
+        }
+
+        let quantity = 0;
+        let endIndex = i;
+
+        const sameLine = line.match(TENDER_DETAIL_REGEXES.SERVICE_ITEM_PAREN_SAME);
+        if (
+            sameLine?.[1] &&
+            !/pieces?/i.test(line) &&
+            line.length >= 12 &&
+            !TENDER_DETAIL_REGEXES.SERVICE_ITEM_PAREN_ONLY.test(line)
+        ) {
+            quantity = parseQuantityNumber(sameLine[1]);
+        } else if (TENDER_DETAIL_REGEXES.SERVICE_ITEM_PAREN_ONLY.test(line)) {
+            const only = line.match(TENDER_DETAIL_REGEXES.SERVICE_ITEM_PAREN_ONLY);
+            const previous = [...lines.slice(0, i)].reverse().find(Boolean) || "";
+            if (
+                only?.[1] &&
+                previous.length >= 12 &&
+                !/pieces?/i.test(previous) &&
+                !/Additional Specification Parameters/i.test(previous)
+            ) {
+                quantity = parseQuantityNumber(only[1]);
+            }
+        } else if (
+            TENDER_DETAIL_REGEXES.SERVICE_ITEM_PAREN_OPEN.test(line) &&
+            i + 1 < lines.length
+        ) {
+            const next = lines[i + 1].match(TENDER_DETAIL_REGEXES.SERVICE_ITEM_PAREN_CLOSE);
+            if (next?.[1] && line.length >= 12) {
+                quantity = parseQuantityNumber(next[1]);
+                endIndex = i + 1;
+            }
+        }
+
+        if (quantity <= 0) {
+            continue;
+        }
+
+        const following = lines
+            .slice(endIndex + 1, endIndex + 8)
+            .filter(Boolean)
+            .join("\n");
+        if (!/Technical Specifications/i.test(following)) {
+            continue;
+        }
+
+        total += quantity;
+        matched += 1;
+        i = endIndex;
+    }
+
+    return matched ? total : 0;
+}
+
+/** Way 8: ATC tables with "13.0 Nos." near a QTY header. */
 function extractQuantityFromNosTable(text) {
     const qtyHeaderIndex = text.search(/\bQTY\b/i);
     if (qtyHeaderIndex < 0) {
@@ -379,6 +517,8 @@ function extractQuantity(text) {
         extractQuantityFromBidQuantity,
         extractQuantityFromConsignees,
         extractQuantityFromResources,
+        extractQuantityFromServiceConsignees,
+        extractQuantityFromServiceItemTitles,
         extractQuantityFromNosTable,
     ];
 

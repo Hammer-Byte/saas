@@ -24,8 +24,16 @@
     const bulkClearBtn = document.getElementById("gem-bulk-clear-btn");
     const bulkStatus = document.getElementById("gem-bulk-assign-status");
     const selectedCountLabel = document.getElementById("gem-tenders-selected-count");
+    const bulkOosBar = document.getElementById("gem-tenders-bulk-out-of-scope-bar");
+    const bulkOosComment = document.getElementById("gem-bulk-oos-comment");
+    const bulkOosBtn = document.getElementById("gem-bulk-oos-btn");
+    const bulkOosClearBtn = document.getElementById("gem-bulk-oos-clear-btn");
+    const bulkOosStatus = document.getElementById("gem-bulk-oos-status");
+    const oosSelectedCountLabel = document.getElementById("gem-tenders-oos-selected-count");
     const currentUserId = Number(bulkBar?.dataset.currentUserId || 0);
     const canAssignOthers = bulkBar?.dataset.canAssignOthers === "1";
+    const canMarkOutOfScope =
+        bulkBar?.dataset.canMarkOutOfScope === "1" || !!bulkOosBar;
 
     function readStoredFilters() {
         try {
@@ -282,9 +290,19 @@
         if (selectedCountLabel) {
             selectedCountLabel.textContent = `${count} selected`;
         }
+        if (oosSelectedCountLabel) {
+            oosSelectedCountLabel.textContent = `${count} selected`;
+        }
         bulkBar?.classList.toggle("d-none", count === 0);
+        if (canMarkOutOfScope) {
+            bulkOosBar?.classList.toggle("d-none", count === 0);
+        }
         if (bulkAssignBtn) {
             bulkAssignBtn.disabled = count === 0 || !bulkAssignee?.value;
+        }
+        if (bulkOosBtn) {
+            const hasComment = !!(bulkOosComment?.value || "").trim();
+            bulkOosBtn.disabled = count === 0 || !hasComment;
         }
         if (selectAllCheckbox) {
             const visibles = visibleRows();
@@ -310,6 +328,10 @@
         if (bulkStatus) {
             bulkStatus.classList.add("d-none");
             bulkStatus.textContent = "";
+        }
+        if (bulkOosStatus) {
+            bulkOosStatus.classList.add("d-none");
+            bulkOosStatus.textContent = "";
         }
         syncBulkBar();
     }
@@ -529,6 +551,87 @@
 
     bulkClearBtn?.addEventListener("click", () => {
         clearSelection();
+    });
+
+    bulkOosClearBtn?.addEventListener("click", () => {
+        clearSelection();
+    });
+
+    bulkOosComment?.addEventListener("input", () => {
+        syncBulkBar();
+    });
+
+    bulkOosBtn?.addEventListener("click", async () => {
+        if (!canMarkOutOfScope) return;
+
+        const selected = selectedCheckboxes();
+        const comment = String(bulkOosComment?.value || "").trim();
+        if (!selected.length) return;
+        if (!comment) {
+            if (bulkOosStatus) {
+                bulkOosStatus.textContent = "Comment is required.";
+                bulkOosStatus.classList.remove("d-none", "text-secondary");
+                bulkOosStatus.classList.add("text-danger");
+            }
+            return;
+        }
+
+        const ids = selected
+            .map((checkbox) => Number(checkbox.value || 0))
+            .filter((id) => id >= 1);
+        if (!ids.length) return;
+
+        bulkOosBtn.disabled = true;
+        if (bulkOosStatus) {
+            bulkOosStatus.textContent = `Marking ${ids.length} tender(s) out of scope…`;
+            bulkOosStatus.classList.remove("d-none", "text-danger");
+            bulkOosStatus.classList.add("text-secondary");
+        }
+
+        try {
+            const response = await fetch("/api/gem-keyword-tenders/bulk-out-of-scope", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids, comment }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (bulkOosStatus) {
+                    bulkOosStatus.textContent =
+                        payload?.error || "Failed to mark tenders out of scope.";
+                    bulkOosStatus.classList.remove("text-secondary");
+                    bulkOosStatus.classList.add("text-danger");
+                }
+                bulkOosBtn.disabled = false;
+                syncBulkBar();
+                return;
+            }
+
+            if (!payload.failedCount) {
+                window.location.reload();
+                return;
+            }
+
+            if (bulkOosStatus) {
+                bulkOosStatus.textContent =
+                    payload.message ||
+                    `Updated ${payload.successCount || 0}, failed ${payload.failedCount || 0}.`;
+                bulkOosStatus.classList.remove("text-secondary");
+                bulkOosStatus.classList.add("text-danger");
+            }
+            bulkOosBtn.disabled = false;
+            syncBulkBar();
+        } catch (error) {
+            console.error(error);
+            if (bulkOosStatus) {
+                bulkOosStatus.textContent = "Failed to mark tenders out of scope.";
+                bulkOosStatus.classList.remove("text-secondary");
+                bulkOosStatus.classList.add("text-danger");
+            }
+            bulkOosBtn.disabled = false;
+            syncBulkBar();
+        }
     });
 
     bulkAssignBtn?.addEventListener("click", async () => {
