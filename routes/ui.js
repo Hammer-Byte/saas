@@ -67,9 +67,8 @@ import {
 } from "../constants.js";
 import { getAllAutomationUsers } from "../db/automation_users.js";
 import {
-    getAllContentPublishRuns,
-    getContentPublishRunStatusCounts,
-    getAllContentPublishRunTargets,
+    getContentPublishRunsByStartedOnRange,
+    getContentPublishRunTargetsByRunIds,
 } from "../db/content_publish_runs.js";
 import { processing as contentPublishProcessing } from "../libs/content_publish_browser.js";
 import { decorateContentPublishRun } from "../services/content_publish.js";
@@ -802,10 +801,26 @@ export const uiRoutes = new Elysia()
                 redirect("/app/content-publish-image"),
             )
 
-            .get("/app/content-publish-history", async ({ render, session }) => {
-                const publishRuns = await getAllContentPublishRuns();
-                const publishTargets = await getAllContentPublishRunTargets();
-                const queue = await getContentPublishRunStatusCounts();
+            .get("/app/content-publish-history", async ({ render, session, query }) => {
+                const now = new Date();
+                const defaultEnd = getReadableDate("YYYY-MM-DD", now);
+                const defaultStart = getReadableDate(
+                    "YYYY-MM-DD",
+                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2),
+                );
+
+                const start = parseQueryDate(query.start) || defaultStart;
+                const end = parseQueryDate(query.end) || defaultEnd;
+                const rangeStart = start <= end ? start : end;
+                const rangeEnd = start <= end ? end : start;
+
+                const publishRuns = await getContentPublishRunsByStartedOnRange({
+                    start: rangeStart,
+                    end: rangeEnd,
+                });
+                const publishTargets = await getContentPublishRunTargetsByRunIds({
+                    run_ids: publishRuns.map((run) => run.id),
+                });
                 const targetsByRunId = new Map();
                 for (const target of publishTargets) {
                     const list = targetsByRunId.get(target.run_id) || [];
@@ -816,10 +831,24 @@ export const uiRoutes = new Elysia()
                     ...decorateContentPublishRun(run),
                     targets: targetsByRunId.get(run.id) || [],
                 }));
+                const queue = {
+                    queued: 0,
+                    running: 0,
+                    completed: 0,
+                    failed: 0,
+                };
+                for (const run of runs) {
+                    const key = String(run.status || "").toLowerCase();
+                    if (key in queue) {
+                        queue[key] += 1;
+                    }
+                }
                 return render("content-publish-history", appPage(session, {
                     title: "Publish History — HammerByte",
                     runs,
                     queue,
+                    start: rangeStart,
+                    end: rangeEnd,
                     processing: contentPublishProcessing,
                 }));
             })

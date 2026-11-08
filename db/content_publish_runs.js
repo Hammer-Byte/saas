@@ -174,6 +174,27 @@ export async function getAllContentPublishRuns() {
         });
 }
 
+export async function getContentPublishRunsByStartedOnRange({ start, end }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                r.*,
+                m.name AS media_name,
+                m.file AS media_file
+            FROM CONTENT_PUBLISH_RUNS r
+            LEFT JOIN MEDIA m ON m.id = r.media_id
+            WHERE DATE(r.started_on) >= ${start}
+              AND DATE(r.started_on) <= ${end}
+            ORDER BY r.id DESC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getContentPublishRunsByStartedOnRange: ${error}`);
+            return [];
+        });
+}
+
 export async function getAllContentPublishRunTargets() {
     return await executeSQLQuery(
         (sql) => sql`
@@ -185,6 +206,26 @@ export async function getAllContentPublishRunTargets() {
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
             logger.error(`getAllContentPublishRunTargets: ${error}`);
+            return [];
+        });
+}
+
+export async function getContentPublishRunTargetsByRunIds({ run_ids }) {
+    const ids = [...new Set((run_ids || []).map((id) => Number(id)).filter((id) => id > 0))];
+    if (!ids.length) {
+        return [];
+    }
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *
+            FROM CONTENT_PUBLISH_RUN_TARGETS
+            WHERE run_id IN ${sql(ids)}
+            ORDER BY id ASC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getContentPublishRunTargetsByRunIds: ${error}`);
             return [];
         });
 }
