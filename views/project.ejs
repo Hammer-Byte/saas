@@ -192,6 +192,56 @@
 
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 px-4">
+                <h2 class="h5 mb-0">Tasks</h2>
+                <div class="d-flex gap-2">
+                    <a href="/app/tasks" class="btn btn-sm btn-outline-primary">Open Tasks</a>
+                    <a href="/app/tasks" class="btn btn-sm btn-outline-secondary">View all tasks</a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <% if (!projectTasks || projectTasks.length === 0) { %>
+                    <div class="p-4 text-center text-secondary">
+                        No tasks linked to this project.
+                        <a href="/app/tasks">Create or assign from Tasks</a>.
+                    </div>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Title</th>
+                                    <th scope="col">State</th>
+                                    <th scope="col">Assignee</th>
+                                    <th scope="col">End</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% (projectTasks || []).forEach(function (task) { %>
+                                    <tr
+                                        class="project-task-row"
+                                        role="link"
+                                        tabindex="0"
+                                        data-href="/app/tasks/<%= task.id %>"
+                                        style="cursor: pointer;"
+                                    >
+                                        <td><%= task.title %></td>
+                                        <td><%= (TASK_STATE_LABELS && TASK_STATE_LABELS[task.state]) || task.state || "—" %></td>
+                                        <td><%= task.assignee_full_name || "Unassigned" %></td>
+                                        <td
+                                            data-readable-date="<%= task.end_at || '' %>"
+                                            data-date-format="DD/MM/YYYY HH:mm"
+                                        ><%= task.end_at ? "" : "—" %></td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 px-4">
                 <h2 class="h5 mb-0">Applications</h2>
                 <button
                     type="button"

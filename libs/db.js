@@ -782,6 +782,149 @@ export async function generateDBTables() {
                 ON UPDATE CASCADE,
             INDEX idx_server_metrics_server_collected (server_id, collected_at)
         )`,
+        `CREATE TABLE IF NOT EXISTS TASKS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(128) NOT NULL,
+            description TEXT NULL,
+            expected_hours DECIMAL(10, 2) NULL,
+            actual_hours DECIMAL(10, 2) NULL,
+            start_at DATETIME NULL,
+            end_at DATETIME NULL,
+            completed_on DATETIME NULL,
+            state VARCHAR(32) NOT NULL DEFAULT 'todo',
+            priority VARCHAR(16) NOT NULL DEFAULT 'medium',
+            blocked_reason VARCHAR(512) NULL,
+            project_id INT NULL,
+            assignee_user_id INT NULL,
+            created_by_user_id INT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_tasks_customer_project
+                FOREIGN KEY (project_id)
+                REFERENCES CUSTOMER_PROJECTS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_tasks_assignee_user
+                FOREIGN KEY (assignee_user_id)
+                REFERENCES USERS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_tasks_created_by_user
+                FOREIGN KEY (created_by_user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_tasks_state (state),
+            INDEX idx_tasks_assignee (assignee_user_id),
+            INDEX idx_tasks_project (project_id),
+            INDEX idx_tasks_end_at (end_at)
+        )`,
+        `CREATE TABLE IF NOT EXISTS TASK_COMMENTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            task_id INT NOT NULL,
+            user_id INT NOT NULL,
+            comment TEXT NOT NULL,
+            media_id INT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_task_comments_task
+                FOREIGN KEY (task_id)
+                REFERENCES TASKS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_task_comments_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_task_comments_media
+                FOREIGN KEY (media_id)
+                REFERENCES MEDIA(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS TASK_ATTACHMENTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            task_id INT NOT NULL,
+            media_id INT NOT NULL,
+            description VARCHAR(512) NULL,
+            created_by_user_id INT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_task_attachments_task
+                FOREIGN KEY (task_id)
+                REFERENCES TASKS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_task_attachments_media
+                FOREIGN KEY (media_id)
+                REFERENCES MEDIA(id)
+                ON DELETE RESTRICT
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_task_attachments_created_by_user
+                FOREIGN KEY (created_by_user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS TASK_REMINDERS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            task_id INT NOT NULL,
+            remind_at DATETIME NOT NULL,
+            recipient_user_id INT NOT NULL,
+            sent_on DATETIME NULL,
+            created_by_user_id INT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_task_reminders_task
+                FOREIGN KEY (task_id)
+                REFERENCES TASKS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_task_reminders_recipient
+                FOREIGN KEY (recipient_user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_task_reminders_created_by_user
+                FOREIGN KEY (created_by_user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_task_reminders_pending (sent_on, remind_at)
+        )`,
+        `CREATE TABLE IF NOT EXISTS TASK_ACTIVITIES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            task_id INT NOT NULL,
+            user_id INT NOT NULL,
+            activity VARCHAR(512) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_task_activities_task
+                FOREIGN KEY (task_id)
+                REFERENCES TASKS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_task_activities_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS TASK_FOLLOWERS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            task_id INT NOT NULL,
+            user_id INT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_task_follower (task_id, user_id),
+            CONSTRAINT fk_task_followers_task
+                FOREIGN KEY (task_id)
+                REFERENCES TASKS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_task_followers_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONTENT_PUBLISHER_SERVICE}', 'publish images and videos to Instagram LinkedIn YouTube', 0.00);`,

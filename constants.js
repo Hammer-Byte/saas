@@ -45,6 +45,7 @@ export const AUTHORITIES = {
     USE_PAGE_CONTRACTS: "USE_PAGE_CONTRACTS",
     USE_PAGE_INTERNAL_DOCUMENTS: "USE_PAGE_INTERNAL_DOCUMENTS",
     USE_PAGE_SERVERS: "USE_PAGE_SERVERS",
+    USE_PAGE_TASKS: "USE_PAGE_TASKS",
     USE_PAGE_GEM_TENDERS: "USE_PAGE_GEM_TENDERS",
     USE_PAGE_GEM_TENDER_KEYWORDS: "USE_PAGE_GEM_TENDER_KEYWORDS",
     ASSIGN_GEM_TENDER_ASSIGNEE: "ASSIGN_GEM_TENDER_ASSIGNEE",
@@ -58,6 +59,34 @@ export const AUTHORITIES = {
     MANAGE_AUTHORITIES: "MANAGE_AUTHORITIES",
     MANAGE_ROLE_AUTHORITIES: "MANAGE_ROLE_AUTHORITIES",
     MANAGE_USER_ROLES: "MANAGE_USER_ROLES",
+};
+
+export const TASK_STATES = {
+    TODO: "todo",
+    IN_PROGRESS: "in_progress",
+    BLOCKED: "blocked",
+    DONE: "done",
+    CANCELLED: "cancelled",
+};
+
+export const TASK_STATE_LABELS = {
+    [TASK_STATES.TODO]: "To do",
+    [TASK_STATES.IN_PROGRESS]: "In progress",
+    [TASK_STATES.BLOCKED]: "Blocked",
+    [TASK_STATES.DONE]: "Done",
+    [TASK_STATES.CANCELLED]: "Cancelled",
+};
+
+export const TASK_PRIORITIES = {
+    LOW: "low",
+    MEDIUM: "medium",
+    HIGH: "high",
+};
+
+export const TASK_PRIORITY_LABELS = {
+    [TASK_PRIORITIES.LOW]: "Low",
+    [TASK_PRIORITIES.MEDIUM]: "Medium",
+    [TASK_PRIORITIES.HIGH]: "High",
 };
 
 export const GEM_KEYWORD_TENDER_STAGES = {
@@ -100,6 +129,7 @@ export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_CONTRACTS: "View Contracts page",
     USE_PAGE_INTERNAL_DOCUMENTS: "View Internal Documents page",
     USE_PAGE_SERVERS: "View Servers monitor page",
+    USE_PAGE_TASKS: "View Tasks page",
     USE_PAGE_GEM_TENDERS: "View GEM Tenders page",
     USE_PAGE_GEM_TENDER_KEYWORDS: "View GEM Tenders keyword + scan and history pages",
     ASSIGN_GEM_TENDER_ASSIGNEE: "Assign any user as GEM tender assignee",

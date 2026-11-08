@@ -6,6 +6,7 @@ import bucketizer from "./libs/bucketizer.js";
 import { allowTraffic } from "./server.js";
 import { startServerPingAlertWatcher } from "./libs/server_alert_notify.js";
 import { startGemTenderEligibilityReminderWatcher } from "./libs/gem_tender_eligibility_remind.js";
+import { startTaskReminderWatcher } from "./libs/task_remind.js";
 
 logger.init({
     saveLogs: false,
@@ -26,6 +27,8 @@ try {
     logger.success("Server Ping Alert Watcher Ready");
     startGemTenderEligibilityReminderWatcher();
     logger.success("GEM Tender Eligibility Reminder Watcher Ready");
+    startTaskReminderWatcher();
+    logger.success("Task Reminder Watcher Ready");
     allowTraffic();
 } catch (error) {
     logger.error(`Application Exited - ${error.message}`);

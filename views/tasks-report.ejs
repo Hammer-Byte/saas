@@ -1,0 +1,283 @@
+<%- include('common/header') %>
+
+<%
+    const stateLabels = TASK_STATE_LABELS || {};
+%>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100" id="tasks-report-page">
+    <div class="container-fluid px-3 px-lg-4 py-4">
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/tasks" class="text-decoration-none">Tasks</a> /
+                    Report
+                </p>
+                <h1 class="h3 mb-1">Tasks report</h1>
+                <p class="text-secondary mb-0">
+                    Tasks created or ending between
+                    <strong data-readable-date="<%= from %>" data-date-format="DD/MM/YYYY"></strong>
+                    and
+                    <strong data-readable-date="<%= to %>" data-date-format="DD/MM/YYYY"></strong>.
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="/app/tasks" class="btn btn-outline-secondary">Back to tasks</a>
+                <button type="button" class="btn btn-outline-secondary" id="tasks-report-clear-filters-btn">
+                    Clear filters
+                </button>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-3 p-md-4">
+                <form class="row g-3 align-items-end" method="get" action="/app/tasks/report" id="tasks-report-range-form">
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <label for="tasks-report-from" class="form-label">From</label>
+                        <input
+                            type="text"
+                            class="form-control js-date-input"
+                            id="tasks-report-from"
+                            name="from"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            data-date-value="<%= from %>"
+                            value="<%= from %>"
+                            required
+                        />
+                    </div>
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <label for="tasks-report-to" class="form-label">To</label>
+                        <input
+                            type="text"
+                            class="form-control js-date-input"
+                            id="tasks-report-to"
+                            name="to"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            data-date-value="<%= to %>"
+                            value="<%= to %>"
+                            required
+                        />
+                    </div>
+                    <div class="col-12 col-md-3 col-lg-2">
+                        <button type="submit" class="btn btn-primary w-100">Apply range</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary small mb-1">Tasks</p>
+                        <p class="h4 mb-0"><%= report.totals.tasks %></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary small mb-1">Done</p>
+                        <p class="h4 mb-0"><%= report.totals.done %></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary small mb-1">Overdue</p>
+                        <p class="h4 mb-0"><%= report.totals.overdue %></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary small mb-1">Unassigned</p>
+                        <p class="h4 mb-0"><%= report.totals.unassigned %></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h6 mb-3">Tasks by employee</h2>
+                        <div class="tasks-report-chart-box">
+                            <canvas id="chart-tasks-by-employee"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h6 mb-3">Tasks by project</h2>
+                        <div class="tasks-report-chart-box">
+                            <canvas id="chart-tasks-by-project"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h6 mb-3">Tasks by state</h2>
+                        <div class="tasks-report-chart-box tasks-report-chart-box-doughnut">
+                            <canvas id="chart-tasks-by-state"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h6 mb-3">Overdue by employee</h2>
+                        <div class="tasks-report-chart-box">
+                            <canvas id="chart-overdue-by-employee"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">By employee</h2>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Employee</th>
+                                <th scope="col">Tasks</th>
+                                <th scope="col">Done</th>
+                                <th scope="col">Blocked</th>
+                                <th scope="col">Overdue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% (report.byEmployee || []).forEach(function (row) { %>
+                                <tr>
+                                    <td><%= row.label %></td>
+                                    <td><%= row.task_count %></td>
+                                    <td><%= row.done_count %></td>
+                                    <td><%= row.blocked_count %></td>
+                                    <td><%= row.overdue_count %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">By project</h2>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Project</th>
+                                <th scope="col">Tasks</th>
+                                <th scope="col">Done</th>
+                                <th scope="col">Blocked</th>
+                                <th scope="col">Overdue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% (report.byProject || []).forEach(function (row) { %>
+                                <tr>
+                                    <td><%= row.label %></td>
+                                    <td><%= row.task_count %></td>
+                                    <td><%= row.done_count %></td>
+                                    <td><%= row.blocked_count %></td>
+                                    <td><%= row.overdue_count %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">By state</h2>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">State</th>
+                                <th scope="col">Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% (report.stateTotals || []).forEach(function (row) { %>
+                                <tr>
+                                    <td><%= row.label %></td>
+                                    <td><%= row.count %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<style>
+    .tasks-report-chart-box {
+        position: relative;
+        width: 100%;
+        height: 260px;
+        max-height: 260px;
+        overflow: hidden;
+    }
+
+    .tasks-report-chart-box-doughnut {
+        height: 240px;
+        max-height: 240px;
+    }
+
+    .tasks-report-chart-box canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100%;
+    }
+</style>
+<script id="tasks-report-data" type="application/json">
+<%- JSON.stringify(report.charts || {}) %>
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/tasks-report.js" defer></script>
+<%- include('common/footer') %>

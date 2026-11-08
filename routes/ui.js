@@ -63,9 +63,20 @@ import {
     GEM_KEYWORD_TENDER_ELIGIBILITY,
     GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
+    TASK_PRIORITIES,
+    TASK_PRIORITY_LABELS,
+    TASK_STATE_LABELS,
+    TASK_STATES,
     USER_LOGIN_METHOD_LABELS,
     USER_LOGIN_METHODS,
 } from "../constants.js";
+import { getAllTasks, getTaskById, getTasksByProjectId } from "../db/tasks.js";
+import { getAllTaskActivitiesByTaskId } from "../db/task_activities.js";
+import { getAllTaskAttachmentsByTaskId } from "../db/task_attachments.js";
+import { getAllTaskCommentsByTaskId } from "../db/task_comments.js";
+import { getAllTaskFollowersByTaskId, getTaskFollowerByTaskIdAndUserId } from "../db/task_followers.js";
+import { getAllTaskRemindersByTaskId } from "../db/task_reminders.js";
+import { buildTaskReport } from "../services/task_report.js";
 import { getAllAutomationUsers } from "../db/automation_users.js";
 import {
     getContentPublishRunsByStartedOnRange,
@@ -351,6 +362,9 @@ export const uiRoutes = new Elysia()
                     title: `Project — ${customerProject.title}`,
                     customer,
                     customerProject,
+                    projectTasks: await getTasksByProjectId({
+                        project_id: customerProject.id,
+                    }),
                     applications: await getProjectApplicationsByProjectId({
                         project_id: customerProject.id,
                     }),
@@ -364,6 +378,78 @@ export const uiRoutes = new Elysia()
                     }),
                     start: rangeStart,
                     end: rangeEnd,
+                    TASK_STATE_LABELS,
+                }));
+            })
+            .get("/app/tasks", async ({ render, session }) =>
+                render("tasks", appPage(session, {
+                    title: "Tasks — HammerByte",
+                    userId: session?.id,
+                    tasks: await getAllTasks(),
+                    users: await getAllUsers(),
+                    projects: await getAllCustomerProjects(),
+                    TASK_STATES,
+                    TASK_STATE_LABELS,
+                    TASK_PRIORITIES,
+                    TASK_PRIORITY_LABELS,
+                })),
+            )
+            .get("/app/tasks/report", async ({ render, session, query }) => {
+                const now = new Date();
+                const defaultTo = getReadableDate("YYYY-MM-DD", now);
+                const defaultFrom = getReadableDate(
+                    "YYYY-MM-DD",
+                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30),
+                );
+
+                const from = parseQueryDate(query.from) || defaultFrom;
+                const to = parseQueryDate(query.to) || defaultTo;
+
+                const rangeFrom = from <= to ? from : to;
+                const rangeTo = from <= to ? to : from;
+
+                const report = await buildTaskReport({
+                    from: rangeFrom,
+                    to: rangeTo,
+                });
+
+                return render("tasks-report", appPage(session, {
+                    title: "Tasks report — HammerByte",
+                    from: rangeFrom,
+                    to: rangeTo,
+                    report,
+                    users: await getAllUsers(),
+                    projects: await getAllCustomerProjects(),
+                    TASK_STATE_LABELS,
+                }));
+            })
+            .get("/app/tasks/:id", async ({ render, session, params, redirect }) => {
+                const task = await getTaskById({ id: params.id });
+                if (!task) {
+                    return redirect("/not-found");
+                }
+
+                const follower = await getTaskFollowerByTaskIdAndUserId({
+                    task_id: task.id,
+                    user_id: session?.id,
+                });
+
+                return render("task", appPage(session, {
+                    title: `${task.title} — Tasks — HammerByte`,
+                    task,
+                    userId: session?.id,
+                    users: await getAllUsers(),
+                    projects: await getAllCustomerProjects(),
+                    comments: await getAllTaskCommentsByTaskId({ task_id: task.id }),
+                    attachments: await getAllTaskAttachmentsByTaskId({ task_id: task.id }),
+                    reminders: await getAllTaskRemindersByTaskId({ task_id: task.id }),
+                    activities: await getAllTaskActivitiesByTaskId({ task_id: task.id }),
+                    followers: await getAllTaskFollowersByTaskId({ task_id: task.id }),
+                    isFollowing: !!follower,
+                    TASK_STATES,
+                    TASK_STATE_LABELS,
+                    TASK_PRIORITIES,
+                    TASK_PRIORITY_LABELS,
                 }));
             })
             .get("/app/project-documents/:projectId", async ({ render, session, params, redirect }) => {

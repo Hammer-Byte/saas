@@ -26,6 +26,10 @@ import clauseSubclauses from "./apps/clause_subclauses.js";
 import gemTenderKeywords from "./apps/gem_tender_keywords.js";
 import gemKeywordTenders from "./apps/gem_keyword_tenders.js";
 import gemKeywordTenderComments from "./apps/gem_keyword_tender_comments.js";
+import tasks from "./apps/tasks.js";
+import taskComments from "./apps/task_comments.js";
+import taskAttachments from "./apps/task_attachments.js";
+import taskReminders from "./apps/task_reminders.js";
 import automationUsers from "./apps/automation_users.js";
 import contentPublish from "./apps/content_publish.js";
 import { getContentPublishPublicMedia } from "../services/content_publish.js";
@@ -88,6 +92,10 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/gem-tender-keywords", gemTenderKeywords)
             .group("/gem-keyword-tenders", gemKeywordTenders)
             .group("/gem-keyword-tender-comments", gemKeywordTenderComments)
+            .group("/tasks", tasks)
+            .group("/task-comments", taskComments)
+            .group("/task-attachments", taskAttachments)
+            .group("/task-reminders", taskReminders)
             .group("/automation-users", automationUsers)
             .group("/content-publish", contentPublish)
             .group("/linkedin-designations", linkedinDesignations)

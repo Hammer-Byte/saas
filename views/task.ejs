@@ -1,0 +1,537 @@
+<%- include('common/header') %>
+
+<%
+    const stateLabels = TASK_STATE_LABELS || {};
+    const priorityLabels = TASK_PRIORITY_LABELS || {};
+    const stateValues = Object.values(TASK_STATES || {});
+    const priorityValues = Object.values(TASK_PRIORITIES || {});
+    const currentUserId = Number(userId || 0);
+    const assigneeUserId = task.assignee_user_id ? Number(task.assignee_user_id) : null;
+    const projectId = task.project_id ? Number(task.project_id) : null;
+%>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/tasks" class="text-decoration-none">Tasks</a> /
+                    <%= task.title %>
+                </p>
+                <h1 class="h3 mb-1"><%= task.title %></h1>
+                <p class="text-secondary mb-0">
+                    Created by <%= task.created_by_full_name || task.created_by_email || "—" %>
+                </p>
+            </div>
+            <a href="/app/tasks" class="btn btn-outline-secondary">Back to tasks</a>
+        </div>
+
+        <div id="task-alert" class="alert d-none" role="alert"></div>
+
+        <div
+            class="card border-0 shadow-sm mb-4"
+            id="task-detail"
+            data-id="<%= task.id %>"
+            data-current-user-id="<%= currentUserId %>"
+            data-state="<%= task.state || '' %>"
+        >
+            <div class="card-body p-4">
+                <form id="task-edit-form" novalidate>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="task-quick-state" class="form-label">Quick state</label>
+                            <select class="form-select" id="task-quick-state">
+                                <% stateValues.forEach(function (state) { %>
+                                    <option
+                                        value="<%= state %>"
+                                        <%= (task.state || TASK_STATES.TODO) === state ? "selected" : "" %>
+                                    >
+                                        <%= stateLabels[state] || state %>
+                                    </option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end gap-2 flex-wrap">
+                            <button type="button" class="btn btn-outline-success" id="task-mark-done-btn">
+                                Mark done
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="task-duplicate-btn">
+                                Duplicate
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" id="task-delete-btn">
+                                Delete
+                            </button>
+                            <button
+                                type="button"
+                                class="btn <%= isFollowing ? 'btn-warning' : 'btn-outline-primary' %>"
+                                id="task-follow-btn"
+                                data-following="<%= isFollowing ? '1' : '0' %>"
+                            >
+                                <%= isFollowing ? "Unfollow" : "Follow" %>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="task-blocked-reason-wrap" class="mb-3 <%= (task.state || '') === TASK_STATES.BLOCKED ? '' : 'd-none' %>">
+                        <label for="task-blocked-reason" class="form-label">Blocked reason</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="task-blocked-reason"
+                            name="blocked_reason"
+                            maxlength="512"
+                            value="<%= task.blocked_reason || '' %>"
+                        />
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="task-edit-title" class="form-label">Title</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="task-edit-title"
+                                name="title"
+                                maxlength="128"
+                                value="<%= task.title %>"
+                                required
+                            />
+                        </div>
+                        <div class="col-12">
+                            <label for="task-edit-description" class="form-label">Description</label>
+                            <textarea
+                                class="form-control"
+                                id="task-edit-description"
+                                name="description"
+                                rows="4"
+                            ><%= task.description || "" %></textarea>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="task-edit-expected-hours" class="form-label">Expected hours</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="task-edit-expected-hours"
+                                name="expected_hours"
+                                min="0"
+                                step="0.25"
+                                value="<%= task.expected_hours != null ? task.expected_hours : '' %>"
+                            />
+                        </div>
+                        <div class="col-md-3">
+                            <label for="task-edit-actual-hours" class="form-label">Actual hours</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="task-edit-actual-hours"
+                                name="actual_hours"
+                                min="0"
+                                step="0.25"
+                                value="<%= task.actual_hours != null ? task.actual_hours : '' %>"
+                            />
+                        </div>
+                        <div class="col-md-3">
+                            <label for="task-edit-start-at" class="form-label">Start</label>
+                            <input
+                                type="text"
+                                class="form-control js-datetime-input"
+                                id="task-edit-start-at"
+                                name="start_at"
+                                placeholder="dd/mm/yyyy hh:mm"
+                                autocomplete="off"
+                                data-date-value="<%= task.start_at || '' %>"
+                                value="<%= task.start_at || '' %>"
+                            />
+                        </div>
+                        <div class="col-md-3">
+                            <label for="task-edit-end-at" class="form-label">End</label>
+                            <input
+                                type="text"
+                                class="form-control js-datetime-input"
+                                id="task-edit-end-at"
+                                name="end_at"
+                                placeholder="dd/mm/yyyy hh:mm"
+                                autocomplete="off"
+                                data-date-value="<%= task.end_at || '' %>"
+                                value="<%= task.end_at || '' %>"
+                            />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="task-edit-state" class="form-label">State</label>
+                            <select class="form-select" id="task-edit-state" name="state" required>
+                                <% stateValues.forEach(function (state) { %>
+                                    <option
+                                        value="<%= state %>"
+                                        <%= (task.state || TASK_STATES.TODO) === state ? "selected" : "" %>
+                                    >
+                                        <%= stateLabels[state] || state %>
+                                    </option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="task-edit-priority" class="form-label">Priority</label>
+                            <select class="form-select" id="task-edit-priority" name="priority" required>
+                                <% priorityValues.forEach(function (priority) { %>
+                                    <option
+                                        value="<%= priority %>"
+                                        <%= (task.priority || TASK_PRIORITIES.MEDIUM) === priority ? "selected" : "" %>
+                                    >
+                                        <%= priorityLabels[priority] || priority %>
+                                    </option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="task-edit-assignee" class="form-label">Assignee</label>
+                            <select class="form-select" id="task-edit-assignee" name="assignee_user_id">
+                                <option value="">Unassigned</option>
+                                <% (users || []).forEach(function (user) { %>
+                                    <option
+                                        value="<%= user.id %>"
+                                        <%= assigneeUserId === Number(user.id) ? "selected" : "" %>
+                                    >
+                                        <%= user.full_name %> (<%= user.email %>)
+                                    </option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="task-edit-project" class="form-label">Project</label>
+                            <select class="form-select" id="task-edit-project" name="project_id">
+                                <option value="">No project</option>
+                                <% (projects || []).forEach(function (project) { %>
+                                    <option
+                                        value="<%= project.id %>"
+                                        <%= projectId === Number(project.id) ? "selected" : "" %>
+                                    >
+                                        <%= project.title %><% if (project.customer_name) { %> — <%= project.customer_name %><% } %>
+                                    </option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="form-label mb-1">Completed on</p>
+                            <p class="mb-0">
+                                <% if (task.completed_on) { %>
+                                    <span
+                                        data-readable-date="<%= task.completed_on %>"
+                                        data-date-format="DD/MM/YYYY HH:mm"
+                                    ></span>
+                                <% } else { %>
+                                    —
+                                <% } %>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary" id="task-save-btn">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm mb-4 h-100">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <h2 class="h5 mb-0">Attachments</h2>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <form id="task-attachment-form" class="mb-4" novalidate>
+                            <div id="task-attachment-form-alert" class="alert d-none" role="alert"></div>
+                            <label for="task-attachment-file" class="form-label">Upload file</label>
+                            <input type="file" class="form-control mb-2" id="task-attachment-file" required />
+                            <label for="task-attachment-description" class="form-label">Description</label>
+                            <input
+                                type="text"
+                                class="form-control mb-3"
+                                id="task-attachment-description"
+                                maxlength="512"
+                            />
+                            <button type="submit" class="btn btn-primary" id="task-attachment-submit-btn">
+                                Add attachment
+                            </button>
+                        </form>
+                        <div
+                            id="task-attachments-empty"
+                            class="text-secondary <%= attachments && attachments.length ? 'd-none' : '' %>"
+                        >
+                            No attachments yet.
+                        </div>
+                        <ul class="list-group list-group-flush" id="task-attachments-list">
+                            <% (attachments || []).forEach(function (attachment) { %>
+                                <li
+                                    class="list-group-item px-0 d-flex justify-content-between align-items-start gap-2"
+                                    data-id="<%= attachment.id %>"
+                                >
+                                    <div>
+                                        <a
+                                            href="/api/media/<%= attachment.media_id %>"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <%= attachment.media_name || ("File #" + attachment.media_id) %>
+                                        </a>
+                                        <% if (attachment.description) { %>
+                                            <p class="small text-secondary mb-0"><%= attachment.description %></p>
+                                        <% } %>
+                                        <p class="small text-secondary mb-0">
+                                            By <%= attachment.created_by_full_name || "—" %>
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-danger task-attachment-delete-btn"
+                                    >
+                                        Delete
+                                    </button>
+                                </li>
+                            <% }) %>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm mb-4 h-100">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <h2 class="h5 mb-0">Comments</h2>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <form id="task-comment-form" class="mb-4" novalidate>
+                            <label for="task-comment-text" class="form-label">Add comment</label>
+                            <textarea class="form-control" id="task-comment-text" rows="3" required></textarea>
+                            <label for="task-comment-file" class="form-label mt-2">Attachment (optional)</label>
+                            <input type="file" class="form-control" id="task-comment-file" />
+                            <button type="submit" class="btn btn-primary mt-3" id="task-comment-submit-btn">
+                                Add comment
+                            </button>
+                        </form>
+                        <div
+                            id="task-comments-empty"
+                            class="text-secondary <%= comments && comments.length ? 'd-none' : '' %>"
+                        >
+                            No comments yet.
+                        </div>
+                        <ul class="list-group list-group-flush" id="task-comments-list">
+                            <% (comments || []).forEach(function (comment) { %>
+                                <li
+                                    class="list-group-item px-0"
+                                    data-id="<%= comment.id %>"
+                                    data-user-id="<%= comment.user_id %>"
+                                    data-comment="<%= encodeURIComponent(comment.comment || '') %>"
+                                >
+                                    <div class="d-flex justify-content-between gap-3 mb-2">
+                                        <strong><%= comment.user_full_name || comment.user_email %></strong>
+                                        <span
+                                            class="text-secondary small text-nowrap"
+                                            data-readable-date="<%= comment.created_on %>"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                                        ></span>
+                                    </div>
+                                    <p class="mb-2 task-comment-body"><%= comment.comment %></p>
+                                    <% if (comment.media_id && comment.attachment_name) { %>
+                                        <p class="mb-2 small">
+                                            <a
+                                                href="/api/media/<%= comment.media_id %>"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                Attachment: <%= comment.attachment_name %>
+                                            </a>
+                                        </p>
+                                    <% } %>
+                                    <% if (Number(comment.user_id) === currentUserId) { %>
+                                        <div class="d-flex gap-2">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-primary task-comment-edit-btn"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger task-comment-delete-btn"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    <% } %>
+                                </li>
+                            <% }) %>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <h2 class="h5 mb-0">Reminders</h2>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <form id="task-reminder-form" class="mb-4" novalidate>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label for="task-reminder-at" class="form-label">Remind at</label>
+                                    <input
+                                        type="text"
+                                        class="form-control js-datetime-input"
+                                        id="task-reminder-at"
+                                        placeholder="dd/mm/yyyy hh:mm"
+                                        autocomplete="off"
+                                        required
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="task-reminder-recipient" class="form-label">Recipient</label>
+                                    <select class="form-select" id="task-reminder-recipient" required>
+                                        <option value="">Choose user…</option>
+                                        <% (users || []).forEach(function (user) { %>
+                                            <option value="<%= user.id %>"><%= user.full_name %></option>
+                                        <% }) %>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary mt-3" id="task-reminder-submit-btn">
+                                Schedule reminder
+                            </button>
+                        </form>
+                        <div
+                            id="task-reminders-empty"
+                            class="text-secondary <%= reminders && reminders.length ? 'd-none' : '' %>"
+                        >
+                            No reminders scheduled.
+                        </div>
+                        <ul class="list-group list-group-flush" id="task-reminders-list">
+                            <% (reminders || []).forEach(function (reminder) { %>
+                                <li
+                                    class="list-group-item px-0 d-flex justify-content-between align-items-start gap-2"
+                                    data-id="<%= reminder.id %>"
+                                    data-pending="<%= reminder.sent_on ? '0' : '1' %>"
+                                >
+                                    <div>
+                                        <span
+                                            data-readable-date="<%= reminder.remind_at %>"
+                                            data-date-format="DD/MM/YYYY HH:mm"
+                                        ></span>
+                                        → <%= reminder.recipient_full_name || reminder.recipient_email %>
+                                        <% if (reminder.sent_on) { %>
+                                            <span class="badge text-bg-success ms-1">Sent</span>
+                                        <% } else { %>
+                                            <span class="badge text-bg-secondary ms-1">Pending</span>
+                                        <% } %>
+                                    </div>
+                                    <% if (!reminder.sent_on) { %>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-danger task-reminder-cancel-btn"
+                                        >
+                                            Cancel
+                                        </button>
+                                    <% } %>
+                                </li>
+                            <% }) %>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <h2 class="h5 mb-0">Followers</h2>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <div
+                            id="task-followers-empty"
+                            class="text-secondary <%= followers && followers.length ? 'd-none' : '' %>"
+                        >
+                            No followers yet.
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            <% (followers || []).forEach(function (follower) { %>
+                                <li class="list-group-item px-0">
+                                    <%= follower.user_full_name || follower.user_email %>
+                                </li>
+                            <% }) %>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <h2 class="h5 mb-0">Activity</h2>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <div
+                            id="task-activities-empty"
+                            class="text-secondary <%= activities && activities.length ? 'd-none' : '' %>"
+                        >
+                            No activity yet.
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            <% (activities || []).forEach(function (activity) { %>
+                                <li class="list-group-item px-0">
+                                    <div class="d-flex justify-content-between gap-3">
+                                        <div>
+                                            <strong><%= activity.user_full_name || activity.user_email %></strong>
+                                            <span class="text-secondary">— <%= activity.activity %></span>
+                                        </div>
+                                        <span
+                                            class="text-secondary small text-nowrap"
+                                            data-readable-date="<%= activity.created_on %>"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                                        ></span>
+                                    </div>
+                                </li>
+                            <% }) %>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="task-comment-edit-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="task-comment-edit-form" novalidate>
+                <input type="hidden" id="task-comment-edit-id" value="" />
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Edit comment</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="task-comment-edit-alert" class="alert d-none" role="alert"></div>
+                    <textarea class="form-control" id="task-comment-edit-text" rows="5" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="task-comment-edit-save-btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/task.js" defer></script>
+<%- include('common/footer') %>
