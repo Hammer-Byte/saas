@@ -776,10 +776,10 @@ export const uiRoutes = new Elysia()
             })
             .get("/app/gem-keyword-tenders", async ({ render, session, query }) => {
                 const now = new Date();
-                const defaultTo = getReadableDate("YYYY-MM-DD", now);
-                const defaultFrom = getReadableDate(
+                const defaultFrom = getReadableDate("YYYY-MM-DD", now);
+                const defaultTo = getReadableDate(
                     "YYYY-MM-DD",
-                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30),
+                    new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7),
                 );
 
                 const from =
@@ -806,10 +806,10 @@ export const uiRoutes = new Elysia()
             })
             .get("/app/gem-keyword-tender-report", async ({ render, session, query }) => {
                 const now = new Date();
-                const defaultTo = getReadableDate("YYYY-MM-DD", now);
-                const defaultFrom = getReadableDate(
+                const defaultFrom = getReadableDate("YYYY-MM-DD", now);
+                const defaultTo = getReadableDate(
                     "YYYY-MM-DD",
-                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30),
+                    new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7),
                 );
 
                 const from =

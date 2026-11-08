@@ -134,28 +134,64 @@
                     </form>
                     <div class="row g-2 align-items-end gem-tenders-filters-row">
                         <div class="col-6 col-md-4 col-xl-2">
-                            <label for="gem-filter-keyword" class="form-label">Keyword</label>
-                            <select class="form-select form-select-sm" id="gem-filter-keyword">
-                                <option value="">All</option>
-                                <% (keywords || []).forEach(function (keyword) { %>
-                                    <option value="<%= keyword.id %>"><%= keyword.keyword %></option>
-                                <% }) %>
-                            </select>
+                            <span class="form-label d-block">Keyword</span>
+                            <div class="dropdown gem-multi-filter w-100" id="gem-filter-keyword" data-empty-label="All keywords">
+                                <button
+                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
+                                    type="button"
+                                    data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside"
+                                    aria-expanded="false"
+                                >
+                                    <span class="gem-multi-filter-label">All keywords</span>
+                                </button>
+                                <div class="dropdown-menu gem-multi-filter-menu p-2 shadow">
+                                    <% (keywords || []).forEach(function (keyword) { %>
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input gem-multi-filter-option"
+                                                type="checkbox"
+                                                value="<%= keyword.id %>"
+                                                id="gem-filter-keyword-<%= keyword.id %>"
+                                                data-label="<%= keyword.keyword %>"
+                                            />
+                                            <label class="form-check-label" for="gem-filter-keyword-<%= keyword.id %>">
+                                                <%= keyword.keyword %>
+                                            </label>
+                                        </div>
+                                    <% }) %>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-6 col-md-4 col-xl-2">
-                            <label for="gem-filter-stage" class="form-label">Stage</label>
-                            <select
-                                class="form-select form-select-sm"
-                                id="gem-filter-stage"
-                                multiple
-                                size="5"
-                                aria-label="Filter by stage (multiple)"
-                            >
-                                <% stageValues.forEach(function (stage) { %>
-                                    <option value="<%= stage %>"><%= stageLabels[stage] %></option>
-                                <% }) %>
-                            </select>
-                            <div class="form-text">Hold Ctrl/Cmd to multi-select</div>
+                            <span class="form-label d-block">Stage</span>
+                            <div class="dropdown gem-multi-filter w-100" id="gem-filter-stage" data-empty-label="All stages">
+                                <button
+                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
+                                    type="button"
+                                    data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside"
+                                    aria-expanded="false"
+                                >
+                                    <span class="gem-multi-filter-label">All stages</span>
+                                </button>
+                                <div class="dropdown-menu gem-multi-filter-menu p-2 shadow">
+                                    <% stageValues.forEach(function (stage) { %>
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input gem-multi-filter-option"
+                                                type="checkbox"
+                                                value="<%= stage %>"
+                                                id="gem-filter-stage-<%= stage %>"
+                                                data-label="<%= stageLabels[stage] %>"
+                                            />
+                                            <label class="form-check-label" for="gem-filter-stage-<%= stage %>">
+                                                <%= stageLabels[stage] %>
+                                            </label>
+                                        </div>
+                                    <% }) %>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-6 col-md-4 col-xl-2">
                             <label for="gem-tenders-search" class="form-label">Search</label>
@@ -168,20 +204,46 @@
                             />
                         </div>
                         <div class="col-6 col-md-4 col-xl-2">
-                            <label for="gem-filter-assignee" class="form-label">Assignee</label>
-                            <select
-                                class="form-select form-select-sm"
-                                id="gem-filter-assignee"
-                                multiple
-                                size="5"
-                                aria-label="Filter by assignee (multiple)"
-                            >
-                                <option value="unassigned">Unassigned</option>
-                                <% (users || []).forEach(function (user) { %>
-                                    <option value="<%= user.id %>"><%= user.full_name %></option>
-                                <% }) %>
-                            </select>
-                            <div class="form-text">Hold Ctrl/Cmd to multi-select</div>
+                            <span class="form-label d-block">Assignee</span>
+                            <div class="dropdown gem-multi-filter w-100" id="gem-filter-assignee" data-empty-label="All assignees">
+                                <button
+                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
+                                    type="button"
+                                    data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside"
+                                    aria-expanded="false"
+                                >
+                                    <span class="gem-multi-filter-label">All assignees</span>
+                                </button>
+                                <div class="dropdown-menu gem-multi-filter-menu p-2 shadow">
+                                    <div class="form-check">
+                                        <input
+                                            class="form-check-input gem-multi-filter-option"
+                                            type="checkbox"
+                                            value="unassigned"
+                                            id="gem-filter-assignee-unassigned"
+                                            data-label="Unassigned"
+                                        />
+                                        <label class="form-check-label" for="gem-filter-assignee-unassigned">
+                                            Unassigned
+                                        </label>
+                                    </div>
+                                    <% (users || []).forEach(function (user) { %>
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input gem-multi-filter-option"
+                                                type="checkbox"
+                                                value="<%= user.id %>"
+                                                id="gem-filter-assignee-<%= user.id %>"
+                                                data-label="<%= user.full_name %>"
+                                            />
+                                            <label class="form-check-label" for="gem-filter-assignee-<%= user.id %>">
+                                                <%= user.full_name %>
+                                            </label>
+                                        </div>
+                                    <% }) %>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-6 col-md-4 col-xl-1">
                             <label for="gem-filter-past-experience" class="form-label">Past exp.</label>
@@ -447,6 +509,19 @@
     }
     .gem-tenders-filters-row .form-label {
         font-size: 0.75rem;
+        margin-bottom: 0.25rem;
+    }
+    .gem-multi-filter .gem-multi-filter-toggle {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .gem-multi-filter-menu {
+        max-height: 240px;
+        overflow: auto;
+        min-width: 100%;
+    }
+    .gem-multi-filter-menu .form-check {
         margin-bottom: 0.25rem;
     }
 </style>

@@ -6,6 +6,7 @@
     const keywordFilter = document.getElementById("gem-filter-keyword");
     const stageFilter = document.getElementById("gem-filter-stage");
     const assigneeFilter = document.getElementById("gem-filter-assignee");
+    const multiFilters = [keywordFilter, stageFilter, assigneeFilter].filter(Boolean);
     const showAllFilter = document.getElementById("gem-filter-show-all");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
     const quantityClearBtn = document.getElementById("gem-filter-quantity-clear");
@@ -45,22 +46,52 @@
         }
     }
 
-    function selectedValues(select) {
-        if (!select) return [];
-        return Array.from(select.selectedOptions || [])
-            .map((option) => String(option.value || "").trim())
+    function multiFilterOptions(root) {
+        return Array.from(root?.querySelectorAll(".gem-multi-filter-option") || []);
+    }
+
+    function selectedMultiValues(root) {
+        return multiFilterOptions(root)
+            .filter((input) => input.checked)
+            .map((input) => String(input.value || "").trim())
             .filter(Boolean);
     }
 
-    function setSelectedValues(select, values) {
-        if (!select) return;
+    function selectedMultiLabels(root) {
+        return multiFilterOptions(root)
+            .filter((input) => input.checked)
+            .map((input) => String(input.dataset.label || input.value || "").trim())
+            .filter(Boolean);
+    }
+
+    function setSelectedMultiValues(root, values) {
+        if (!root) return;
         const wanted = new Set(
-            (Array.isArray(values) ? values : values != null && values !== "" ? [values] : [])
-                .map((value) => String(value)),
+            (Array.isArray(values) ? values : values != null && values !== "" ? [values] : []).map(
+                (value) => String(value),
+            ),
         );
-        for (const option of select.options) {
-            option.selected = wanted.has(String(option.value));
+        for (const input of multiFilterOptions(root)) {
+            input.checked = wanted.has(String(input.value));
         }
+        updateMultiFilterLabel(root);
+    }
+
+    function updateMultiFilterLabel(root) {
+        if (!root) return;
+        const labelEl = root.querySelector(".gem-multi-filter-label");
+        if (!labelEl) return;
+        const emptyLabel = root.dataset.emptyLabel || "All";
+        const labels = selectedMultiLabels(root);
+        if (!labels.length) {
+            labelEl.textContent = emptyLabel;
+            return;
+        }
+        if (labels.length <= 2) {
+            labelEl.textContent = labels.join(", ");
+            return;
+        }
+        labelEl.textContent = `${labels.slice(0, 2).join(", ")} +${labels.length - 2}`;
     }
 
     function collectFilters() {
@@ -73,9 +104,9 @@
         return {
             from: window.getWritableDate?.("YYYY-MM-DD", fromInput?.value || "") || "",
             to: window.getWritableDate?.("YYYY-MM-DD", toInput?.value || "") || "",
-            keywordId: keywordFilter?.value || "",
-            stages: selectedValues(stageFilter),
-            assignees: selectedValues(assigneeFilter),
+            keywords: selectedMultiValues(keywordFilter),
+            stages: selectedMultiValues(stageFilter),
+            assignees: selectedMultiValues(assigneeFilter),
             search: searchInput?.value || "",
             showAll: !!showAllFilter?.checked,
             quantityUpto: quantityUptoFilter?.value || "",
@@ -291,9 +322,9 @@
 
     function applyFilters() {
         const query = (searchInput?.value || "").trim().toLowerCase();
-        const keywordId = (keywordFilter?.value || "").trim();
-        const selectedStages = selectedValues(stageFilter);
-        const selectedAssignees = selectedValues(assigneeFilter);
+        const selectedKeywords = selectedMultiValues(keywordFilter);
+        const selectedStages = selectedMultiValues(stageFilter);
+        const selectedAssignees = selectedMultiValues(assigneeFilter);
         const showHiddenStages = !!showAllFilter?.checked;
         const quantityUptoRaw = String(quantityUptoFilter?.value ?? "").trim();
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
@@ -318,8 +349,9 @@
                 selectedStages.includes("unattended") ||
                 !isHiddenStage;
 
+            const rowKeywordId = String(row.dataset.keywordId || "");
             const matchesKeyword =
-                !keywordId || String(row.dataset.keywordId || "") === keywordId;
+                !selectedKeywords.length || selectedKeywords.includes(rowKeywordId);
 
             const matchesStage =
                 !selectedStages.length || selectedStages.includes(rowStage);
@@ -378,8 +410,14 @@
 
     function restoreClientFilters(filters) {
         if (!filters) return;
-        if (keywordFilter && filters.keywordId != null) {
-            keywordFilter.value = filters.keywordId;
+        if (keywordFilter) {
+            const keywords =
+                Array.isArray(filters.keywords)
+                    ? filters.keywords
+                    : filters.keywordId != null && filters.keywordId !== ""
+                      ? [filters.keywordId]
+                      : [];
+            setSelectedMultiValues(keywordFilter, keywords);
         }
         if (stageFilter) {
             const stages =
@@ -388,7 +426,7 @@
                     : filters.stage != null && filters.stage !== ""
                       ? [filters.stage]
                       : [];
-            setSelectedValues(stageFilter, stages);
+            setSelectedMultiValues(stageFilter, stages);
         }
         if (assigneeFilter) {
             const assignees =
@@ -397,7 +435,7 @@
                     : filters.assignee != null && filters.assignee !== ""
                       ? [filters.assignee]
                       : [];
-            setSelectedValues(assigneeFilter, assignees);
+            setSelectedMultiValues(assigneeFilter, assignees);
         }
         if (searchInput && filters.search != null) {
             searchInput.value = filters.search;
@@ -424,9 +462,9 @@
     }
 
     function resetClientFilters() {
-        if (keywordFilter) keywordFilter.value = "";
-        setSelectedValues(stageFilter, []);
-        setSelectedValues(assigneeFilter, []);
+        setSelectedMultiValues(keywordFilter, []);
+        setSelectedMultiValues(stageFilter, []);
+        setSelectedMultiValues(assigneeFilter, []);
         if (searchInput) searchInput.value = "";
         if (showAllFilter) showAllFilter.checked = false;
         if (quantityUptoFilter) quantityUptoFilter.value = "";
@@ -441,11 +479,17 @@
         select.addEventListener("change", applyFilters);
     }
 
+    for (const root of multiFilters) {
+        updateMultiFilterLabel(root);
+        root.addEventListener("change", (event) => {
+            if (!event.target?.classList?.contains("gem-multi-filter-option")) return;
+            updateMultiFilterLabel(root);
+            applyFilters();
+        });
+    }
+
     restoreClientFilters(storedFilters);
 
-    keywordFilter?.addEventListener("change", applyFilters);
-    stageFilter?.addEventListener("change", applyFilters);
-    assigneeFilter?.addEventListener("change", applyFilters);
     showAllFilter?.addEventListener("change", applyFilters);
     quantityUptoFilter?.addEventListener("input", applyFilters);
     quantityUptoFilter?.addEventListener("change", applyFilters);
