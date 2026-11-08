@@ -5,6 +5,7 @@ import transporter from "./libs/transporter.js";
 import bucketizer from "./libs/bucketizer.js";
 import { allowTraffic } from "./server.js";
 import { startServerPingAlertWatcher } from "./libs/server_alert_notify.js";
+import { startGemTenderEligibilityReminderWatcher } from "./libs/gem_tender_eligibility_remind.js";
 
 logger.init({
     saveLogs: false,
@@ -23,6 +24,8 @@ try {
     logger.success("Content Publish Queue Ready");
     startServerPingAlertWatcher();
     logger.success("Server Ping Alert Watcher Ready");
+    startGemTenderEligibilityReminderWatcher();
+    logger.success("GEM Tender Eligibility Reminder Watcher Ready");
     allowTraffic();
 } catch (error) {
     logger.error(`Application Exited - ${error.message}`);

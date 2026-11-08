@@ -52,9 +52,12 @@ export async function addUser({ body, set }) {
         passwordHash = await Bun.password.hash(password);
     }
 
+    const personalEmail = String(body.personal_email || "").trim().toLowerCase() || null;
+
     const id = await createUser({
         full_name: body.full_name.trim(),
         email,
+        personal_email: personalEmail,
         login_method: loginMethod,
         password_hash: passwordHash,
     });
@@ -113,10 +116,13 @@ export async function updateUser({ body, set }) {
         updatePassword = true;
     }
 
+    const personalEmail = String(body.personal_email || "").trim().toLowerCase() || null;
+
     await updateUserById({
         id: existingUser.id,
         full_name: body.full_name.trim(),
         email,
+        personal_email: personalEmail,
         login_method: loginMethod,
         password_hash: passwordHash,
         update_password: updatePassword,

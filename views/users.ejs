@@ -53,6 +53,7 @@
                                 <th scope="col">ID</th>
                                 <th scope="col">Full name</th>
                                 <th scope="col">Email</th>
+                                <th scope="col">Personal email</th>
                                 <th scope="col">Login method</th>
                                 <th scope="col">Actions</th>
                             </tr>
@@ -64,11 +65,13 @@
                                     data-id="<%= user.id %>"
                                     data-full-name="<%= user.full_name %>"
                                     data-email="<%= user.email %>"
+                                    data-personal-email="<%= user.personal_email || '' %>"
                                     data-login-method="<%= method %>"
                                 >
                                     <td class="user-id"><%= user.id %></td>
                                     <td class="user-full-name"><%= user.full_name %></td>
                                     <td class="user-email"><%= user.email %></td>
+                                    <td class="user-personal-email"><%= user.personal_email || "-" %></td>
                                     <td class="user-login-method"><%= loginMethodLabels[method] || method %></td>
                                     <td>
                                         <div class="d-flex gap-2 flex-wrap">
@@ -104,6 +107,17 @@
                     <div class="mb-3">
                         <label for="user-email" class="form-label">Email</label>
                         <input type="email" class="form-control" id="user-email" name="email" maxlength="48" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="user-personal-email" class="form-label">Personal email</label>
+                        <input
+                            type="email"
+                            class="form-control"
+                            id="user-personal-email"
+                            name="personal_email"
+                            maxlength="128"
+                        />
+                        <div class="form-text">Used for GEM tender eligibility reminders. Optional.</div>
                     </div>
                     <div class="mb-3">
                         <label for="user-login-method" class="form-label">Login method</label>

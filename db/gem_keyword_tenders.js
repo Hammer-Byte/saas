@@ -1,6 +1,7 @@
 import { logger } from "@hammerbyte/utils";
+import { GEM_KEYWORD_TENDER_ELIGIBILITY } from "../constants.js";
 import { executeSQLQuery } from "../libs/db.js";
-import { toDbDateTime } from "../libs/date.js";
+import { getIstDateTime, toDbDateTime } from "../libs/date.js";
 
 function serializeSpecificationLinks(specification_links) {
     if (specification_links == null) {
@@ -286,5 +287,62 @@ export async function updateGemKeywordTenderById({
         `,
     ).catch((error) => {
         logger.error(`updateGemKeywordTenderById: ${error}`);
+    });
+}
+
+export async function getGemKeywordTendersPendingEligibilityReminder({
+    older_than_datetime,
+}) {
+    const cutoff = toDbDateTime(older_than_datetime) || older_than_datetime;
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                GEM_KEYWORD_TENDERS.id,
+                GEM_KEYWORD_TENDERS.tender_id,
+                GEM_KEYWORD_TENDERS.end_date_time,
+                GEM_KEYWORD_TENDERS.assignee_user_id,
+                GEM_KEYWORD_TENDERS.eligibility_reminder_sent_on,
+                GEM_TENDER_KEYWORDS.keyword AS keyword,
+                USERS.full_name AS assignee_full_name,
+                USERS.email AS assignee_email,
+                USERS.personal_email AS assignee_personal_email
+            FROM GEM_KEYWORD_TENDERS
+            INNER JOIN GEM_TENDER_KEYWORDS
+                ON GEM_TENDER_KEYWORDS.id = GEM_KEYWORD_TENDERS.keyword_id
+            INNER JOIN USERS
+                ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
+            WHERE GEM_KEYWORD_TENDERS.assignee_user_id IS NOT NULL
+              AND GEM_KEYWORD_TENDERS.eligible = ${GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK}
+              AND (
+                    GEM_KEYWORD_TENDERS.eligibility_reminder_sent_on IS NULL
+                 OR GEM_KEYWORD_TENDERS.eligibility_reminder_sent_on <= ${cutoff}
+              )
+            ORDER BY USERS.id ASC, GEM_KEYWORD_TENDERS.end_date_time ASC, GEM_KEYWORD_TENDERS.id ASC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getGemKeywordTendersPendingEligibilityReminder: ${error}`);
+            return [];
+        });
+}
+
+export async function stampGemKeywordTenderEligibilityReminders({ ids, sent_on = null }) {
+    const tenderIds = (ids || [])
+        .map((id) => Number(id))
+        .filter((id) => id >= 1);
+    if (!tenderIds.length) {
+        return;
+    }
+
+    const stampedOn = toDbDateTime(sent_on) || getIstDateTime();
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE GEM_KEYWORD_TENDERS
+            SET eligibility_reminder_sent_on = ${stampedOn}
+            WHERE id IN ${sql(tenderIds)}
+        `,
+    ).catch((error) => {
+        logger.error(`stampGemKeywordTenderEligibilityReminders: ${error}`);
     });
 }

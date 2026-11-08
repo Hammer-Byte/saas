@@ -4,6 +4,8 @@
     const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
     const eligibilityValues = GEM_KEYWORD_TENDER_ELIGIBILITY || {};
     const eligibilityLabels = GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS || {};
+    const canAssignOthers = (authorities || []).includes(AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE);
+    const currentUserId = Number(userId || 0);
 
     function resolveEligibility(value) {
         if (value === true || value === 1 || value === "1") return eligibilityValues.ELIGIBLE;
@@ -37,14 +39,47 @@
                 <h1 class="h3 mb-1">Tenders</h1>
                 <p class="text-secondary mb-0">Matched GEM tenders by end date range. Open a tender for details and actions.</p>
             </div>
-            <a
-                href="/app/gem-keyword-tender-report?from=<%= from %>&to=<%= to %>"
-                class="btn btn-outline-primary"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                Report
-            </a>
+            <div class="d-flex flex-wrap gap-2">
+                <a
+                    href="/app/gem-keyword-tender-report?from=<%= from %>&to=<%= to %>"
+                    class="btn btn-outline-primary"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Report
+                </a>
+            </div>
+        </div>
+
+        <div
+            id="gem-tenders-bulk-assign-bar"
+            class="card border-0 shadow-sm mb-3 d-none"
+            data-current-user-id="<%= currentUserId %>"
+            data-can-assign-others="<%= canAssignOthers ? '1' : '0' %>"
+        >
+            <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-2">
+                <span class="small text-secondary" id="gem-tenders-selected-count">0 selected</span>
+                <select class="form-select form-select-sm" id="gem-bulk-assignee" style="max-width: 280px;">
+                    <option value="">Choose assignee…</option>
+                    <% if (currentUserId) { %>
+                        <option value="<%= currentUserId %>">Assign to me</option>
+                    <% } %>
+                    <% if (canAssignOthers) { %>
+                        <% (users || []).forEach(function (user) { %>
+                            <% if (Number(user.id) !== currentUserId) { %>
+                                <option value="<%= user.id %>"><%= user.full_name %> (<%= user.email %>)</option>
+                            <% } %>
+                        <% }) %>
+                    <% } %>
+                </select>
+                <button type="button" class="btn btn-sm btn-primary" id="gem-bulk-assign-btn" disabled>
+                    Assign
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="gem-bulk-clear-btn">
+                    Clear selection
+                </button>
+                <span class="small text-danger d-none" id="gem-bulk-assign-status" role="status"></span>
+            </div>
         </div>
 
         <div class="card border-0 shadow-sm mb-3 gem-tenders-filters-card">
@@ -217,6 +252,14 @@
                     <table class="table table-hover align-middle mb-0 small" id="gem-tenders-table">
                         <thead class="table-light">
                             <tr>
+                                <th scope="col" style="width: 2rem;">
+                                    <input
+                                        type="checkbox"
+                                        class="form-check-input"
+                                        id="gem-tenders-select-all"
+                                        aria-label="Select all visible tenders"
+                                    />
+                                </th>
                                 <th scope="col">Tender ID</th>
                                 <th scope="col">Keyword</th>
                                 <th scope="col">Stage</th>
@@ -246,6 +289,14 @@
                                         data-hidden="<%= tender.hidden ? '1' : '0' %>"
                                         data-quantity="<%= Number(tender.quantity || 0) %>"
                                     >
+                                    <td>
+                                        <input
+                                            type="checkbox"
+                                            class="form-check-input gem-tender-select"
+                                            value="<%= tender.id %>"
+                                            aria-label="Select tender <%= tender.tender_id %>"
+                                        />
+                                    </td>
                                     <td>
                                         <a
                                             href="/app/gem-keyword-tenders/<%= tender.id %>"
@@ -310,8 +361,14 @@
         flex-direction: column;
     }
     .gem-tenders-page-header,
+    #gem-tenders-bulk-assign-bar,
     .gem-tenders-filters-card {
         flex: 0 0 auto;
+    }
+    #gem-tenders-bulk-assign-bar {
+        position: sticky;
+        top: 0;
+        z-index: 2;
     }
     .gem-tenders-list-card {
         flex: 1 1 auto;

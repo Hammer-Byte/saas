@@ -20,6 +20,7 @@
     const idInput = form.elements.namedItem("id");
     const fullNameInput = form.elements.namedItem("full_name");
     const emailInput = form.elements.namedItem("email");
+    const personalEmailInput = form.elements.namedItem("personal_email");
     const userRoleIds = new Map();
     const canManageRoles =
         typeof window.hasRequiredAuthority === "function"
@@ -117,6 +118,7 @@
         idInput.value = row.dataset.id || "";
         fullNameInput.value = row.dataset.fullName || "";
         emailInput.value = row.dataset.email || "";
+        if (personalEmailInput) personalEmailInput.value = row.dataset.personalEmail || "";
         if (loginMethodSelect) loginMethodSelect.value = row.dataset.loginMethod || "otp";
         if (passwordInput) passwordInput.value = "";
         syncPasswordField();
@@ -243,6 +245,7 @@
         const payload = {
             full_name: fullNameInput.value.trim(),
             email: emailInput.value.trim(),
+            personal_email: (personalEmailInput?.value || "").trim() || null,
             login_method: loginMethod,
         };
 

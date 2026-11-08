@@ -703,6 +703,7 @@ export const uiRoutes = new Elysia()
                     title: "Tenders — Gem Tenders Analyzer — HammerByte",
                     from: rangeFrom,
                     to: rangeTo,
+                    userId: session?.id,
                     keywords: await getAllGemTenderKeywords(),
                     users: await getAllUsers(),
                     tenders: await getAllGemKeywordTenders({

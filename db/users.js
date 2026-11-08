@@ -4,6 +4,7 @@ import { executeSQLQuery } from "../libs/db.js";
 export async function createUser({
     full_name,
     email,
+    personal_email = null,
     login_method = "otp",
     password_hash = null,
 }) {
@@ -13,11 +14,13 @@ export async function createUser({
                 {
                     full_name,
                     email,
+                    personal_email,
                     login_method,
                     password_hash,
                 },
                 "full_name",
                 "email",
+                "personal_email",
                 "login_method",
                 "password_hash",
             )}
@@ -33,6 +36,7 @@ export async function updateUserById({
     id,
     full_name,
     email,
+    personal_email = null,
     login_method,
     password_hash = null,
     update_password = false,
@@ -44,6 +48,7 @@ export async function updateUserById({
                 SET
                     full_name = ${full_name},
                     email = ${email},
+                    personal_email = ${personal_email},
                     login_method = ${login_method},
                     password_hash = ${password_hash}
                 WHERE id = ${id}
@@ -60,6 +65,7 @@ export async function updateUserById({
             SET
                 full_name = ${full_name},
                 email = ${email},
+                personal_email = ${personal_email},
                 login_method = ${login_method}
             WHERE id = ${id}
         `,
@@ -111,6 +117,7 @@ export async function getAllUsers() {
                 id,
                 full_name,
                 email,
+                personal_email,
                 login_method,
                 super_admin,
                 created_on,
@@ -133,6 +140,7 @@ export async function getAllSuperAdminUsers() {
                 id,
                 full_name,
                 email,
+                personal_email,
                 login_method,
                 super_admin,
                 created_on,

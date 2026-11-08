@@ -175,6 +175,18 @@ export async function buildGemKeywordTenderReport({ from, to }) {
         });
 
     const chartAssignees = assigneeSummary.filter((row) => row.key !== "unassigned");
+    const waitingForQuoteCount = Number(
+        stageTotals[GEM_KEYWORD_TENDER_STAGES.REQUESTED_FOR_QUOTE] || 0,
+    );
+    const stageTotalsList = Object.entries(stageTotals).map(([stage, count]) => ({
+        stage,
+        label: GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage,
+        count: Number(count || 0),
+    }));
+    const personWiseAssigned = chartAssignees.map((row) => ({
+        label: row.label,
+        assigned_count: row.assigned_count,
+    }));
 
     return {
         totals: {
@@ -186,14 +198,12 @@ export async function buildGemKeywordTenderReport({ from, to }) {
             eligible: eligibleCount,
             need_to_check: needToCheckCount,
             not_eligible: notEligibleCount,
+            waiting_for_quote: waitingForQuoteCount,
             untouched_assigned: untouchedAssignedCount,
             actors_with_activity: activityRows.length,
         },
-        stageTotals: Object.entries(stageTotals).map(([stage, count]) => ({
-            stage,
-            label: GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage,
-            count: Number(count || 0),
-        })),
+        stageTotals: stageTotalsList,
+        personWiseAssigned,
         assigneeSummary,
         workingSummary,
         activityRows: activityRows.map((row) => ({

@@ -24,6 +24,12 @@ export default function (app) {
                     format: "email",
                     error: "Valid email is required",
                 }),
+                personal_email: t.Optional(
+                    t.Union([
+                        t.String({ maxLength: 128 }),
+                        t.Null(),
+                    ]),
+                ),
                 login_method: loginMethodSchema,
                 password: t.Optional(t.String({ maxLength: 128 })),
             }),
@@ -46,6 +52,12 @@ export default function (app) {
                     format: "email",
                     error: "Valid email is required",
                 }),
+                personal_email: t.Optional(
+                    t.Union([
+                        t.String({ maxLength: 128 }),
+                        t.Null(),
+                    ]),
+                ),
                 login_method: loginMethodSchema,
                 password: t.Optional(t.String({ maxLength: 128 })),
             }),
