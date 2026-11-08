@@ -25,10 +25,11 @@ function normalize(text) {
 }
 
 function findStartPostControl() {
-  return [...document.querySelectorAll("div[role='button']")].find((el) => {
-    const aria = normalize(el.getAttribute("aria-label"));
-    const text = normalize(el.innerText);
-    return aria === "Start a post" || text === "Start a post";
+  return [...document.querySelectorAll("button, div[role='button'], a")].find((el) => {
+    const label = normalize((el.getAttribute("aria-label") || "") + " " + (el.innerText || ""));
+    return /^(start a post|create a post|create|write a post|share an update)$/i.test(label)
+      || /^start a post$/i.test(normalize(el.getAttribute("aria-label") || ""))
+      || /^create$/i.test(normalize(el.innerText || ""));
   }) || null;
 }
 
@@ -47,9 +48,11 @@ function findMediaButton() {
   const scope = dialog || document;
   return scope.querySelector("button[aria-label='Media']")
     || scope.querySelector("button[aria-label='Add media']")
-    || [...scope.querySelectorAll("button")].find((el) => {
+    || scope.querySelector("button[aria-label='Add a photo']")
+    || scope.querySelector("button[aria-label='Photo']")
+    || [...scope.querySelectorAll("button, div[role='button']")].find((el) => {
       const label = normalize(el.getAttribute("aria-label") || el.innerText || "");
-      return /^(media|add media)$/i.test(label);
+      return /^(media|add media|add a photo|add photo|photo|image|add image)$/i.test(label);
     })
     || null;
 }
@@ -426,49 +429,90 @@ async function openPersonalCompose(driver) {
     }
 }
 
-async function openPageCompose(driver, companyId) {
-    await openUrl(
-        driver,
-        `https://www.linkedin.com/company/${companyId}/admin/page-posts/published/?share=true`,
-    );
-    await contentPublishSleep(3500);
+async function clickPageComposeTrigger(driver) {
+    return await driver.executeScript(`
+      ${PAGE_HELPERS}
+      const control = findStartPostControl();
+      if (control) {
+        control.click();
+        return { ok: true, via: "start" };
+      }
+      // Share box placeholder often opens compose.
+      const shareBox = [...document.querySelectorAll("button, div[role='button'], a")]
+        .find((el) => {
+          const label = normalize((el.getAttribute("aria-label") || "") + " " + (el.innerText || ""));
+          return /what do you want to talk about|start a post|share an update|create a post/i.test(label);
+        });
+      if (shareBox) {
+        shareBox.click();
+        return { ok: true, via: "sharebox" };
+      }
+      return { ok: false };
+    `);
+}
 
-    let state = await diagnoseLinkedinPublish(driver);
-    if (state.composer || state.mediaButton || state.postButton) {
-        return;
+async function waitForPageCompose(driver, timeoutMs = 15000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const state = await diagnoseLinkedinPublish(driver);
+        if (state.composer || state.mediaButton || state.postButton) {
+            return state;
+        }
+        const url = String(state.url || "");
+        if (/login|checkpoint|challenge|authwall|uas\/login/i.test(url)) {
+            await failWithScreenshot(
+                driver,
+                `LinkedIn login/challenge blocked page compose (${JSON.stringify(state)})`,
+                "li-img-page-auth",
+            );
+        }
+        await contentPublishSleep(700);
+    }
+    return null;
+}
+
+async function openPageCompose(driver, companyId) {
+    const shareUrls = [
+        `https://www.linkedin.com/company/${companyId}/admin/page-posts/published/?share=true`,
+        `https://www.linkedin.com/company/${companyId}/admin/page-posts/?share=true`,
+        `https://www.linkedin.com/company/${companyId}/admin/?share=true`,
+    ];
+
+    for (const url of shareUrls) {
+        logger.info(`content-publish li try page compose url=${url}`);
+        await openUrl(driver, url);
+        await contentPublishSleep(2500);
+        let state = await waitForPageCompose(driver, 10000);
+        if (state) {
+            return;
+        }
+        const clicked = await clickPageComposeTrigger(driver);
+        logger.info(`content-publish li compose trigger=${JSON.stringify(clicked)}`);
+        await contentPublishSleep(2000);
+        state = await waitForPageCompose(driver, 10000);
+        if (state) {
+            return;
+        }
     }
 
-    // Fallback: open page posts then Start a post / Create
+    // Last fallback: published list then explicit Create / Start a post.
     await openUrl(
         driver,
         `https://www.linkedin.com/company/${companyId}/admin/page-posts/published/`,
     );
-    await contentPublishSleep(3000);
-    const opened = await driver.executeScript(`
-      ${PAGE_HELPERS}
-      const nodes = [...document.querySelectorAll("button, a, div[role='button']")];
-      const start = nodes.find((el) => {
-        const label = normalize((el.getAttribute("aria-label") || "") + " " + (el.innerText || ""));
-        return /^start a post$/i.test(label);
-      });
-      const create = nodes.find((el) => {
-        const label = normalize((el.getAttribute("aria-label") || "") + " " + (el.innerText || ""));
-        return /^create$/i.test(label);
-      });
-      const target = start || create;
-      if (!target) return false;
-      target.click();
-      return true;
-    `);
-    if (!opened) {
-        state = await diagnoseLinkedinPublish(driver);
+    await contentPublishSleep(3500);
+    const clicked = await clickPageComposeTrigger(driver);
+    logger.info(`content-publish li published-list trigger=${JSON.stringify(clicked)}`);
+    await contentPublishSleep(2500);
+    const state = await waitForPageCompose(driver, 12000);
+    if (!state) {
+        const finalState = await diagnoseLinkedinPublish(driver);
         await failWithScreenshot(
             driver,
-            `LinkedIn step1 page compose missing (${JSON.stringify(state)})`,
+            `LinkedIn step1 page compose missing (${JSON.stringify(finalState)})`,
             "li-img-page",
         );
     }
-    await contentPublishSleep(2500);
 }
 
 export async function publishLinkedinImagePost({
