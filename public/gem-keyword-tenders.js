@@ -8,11 +8,14 @@
     const assigneeFilter = document.getElementById("gem-filter-assignee");
     const showAllFilter = document.getElementById("gem-filter-show-all");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
+    const quantityClearBtn = document.getElementById("gem-filter-quantity-clear");
+    const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
     const searchInput = document.getElementById("gem-tenders-search");
     const tableBody = document.getElementById("gem-tenders-tbody");
     const tableWrap = document.getElementById("gem-tenders-table-wrap");
     const emptyState = document.getElementById("gem-tenders-empty");
     const filterStatus = document.getElementById("gem-tenders-filter-status");
+    const columnFilters = Array.from(document.querySelectorAll(".gem-tender-column-filter"));
     const selectAllCheckbox = document.getElementById("gem-tenders-select-all");
     const bulkBar = document.getElementById("gem-tenders-bulk-assign-bar");
     const bulkAssignee = document.getElementById("gem-bulk-assignee");
@@ -42,16 +45,41 @@
         }
     }
 
+    function selectedValues(select) {
+        if (!select) return [];
+        return Array.from(select.selectedOptions || [])
+            .map((option) => String(option.value || "").trim())
+            .filter(Boolean);
+    }
+
+    function setSelectedValues(select, values) {
+        if (!select) return;
+        const wanted = new Set(
+            (Array.isArray(values) ? values : values != null && values !== "" ? [values] : [])
+                .map((value) => String(value)),
+        );
+        for (const option of select.options) {
+            option.selected = wanted.has(String(option.value));
+        }
+    }
+
     function collectFilters() {
+        const columns = {};
+        for (const select of columnFilters) {
+            const column = select.dataset.column;
+            if (!column) continue;
+            columns[column] = select.value || "";
+        }
         return {
             from: window.getWritableDate?.("YYYY-MM-DD", fromInput?.value || "") || "",
             to: window.getWritableDate?.("YYYY-MM-DD", toInput?.value || "") || "",
             keywordId: keywordFilter?.value || "",
-            stage: stageFilter?.value || "",
-            assignee: assigneeFilter?.value || "",
+            stages: selectedValues(stageFilter),
+            assignees: selectedValues(assigneeFilter),
             search: searchInput?.value || "",
             showAll: !!showAllFilter?.checked,
             quantityUpto: quantityUptoFilter?.value || "",
+            columns,
         };
     }
 
@@ -96,6 +124,41 @@
         document.querySelectorAll("#gem-tenders-table thead th.gem-tenders-sortable"),
     );
     let sortState = { key: null, direction: "asc" };
+
+    function uniqueColumnValues(column) {
+        const values = new Set();
+        for (const row of rows) {
+            const value = (row.dataset[column] || "").trim();
+            if (value) values.add(value);
+        }
+        return Array.from(values).sort((left, right) =>
+            left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }),
+        );
+    }
+
+    function fillColumnFilter(select) {
+        const column = select.dataset.column;
+        if (!column) return;
+
+        const current = select.value;
+        select.replaceChildren();
+
+        const allOption = document.createElement("option");
+        allOption.value = "";
+        allOption.textContent = "All";
+        select.appendChild(allOption);
+
+        for (const value of uniqueColumnValues(column)) {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = value;
+            select.appendChild(option);
+        }
+
+        if ([...select.options].some((option) => option.value === current)) {
+            select.value = current;
+        }
+    }
 
     function sortValue(row, key) {
         if (key === "quantity") {
@@ -229,13 +292,19 @@
     function applyFilters() {
         const query = (searchInput?.value || "").trim().toLowerCase();
         const keywordId = (keywordFilter?.value || "").trim();
-        const stageValue = (stageFilter?.value || "").trim();
-        const assigneeValue = (assigneeFilter?.value || "").trim();
-        const showOutOfScope = !!showAllFilter?.checked;
+        const selectedStages = selectedValues(stageFilter);
+        const selectedAssignees = selectedValues(assigneeFilter);
+        const showHiddenStages = !!showAllFilter?.checked;
         const quantityUptoRaw = String(quantityUptoFilter?.value ?? "").trim();
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
         const hasQuantityUpto =
             quantityUpto != null && Number.isFinite(quantityUpto) && quantityUpto > 0;
+        const activeColumnFilters = columnFilters
+            .map((select) => ({
+                column: select.dataset.column,
+                value: (select.value || "").trim().toLowerCase(),
+            }))
+            .filter((filter) => filter.column && filter.value);
 
         let visibleCount = 0;
 
@@ -244,24 +313,30 @@
             const isHiddenStage =
                 rowStage === "out_of_scope" || rowStage === "unattended";
             const matchesHiddenStages =
-                showOutOfScope ||
-                stageValue === "out_of_scope" ||
-                stageValue === "unattended" ||
+                showHiddenStages ||
+                selectedStages.includes("out_of_scope") ||
+                selectedStages.includes("unattended") ||
                 !isHiddenStage;
 
             const matchesKeyword =
                 !keywordId || String(row.dataset.keywordId || "") === keywordId;
 
-            const matchesStage = !stageValue || rowStage === stageValue;
+            const matchesStage =
+                !selectedStages.length || selectedStages.includes(rowStage);
 
             const rowAssigneeId = String(row.dataset.assigneeUserId || "");
             const matchesAssignee =
-                !assigneeValue ||
-                (assigneeValue === "unassigned"
-                    ? !rowAssigneeId
-                    : rowAssigneeId === assigneeValue);
+                !selectedAssignees.length ||
+                selectedAssignees.some((value) =>
+                    value === "unassigned" ? !rowAssigneeId : rowAssigneeId === value,
+                );
 
             const matchesSearch = !query || row.textContent.toLowerCase().includes(query);
+
+            const matchesColumns = activeColumnFilters.every((filter) => {
+                const cellValue = (row.dataset[filter.column] || "").trim().toLowerCase();
+                return cellValue === filter.value;
+            });
 
             const rowQuantity = rowQuantityValue(row);
             // Known qty only: NA (0 / missing) is excluded when a max is set.
@@ -274,6 +349,7 @@
                 matchesStage &&
                 matchesAssignee &&
                 matchesSearch &&
+                matchesColumns &&
                 matchesQuantity;
             row.classList.toggle("d-none", !visible);
             if (!visible) {
@@ -305,11 +381,23 @@
         if (keywordFilter && filters.keywordId != null) {
             keywordFilter.value = filters.keywordId;
         }
-        if (stageFilter && filters.stage != null) {
-            stageFilter.value = filters.stage;
+        if (stageFilter) {
+            const stages =
+                Array.isArray(filters.stages)
+                    ? filters.stages
+                    : filters.stage != null && filters.stage !== ""
+                      ? [filters.stage]
+                      : [];
+            setSelectedValues(stageFilter, stages);
         }
-        if (assigneeFilter && filters.assignee != null) {
-            assigneeFilter.value = filters.assignee;
+        if (assigneeFilter) {
+            const assignees =
+                Array.isArray(filters.assignees)
+                    ? filters.assignees
+                    : filters.assignee != null && filters.assignee !== ""
+                      ? [filters.assignee]
+                      : [];
+            setSelectedValues(assigneeFilter, assignees);
         }
         if (searchInput && filters.search != null) {
             searchInput.value = filters.search;
@@ -322,6 +410,35 @@
             quantityUptoFilter.value =
                 Number.isFinite(restoredQty) && restoredQty > 0 ? String(restoredQty) : "";
         }
+        if (filters.columns && typeof filters.columns === "object") {
+            for (const select of columnFilters) {
+                const column = select.dataset.column;
+                if (!column) continue;
+                const value = filters.columns[column];
+                if (value == null) continue;
+                if ([...select.options].some((option) => option.value === value)) {
+                    select.value = value;
+                }
+            }
+        }
+    }
+
+    function resetClientFilters() {
+        if (keywordFilter) keywordFilter.value = "";
+        setSelectedValues(stageFilter, []);
+        setSelectedValues(assigneeFilter, []);
+        if (searchInput) searchInput.value = "";
+        if (showAllFilter) showAllFilter.checked = false;
+        if (quantityUptoFilter) quantityUptoFilter.value = "";
+        for (const select of columnFilters) {
+            select.value = "";
+        }
+        applyFilters();
+    }
+
+    for (const select of columnFilters) {
+        fillColumnFilter(select);
+        select.addEventListener("change", applyFilters);
     }
 
     restoreClientFilters(storedFilters);
@@ -337,6 +454,13 @@
             event.preventDefault();
             applyFilters();
         }
+    });
+    quantityClearBtn?.addEventListener("click", () => {
+        if (quantityUptoFilter) quantityUptoFilter.value = "";
+        applyFilters();
+    });
+    resetFiltersBtn?.addEventListener("click", () => {
+        resetClientFilters();
     });
     searchInput?.addEventListener("input", applyFilters);
 

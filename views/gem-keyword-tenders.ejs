@@ -144,12 +144,18 @@
                         </div>
                         <div class="col-6 col-md-4 col-xl-2">
                             <label for="gem-filter-stage" class="form-label">Stage</label>
-                            <select class="form-select form-select-sm" id="gem-filter-stage">
-                                <option value="">All</option>
+                            <select
+                                class="form-select form-select-sm"
+                                id="gem-filter-stage"
+                                multiple
+                                size="5"
+                                aria-label="Filter by stage (multiple)"
+                            >
                                 <% stageValues.forEach(function (stage) { %>
                                     <option value="<%= stage %>"><%= stageLabels[stage] %></option>
                                 <% }) %>
                             </select>
+                            <div class="form-text">Hold Ctrl/Cmd to multi-select</div>
                         </div>
                         <div class="col-6 col-md-4 col-xl-2">
                             <label for="gem-tenders-search" class="form-label">Search</label>
@@ -163,28 +169,74 @@
                         </div>
                         <div class="col-6 col-md-4 col-xl-2">
                             <label for="gem-filter-assignee" class="form-label">Assignee</label>
-                            <select class="form-select form-select-sm" id="gem-filter-assignee">
-                                <option value="">All</option>
+                            <select
+                                class="form-select form-select-sm"
+                                id="gem-filter-assignee"
+                                multiple
+                                size="5"
+                                aria-label="Filter by assignee (multiple)"
+                            >
                                 <option value="unassigned">Unassigned</option>
                                 <% (users || []).forEach(function (user) { %>
                                     <option value="<%= user.id %>"><%= user.full_name %></option>
                                 <% }) %>
                             </select>
+                            <div class="form-text">Hold Ctrl/Cmd to multi-select</div>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl-1">
+                            <label for="gem-filter-past-experience" class="form-label">Past exp.</label>
+                            <select
+                                class="form-select form-select-sm gem-tender-column-filter"
+                                id="gem-filter-past-experience"
+                                data-column="pastExperience"
+                            >
+                                <option value="">All</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl-1">
+                            <label for="gem-filter-mse-exp" class="form-label">MSE exp exc…</label>
+                            <select
+                                class="form-select form-select-sm gem-tender-column-filter"
+                                id="gem-filter-mse-exp"
+                                data-column="mseExp"
+                            >
+                                <option value="">All</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl-1">
+                            <label for="gem-filter-mse-turnover" class="form-label">MSE turn exc…</label>
+                            <select
+                                class="form-select form-select-sm gem-tender-column-filter"
+                                id="gem-filter-mse-turnover"
+                                data-column="mseTurnover"
+                            >
+                                <option value="">All</option>
+                            </select>
                         </div>
                         <div class="col-6 col-md-4 col-xl-2">
                             <label for="gem-filter-quantity-upto" class="form-label">Qty up to</label>
-                            <input
-                                type="number"
-                                class="form-control form-control-sm"
-                                id="gem-filter-quantity-upto"
-                                min="1"
-                                step="1"
-                                placeholder="e.g. 10"
-                                inputmode="numeric"
-                            />
+                            <div class="input-group input-group-sm">
+                                <input
+                                    type="number"
+                                    class="form-control"
+                                    id="gem-filter-quantity-upto"
+                                    min="1"
+                                    step="1"
+                                    placeholder="e.g. 10"
+                                    inputmode="numeric"
+                                />
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary"
+                                    id="gem-filter-quantity-clear"
+                                    title="Clear quantity"
+                                >
+                                    Clear
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-6 col-md-4 col-xl-auto">
-                            <div class="form-check mt-4">
+                        <div class="col-6 col-md-4 col-xl-auto d-flex flex-wrap align-items-end gap-2">
+                            <div class="form-check mb-1">
                                 <input
                                     class="form-check-input"
                                     type="checkbox"
@@ -194,6 +246,13 @@
                                     Show out of scope / unattended
                                 </label>
                             </div>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm"
+                                id="gem-filters-reset-btn"
+                            >
+                                Reset filters
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -250,6 +309,9 @@
                                 >
                                     Qty <span class="gem-tenders-sort-indicator" aria-hidden="true"></span>
                                 </th>
+                                <th scope="col">Past exp.</th>
+                                <th scope="col">MSE Experience Relaxation</th>
+                                <th scope="col">MSE Turnover Relaxation</th>
                             </tr>
                         </thead>
                         <tbody id="gem-tenders-tbody">
@@ -260,6 +322,9 @@
                                         data-keyword-id="<%= tender.keyword_id %>"
                                         data-assignee-user-id="<%= tender.assignee_user_id || '' %>"
                                         data-stage="<%= stage %>"
+                                        data-past-experience="<%= tender.required_past_experice_years || '' %>"
+                                        data-mse-exp="<%= tender.mse_experience_relaxation || '' %>"
+                                        data-mse-turnover="<%= tender.mse_turnover_relaxation || '' %>"
                                         data-quantity="<%= Number(tender.quantity || 0) %>"
                                         data-end-at="<%= tender.end_date_time || '' %>"
                                     >
@@ -303,6 +368,9 @@
                                         <% } %>
                                     </td>
                                     <td><%= Number(tender.quantity || 0) > 0 ? Number(tender.quantity) : "NA" %></td>
+                                    <td><%= tender.required_past_experice_years || "-" %></td>
+                                    <td><%= tender.mse_experience_relaxation || "-" %></td>
+                                    <td><%= tender.mse_turnover_relaxation || "-" %></td>
                                 </tr>
                             <% }) %>
                         </tbody>
