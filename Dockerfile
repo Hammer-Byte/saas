@@ -32,7 +32,7 @@ RUN apt-get update \
         https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.bookworm_amd64.deb \
     && dpkg -i /tmp/wkhtmltox.deb \
     && apt-get install -f -y --no-install-recommends \
-    && GECKODRIVER_VERSION=0.35.0 \
+    && GECKODRIVER_VERSION=0.36.0 \
     && wget -q -O /tmp/geckodriver.tar.gz \
         "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VERSION}/geckodriver-v${GECKODRIVER_VERSION}-linux64.tar.gz" \
     && tar -C /usr/local/bin -xzf /tmp/geckodriver.tar.gz \
