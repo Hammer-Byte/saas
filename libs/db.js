@@ -508,6 +508,17 @@ export async function generateDBTables() {
         `UPDATE GEM_KEYWORD_TENDERS
             SET stage = 'eligible'
             WHERE stage IN ('requested_for_quote', 'waiting_for_technical', 'waiting_for_financial')`,
+        // Past-end New/unassigned tenders that were never claimed.
+        `UPDATE GEM_KEYWORD_TENDERS
+            SET
+                stage = 'unattended',
+                hidden = TRUE,
+                filed = FALSE,
+                eligible = 'need_to_check'
+            WHERE stage = 'new'
+              AND assignee_user_id IS NULL
+              AND end_date_time IS NOT NULL
+              AND end_date_time < NOW()`,
         `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDER_ACTIVITIES (
             id INT AUTO_INCREMENT PRIMARY KEY,
             gem_keyword_tender_id INT NOT NULL,

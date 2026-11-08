@@ -92,6 +92,7 @@ export const TASK_PRIORITY_LABELS = {
 export const GEM_KEYWORD_TENDER_STAGES = {
     NEW: "new",
     OUT_OF_SCOPE: "out_of_scope",
+    UNATTENDED: "unattended",
     ASSIGNED: "assigned",
     ELIGIBLE: "eligible",
     NOT_ELIGIBLE: "not_eligible",
@@ -101,6 +102,7 @@ export const GEM_KEYWORD_TENDER_STAGES = {
 export const GEM_KEYWORD_TENDER_STAGE_LABELS = {
     [GEM_KEYWORD_TENDER_STAGES.NEW]: "New",
     [GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE]: "Out of scope",
+    [GEM_KEYWORD_TENDER_STAGES.UNATTENDED]: "Unattended",
     [GEM_KEYWORD_TENDER_STAGES.ASSIGNED]: "Assigned",
     [GEM_KEYWORD_TENDER_STAGES.ELIGIBLE]: "Eligible",
     [GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE]: "Not eligible",

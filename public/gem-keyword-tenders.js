@@ -241,10 +241,13 @@
 
         for (const row of rows) {
             const rowStage = String(row.dataset.stage || "new");
-            const matchesOutOfScope =
+            const isHiddenStage =
+                rowStage === "out_of_scope" || rowStage === "unattended";
+            const matchesHiddenStages =
                 showOutOfScope ||
                 stageValue === "out_of_scope" ||
-                rowStage !== "out_of_scope";
+                stageValue === "unattended" ||
+                !isHiddenStage;
 
             const matchesKeyword =
                 !keywordId || String(row.dataset.keywordId || "") === keywordId;
@@ -266,7 +269,7 @@
                 !hasQuantityUpto || (rowQuantity > 0 && rowQuantity <= quantityUpto);
 
             const visible =
-                matchesOutOfScope &&
+                matchesHiddenStages &&
                 matchesKeyword &&
                 matchesStage &&
                 matchesAssignee &&

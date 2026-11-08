@@ -13,6 +13,7 @@ export default function (app) {
                 t.Union([
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.NEW),
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE),
+                    t.Literal(GEM_KEYWORD_TENDER_STAGES.UNATTENDED),
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.ASSIGNED),
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.ELIGIBLE),
                     t.Literal(GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE),

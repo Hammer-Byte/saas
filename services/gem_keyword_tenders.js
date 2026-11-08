@@ -57,6 +57,7 @@ function normalizeStage(value) {
 function flagsForStage(stage) {
     switch (stage) {
         case GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE:
+        case GEM_KEYWORD_TENDER_STAGES.UNATTENDED:
             return {
                 hidden: true,
                 filed: false,

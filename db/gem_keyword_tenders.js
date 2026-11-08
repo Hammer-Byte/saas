@@ -1,5 +1,8 @@
 import { logger } from "@hammerbyte/utils";
-import { GEM_KEYWORD_TENDER_STAGES } from "../constants.js";
+import {
+    GEM_KEYWORD_TENDER_ELIGIBILITY,
+    GEM_KEYWORD_TENDER_STAGES,
+} from "../constants.js";
 import { executeSQLQuery } from "../libs/db.js";
 import { getIstDateTime, toDbDateTime } from "../libs/date.js";
 
@@ -345,4 +348,50 @@ export async function stampGemKeywordTenderEligibilityReminders({ ids, sent_on =
     ).catch((error) => {
         logger.error(`stampGemKeywordTenderEligibilityReminders: ${error}`);
     });
+}
+
+export async function markPastNewUnassignedGemKeywordTendersUnattended({
+    as_of_datetime = null,
+}) {
+    const cutoff = toDbDateTime(as_of_datetime) || getIstDateTime();
+    const dueIds = await executeSQLQuery(
+        (sql) => sql`
+            SELECT id
+            FROM GEM_KEYWORD_TENDERS
+            WHERE stage = ${GEM_KEYWORD_TENDER_STAGES.NEW}
+              AND assignee_user_id IS NULL
+              AND end_date_time IS NOT NULL
+              AND end_date_time < ${cutoff}
+        `,
+    )
+        .then((result) =>
+            Array.from(result ?? [])
+                .map((row) => Number(row.id))
+                .filter((id) => id >= 1),
+        )
+        .catch((error) => {
+            logger.error(`markPastNewUnassignedGemKeywordTendersUnattended select: ${error}`);
+            return [];
+        });
+
+    if (!dueIds.length) {
+        return 0;
+    }
+
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE GEM_KEYWORD_TENDERS
+            SET
+                stage = ${GEM_KEYWORD_TENDER_STAGES.UNATTENDED},
+                hidden = TRUE,
+                filed = FALSE,
+                eligible = ${GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK}
+            WHERE id IN ${sql(dueIds)}
+        `,
+    ).catch((error) => {
+        logger.error(`markPastNewUnassignedGemKeywordTendersUnattended update: ${error}`);
+        return 0;
+    });
+
+    return dueIds.length;
 }

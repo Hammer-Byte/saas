@@ -139,6 +139,14 @@
             <div class="col-6 col-md-4 col-xl-2">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
+                        <p class="text-secondary small mb-1">Unattended</p>
+                        <p class="h4 mb-0"><%= report.totals.unattended || 0 %></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
                         <p class="text-secondary small mb-1">Filed</p>
                         <p class="h4 mb-0"><%= report.totals.filed %></p>
                     </div>
@@ -328,6 +336,7 @@
                                 <th>Count</th>
                                 <th>New</th>
                                 <th>Out of scope</th>
+                                <th>Unattended</th>
                                 <th>Assigned</th>
                                 <th>Eligible</th>
                                 <th>Not eligible</th>
@@ -341,6 +350,7 @@
                                     <td><%= row.assigned_count %></td>
                                     <td><%= row.stage_new %></td>
                                     <td><%= row.stage_out_of_scope %></td>
+                                    <td><%= row.stage_unattended || 0 %></td>
                                     <td><%= row.stage_assigned %></td>
                                     <td><%= row.stage_eligible %></td>
                                     <td><%= row.stage_not_eligible %></td>
