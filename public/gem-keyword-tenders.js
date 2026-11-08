@@ -334,9 +334,27 @@
             return;
         }
 
+        const targets = canAssignOthers
+            ? selected
+            : selected.filter((checkbox) => {
+                  const row = checkbox.closest("tr");
+                  return !String(row?.dataset.assigneeUserId || "").trim();
+              });
+
+        if (!targets.length) {
+            if (bulkStatus) {
+                bulkStatus.textContent = canAssignOthers
+                    ? "No tenders selected."
+                    : "Selected tenders already have an assignee.";
+                bulkStatus.classList.remove("d-none", "text-secondary");
+                bulkStatus.classList.add("text-danger");
+            }
+            return;
+        }
+
         bulkAssignBtn.disabled = true;
         if (bulkStatus) {
-            bulkStatus.textContent = `Assigning ${selected.length} tender(s)…`;
+            bulkStatus.textContent = `Assigning ${targets.length} tender(s)…`;
             bulkStatus.classList.remove("d-none", "text-danger");
             bulkStatus.classList.add("text-secondary");
         }
@@ -344,7 +362,7 @@
         let successCount = 0;
         let failCount = 0;
 
-        for (const checkbox of selected) {
+        for (const checkbox of targets) {
             const tenderId = Number(checkbox.value || 0);
             if (!(tenderId >= 1)) {
                 failCount += 1;

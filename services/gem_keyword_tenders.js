@@ -160,12 +160,19 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
 
     if (assigneeChanging) {
         const assigningSelf = nextAssigneeUserId === currentUser.id;
+        const currentlyUnassigned = previousAssigneeUserId == null;
         const canAssignOthers = (currentUser.authorities || []).includes(
             AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE,
         );
-        if (!assigningSelf && !canAssignOthers) {
+        // Without ASSIGN_GEM_TENDER_ASSIGNEE: only claim an unassigned tender for yourself.
+        // With authority: manage any assignee (detail dropdown + bulk assign), including reassign/unassign.
+        if (!canAssignOthers && !(assigningSelf && currentlyUnassigned)) {
             set.status = 403;
-            return { error: "Missing authority to assign other users" };
+            return {
+                error: currentlyUnassigned
+                    ? "Missing authority to assign other users"
+                    : "Only users with assign authority can change an existing assignee",
+            };
         }
 
         if (nextAssigneeUserId != null) {

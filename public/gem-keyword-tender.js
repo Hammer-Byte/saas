@@ -4,6 +4,7 @@
     const stageSelect = document.getElementById("gem-tender-stage");
     const assigneeSelect = document.getElementById("gem-tender-assignee");
     const assignMeButton = document.getElementById("gem-tender-assign-me-btn");
+    const assignMeWrap = document.getElementById("gem-tender-assign-me-wrap");
     const eligibilityOptions = Array.from(
         document.querySelectorAll(".gem-tender-eligible-option"),
     );
@@ -70,8 +71,11 @@
             hideButton.textContent = hidden ? "Restore to scope" : "Out of service scope";
         }
         if (hiddenLabel) hiddenLabel.textContent = hidden ? "Yes" : "No";
+        if (assignMeWrap) {
+            assignMeWrap.classList.toggle("d-none", !!assigneeUserId);
+        }
         if (assignMeButton) {
-            assignMeButton.disabled = Number(assigneeUserId) === currentUserId;
+            assignMeButton.disabled = !!assigneeUserId;
         }
     }
 

@@ -4,7 +4,6 @@
     const canAssignOthers = (authorities || []).includes(AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE);
     const currentUserId = Number(userId || 0);
     const assigneeUserId = tender.assignee_user_id ? Number(tender.assignee_user_id) : null;
-    const isAssignedToMe = assigneeUserId === currentUserId;
     const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
     const stageValues = Object.keys(stageLabels);
     const eligibilityValues = GEM_KEYWORD_TENDER_ELIGIBILITY || {};
@@ -132,12 +131,11 @@
                             />
                         <% } %>
                     </div>
-                    <div class="col-md-3 d-flex align-items-end">
+                    <div class="col-md-3 d-flex align-items-end <%= assigneeUserId ? 'd-none' : '' %>" id="gem-tender-assign-me-wrap">
                         <button
                             type="button"
                             class="btn btn-outline-primary w-100"
                             id="gem-tender-assign-me-btn"
-                            <%= isAssignedToMe ? "disabled" : "" %>
                         >
                             Assign to me
                         </button>
