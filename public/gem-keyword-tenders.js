@@ -98,6 +98,85 @@
     if (!tableBody) return;
 
     let rows = Array.from(tableBody.querySelectorAll("tr"));
+    const sortableHeaders = Array.from(
+        document.querySelectorAll("#gem-tenders-table thead th.gem-tenders-sortable"),
+    );
+    let sortState = { key: null, direction: "asc" };
+
+    function sortValue(row, key) {
+        if (key === "quantity") {
+            const quantity = Number(row.dataset.quantity || 0);
+            return Number.isFinite(quantity) ? quantity : 0;
+        }
+        if (key === "endAt") {
+            return String(row.dataset.endAt || "").trim();
+        }
+        return "";
+    }
+
+    function compareRows(left, right, key, direction) {
+        const leftValue = sortValue(left, key);
+        const rightValue = sortValue(right, key);
+        let result = 0;
+        if (typeof leftValue === "number" && typeof rightValue === "number") {
+            result = leftValue - rightValue;
+        } else {
+            result = String(leftValue).localeCompare(String(rightValue), undefined, {
+                numeric: true,
+                sensitivity: "base",
+            });
+        }
+        return direction === "desc" ? -result : result;
+    }
+
+    function applySort() {
+        if (!sortState.key) {
+            for (const header of sortableHeaders) {
+                header.setAttribute("aria-sort", "none");
+            }
+            return;
+        }
+
+        rows.sort((left, right) =>
+            compareRows(left, right, sortState.key, sortState.direction),
+        );
+        for (const row of rows) {
+            tableBody.appendChild(row);
+        }
+
+        for (const header of sortableHeaders) {
+            if (header.dataset.sortKey === sortState.key) {
+                header.setAttribute(
+                    "aria-sort",
+                    sortState.direction === "asc" ? "ascending" : "descending",
+                );
+            } else {
+                header.setAttribute("aria-sort", "none");
+            }
+        }
+    }
+
+    function toggleSort(key) {
+        if (!key) return;
+        if (sortState.key === key) {
+            sortState.direction = sortState.direction === "asc" ? "desc" : "asc";
+        } else {
+            sortState = { key, direction: "asc" };
+        }
+        applySort();
+        syncBulkBar();
+    }
+
+    for (const header of sortableHeaders) {
+        header.addEventListener("click", () => {
+            toggleSort(header.dataset.sortKey);
+        });
+        header.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            toggleSort(header.dataset.sortKey);
+        });
+    }
 
     function uniqueColumnValues(column) {
         const values = new Set();
@@ -186,15 +265,21 @@
         syncBulkBar();
     }
 
+    function rowQuantityValue(row) {
+        const raw = row.getAttribute("data-quantity");
+        const quantity = Number(raw);
+        return Number.isFinite(quantity) ? quantity : 0;
+    }
+
     function applyFilters() {
         const query = (searchInput?.value || "").trim().toLowerCase();
         const keywordId = (keywordFilter?.value || "").trim();
         const assigneeValue = (assigneeFilter?.value || "").trim();
         const showAll = !!showAllFilter?.checked;
-        const quantityUptoRaw = (quantityUptoFilter?.value || "").trim();
+        const quantityUptoRaw = String(quantityUptoFilter?.value ?? "").trim();
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
         const hasQuantityUpto =
-            quantityUpto != null && Number.isFinite(quantityUpto) && quantityUpto >= 0;
+            quantityUpto != null && Number.isFinite(quantityUpto) && quantityUpto > 0;
         const activeFilters = columnFilters
             .map((select) => ({
                 column: select.dataset.column,
@@ -224,10 +309,10 @@
                 return cellValue === filter.value;
             });
 
-            const rowQuantity = Number(row.dataset.quantity || 0);
+            const rowQuantity = rowQuantityValue(row);
+            // Known qty only: NA (0 / missing) is excluded when a max is set.
             const matchesQuantity =
-                !hasQuantityUpto ||
-                (Number.isFinite(rowQuantity) && rowQuantity <= quantityUpto);
+                !hasQuantityUpto || (rowQuantity > 0 && rowQuantity <= quantityUpto);
 
             const visible =
                 matchesHidden &&
@@ -248,9 +333,15 @@
             filterStatus.textContent = `Showing ${visibleCount} of ${rows.length} tenders`;
         }
 
-        const hasRows = rows.length > 0;
-        tableWrap?.classList.toggle("d-none", !hasRows);
-        emptyState?.classList.toggle("d-none", hasRows);
+        const hasLoadedRows = rows.length > 0;
+        const showEmpty = !hasLoadedRows || visibleCount === 0;
+        tableWrap?.classList.toggle("d-none", showEmpty);
+        emptyState?.classList.toggle("d-none", !showEmpty);
+        if (emptyState) {
+            emptyState.textContent = !hasLoadedRows
+                ? "No tenders ending in this date range."
+                : "No tenders match the current filters.";
+        }
         syncBulkBar();
         saveFilters();
     }
@@ -269,8 +360,10 @@
         if (showAllFilter && typeof filters.showAll === "boolean") {
             showAllFilter.checked = filters.showAll;
         }
-        if (quantityUptoFilter && filters.quantityUpto != null) {
-            quantityUptoFilter.value = filters.quantityUpto;
+        if (quantityUptoFilter && filters.quantityUpto != null && filters.quantityUpto !== "") {
+            const restoredQty = Number(filters.quantityUpto);
+            quantityUptoFilter.value =
+                Number.isFinite(restoredQty) && restoredQty > 0 ? String(restoredQty) : "";
         }
         if (filters.columns && typeof filters.columns === "object") {
             for (const select of columnFilters) {
@@ -296,6 +389,13 @@
     assigneeFilter?.addEventListener("change", applyFilters);
     showAllFilter?.addEventListener("change", applyFilters);
     quantityUptoFilter?.addEventListener("input", applyFilters);
+    quantityUptoFilter?.addEventListener("change", applyFilters);
+    quantityUptoFilter?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            applyFilters();
+        }
+    });
     searchInput?.addEventListener("input", applyFilters);
 
     tableBody.addEventListener("change", (event) => {

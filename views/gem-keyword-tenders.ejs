@@ -208,13 +208,13 @@
                                 <option value="0">No</option>
                             </select>
                         </div>
-                        <div class="col-6 col-md-4 col-xl-1">
+                        <div class="col-6 col-md-4 col-xl-2">
                             <label for="gem-filter-quantity-upto" class="form-label">Qty up to</label>
                             <input
                                 type="number"
                                 class="form-control form-control-sm"
                                 id="gem-filter-quantity-upto"
-                                min="0"
+                                min="1"
                                 step="1"
                                 placeholder="e.g. 10"
                                 inputmode="numeric"
@@ -264,10 +264,29 @@
                                 <th scope="col">Keyword</th>
                                 <th scope="col">Stage</th>
                                 <th scope="col">Assignee</th>
-                                <th scope="col">Start</th>
-                                <th scope="col">Ends at</th>
+                                <th
+                                    scope="col"
+                                    class="gem-tenders-sortable"
+                                    data-sort-key="endAt"
+                                    aria-sort="none"
+                                    role="columnheader"
+                                    tabindex="0"
+                                    title="Sort by ends at"
+                                >
+                                    Ends at <span class="gem-tenders-sort-indicator" aria-hidden="true"></span>
+                                </th>
                                 <th scope="col">Buyer</th>
-                                <th scope="col">Qty</th>
+                                <th
+                                    scope="col"
+                                    class="gem-tenders-sortable"
+                                    data-sort-key="quantity"
+                                    aria-sort="none"
+                                    role="columnheader"
+                                    tabindex="0"
+                                    title="Sort by quantity"
+                                >
+                                    Qty <span class="gem-tenders-sort-indicator" aria-hidden="true"></span>
+                                </th>
                                 <th scope="col">MSE Experience Relaxation</th>
                                 <th scope="col">MSE Turnover Relaxation</th>
                                 <th scope="col">Eligible</th>
@@ -288,6 +307,7 @@
                                         data-filed="<%= tender.filed ? '1' : '0' %>"
                                         data-hidden="<%= tender.hidden ? '1' : '0' %>"
                                         data-quantity="<%= Number(tender.quantity || 0) %>"
+                                        data-end-at="<%= tender.end_date_time || '' %>"
                                     >
                                     <td>
                                         <input
@@ -310,10 +330,6 @@
                                     <td><%= stageLabels[tender.stage] || tender.stage || "New" %></td>
                                     <td><%= tender.assignee_full_name || "-" %></td>
                                     <td
-                                        data-readable-date="<%= tender.start_date_time || '' %>"
-                                        data-date-format="DD/MM/YYYY HH:mm:ss"
-                                    ></td>
-                                    <td
                                         data-readable-date="<%= tender.end_date_time || '' %>"
                                         data-date-format="DD/MM/YYYY HH:mm:ss"
                                     ></td>
@@ -332,7 +348,7 @@
                                             -
                                         <% } %>
                                     </td>
-                                    <td><%= Number(tender.quantity || 0) %></td>
+                                    <td><%= Number(tender.quantity || 0) > 0 ? Number(tender.quantity) : "NA" %></td>
                                     <td><%= tender.mse_experience_relaxation || "-" %></td>
                                     <td><%= tender.mse_turnover_relaxation || "-" %></td>
                                         <td><%= eligibilityLabels[eligibility] || eligibility || "-" %></td>
@@ -386,6 +402,30 @@
         position: sticky;
         top: 0;
         z-index: 1;
+    }
+    #gem-tenders-table thead th.gem-tenders-sortable {
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+    }
+    #gem-tenders-table thead th.gem-tenders-sortable:hover,
+    #gem-tenders-table thead th.gem-tenders-sortable:focus-visible {
+        background: #e9ecef;
+        outline: none;
+    }
+    .gem-tenders-sort-indicator::before {
+        content: "⇅";
+        margin-left: 0.25rem;
+        opacity: 0.35;
+        font-size: 0.75em;
+    }
+    th.gem-tenders-sortable[aria-sort="ascending"] .gem-tenders-sort-indicator::before {
+        content: "▲";
+        opacity: 0.85;
+    }
+    th.gem-tenders-sortable[aria-sort="descending"] .gem-tenders-sort-indicator::before {
+        content: "▼";
+        opacity: 0.85;
     }
     .gem-tenders-filters-row .form-label {
         font-size: 0.75rem;
