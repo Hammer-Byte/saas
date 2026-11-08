@@ -200,12 +200,12 @@
                                             id="alert-ping-seconds"
                                             min="60"
                                             max="604800"
-                                            value="<%= Number.isFinite(alertPingSeconds) ? alertPingSeconds : 2700 %>"
+                                            value="<%= Number.isFinite(alertPingSeconds) ? alertPingSeconds : 180 %>"
                                             disabled
                                         />
                                         <span class="input-group-text">seconds</span>
                                     </div>
-                                    <div class="form-text">No monitoring metrics for this long → email</div>
+                                    <div class="form-text">No alive ping for this long → email (agent pings every 60s; metrics are separate)</div>
                                 </td>
                                 <td>
                                     <input

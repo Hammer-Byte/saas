@@ -107,7 +107,9 @@ export async function notifyServerMetricAlertsIfNeeded({ server, body }) {
         if (!server?.id || !body || typeof body !== "object") {
             return;
         }
-        if (String(body.type || "").toLowerCase() === "drive_sync") {
+        const payloadType = String(body.type || "").toLowerCase();
+        // CPU/memory alerts only on full metrics snapshots (not ping / drive_sync).
+        if (payloadType === "drive_sync" || payloadType === "ping") {
             return;
         }
 
@@ -234,7 +236,7 @@ export async function checkServerPingAlerts() {
 
         for (const server of servers) {
             const seconds = Number(server.alert_ping_seconds);
-            const thresholdSeconds = Number.isFinite(seconds) ? seconds : 2700;
+            const thresholdSeconds = Number.isFinite(seconds) ? seconds : 180;
             const lastSeenMs = parseMysqlDateTimeAsMs(server.last_seen_at);
             if (!lastSeenMs) {
                 continue;

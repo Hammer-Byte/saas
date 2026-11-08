@@ -1,6 +1,6 @@
 HammerByte Windows agents (Server 2012+)
 ========================================
-Stable build: 0.2.2-ps-stable (drive-sync) / 0.3.1-ps-stable (monitor)
+Stable build: 0.2.3-ps-stable (drive-sync) / 0.3.3-ps-stable (monitor)
 
 DO NOT use supervisor.exe / agent.exe / drive-sync.exe on Server 2012.
 Those Bun builds need Windows 10 / Server 2016+ (ClosePseudoConsole error).
@@ -15,8 +15,8 @@ ONE-TIME install on the TARGET/CHILD machine
 2. Right-click install-monitor.cmd -> Run as administrator
 
 3. Right-click install-drive-sync.cmd -> Run as administrator
-   Banner must say: 0.2.2-ps-stable
-   Installer deletes old config.json automatically.
+   Banner must say: 0.2.3-ps-stable
+   Upgrade preserves config.json; first install runs -Setup prompts.
 
 Shared identity
 ---------------

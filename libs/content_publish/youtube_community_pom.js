@@ -6,8 +6,8 @@ import { failWithScreenshot } from "../content_publish_screenshot.js";
 /**
  * YouTube Community image post on a specific channel (brand accounts supported).
  *
- * Critical: stay on /channel/{UC…}/posts — never fall back to homepage Create
- * (that posts as the default/personal channel).
+ * Prefer human-like UI: youtube.com → avatar switch account → Create / Community tab.
+ * Deep community/?show_create_dialog URLs are last-resort only (look robotic / break often).
  */
 
 function normalizeChannelId(value) {
@@ -108,31 +108,47 @@ async function diagnoseChannelContext(driver, channelId) {
         return /^add an image$/i.test(aria)
           || (/^image$/i.test(label) && !/poll/i.test(aria + " " + label));
       });
-      const hasCaption = [...document.querySelectorAll("#contenteditable-root, [contenteditable='true']")]
-        .some((el) => {
-          const aria = (el.getAttribute("aria-label") || "").toLowerCase();
-          return el.getClientRects().length > 0
-            && (/message|shoutout|share|photo|caption|post/i.test(aria) || el.id === "contenteditable-root");
-        });
-      const hasPost = [...document.querySelectorAll("button, yt-button-shape button")].some((el) => {
-        const aria = (el.getAttribute("aria-label") || "").trim();
-        const label = (el.innerText || "").replace(/\\s+/g, " ").trim();
-        return /^post$/i.test(aria) || /^post$/i.test(label);
+      const editables = [...document.querySelectorAll(
+        "#contenteditable-root, [contenteditable='true'], textarea, div[role='textbox']"
+      )];
+      const createDialogUrl = /show_create_dialog=1|\\/posts|studio\\.youtube\\.com/i.test(href);
+      const hasCaption = editables.some((el) => {
+        if (!el.getClientRects().length) return false;
+        const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+        const placeholder = (el.getAttribute("placeholder") || "").toLowerCase();
+        const labeled = /message|shoutout|share|photo|caption|post|mind|community/i
+          .test(aria + " " + placeholder);
+        if (labeled || el.id === "contenteditable-root") return true;
+        // On create/posts/studio surfaces, any visible textbox counts.
+        return createDialogUrl && el.getAttribute("contenteditable") === "true";
       });
-      const communityComposer = /give a shoutout|what's on your mind|image poll|visibility:\\s*public|create a post|text poll|behind-the-scenes/i
-        .test(text.slice(0, 5000));
+      const hasPost = [...document.querySelectorAll("button, yt-button-shape button, yt-button-shape a")]
+        .some((el) => {
+          const aria = (el.getAttribute("aria-label") || "").trim();
+          const label = (el.innerText || "").replace(/\\s+/g, " ").trim();
+          return /^post$/i.test(aria) || /^post$/i.test(label) || /^publish$/i.test(label);
+        });
+      const communityComposer = /give a shoutout|what's on your mind|image poll|visibility:\\s*public|create a post|text poll|behind-the-scenes|post to community|community post/i
+        .test(text.slice(0, 8000));
       const viewerBlocked = /subscribe to this channel for at least 1 day to post/i.test(text);
       // Do NOT treat stray page file inputs as compose-ready.
+      const hasCompose = !!(
+        hasAddImage
+        || (hasCaption && (communityComposer || createDialogUrl || hasPost))
+        || (hasPost && communityComposer)
+        || (hasCaption && hasPost)
+      );
       return {
         url: href,
         inUrl,
         inHtml,
-        matched: !!(inUrl || inHtml),
-        hasCompose: !!(hasAddImage || (hasCaption && communityComposer) || (hasPost && communityComposer)),
+        matched: !!(inUrl || inHtml || /studio\\.youtube\\.com/i.test(href)),
+        hasCompose,
         hasAddImage,
         hasCaption,
         hasPost,
         communityComposer,
+        createDialogUrl,
         viewerBlocked,
         snippet: text.slice(0, 220),
       };
@@ -251,42 +267,88 @@ async function clickChannelInAccountList(driver, channelId, channelHints = []) {
     );
 }
 
-async function switchViaAccountSwitcher(driver, channelId, channelHints = []) {
-    const urls = [
-        `https://www.youtube.com/channel_switcher?next=${encodeURIComponent(
-            `/channel/${channelId}/community?show_create_dialog=1`,
-        )}`,
-        "https://www.youtube.com/account",
-        "https://www.youtube.com/channel_switcher",
-    ];
+async function clickAvatarButton(driver) {
+    return await driver.executeScript(`
+      const avatar = document.querySelector(
+        "#avatar-btn, button#avatar-btn, button[aria-label*='Account menu' i], button[aria-label*='Account' i]"
+      );
+      if (!avatar) return false;
+      avatar.click();
+      return true;
+    `);
+}
 
-    for (const url of urls) {
+async function waitForAccountItems(driver, timeoutMs = 12000) {
+    const waitUntil = Date.now() + timeoutMs;
+    while (Date.now() < waitUntil) {
+        const ready = await driver.executeScript(
+            `return document.querySelectorAll("ytd-account-item-renderer").length`,
+        );
+        if (Number(ready) > 0) {
+            return Number(ready);
+        }
+        await contentPublishSleep(400);
+    }
+    return 0;
+}
+
+async function openAccountSwitcherViaAvatar(driver) {
+    const avatarClicked = await clickAvatarButton(driver);
+    logger.info(`content-publish yt avatar click=${avatarClicked}`);
+    await contentPublishSleep(900);
+    const switched = await clickByLabel(driver, [
+        "^switch account$",
+        "^switch channel$",
+        "^change account$",
+    ]);
+    logger.info(`content-publish yt switch-account menu click=${switched}`);
+    await contentPublishSleep(700);
+    return Boolean(avatarClicked && switched);
+}
+
+async function confirmChannelSwitchIfNeeded(driver) {
+    await clickByLabel(driver, ["^confirm$", "^switch$", "^continue$", "^ok$"]);
+    await contentPublishSleep(2500);
+}
+
+/**
+ * UI-first channel switch. Avoid deep links like channel_switcher?next=/community?...
+ */
+async function switchViaAccountSwitcher(driver, channelId, channelHints = []) {
+    // 1) Home → avatar → Switch account (most human path)
+    logger.info("content-publish yt switch via avatar UI");
+    await openUrl(driver, "https://www.youtube.com/");
+    await contentPublishSleep(3500);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        await openAccountSwitcherViaAvatar(driver);
+        const count = await waitForAccountItems(driver, 8000);
+        if (count > 0) {
+            const clicked = await clickChannelInAccountList(driver, channelId, channelHints);
+            logger.info(`content-publish yt switcher click=${JSON.stringify(clicked)}`);
+            if (clicked?.ok) {
+                await confirmChannelSwitchIfNeeded(driver);
+                return true;
+            }
+        }
+        // Dismiss menus and retry.
+        await driver.actions().sendKeys(Key.ESCAPE).perform().catch(() => {});
+        await contentPublishSleep(500);
+    }
+
+    // 2) Soft fallback pages that still show the account list (no community deep-link).
+    for (const url of ["https://www.youtube.com/account", "https://www.youtube.com/channel_switcher"]) {
         logger.info(`content-publish yt opening channel switcher url=${url}`);
         await openUrl(driver, url);
-        const waitUntil = Date.now() + 15000;
-        while (Date.now() < waitUntil) {
-            const ready = await driver.executeScript(
-                `return document.querySelectorAll("ytd-account-item-renderer").length`,
-            );
-            if (Number(ready) > 0) {
-                break;
-            }
-            // Avatar menu fallback: Account menu → Switch account.
-            await driver.executeScript(`
-              const avatar = document.querySelector("#avatar-btn, button#avatar-btn, button[aria-label*='Account menu' i]");
-              if (avatar) avatar.click();
-            `);
-            await contentPublishSleep(800);
-            await clickByLabel(driver, ["^switch account$", "^switch channel$"]);
-            await contentPublishSleep(500);
+        await contentPublishSleep(2500);
+        if ((await waitForAccountItems(driver, 10000)) <= 0) {
+            await openAccountSwitcherViaAvatar(driver);
+            await waitForAccountItems(driver, 8000);
         }
-
         const clicked = await clickChannelInAccountList(driver, channelId, channelHints);
         logger.info(`content-publish yt switcher click=${JSON.stringify(clicked)}`);
         if (clicked?.ok) {
-            await contentPublishSleep(2000);
-            await clickByLabel(driver, ["^confirm$", "^switch$", "^continue$"]);
-            await contentPublishSleep(3500);
+            await confirmChannelSwitchIfNeeded(driver);
             return true;
         }
     }
@@ -294,33 +356,51 @@ async function switchViaAccountSwitcher(driver, channelId, channelHints = []) {
 }
 
 async function establishChannelContext(driver, channelId) {
-    // Studio alone is not enough — www Community can still be the personal account.
-    // Read brand hints from Studio, switch www identity, then warm Studio again.
-    logger.info(`content-publish yt read studio hints channel=${channelId}`);
-    const hints = await readStudioChannelHints(driver, channelId);
-    logger.info(`content-publish yt channel hints=${JSON.stringify(hints)}`);
-
-    logger.info(`content-publish yt force channel_switcher channel=${channelId}`);
-    const switched = await switchViaAccountSwitcher(driver, channelId, hints);
+    // Prefer www UI switch. Studio deep-link is only a hint/fallback source.
+    logger.info(`content-publish yt establish channel via UI channel=${channelId}`);
+    let switched = await switchViaAccountSwitcher(driver, channelId, []);
     logger.info(`content-publish yt switcher ok=${switched}`);
 
-    logger.info(`content-publish yt switch studio channel=${channelId}`);
-    await openUrl(driver, `https://studio.youtube.com/channel/${channelId}`);
-    await contentPublishSleep(3500);
-
-    let state = await diagnoseChannelContext(driver, channelId);
-    if (state.matched && /studio\.youtube\.com\/channel\//i.test(state.url)) {
-        logger.info("content-publish yt studio channel context ok");
-        return;
+    if (!switched) {
+        logger.info(`content-publish yt read studio hints channel=${channelId}`);
+        const hints = await readStudioChannelHints(driver, channelId);
+        logger.info(`content-publish yt channel hints=${JSON.stringify(hints)}`);
+        switched = await switchViaAccountSwitcher(driver, channelId, hints || []);
+        logger.info(`content-publish yt switcher retry ok=${switched}`);
     }
 
-    if (!state.matched && !switched) {
+    // Land back on www home as the selected channel (UI), not Studio deep-link.
+    await openUrl(driver, "https://www.youtube.com/");
+    await contentPublishSleep(3000);
+
+    if (!switched) {
         await failStep(
             driver,
-            `YouTube could not switch to channel ${channelId} (${JSON.stringify(state)})`,
+            `YouTube could not switch to channel ${channelId} via account switcher UI`,
             "yt-channel-switch",
         );
     }
+}
+
+async function isCommunityCreatorReady(driver, channelId) {
+    const state = await diagnoseChannelContext(driver, channelId);
+    if (state.viewerBlocked) {
+        return { ready: false, reason: "viewer-blocked", state };
+    }
+    const asCreator = await driver.executeScript(`
+      const text = String(document.body?.innerText || "");
+      const href = String(location.href || "");
+      return /\\bmy posts\\b/i.test(text)
+        || /your community is a space for you and your viewers/i.test(text)
+        || /give a shoutout/i.test(text)
+        || /create a post/i.test(text)
+        || /show_create_dialog=1/i.test(href)
+        || /\\/posts/i.test(href);
+    `);
+    if (state.hasCompose && (asCreator || state.createDialogUrl)) {
+        return { ready: true, reason: "compose-ready", state };
+    }
+    return { ready: false, reason: "not-ready", state, asCreator: Boolean(asCreator) };
 }
 
 async function clickOpenCommunityComposer(driver) {
@@ -339,7 +419,7 @@ async function clickOpenCommunityComposer(driver) {
       )].find((el) => {
         const aria = (el.getAttribute("aria-label") || "").toLowerCase();
         const text = (el.innerText || "").replace(/\\s+/g, " ").trim().toLowerCase();
-        return /shoutout|create a post|share something|write a post|give a shoutout/.test(aria + " " + text);
+        return /shoutout|create a post|share something|write a post|give a shoutout|what's on your mind/.test(aria + " " + text);
       });
       if (!box) return false;
       box.click();
@@ -348,109 +428,325 @@ async function clickOpenCommunityComposer(driver) {
     if (clickedComposer) {
         return "composer-box";
     }
-    // Header Create can open a menu — then pick Post/Community if shown.
-    const clickedHeaderCreate = await clickByLabel(driver, ["^create$"]);
-    if (clickedHeaderCreate) {
-        await contentPublishSleep(1000);
-        const picked = await clickByLabel(driver, [
-            "^create a post$",
-            "^post$",
-            "^community post$",
-        ]);
-        if (picked) {
-            return "header-create-menu";
+    return null;
+}
+
+async function pickCreateMenuPostItem(driver) {
+    return await driver.executeScript(`
+      const nodes = [...document.querySelectorAll(
+        "tp-yt-paper-item, ytd-menu-service-item-renderer, yt-list-item-view-model, a, button, tp-yt-paper-listbox [role='option'], [role='menuitem']"
+      )];
+      const scored = [];
+      for (const el of nodes) {
+        if (!el.getClientRects().length) continue;
+        const text = ((el.innerText || "") + " " + (el.getAttribute("aria-label") || ""))
+          .replace(/\\s+/g, " ")
+          .trim();
+        if (!text || text.length > 80) continue;
+        const lower = text.toLowerCase();
+        let score = 0;
+        if (/^create a post$/i.test(text) || /^create post$/i.test(text)) score = 100;
+        else if (/community post/i.test(lower)) score = 95;
+        else if (/^post$/i.test(text)) score = 90;
+        else if (/\\bpost\\b/i.test(lower) && !/upload|video|live|short/i.test(lower)) score = 70;
+        if (score > 0) scored.push({ text: text.slice(0, 60), score, el });
+      }
+      scored.sort((a, b) => b.score - a.score);
+      if (!scored.length) {
+        return {
+          ok: false,
+          candidates: nodes.slice(0, 12).map((el) =>
+            ((el.innerText || "") + " " + (el.getAttribute("aria-label") || ""))
+              .replace(/\\s+/g, " ")
+              .trim()
+              .slice(0, 60)
+          ).filter(Boolean),
+        };
+      }
+      scored[0].el.click();
+      return { ok: true, text: scored[0].text, score: scored[0].score };
+    `);
+}
+
+/** Header Create (+) → Create a post / Community post (UI). */
+async function openCommunityViaHeaderCreate(driver) {
+    const clickedHeaderCreate = await clickByLabel(driver, [
+        "^create$",
+        "^create a video or post$",
+    ]);
+    logger.info(`content-publish yt header create click=${clickedHeaderCreate}`);
+    if (!clickedHeaderCreate) {
+        const iconCreate = await driver.executeScript(`
+          const btn = document.querySelector(
+            "#create-icon, button[aria-label*='Create' i], ytd-topbar-menu-button-renderer#create, #buttons ytd-button-renderer"
+          );
+          if (!btn) return false;
+          (btn.querySelector("button") || btn).click();
+          return true;
+        `);
+        logger.info(`content-publish yt header create icon click=${iconCreate}`);
+        if (!iconCreate) {
+            return null;
         }
     }
+    await contentPublishSleep(1500);
+    let picked = await clickByLabel(driver, [
+        "^create a post$",
+        "^create post$",
+        "^community post$",
+        "^post$",
+    ]);
+    if (!picked) {
+        const soft = await pickCreateMenuPostItem(driver);
+        logger.info(`content-publish yt header create soft pick=${JSON.stringify(soft)}`);
+        picked = Boolean(soft?.ok);
+    } else {
+        logger.info(`content-publish yt header create menu pick=${picked}`);
+    }
+    if (!picked) {
+        await driver.actions().sendKeys(Key.ESCAPE).perform().catch(() => {});
+        return null;
+    }
+    await contentPublishSleep(3500);
+    await dismissCommunityIntro(driver);
+    return "header-create-menu";
+}
+
+/** Avatar → Your channel → Community/Posts tab (UI). */
+async function openCommunityViaChannelTabs(driver, channelId) {
+    await openUrl(driver, "https://www.youtube.com/");
+    await contentPublishSleep(2500);
+    await clickAvatarButton(driver);
+    await contentPublishSleep(900);
+    const yourChannel = await clickByLabel(driver, [
+        "^your channel$",
+        "^view channel$",
+        "^my channel$",
+    ]);
+    logger.info(`content-publish yt your-channel click=${yourChannel}`);
+    if (!yourChannel) {
+        await driver.actions().sendKeys(Key.ESCAPE).perform().catch(() => {});
+        return null;
+    }
+    await contentPublishSleep(4000);
+
+    const communityTab = await clickByLabel(driver, ["^community$", "^posts$"]);
+    logger.info(`content-publish yt community tab click=${communityTab}`);
+    if (!communityTab) {
+        const tabJs = await driver.executeScript(`
+          const tabs = [...document.querySelectorAll(
+            "tp-yt-paper-tab, yt-tab-shape, a[href*='community'], a[href*='posts'], button, div[role='tab']"
+          )];
+          const hit = tabs.find((el) => {
+            const href = el.getAttribute("href") || "";
+            const text = ((el.innerText || "") + " " + (el.getAttribute("aria-label") || ""))
+              .replace(/\\s+/g, " ")
+              .trim();
+            return /community|\\bposts\\b/i.test(text) || /community|\\/posts/i.test(href);
+          });
+          if (!hit) return false;
+          hit.click();
+          return true;
+        `);
+        logger.info(`content-publish yt community tab js click=${tabJs}`);
+        if (!tabJs) {
+            return null;
+        }
+    }
+    await contentPublishSleep(3500);
+    await dismissCommunityIntro(driver);
+
+    const opened = await clickOpenCommunityComposer(driver);
+    logger.info(`content-publish yt composer open via=${opened || "none"}`);
+    await contentPublishSleep(2500);
+    await dismissCommunityIntro(driver);
+
+    const check = await isCommunityCreatorReady(driver, channelId);
+    if (check.ready) {
+        return "channel-community-tab";
+    }
+    return opened || null;
+}
+
+/** Avatar → YouTube Studio → Content/Posts/Community via left nav (UI). */
+async function openCommunityViaStudioUi(driver, channelId) {
+    await openUrl(driver, "https://www.youtube.com/");
+    await contentPublishSleep(2500);
+    await clickAvatarButton(driver);
+    await contentPublishSleep(900);
+    const studio = await clickByLabel(driver, [
+        "^youtube studio$",
+        "^creator studio$",
+    ]);
+    logger.info(`content-publish yt studio menu click=${studio}`);
+    if (!studio) {
+        await driver.actions().sendKeys(Key.ESCAPE).perform().catch(() => {});
+        await openUrl(driver, "https://studio.youtube.com/");
+        await contentPublishSleep(4000);
+    } else {
+        await contentPublishSleep(5000);
+    }
+
+    const onWanted = await driver.executeScript(
+        `return String(location.href || "").includes(arguments[0])`,
+        channelId,
+    );
+    if (!onWanted) {
+        logger.info("content-publish yt studio not on wanted channel; trying switcher in studio");
+        await clickAvatarButton(driver);
+        await contentPublishSleep(800);
+        await clickByLabel(driver, ["^switch account$", "^switch channel$"]);
+        await contentPublishSleep(800);
+        await waitForAccountItems(driver, 8000);
+        const clicked = await clickChannelInAccountList(driver, channelId, []);
+        logger.info(`content-publish yt studio switcher click=${JSON.stringify(clicked)}`);
+        await confirmChannelSwitchIfNeeded(driver);
+        await contentPublishSleep(3000);
+    }
+
+    const leftNav = await driver.executeScript(`
+      const nodes = [...document.querySelectorAll("a, tp-yt-paper-item, yt-formatted-string, button")];
+      const preferred = [];
+      for (const el of nodes) {
+        if (!el.getClientRects().length) continue;
+        const text = ((el.innerText || "") + " " + (el.getAttribute("aria-label") || ""))
+          .replace(/\\s+/g, " ")
+          .trim();
+        if (/^(community|posts)$/i.test(text)) preferred.push({ el, text, score: 100 });
+        else if (/^content$/i.test(text)) preferred.push({ el, text, score: 50 });
+      }
+      preferred.sort((a, b) => b.score - a.score);
+      if (!preferred.length) return null;
+      preferred[0].el.click();
+      return preferred[0].text.slice(0, 40);
+    `);
+    logger.info(`content-publish yt studio left-nav click=${leftNav}`);
+    await contentPublishSleep(3000);
+
+    let created = await clickByLabel(driver, [
+        "^create$",
+        "^create a post$",
+        "^new post$",
+        "^post$",
+    ]);
+    logger.info(`content-publish yt studio create click=${created}`);
+    if (!created) {
+        const soft = await pickCreateMenuPostItem(driver);
+        logger.info(`content-publish yt studio soft create=${JSON.stringify(soft)}`);
+        created = Boolean(soft?.ok);
+    }
+    await contentPublishSleep(4000);
+    await dismissCommunityIntro(driver);
+    const opened = await clickOpenCommunityComposer(driver);
+    logger.info(`content-publish yt studio composer via=${opened || "none"}`);
+    await contentPublishSleep(3000);
+
+    // Studio path opened a create flow — keep going even if markers are still settling.
+    if (created || opened) {
+        return "studio-ui";
+    }
+    const check = await isCommunityCreatorReady(driver, channelId);
+    if (check.ready || check.state?.hasCaption || check.state?.hasAddImage || check.state?.hasPost) {
+        logger.info("content-publish yt studio compose controls visible");
+        return "studio-ui-controls";
+    }
     return null;
+}
+
+async function waitUntilComposeReady(driver, channelId, timeoutMs = 15000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        await dismissCommunityIntro(driver);
+        const check = await isCommunityCreatorReady(driver, channelId);
+        if (check.ready) {
+            return check;
+        }
+        if (check.reason === "viewer-blocked") {
+            return check;
+        }
+        await contentPublishSleep(800);
+    }
+    return isCommunityCreatorReady(driver, channelId);
 }
 
 async function openCreatePostDialog(driver, channelId) {
     await establishChannelContext(driver, channelId);
 
-    // /posts?show_create_dialog=1 no longer opens the composer reliably.
-    // Community tab does: www.youtube.com/channel/{id}/community
-    const communityUrls = [
-        `https://www.youtube.com/channel/${channelId}/community?show_create_dialog=1`,
-        `https://www.youtube.com/channel/${channelId}/community`,
-        `https://www.youtube.com/channel/${channelId}/posts?show_create_dialog=1`,
-    ];
-
-    for (const communityUrl of communityUrls) {
-        logger.info(`content-publish yt open community create ${communityUrl}`);
-        await openUrl(driver, communityUrl);
-        await contentPublishSleep(5000);
-        await dismissCommunityIntro(driver);
-
-        let state = await diagnoseChannelContext(driver, channelId);
-        if (!state.matched) {
-            logger.info(`content-publish yt community url left channel context url=${state.url}`);
-            continue;
-        }
-            if (state.viewerBlocked) {
-            // Personal Google account is on Community as a viewer, not as the brand channel.
-            logger.info("content-publish yt viewer-blocked on community; retrying channel switch");
-            const retryHints = await driver.executeScript(`
-              const title = String(document.title || "");
-              const hints = [];
-              const m = title.match(/^(.+?)(?:'s|’s)?\\s+Community/i);
-              if (m?.[1]) hints.push(m[1].trim());
-              const handle = String(document.body?.innerText || "").match(/@[A-Za-z0-9._-]{2,}/);
-              if (handle) hints.push(handle[0]);
-              return hints;
-            `);
-            await switchViaAccountSwitcher(driver, channelId, retryHints || []);
-            await openUrl(driver, communityUrl);
-            await contentPublishSleep(5000);
-            state = await diagnoseChannelContext(driver, channelId);
-            if (state.viewerBlocked) {
-                await failStep(
-                    driver,
-                    "YouTube Community is open as a viewer (not the brand channel). Switch to the channel account in YouTube (channel switcher), export a fresh cookie while posting as that channel, then retry.",
-                    "yt-viewer-blocked",
-                );
-            }
-        }
-        const asCreator = await driver.executeScript(`
-          const text = String(document.body?.innerText || "");
-          return /\\bmy posts\\b/i.test(text) || /your community is a space for you and your viewers/i.test(text);
-        `);
-        if (state.hasCompose && !state.viewerBlocked && asCreator) {
-            logger.info("content-publish yt compose ready on community tab (creator)");
+    // --- UI path 1: header Create → Create a post ---
+    logger.info("content-publish yt try open community via header Create UI");
+    let via = await openCommunityViaHeaderCreate(driver);
+    if (via) {
+        // Create menu often lands on /posts?show_create_dialog=1 — give dialog time.
+        await contentPublishSleep(2500);
+        const opened = await clickOpenCommunityComposer(driver);
+        logger.info(`content-publish yt after header create composer click=${opened || "none"}`);
+        const check = await waitUntilComposeReady(driver, channelId, 18000);
+        logger.info(
+            `content-publish yt after header create ready=${check.ready} via=${via} url=${check.state?.url} compose=${check.state?.hasCompose}`,
+        );
+        if (check.ready || check.state?.hasCompose) {
             return;
         }
-        if (state.hasCompose && !asCreator) {
-            logger.info("content-publish yt compose visible but not creator identity; will retry switch");
-        }
-
-        const opened = await clickOpenCommunityComposer(driver);
-        logger.info(`content-publish yt composer open via=${opened || "none"}`);
-        await contentPublishSleep(2500);
-        await dismissCommunityIntro(driver);
-
-        const deadline = Date.now() + 15000;
-        while (Date.now() < deadline) {
-            state = await diagnoseChannelContext(driver, channelId);
-            const creatorNow = await driver.executeScript(`
-              const text = String(document.body?.innerText || "");
-              return /\\bmy posts\\b/i.test(text)
-                || /your community is a space for you and your viewers/i.test(text);
-            `);
-            if (state.hasCompose && creatorNow && !state.viewerBlocked) {
-                logger.info("content-publish yt compose became ready on community tab (creator)");
-                return;
-            }
-            await contentPublishSleep(800);
+        if (check.reason === "viewer-blocked") {
+            logger.info("content-publish yt viewer-blocked after header create; re-switching channel");
+            await switchViaAccountSwitcher(driver, channelId, []);
         }
     }
 
-    // Last resort: switcher then community tab again.
-    const fallbackHints = await readStudioChannelHints(driver, channelId);
-    await switchViaAccountSwitcher(driver, channelId, fallbackHints || []);
-    const fallbackUrl = `https://www.youtube.com/channel/${channelId}/community`;
-    await openUrl(driver, fallbackUrl);
+    // --- UI path 2: Your channel → Community tab → composer ---
+    logger.info("content-publish yt try open community via channel Community tab UI");
+    via = await openCommunityViaChannelTabs(driver, channelId);
+    if (via) {
+        const check = await waitUntilComposeReady(driver, channelId, 12000);
+        logger.info(
+            `content-publish yt after community tab ready=${check.ready} via=${via} url=${check.state?.url}`,
+        );
+        if (check.ready) {
+            return;
+        }
+        if (check.reason === "viewer-blocked") {
+            await failStep(
+                driver,
+                "YouTube Community is open as a viewer (not the brand channel). Switch to the channel account in YouTube (channel switcher), export a fresh cookie while posting as that channel, then retry.",
+                "yt-viewer-blocked",
+            );
+        }
+    }
+
+    // --- UI path 3: Avatar → YouTube Studio → Posts/Community ---
+    logger.info("content-publish yt try open community via Studio UI");
+    via = await openCommunityViaStudioUi(driver, channelId);
+    if (via) {
+        const check = await waitUntilComposeReady(driver, channelId, 20000);
+        logger.info(
+            `content-publish yt after studio ui ready=${check.ready} via=${via} url=${check.state?.url} state=${JSON.stringify({
+                hasCaption: check.state?.hasCaption,
+                hasAddImage: check.state?.hasAddImage,
+                hasPost: check.state?.hasPost,
+                hasCompose: check.state?.hasCompose,
+            })}`,
+        );
+        if (
+            check.ready
+            || check.state?.hasCompose
+            || check.state?.hasCaption
+            || check.state?.hasAddImage
+            || check.state?.hasPost
+        ) {
+            return;
+        }
+    }
+
+    // --- Last resort only: direct community URL (robotic; keep for resilience) ---
+    logger.info("content-publish yt last-resort community URL navigation");
+    const communityUrl = `https://www.youtube.com/channel/${channelId}/community`;
+    await openUrl(driver, communityUrl);
     await contentPublishSleep(5000);
-    await clickOpenCommunityComposer(driver);
+    await dismissCommunityIntro(driver);
+    const opened = await clickOpenCommunityComposer(driver);
+    logger.info(`content-publish yt composer open via=${opened || "none"}`);
     await contentPublishSleep(3000);
+
     const state = await assertChannelContext(driver, channelId, "yt-posts-after-switcher");
     if (state.viewerBlocked) {
         await failStep(
@@ -459,10 +755,11 @@ async function openCreatePostDialog(driver, channelId) {
             "yt-viewer-blocked",
         );
     }
-    if (!state.hasCompose) {
+    const finalCheck = await waitUntilComposeReady(driver, channelId, 10000);
+    if (!finalCheck.ready) {
         await failUnlessReady(
             driver,
-            `YouTube step2 create UI missing for channel ${channelId} (${JSON.stringify(state)})`,
+            `YouTube step2 create UI missing for channel ${channelId} (${JSON.stringify(finalCheck.state)})`,
             "yt-step2",
         );
     }
@@ -723,10 +1020,13 @@ async function attachImage(driver, mediaPath) {
                 "yt-viewer-blocked",
             );
         }
-        if (editorState?.phase === "verify-required") {
+        if (editorState?.phase === "verify-required" || (editorState?.verify && editorState?.phase === "saving")) {
+            // Save Images present but Verify is also on-screen — clicks won't complete.
+            const challenge = await detectGoogleChallenge(driver);
             await failStep(
                 driver,
-                "YouTube Community requires Verify (phone/account verification) before image posts can be saved. Complete Verify once in a normal browser as the brand channel, then retry.",
+                challenge
+                    || "YouTube Community requires Verify (phone/account verification) before image posts can be saved. Complete Verify once in a normal browser as the brand channel, then retry.",
                 "yt-verify-required",
             );
         }

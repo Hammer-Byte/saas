@@ -137,16 +137,17 @@ function Start-AgentOnce {
     }
     # Do NOT capture output into a variable - that buffers until the agent exits
     # (~15-30 min for two sends with 900s wait) and looks "stuck".
-    Write-SuperLog "starting agent (2 health checks, ~15 min apart; live logs below / agent.log)"
+    Write-SuperLog "starting agent (ping every 60s; metrics ~15 min apart x2; live logs below / agent.log)"
     $agentOut = Join-Path $InstallDir "agent-console.log"
     $agentErr = Join-Path $InstallDir "agent-console.err.log"
     try { if (Test-Path $agentOut) { Remove-Item $agentOut -Force } } catch {}
     try { if (Test-Path $agentErr) { Remove-Item $agentErr -Force } } catch {}
 
-    $proc = Start-Process -FilePath "powershell.exe" -ArgumentList @(
-        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $AgentFile, "-Tag", $Tag
-    ) -WorkingDirectory $InstallDir -PassThru -WindowStyle Hidden `
-      -RedirectStandardOutput $agentOut -RedirectStandardError $agentErr
+    # Single argument string avoids PS 3 Start-Process array-quoting bugs.
+    $agentArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$AgentFile`" -Tag `"$Tag`""
+    $proc = Start-Process -FilePath "powershell.exe" -ArgumentList $agentArgs `
+        -WorkingDirectory $InstallDir -PassThru -WindowStyle Hidden `
+        -RedirectStandardOutput $agentOut -RedirectStandardError $agentErr
 
     $lastOutLen = 0
     $lastErrLen = 0

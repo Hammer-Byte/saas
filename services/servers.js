@@ -35,8 +35,19 @@ export async function addServerMetrics({ request, body, set }) {
         }
     }
 
-    const isDriveSync =
-        body && typeof body === "object" && String(body.type || "").toLowerCase() === "drive_sync";
+    const payloadType =
+        body && typeof body === "object"
+            ? String(body.type || "").toLowerCase()
+            : "";
+    // Three payload kinds: ping (alive), metrics (full snapshot), drive_sync.
+    const isPing = payloadType === "ping";
+    const isDriveSync = payloadType === "drive_sync";
+    const isMetrics = !isPing && !isDriveSync;
+
+    const agentVersion =
+        body && typeof body === "object" && body.agent_version != null
+            ? String(body.agent_version).slice(0, 32)
+            : null;
 
     if (isDriveSync) {
         const status = String(body.status || "error").slice(0, 16);
@@ -58,28 +69,29 @@ export async function addServerMetrics({ request, body, set }) {
             last_sync_status: status,
             last_sync_summary: summary,
         });
-    } else {
-        const agentVersion =
-            body && typeof body === "object" && body.agent_version != null
-                ? String(body.agent_version).slice(0, 32)
-                : null;
-
+    } else if (isPing || isMetrics) {
+        // Ping keeps last_seen_at fresh for alive alerts; metrics also bump it.
         await updateServerLastSeenById({
             id: server.id,
             agent_version: agentVersion,
         });
     }
 
-    const payload = JSON.stringify(body ?? {});
-    await createServerMetric({
-        server_id: server.id,
-        payload,
-    });
+    // Do not store ping rows — they are high-frequency alive signals only.
+    if (!isPing) {
+        const payload = JSON.stringify(body ?? {});
+        await createServerMetric({
+            server_id: server.id,
+            payload,
+        });
+    }
 
-    await notifyServerMetricAlertsIfNeeded({ server, body });
+    if (isMetrics) {
+        await notifyServerMetricAlertsIfNeeded({ server, body });
+    }
 
     set.status = 200;
-    return { ok: true, server_id: server.id };
+    return { ok: true, server_id: server.id, type: payloadType || "metrics" };
 }
 
 export async function getMonitoredServers({ set }) {
@@ -136,7 +148,7 @@ export async function updateMonitoredServer({ body, set }) {
                 alert_memory_enabled: body.alert,
                 alert_memory_percent: server.alert_memory_percent ?? 80,
                 alert_ping_enabled: server.alert_ping_enabled,
-                alert_ping_seconds: server.alert_ping_seconds ?? 2700,
+                    alert_ping_seconds: server.alert_ping_seconds ?? 180,
             });
         }
     }

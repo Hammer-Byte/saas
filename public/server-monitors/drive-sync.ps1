@@ -3,7 +3,7 @@
 .SYNOPSIS
   HammerByte Drive Sync - Windows Server 2012+ (PowerShell 3/4 safe)
   Child pulls from source UNC shares onto local paths on an interval.
-  Version: 0.2.2-ps-stable
+  Version: 0.2.3-ps-stable
 
 .NOTES
   SOURCE SAFETY (live production):
@@ -36,7 +36,7 @@ $SharedTagFile = Join-Path $HammerByteRoot ".server-tag"
 $LegacyMonitorTagFile = Join-Path $HammerByteRoot "ServerMonitor\.server-tag"
 $LegacyDriveSyncTagFile = Join-Path $InstallDir ".server-tag"
 $ScriptFile = Join-Path $InstallDir "drive-sync.ps1"
-$AgentVersion = "0.2.2-ps-stable"
+$AgentVersion = "0.2.3-ps-stable"
 $DefaultInterval = 300
 $script:CycleEvents = New-Object System.Collections.ArrayList
 
@@ -200,21 +200,20 @@ function Install-Self {
 function Save-Config {
     param($Config)
     try {
+        # Build JSON by concatenation (NOT -f). Passwords may contain { } which break -f.
         $pairParts = New-Object System.Collections.ArrayList
         foreach ($pair in @($Config.pairs)) {
-            $part = '{{"source_unc":"{0}","local_path":"{1}"}}' -f `
-                (Escape-JsonString ([string]$pair.source_unc)), `
-                (Escape-JsonString ([string]$pair.local_path))
+            $part = '{"source_unc":"' + (Escape-JsonString ([string]$pair.source_unc)) +
+                '","local_path":"' + (Escape-JsonString ([string]$pair.local_path)) + '"}'
             [void]$pairParts.Add($part)
         }
         $pairsJson = "[" + ($pairParts -join ",") + "]"
-        $json = ('{{"source_host":"{0}","username":"{1}","password":"{2}","interval_seconds":{3},"updated_at":"{4}","pairs":{5}}}' -f `
-            (Escape-JsonString ([string]$Config.source_host)), `
-            (Escape-JsonString ([string]$Config.username)), `
-            (Escape-JsonString ([string]$Config.password)), `
-            ([int]$Config.interval_seconds), `
-            (Escape-JsonString ([string]$Config.updated_at)), `
-            $pairsJson)
+        $json = '{"source_host":"' + (Escape-JsonString ([string]$Config.source_host)) +
+            '","username":"' + (Escape-JsonString ([string]$Config.username)) +
+            '","password":"' + (Escape-JsonString ([string]$Config.password)) +
+            '","interval_seconds":' + ([int]$Config.interval_seconds) +
+            ',"updated_at":"' + (Escape-JsonString ([string]$Config.updated_at)) +
+            '","pairs":' + $pairsJson + '}'
         Set-Content -Path $ConfigFile -Value $json -Encoding ASCII
         try {
             & icacls.exe $ConfigFile /inheritance:r /grant:r Administrators:F /grant:r SYSTEM:F | Out-Null
@@ -743,12 +742,12 @@ function Send-Status {
                 try { $status = [string]$Payload.status } catch {}
                 try { if ($Payload.source_host) { $sourceHost = [string]$Payload.source_host } } catch {}
             }
-            $json = ('{{"type":"drive_sync","agent_version":"{0}","hostname":"{1}","source_host":"{2}","status":"{3}","errors":["serializer unavailable; sync still ran"],"collected_at":"{4}"}}' -f `
-                (Escape-JsonString $agentVer), `
-                (Escape-JsonString $hostName), `
-                (Escape-JsonString $sourceHost), `
-                (Escape-JsonString $status), `
-                (Escape-JsonString ((Get-Date).ToUniversalTime().ToString("o"))))
+            $json = '{"type":"drive_sync","agent_version":"' + (Escape-JsonString $agentVer) +
+                '","hostname":"' + (Escape-JsonString $hostName) +
+                '","source_host":"' + (Escape-JsonString $sourceHost) +
+                '","status":"' + (Escape-JsonString $status) +
+                '","errors":["serializer unavailable; sync still ran"],"collected_at":"' +
+                (Escape-JsonString ((Get-Date).ToUniversalTime().ToString("o"))) + '"}'
             Write-SyncLog ("json serializer fallback used: {0}" -f $_.Exception.Message) -Level "warning" -Event
         }
         $webClient = New-Object System.Net.WebClient

@@ -43,7 +43,7 @@
             alert_cpu_enabled: Boolean(cpuEnabled?.checked),
             alert_memory_percent: memoryPercent?.value || "80",
             alert_memory_enabled: Boolean(memoryEnabled?.checked),
-            alert_ping_seconds: pingSeconds?.value || "2700",
+            alert_ping_seconds: pingSeconds?.value || "180",
             alert_ping_enabled: Boolean(pingEnabled?.checked),
         };
     }
@@ -95,7 +95,7 @@
             alert_memory_enabled: Boolean(memoryEnabled?.checked),
             alert_memory_percent: Number(memoryPercent?.value || 80),
             alert_ping_enabled: Boolean(pingEnabled?.checked),
-            alert_ping_seconds: Number(pingSeconds?.value || 2700),
+            alert_ping_seconds: Number(pingSeconds?.value || 180),
         };
 
         saveBtn.disabled = true;

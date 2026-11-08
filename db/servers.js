@@ -103,7 +103,7 @@ export async function updateServerSyncStatusById({
     last_sync_status = null,
     last_sync_summary = null,
 }) {
-    // Do not bump last_seen_at here — ping alerts track monitoring metrics only.
+    // Do not bump last_seen_at here — alive/ping alerts use agent ping (type=ping) only.
     const last_sync_at = getIstDateTime();
     await executeSQLQuery(
         (sql) => sql`
@@ -163,7 +163,7 @@ function clampPercent(value, fallback = 80) {
     return Math.min(100, Math.max(1, Math.round(n)));
 }
 
-function clampPingSeconds(value, fallback = 2700) {
+function clampPingSeconds(value, fallback = 180) {
     const n = Number(value);
     if (!Number.isFinite(n)) {
         return fallback;

@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 REM HammerByte Drive Sync installer - Windows Server 2012+
 REM Double-click or Run as administrator.
-REM Stable build: deletes old broken config.json before setup.
+REM Preserves existing config.json on upgrade (only runs -Setup when missing).
 
 cd /d "%~dp0"
 
@@ -47,14 +47,16 @@ if not exist "%INSTALL_DIR%\drive-sync.ps1" (
   exit /b 1
 )
 
-if exist "%INSTALL_DIR%\config.json" (
-  echo Removing previous config.json so setup runs clean...
-  del /F /Q "%INSTALL_DIR%\config.json" >nul 2>&1
-)
-
 echo.
-echo Starting drive sync setup (version banner should say 0.2.2-ps-stable)...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%INSTALL_DIR%\drive-sync.ps1" -Setup
+echo Banner should say 0.2.3-ps-stable
+if exist "%INSTALL_DIR%\config.json" (
+  echo Existing config.json found - preserving credentials/pairs ^(upgrade mode^).
+  echo Starting drive sync WITHOUT -Setup...
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%INSTALL_DIR%\drive-sync.ps1"
+) else (
+  echo No config.json - starting first-time setup...
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%INSTALL_DIR%\drive-sync.ps1" -Setup
+)
 set "ERR=%ERRORLEVEL%"
 echo.
 echo Drive sync exited with code %ERR%

@@ -1,6 +1,6 @@
 HammerByte Windows agents - Server 2012 stable
-drive-sync=0.2.2-ps-stable
-monitor-agent=0.3.1-ps-stable
+drive-sync=0.2.3-ps-stable
+monitor-agent=0.3.3-ps-stable
 
 Includes:
 - install-monitor.cmd + supervisor.ps1 + agent.ps1
@@ -13,11 +13,13 @@ Server 2012 notes fixed in this build:
 - No double-quoted regex with backslash-paren
 - ASCII-only script text
 - Config round-trip verified before sync starts
-- Installer deletes old config.json before -Setup
+- Drive-sync installer preserves config.json on upgrade (Setup only if missing)
 - Script path resolved via PSCommandPath (safe inside functions)
+- Config JSON built by concatenation (passwords with { } safe; no -f)
 - PULL ONLY: Assert-PullOnlyPaths + robocopy SOURCE->LOCAL; /PURGE is local-only
 - Destination must be local disk DriveType 2/3 (rejects network-mapped letters)
 - Quiet robocopy logging: heartbeats + copy issue lines + end summary
 - Shared machine tag at %ProgramData%\HammerByte\.server-tag
+- Agent payload types: ping (60s alive), metrics (long interval), drive_sync (sync utility)
 
 On child after deploy: unzip package, run .cmd as Administrator once.

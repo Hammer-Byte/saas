@@ -754,7 +754,7 @@ export async function generateDBTables() {
         `ALTER TABLE SERVERS ADD COLUMN alert_memory_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
         `ALTER TABLE SERVERS ADD COLUMN alert_memory_percent INT NOT NULL DEFAULT 80`,
         `ALTER TABLE SERVERS ADD COLUMN alert_ping_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
-        `ALTER TABLE SERVERS ADD COLUMN alert_ping_seconds INT NOT NULL DEFAULT 2700`,
+        `ALTER TABLE SERVERS ADD COLUMN alert_ping_seconds INT NOT NULL DEFAULT 180`,
         `UPDATE SERVERS
             SET alert_memory_enabled = TRUE,
                 alert_memory_percent = 90

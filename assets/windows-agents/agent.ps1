@@ -2,7 +2,8 @@
 <#
 .SYNOPSIS
   HammerByte Server Agent (Windows Server 2012+ PowerShell)
-  Collects metrics twice (900s apart), then exits for supervisor refresh.
+  Sends lightweight ping every 60s (alive).
+  Sends full metrics on a longer interval, then exits for supervisor refresh.
 #>
 param(
     [Parameter(Mandatory = $true)]
@@ -18,9 +19,10 @@ try {
 
 $HostUrl = "https://hammerbyte.co.in"
 $MetricsUrl = "$HostUrl/api/servers/metrics"
+$PingIntervalSeconds = 60
 $MetricsIntervalSeconds = 900
-$SendsPerRun = 2
-$AgentVersion = "0.3.1-ps-stable"
+$MetricsPerRun = 2
+$AgentVersion = "0.3.3-ps-stable"
 $InstallDir = Join-Path $env:ProgramData "HammerByte\ServerMonitor"
 $AgentLogFile = Join-Path $InstallDir "agent.log"
 
@@ -306,22 +308,11 @@ function Send-Metrics {
         if ($payload.collection_error) {
             Write-AgentLog ("collection warning: {0}" -f $payload.collection_error)
         }
-        Write-AgentLog "health check done"
-
-        # JavaScriptSerializer avoids PS 3/4 ConvertTo-Json array wrapping ({value,Count}).
-        Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
-        $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
-        $serializer.MaxJsonLength = [int]::MaxValue
-        $json = $serializer.Serialize($payload)
-        $webClient = New-Object System.Net.WebClient
-        try {
-            $webClient.Headers["Content-Type"] = "application/json"
-            $webClient.Headers["X-Server-Tag"] = $ServerTag
-            $null = $webClient.UploadString($MetricsUrl, "POST", $json)
-        } finally {
-            $webClient.Dispose()
+        Write-AgentLog "metrics collection done"
+        if (-not (Send-JsonPayload -ServerTag $ServerTag -Payload $payload)) {
+            return $false
         }
-        Write-AgentLog "health check sent"
+        Write-AgentLog "metrics sent"
         return $true
     } catch {
         Write-AgentLog ("failed to connect: {0}" -f $_.Exception.Message)
@@ -329,23 +320,85 @@ function Send-Metrics {
     }
 }
 
-Write-AgentLog ("host {0}" -f $HostUrl)
-Write-AgentLog ("tag {0}" -f $Tag)
-Write-AgentLog ("frequency {0}s ({1} sends then exit)" -f $MetricsIntervalSeconds, $SendsPerRun)
-Write-AgentLog "collecting metrics now..."
-
-for ($i = 1; $i -le $SendsPerRun; $i++) {
-    Write-AgentLog ("send {0}/{1} starting" -f $i, $SendsPerRun)
+function Send-JsonPayload {
+    param(
+        [string]$ServerTag,
+        $Payload
+    )
     try {
-        Send-Metrics -ServerTag $Tag | Out-Null
+        # JavaScriptSerializer avoids PS 3/4 ConvertTo-Json array wrapping ({value,Count}).
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+        $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        $serializer.MaxJsonLength = [int]::MaxValue
+        $json = $serializer.Serialize($Payload)
     } catch {
-        Write-AgentLog ("send cycle failed: {0}" -f $_.Exception.Message)
+        Write-AgentLog ("json serialize failed: {0}" -f $_.Exception.Message)
+        return $false
     }
-    if ($i -lt $SendsPerRun) {
-        Write-AgentLog ("waiting {0}s before next send (this is normal)" -f $MetricsIntervalSeconds)
-        Start-Sleep -Seconds $MetricsIntervalSeconds
+    $webClient = New-Object System.Net.WebClient
+    try {
+        $webClient.Headers["Content-Type"] = "application/json"
+        $webClient.Headers["X-Server-Tag"] = $ServerTag
+        $null = $webClient.UploadString($MetricsUrl, "POST", $json)
+    } finally {
+        $webClient.Dispose()
+    }
+    return $true
+}
+
+function Send-Ping {
+    param([string]$ServerTag)
+    try {
+        $payload = @{
+            type = "ping"
+            agent_version = $AgentVersion
+            hostname = $env:COMPUTERNAME
+            collected_at = (Get-Date).ToUniversalTime().ToString("o")
+        }
+        if (-not (Send-JsonPayload -ServerTag $ServerTag -Payload $payload)) {
+            return $false
+        }
+        Write-AgentLog "ping sent (alive)"
+        return $true
+    } catch {
+        Write-AgentLog ("ping failed: {0}" -f $_.Exception.Message)
+        return $false
     }
 }
 
-Write-AgentLog "send cycle complete; exiting for supervisor agent refresh"
+Write-AgentLog ("host {0}" -f $HostUrl)
+Write-AgentLog ("tag {0}" -f $Tag)
+Write-AgentLog ("ping every {0}s | metrics every {1}s ({2} metrics then exit)" -f `
+    $PingIntervalSeconds, $MetricsIntervalSeconds, $MetricsPerRun)
+
+$metricsSent = 0
+$nextMetricsAt = Get-Date
+$runStarted = Get-Date
+
+while ($true) {
+    try {
+        Send-Ping -ServerTag $Tag | Out-Null
+    } catch {
+        Write-AgentLog ("ping cycle failed: {0}" -f $_.Exception.Message)
+    }
+
+    if ((Get-Date) -ge $nextMetricsAt) {
+        Write-AgentLog ("metrics {0}/{1} starting" -f ($metricsSent + 1), $MetricsPerRun)
+        try {
+            Send-Metrics -ServerTag $Tag | Out-Null
+        } catch {
+            Write-AgentLog ("metrics cycle failed: {0}" -f $_.Exception.Message)
+        }
+        $metricsSent++
+        $nextMetricsAt = (Get-Date).AddSeconds($MetricsIntervalSeconds)
+        if ($metricsSent -ge $MetricsPerRun) {
+            break
+        }
+    }
+
+    Start-Sleep -Seconds $PingIntervalSeconds
+}
+
+$elapsed = [int]((Get-Date) - $runStarted).TotalSeconds
+Write-AgentLog ("run complete after {0}s; exiting for supervisor agent refresh" -f $elapsed)
 exit 0
