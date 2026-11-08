@@ -80,8 +80,20 @@
                     var platforms = (run.targets || []).map(function (t) { return t.platform; });
                     var mediaKind = run.media_kind || "image";
                     var isVideo = mediaKind === "video";
+                    var runStatus = String(run.status || "").toLowerCase();
+                    var runFinished = runStatus !== "queued" && runStatus !== "running";
+                    var canRetryRun = runFinished
+                        && run.automation_user_id
+                        && String(run.source || "") !== "application";
+                    var failedPlatforms = (run.targets || [])
+                        .filter(function (t) { return String(t.status || "").toLowerCase() === "failed"; })
+                        .map(function (t) { return t.platform; })
+                        .filter(Boolean);
+                    var uniqueFailed = failedPlatforms.filter(function (platform, index) {
+                        return failedPlatforms.indexOf(platform) === index;
+                    });
                 %>
-                    <div class="card border-0 shadow-sm">
+                    <div class="card border-0 shadow-sm" data-run-id="<%= run.id %>">
                         <div class="card-body">
                             <div class="row g-3">
                                 <div class="col-12 col-md-3 col-lg-2">
@@ -129,16 +141,33 @@
                                                     <span class="badge text-bg-primary-subtle text-primary-emphasis border ms-1"><%= platform %></span>
                                                 <% }) %>
                                             <% } %>
+                                            <% if (opts.retried_from_run_id) { %>
+                                                <span class="badge text-bg-info-subtle text-info-emphasis border ms-1">
+                                                    retry of #<%= opts.retried_from_run_id %>
+                                                </span>
+                                            <% } %>
                                         </div>
-                                        <div class="small text-secondary text-end">
-                                            <div>
-                                                Started
-                                                <span data-readable-date="<%= run.started_on || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></span>
+                                        <div class="d-flex flex-column align-items-end gap-2">
+                                            <div class="small text-secondary text-end">
+                                                <div>
+                                                    Started
+                                                    <span data-readable-date="<%= run.started_on || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></span>
+                                                </div>
+                                                <div>
+                                                    Finished
+                                                    <span data-readable-date="<%= run.finished_on || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></span>
+                                                </div>
                                             </div>
-                                            <div>
-                                                Finished
-                                                <span data-readable-date="<%= run.finished_on || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></span>
-                                            </div>
+                                            <% if (canRetryRun && uniqueFailed.length > 1) { %>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-danger js-retry-publish"
+                                                    data-run-id="<%= run.id %>"
+                                                    data-platforms="<%= uniqueFailed.join(',') %>"
+                                                >
+                                                    Retry failed (<%= uniqueFailed.join(", ") %>)
+                                                </button>
+                                            <% } %>
                                         </div>
                                     </div>
 
@@ -230,13 +259,27 @@
                                         <% if (!(run.targets || []).length) { %>
                                             <div class="small text-secondary">No targets</div>
                                         <% } %>
-                                        <% (run.targets || []).forEach(function (target) { %>
+                                        <% (run.targets || []).forEach(function (target) {
+                                            var targetFailed = String(target.status || "").toLowerCase() === "failed";
+                                        %>
                                             <div class="border rounded p-2 mb-2">
-                                                <div class="d-flex flex-wrap gap-2 align-items-baseline">
-                                                    <strong class="text-capitalize"><%= target.platform %></strong>
-                                                    <span class="badge text-bg-secondary"><%= target.status %></span>
-                                                    <% if (target.error_message) { %>
-                                                        <span class="small text-danger"><%= target.error_message %></span>
+                                                <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                                                    <div class="d-flex flex-wrap gap-2 align-items-baseline">
+                                                        <strong class="text-capitalize"><%= target.platform %></strong>
+                                                        <span class="badge text-bg-secondary"><%= target.status %></span>
+                                                        <% if (target.error_message) { %>
+                                                            <span class="small text-danger"><%= target.error_message %></span>
+                                                        <% } %>
+                                                    </div>
+                                                    <% if (canRetryRun && targetFailed) { %>
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-outline-danger js-retry-publish"
+                                                            data-run-id="<%= run.id %>"
+                                                            data-platforms="<%= target.platform %>"
+                                                        >
+                                                            Retry
+                                                        </button>
                                                     <% } %>
                                                 </div>
                                                 <%
@@ -290,4 +333,5 @@
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
+<script src="/public/content-publish-history.js" defer></script>
 <%- include('common/footer') %>

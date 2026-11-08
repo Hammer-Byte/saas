@@ -4,8 +4,15 @@ import {
     getContentPublishRuns,
     getContentPublishScreenshot,
     getContentPublishStatus,
+    retryContentPublishRun,
     startContentPublishRun,
 } from "../../services/content_publish.js";
+
+const platformLiteral = t.Union([
+    t.Literal("instagram"),
+    t.Literal("youtube"),
+    t.Literal("linkedin"),
+]);
 
 export default function (app) {
     return app
@@ -30,6 +37,20 @@ export default function (app) {
                 summary: "Get content publish run",
             },
         })
+        .post("/runs/:id/retry", retryContentPublishRun, {
+            params: t.Object({
+                id: t.Numeric(),
+            }),
+            body: t.Optional(
+                t.Object({
+                    platforms: t.Optional(t.Array(platformLiteral, { minItems: 1 })),
+                }),
+            ),
+            detail: {
+                tags: ["Content Publish"],
+                summary: "Retry failed platforms from a prior run as a new queued run",
+            },
+        })
         .get("/screenshots/:file", getContentPublishScreenshot, {
             params: t.Object({
                 file: t.String({ minLength: 1 }),
@@ -43,14 +64,7 @@ export default function (app) {
             body: t.Object({
                 media_id: t.Numeric({ minimum: 1 }),
                 automation_user_id: t.Numeric({ minimum: 1 }),
-                platforms: t.Array(
-                    t.Union([
-                        t.Literal("instagram"),
-                        t.Literal("youtube"),
-                        t.Literal("linkedin"),
-                    ]),
-                    { minItems: 1 },
-                ),
+                platforms: t.Array(platformLiteral, { minItems: 1 }),
                 instagram_caption: t.Optional(t.String()),
                 instagram_user_id: t.Optional(t.String()),
                 instagram_destinations: t.Optional(

@@ -458,6 +458,236 @@ export async function startContentPublishRun({ body, set, cookie }) {
     };
 }
 
+/**
+ * Re-queue only failed platforms from an existing run as a new queued run.
+ * Successful platforms are omitted. Website runs only (stored automation user).
+ */
+export async function retryContentPublishRun({ params, body, set, cookie }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized", processing: false };
+    }
+
+    const original = await getContentPublishRunById({ id: params.id });
+    if (!original) {
+        set.status = 404;
+        return { error: "Content publish run not found", processing: false };
+    }
+
+    if (!original.automation_user_id || String(original.source || "") === "application") {
+        set.status = 400;
+        return {
+            error: "Retry is only available for website runs with a saved automation user",
+            processing: false,
+        };
+    }
+
+    const originalStatus = String(original.status || "").toLowerCase();
+    if (originalStatus === "queued" || originalStatus === "running") {
+        set.status = 400;
+        return {
+            error: "Wait for the run to finish before retrying failed platforms",
+            processing: false,
+        };
+    }
+
+    const originalTargets = await getContentPublishRunTargetsByRunId({ run_id: original.id });
+    const failedPlatforms = [
+        ...new Set(
+            originalTargets
+                .filter((target) => String(target.status || "").toLowerCase() === "failed")
+                .map((target) => String(target.platform || "").trim())
+                .filter((platform) => SUPPORTED_PLATFORMS.has(platform)),
+        ),
+    ];
+    if (!failedPlatforms.length) {
+        set.status = 400;
+        return { error: "No failed platforms to retry", processing: false };
+    }
+
+    const requested = parsePlatforms(body?.platforms).filter((platform) =>
+        SUPPORTED_PLATFORMS.has(platform),
+    );
+    const platforms = requested.length
+        ? requested.filter((platform) => failedPlatforms.includes(platform))
+        : failedPlatforms;
+    if (!platforms.length) {
+        set.status = 400;
+        return {
+            error: `Requested platforms were not failed on run #${original.id} (failed: ${failedPlatforms.join(", ")})`,
+            processing: false,
+        };
+    }
+
+    const media = await getMediaById({ id: original.media_id });
+    if (!media) {
+        set.status = 400;
+        return { error: "Original media not found", processing: false };
+    }
+    const mediaKind = detectMediaKind(media) || String(original.media_kind || "").trim() || null;
+    if (!mediaKind) {
+        set.status = 400;
+        return { error: "Unsupported media type (use image or video)", processing: false };
+    }
+
+    const automationUser = await getAutomationUserById({ id: original.automation_user_id });
+    if (!automationUser) {
+        set.status = 400;
+        return { error: "Automation user not found", processing: false };
+    }
+
+    for (const platform of platforms) {
+        const cookieField = PLATFORM_COOKIE[platform];
+        if (!String(automationUser[cookieField] || "").trim()) {
+            set.status = 400;
+            return {
+                error:
+                    platform === "instagram"
+                        ? "User is missing an Instagram access token"
+                        : `User is missing a ${platform} cookie`,
+                processing: false,
+            };
+        }
+    }
+
+    const options = parseContentPublishRunOptions(original);
+    const instagram_caption = platforms.includes("instagram")
+        ? trimOrNull(original.instagram_caption)
+        : null;
+    const youtube_title = platforms.includes("youtube")
+        ? trimOrNull(original.youtube_title)
+        : null;
+    const youtube_description = platforms.includes("youtube")
+        ? trimOrNull(original.youtube_description)
+        : null;
+    const linkedin_caption = platforms.includes("linkedin")
+        ? trimOrNull(original.linkedin_caption)
+        : null;
+    const youtube_channel_id = platforms.includes("youtube")
+        ? normalizeYoutubeChannelId(
+            options.youtube_channel_id || automationUser.youtube_channel_id,
+        )
+        : null;
+    const linkedin_company_id = platforms.includes("linkedin")
+        ? normalizeLinkedinCompanyId(
+            options.linkedin_company_id || automationUser.linkedin_company_id,
+        )
+        : null;
+    const instagram_user_id = platforms.includes("instagram")
+        ? normalizeInstagramUserId(
+            options.instagram_user_id || automationUser.instagram_user_id,
+        )
+        : null;
+    const instagram_destinations = platforms.includes("instagram")
+        ? options.instagram_destinations?.length
+            ? options.instagram_destinations
+            : ["feed"]
+        : [];
+    const youtube_destination = platforms.includes("youtube")
+        ? String(
+            options.youtube_destination
+                || (mediaKind === "video" ? "shorts" : "community"),
+        )
+            .trim()
+            .toLowerCase()
+        : "community";
+
+    const validationError = validatePublishFields({
+        platforms,
+        mediaKind,
+        instagram_caption,
+        instagram_user_id,
+        instagram_destinations,
+        youtube_title,
+        youtube_channel_id,
+        youtube_destination,
+        linkedin_caption,
+        linkedin_company_id,
+    });
+    if (validationError) {
+        set.status = 400;
+        return { error: validationError, processing: false };
+    }
+
+    const scheduledByName =
+        String(currentUser.full_name || currentUser.email || "user").trim() || "user";
+
+    const runOptions = {
+        instagram_destinations,
+        youtube_destination,
+        instagram_user_id,
+        youtube_channel_id,
+        linkedin_company_id,
+        retried_from_run_id: original.id,
+    };
+
+    const runId = await createContentPublishRun({
+        media_id: media.id,
+        media_kind: mediaKind,
+        automation_user_id: automationUser.id,
+        user_name: automationUser.name,
+        instagram_caption,
+        youtube_title,
+        youtube_description,
+        linkedin_caption,
+        source: "user",
+        created_by: currentUser.id,
+        scheduled_by_name: scheduledByName,
+        run_options: runOptions,
+        status: "queued",
+    });
+    if (!runId) {
+        set.status = 400;
+        return { error: "Failed to create retry run", processing: false };
+    }
+
+    const targets = [];
+    for (const platform of platforms) {
+        const targetId = await createContentPublishRunTarget({ run_id: runId, platform });
+        if (!targetId) {
+            set.status = 400;
+            return { error: "Failed to create content publish target", processing: false };
+        }
+        targets.push({
+            targetId,
+            platform,
+            cookie: String(automationUser[PLATFORM_COOKIE[platform]] || "").trim(),
+            youtubeChannelId: platform === "youtube" ? youtube_channel_id : null,
+            linkedinCompanyId: platform === "linkedin" ? linkedin_company_id : null,
+            instagramUserId: platform === "instagram" ? instagram_user_id : null,
+        });
+    }
+
+    const mediaPath = join(Bun.env.DIRECTORY_MEDIA, media.file);
+    logger.info(
+        `content-publish retry enqueue run=${runId} from=${original.id} user=${automationUser.name} platforms=${platforms.join(",")} media_id=${media.id}`,
+    );
+    enqueueContentPublishRun(runId, {
+        runId,
+        mediaPath,
+        mediaId: media.id,
+        targets,
+        instagramCaption: instagram_caption,
+        youtubeTitle: youtube_title,
+        youtubeDescription: youtube_description,
+        linkedinCaption: linkedin_caption,
+        mediaKind,
+        instagramDestinations: instagram_destinations,
+        youtubeDestination: youtube_destination,
+    });
+
+    set.status = 202;
+    return {
+        message: `Retry queued for ${platforms.join(", ")}`,
+        processing,
+        run_id: runId,
+        retried_from_run_id: original.id,
+        platforms,
+        run: decorateContentPublishRun(await getContentPublishRunById({ id: runId })),
+    };
+}
+
 export async function startContentPublishServiceRun({ body, application, set }) {
     const uploadedFile = body.file;
     if (!uploadedFile) {
