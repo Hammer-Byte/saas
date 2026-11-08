@@ -52,7 +52,7 @@
             <div>
                 <p class="text-secondary small mb-1">
                     <a href="/app" class="text-decoration-none">App</a> /
-                    <a href="/app/gem-tenders" class="text-decoration-none">Gem Tenders Analyzer</a> /
+                    <a href="/app/gem-tenders" class="text-decoration-none">GEM Tenders</a> /
                     <a href="/app/gem-keyword-tenders" class="text-decoration-none">Tenders</a> /
                     <%= tender.tender_id %>
                 </p>
@@ -329,7 +329,15 @@
                         rows="3"
                         required
                     ></textarea>
-                    <button type="submit" class="btn btn-primary mt-2" id="gem-tender-comment-submit-btn">
+                    <div class="mt-2">
+                        <label for="gem-tender-comment-file" class="form-label">Attachment (optional)</label>
+                        <input
+                            type="file"
+                            class="form-control"
+                            id="gem-tender-comment-file"
+                        />
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3" id="gem-tender-comment-submit-btn">
                         Add comment
                     </button>
                 </form>
@@ -357,6 +365,18 @@
                                 ></span>
                             </div>
                             <p class="mb-2 gem-tender-comment-body"><%= comment.comment %></p>
+                            <% if (comment.media_id && comment.attachment_name) { %>
+                                <p class="mb-2 small">
+                                    <a
+                                        href="/api/media/<%= comment.media_id %>"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="gem-tender-comment-attachment"
+                                    >
+                                        Attachment: <%= comment.attachment_name %>
+                                    </a>
+                                </p>
+                            <% } %>
                             <% if (Number(comment.user_id) === currentUserId) { %>
                                 <div class="d-flex gap-2">
                                     <button type="button" class="btn btn-sm btn-outline-primary gem-tender-comment-edit-btn">

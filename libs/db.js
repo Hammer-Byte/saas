@@ -502,6 +502,7 @@ export async function generateDBTables() {
             gem_keyword_tender_id INT NOT NULL,
             user_id INT NOT NULL,
             comment TEXT NOT NULL,
+            media_id INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             CONSTRAINT fk_gem_keyword_tender_comments_tender
@@ -513,8 +514,15 @@ export async function generateDBTables() {
                 FOREIGN KEY (user_id)
                 REFERENCES USERS(id)
                 ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_gem_keyword_tender_comments_media
+                FOREIGN KEY (media_id)
+                REFERENCES MEDIA(id)
+                ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
+        `ALTER TABLE GEM_KEYWORD_TENDER_COMMENTS
+            ADD COLUMN media_id INT NULL`,
         `CREATE TABLE IF NOT EXISTS GEM_TENDER_SCAN_RUNS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             status VARCHAR(32) NOT NULL DEFAULT 'running',

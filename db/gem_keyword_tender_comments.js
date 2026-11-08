@@ -5,6 +5,7 @@ export async function createGemKeywordTenderComment({
     gem_keyword_tender_id,
     user_id,
     comment,
+    media_id = null,
 }) {
     return await executeSQLQuery(
         (sql) => sql`
@@ -13,10 +14,12 @@ export async function createGemKeywordTenderComment({
                     gem_keyword_tender_id,
                     user_id,
                     comment,
+                    media_id,
                 },
                 "gem_keyword_tender_id",
                 "user_id",
                 "comment",
+                "media_id",
             )}
         `,
     )
@@ -29,9 +32,13 @@ export async function createGemKeywordTenderComment({
 export async function getGemKeywordTenderCommentById({ id }) {
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT *
+            SELECT
+                GEM_KEYWORD_TENDER_COMMENTS.*,
+                MEDIA.name AS attachment_name,
+                MEDIA.file AS attachment_file
             FROM GEM_KEYWORD_TENDER_COMMENTS
-            WHERE id = ${id}
+            LEFT JOIN MEDIA ON MEDIA.id = GEM_KEYWORD_TENDER_COMMENTS.media_id
+            WHERE GEM_KEYWORD_TENDER_COMMENTS.id = ${id}
         `,
     )
         .then((result) => (result.length ? result[0] : null))
@@ -47,9 +54,11 @@ export async function getAllGemKeywordTenderCommentsByTenderId({ gem_keyword_ten
             SELECT
                 GEM_KEYWORD_TENDER_COMMENTS.*,
                 USERS.full_name AS user_full_name,
-                USERS.email AS user_email
+                USERS.email AS user_email,
+                MEDIA.name AS attachment_name
             FROM GEM_KEYWORD_TENDER_COMMENTS
             INNER JOIN USERS ON USERS.id = GEM_KEYWORD_TENDER_COMMENTS.user_id
+            LEFT JOIN MEDIA ON MEDIA.id = GEM_KEYWORD_TENDER_COMMENTS.media_id
             WHERE GEM_KEYWORD_TENDER_COMMENTS.gem_keyword_tender_id = ${gem_keyword_tender_id}
             ORDER BY GEM_KEYWORD_TENDER_COMMENTS.id DESC
         `,

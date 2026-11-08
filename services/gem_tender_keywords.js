@@ -1,3 +1,4 @@
+import { AUTHORITIES } from "../constants.js";
 import {
     createGemTenderKeyword,
     deleteGemTenderKeywordById,
@@ -11,6 +12,7 @@ import {
     createGemTenderScanRun,
     getGemTenderScanRunById,
 } from "../db/gem_tender_scan_runs.js";
+import { hasAuthority } from "../libs/app_page.js";
 import { crawlGemForTenders, processing } from "../libs/tenderer.js";
 import { getCurrentUser } from "./authentication.js";
 
@@ -18,7 +20,24 @@ function normalizeExactSearch(value) {
     return !!value;
 }
 
-export async function addGemTenderKeyword({ body, set }) {
+async function requireGemTenderKeywordsAuthority({ cookie, set }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return null;
+    }
+    if (!hasAuthority(currentUser.authorities, AUTHORITIES.USE_PAGE_GEM_TENDER_KEYWORDS)) {
+        set.status = 403;
+        return null;
+    }
+    return currentUser;
+}
+
+export async function addGemTenderKeyword({ body, cookie, set }) {
+    if (!(await requireGemTenderKeywordsAuthority({ cookie, set }))) {
+        return { error: set.status === 401 ? "Unauthorized" : "Missing authority" };
+    }
+
     const keyword = body.keyword.trim();
     if (!keyword) {
         set.status = 400;
@@ -45,7 +64,11 @@ export async function addGemTenderKeyword({ body, set }) {
     return { message: "Keyword created", gemTenderKeyword };
 }
 
-export async function updateGemTenderKeyword({ params, body, set }) {
+export async function updateGemTenderKeyword({ params, body, cookie, set }) {
+    if (!(await requireGemTenderKeywordsAuthority({ cookie, set }))) {
+        return { error: set.status === 401 ? "Unauthorized" : "Missing authority" };
+    }
+
     const existingKeyword = await getGemTenderKeywordById({ id: params.id });
     if (!existingKeyword) {
         set.status = 404;
@@ -77,7 +100,11 @@ export async function updateGemTenderKeyword({ params, body, set }) {
     return { message: "Keyword updated", gemTenderKeyword };
 }
 
-export async function deleteGemTenderKeyword({ params, set }) {
+export async function deleteGemTenderKeyword({ params, cookie, set }) {
+    if (!(await requireGemTenderKeywordsAuthority({ cookie, set }))) {
+        return { error: set.status === 401 ? "Unauthorized" : "Missing authority" };
+    }
+
     const existingKeyword = await getGemTenderKeywordById({ id: params.id });
     if (!existingKeyword) {
         set.status = 404;
@@ -88,7 +115,11 @@ export async function deleteGemTenderKeyword({ params, set }) {
     set.status = 204;
 }
 
-export async function getGemTenderKeywords({ set }) {
+export async function getGemTenderKeywords({ cookie, set }) {
+    if (!(await requireGemTenderKeywordsAuthority({ cookie, set }))) {
+        return { error: set.status === 401 ? "Unauthorized" : "Missing authority" };
+    }
+
     const gemTenderKeywords = await getAllGemTenderKeywords();
     set.status = 200;
     return { gemTenderKeywords, processing };
@@ -100,10 +131,12 @@ export async function startGemTenderScan({ cookie, set }) {
         return { error: "Scan already in progress", processing: true };
     }
 
-    const currentUser = await getCurrentUser({ cookie });
-    if (!currentUser?.id) {
-        set.status = 401;
-        return { error: "Unauthorized", processing: false };
+    const currentUser = await requireGemTenderKeywordsAuthority({ cookie, set });
+    if (!currentUser) {
+        return {
+            error: set.status === 401 ? "Unauthorized" : "Missing authority",
+            processing: false,
+        };
     }
 
     const gemTenderKeywords = await getAllGemTenderKeywords();
@@ -138,7 +171,11 @@ export async function startGemTenderScan({ cookie, set }) {
     };
 }
 
-export async function getGemKeywordTenders({ params, query, set }) {
+export async function getGemKeywordTenders({ params, query, cookie, set }) {
+    if (!(await requireGemTenderKeywordsAuthority({ cookie, set }))) {
+        return { error: set.status === 401 ? "Unauthorized" : "Missing authority" };
+    }
+
     const existingKeyword = await getGemTenderKeywordById({ id: params.id });
     if (!existingKeyword) {
         set.status = 404;

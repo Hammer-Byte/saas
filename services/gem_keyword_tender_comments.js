@@ -1,3 +1,6 @@
+import { join } from "node:path";
+import { unlink } from "node:fs/promises";
+import { filer, logger } from "@hammerbyte/utils";
 import {
     createGemKeywordTenderComment,
     deleteGemKeywordTenderCommentById,
@@ -5,6 +8,7 @@ import {
     getGemKeywordTenderCommentById,
     updateGemKeywordTenderCommentById,
 } from "../db/gem_keyword_tender_comments.js";
+import { createMedia, deleteMediaById, getMediaById } from "../db/media.js";
 import { getGemKeywordTenderById } from "../db/gem_keyword_tenders.js";
 import { getCurrentUser } from "./authentication.js";
 import { logGemKeywordTenderActivity } from "./gem_keyword_tenders.js";
@@ -15,6 +19,33 @@ function commentPreview(value) {
         .replace(/\s+/g, " ");
     if (!text) return "";
     return text.length > 120 ? `${text.slice(0, 117)}...` : text;
+}
+
+async function removeMediaFile(fileName) {
+    if (!fileName) return;
+    try {
+        await unlink(join(Bun.env.DIRECTORY_MEDIA, fileName));
+    } catch (error) {
+        logger.error(`removeMediaFile unlink: ${error}`);
+    }
+}
+
+async function storeUploadedFile(uploadedFile) {
+    const name = String(uploadedFile.name || "file").slice(0, 64);
+    const extension = filer.getExtensionByFileName(name);
+    const file = extension
+        ? `${filer.generateRandomFileName()}.${extension}`
+        : filer.generateRandomFileName();
+    await Bun.write(join(Bun.env.DIRECTORY_MEDIA, file), uploadedFile);
+    return { name, file };
+}
+
+async function deleteCommentMedia(mediaId) {
+    if (!(Number(mediaId) >= 1)) return;
+    const media = await getMediaById({ id: mediaId });
+    if (!media) return;
+    await removeMediaFile(media.file);
+    await deleteMediaById({ id: media.id });
 }
 
 export async function addGemKeywordTenderComment({ body, cookie, set }) {
@@ -38,16 +69,47 @@ export async function addGemKeywordTenderComment({ body, cookie, set }) {
         return { error: "Comment is required" };
     }
 
+    let mediaId = null;
+    let attachmentName = null;
+    const uploadedFile = body.file;
+    if (uploadedFile && typeof uploadedFile === "object" && uploadedFile.size > 0) {
+        try {
+            const stored = await storeUploadedFile(uploadedFile);
+            mediaId = await createMedia({ name: stored.name, file: stored.file });
+            if (!mediaId) {
+                await removeMediaFile(stored.file);
+                set.status = 400;
+                return { error: "Failed to store attachment" };
+            }
+            attachmentName = stored.name;
+        } catch (error) {
+            logger.error(`addGemKeywordTenderComment attachment: ${error}`);
+            set.status = 500;
+            return { error: "Failed to upload attachment" };
+        }
+    }
+
     const commentId = await createGemKeywordTenderComment({
         gem_keyword_tender_id: gemKeywordTender.id,
         user_id: currentUser.id,
         comment,
+        media_id: mediaId,
     });
 
+    if (!commentId) {
+        await deleteCommentMedia(mediaId);
+        set.status = 400;
+        return { error: "Failed to add comment" };
+    }
+
+    const activityParts = [`Added comment: "${commentPreview(comment)}"`];
+    if (attachmentName) {
+        activityParts.push(`with attachment "${attachmentName}"`);
+    }
     await logGemKeywordTenderActivity({
         gem_keyword_tender_id: gemKeywordTender.id,
         user_id: currentUser.id,
-        activity: `Added comment: "${commentPreview(comment)}"`,
+        activity: activityParts.join(" "),
     });
 
     const comments = await getAllGemKeywordTenderCommentsByTenderId({
@@ -132,7 +194,9 @@ export async function deleteGemKeywordTenderComment({ params, cookie, set }) {
     }
 
     const preview = commentPreview(existingComment.comment);
+    const mediaId = existingComment.media_id;
     await deleteGemKeywordTenderCommentById({ id: existingComment.id });
+    await deleteCommentMedia(mediaId);
 
     await logGemKeywordTenderActivity({
         gem_keyword_tender_id: existingComment.gem_keyword_tender_id,

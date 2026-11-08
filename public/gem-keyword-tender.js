@@ -14,6 +14,7 @@
     const hiddenLabel = document.getElementById("gem-tender-hidden-label");
     const commentForm = document.getElementById("gem-tender-comment-form");
     const commentText = document.getElementById("gem-tender-comment-text");
+    const commentFile = document.getElementById("gem-tender-comment-file");
     const commentSubmitButton = document.getElementById("gem-tender-comment-submit-btn");
     const commentsList = document.getElementById("gem-tender-comments-list");
     const commentsEmpty = document.getElementById("gem-tender-comments-empty");
@@ -212,15 +213,20 @@
         if (!comment) return;
 
         if (commentSubmitButton) commentSubmitButton.disabled = true;
+        if (commentFile) commentFile.disabled = true;
         try {
+            const body = new FormData();
+            body.append("gem_keyword_tender_id", String(tenderId));
+            body.append("comment", comment);
+            const uploadedFile = commentFile?.files?.[0];
+            if (uploadedFile) {
+                body.append("file", uploadedFile);
+            }
+
             const response = await fetch("/api/gem-keyword-tender-comments", {
                 method: "POST",
                 credentials: "same-origin",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    gem_keyword_tender_id: tenderId,
-                    comment,
-                }),
+                body,
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
@@ -233,6 +239,7 @@
             showAlert("Failed to add comment.", "danger");
         } finally {
             if (commentSubmitButton) commentSubmitButton.disabled = false;
+            if (commentFile) commentFile.disabled = false;
         }
     });
 

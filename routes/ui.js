@@ -3,7 +3,7 @@ import { Elysia } from "elysia";
 import { CONSTANTS } from "@hammerbyte/utils";
 import requireSession from "../middlewares/require_session.js";
 import { getCurrentUser } from "../services/authentication.js";
-import { appPage } from "../libs/app_page.js";
+import { appPage, hasAuthority } from "../libs/app_page.js";
 import { getAllRoles } from "../db/roles.js";
 import { getAllAuthorities } from "../db/authorities.js";
 import {
@@ -59,6 +59,7 @@ import { getAllGemKeywordTenderCommentsByTenderId } from "../db/gem_keyword_tend
 import { getAllGemTenderScanRuns } from "../db/gem_tender_scan_runs.js";
 import { buildGemKeywordTenderReport } from "../services/gem_keyword_tender_report.js";
 import {
+    AUTHORITIES,
     GEM_KEYWORD_TENDER_ELIGIBILITY,
     GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
@@ -667,22 +668,28 @@ export const uiRoutes = new Elysia()
             )
             .get("/app/gem-tenders", ({ render, session }) =>
                 render("gem-tenders-hub", appPage(session, {
-                    title: "Gem Tenders Analyzer — HammerByte",
+                    title: "GEM Tenders — HammerByte",
                 })),
             )
-            .get("/app/gem-tender-keywords", async ({ render, session }) =>
-                render("gem-tenders", appPage(session, {
-                    title: "Keywords — Gem Tenders Analyzer — HammerByte",
+            .get("/app/gem-tender-keywords", async ({ render, session, redirect }) => {
+                if (!hasAuthority(session?.authorities, AUTHORITIES.USE_PAGE_GEM_TENDER_KEYWORDS)) {
+                    return redirect("/app/gem-tenders");
+                }
+                return render("gem-tenders", appPage(session, {
+                    title: "Keyword + scan — GEM Tenders — HammerByte",
                     keywords: await getAllGemTenderKeywords(),
                     processing: gemTendereProcessing,
-                })),
-            )
-            .get("/app/gem-tender-scan-history", async ({ render, session }) =>
-                render("gem-tender-scan-history", appPage(session, {
-                    title: "Scan History — Gem Tenders Analyzer — HammerByte",
+                }));
+            })
+            .get("/app/gem-tender-scan-history", async ({ render, session, redirect }) => {
+                if (!hasAuthority(session?.authorities, AUTHORITIES.USE_PAGE_GEM_TENDER_KEYWORDS)) {
+                    return redirect("/app/gem-tenders");
+                }
+                return render("gem-tender-scan-history", appPage(session, {
+                    title: "Scan History — GEM Tenders — HammerByte",
                     runs: await getAllGemTenderScanRuns(),
-                })),
-            )
+                }));
+            })
             .get("/app/gem-keyword-tenders", async ({ render, session, query }) => {
                 const now = new Date();
                 const defaultTo = getReadableDate("YYYY-MM-DD", now);
@@ -700,7 +707,7 @@ export const uiRoutes = new Elysia()
                 const rangeTo = from <= to ? to : from;
 
                 return render("gem-keyword-tenders", appPage(session, {
-                    title: "Tenders — Gem Tenders Analyzer — HammerByte",
+                    title: "Tenders — GEM Tenders — HammerByte",
                     from: rangeFrom,
                     to: rangeTo,
                     userId: session?.id,
@@ -736,7 +743,7 @@ export const uiRoutes = new Elysia()
                 });
 
                 return render("gem-keyword-tender-report", appPage(session, {
-                    title: "Tenders report — Gem Tenders Analyzer — HammerByte",
+                    title: "Tenders report — GEM Tenders — HammerByte",
                     from: rangeFrom,
                     to: rangeTo,
                     report,
