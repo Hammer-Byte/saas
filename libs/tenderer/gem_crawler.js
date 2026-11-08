@@ -35,11 +35,19 @@ const TENDER_DETAIL_REGEXES = {
     SKIP_VALUE: /Years of Past Experience|MSE|Startup|Document required/i,
     DEVANAGARI_START: /^[\u0900-\u097F]/,
     SCOPE_OF_WORK_FILE: /Scope\s+of\s+Work\s*:?\s*([0-9]+\.pdf)/gi,
-    TOTAL_QUANTITY: /Total\s*Quantity\s+(\d+(?:\.\d+)?)/i,
-    BID_QUANTITY: /\bBid\s*Quantity\s*[:=]?\s*(\d+(?:\.\d+)?)/i,
-    CONSIGNEES_SECTION: /Consignees\/Reporting Officer(?:\s+and\s+Quantity)?/i,
-    CONSIGNEE_QTY_ROW:
-        /^\s*\d+\s+.+\s+(\d{1,7})\s+(\d{1,4})\s*$/gm,
+    // Quantity extractors (tried in order by extractQuantity).
+    TOTAL_QUANTITY: /Total\s*Quantity[\s:\u00a0\-]*(\d+(?:\.\d+)?)/i,
+    TOTAL_QUANTITY_MULTILINE:
+        /Total\s*Quantity[^\d\n]{0,80}\n[^\d\n]{0,40}(\d+(?:\.\d+)?)/i,
+    ITEM_PIECES_LINE: /^.{0,160}?\(\s*(\d+)\s*pieces?\s*\)\s*$/i,
+    BID_QUANTITY: /\bBid\s*Quantity\s*[:=\-]?\s*(\d+(?:\.\d+)?)/i,
+    CONSIGNEES_SECTION: /Consignees\/Reporting Officer(?:\s+and\s+Quantity)?/gi,
+    CONSIGNEE_QTY_ROW: /^\s*\d+\s+.+\s+(\d{1,7})\s+(\d{1,4})\s*$/gm,
+    CONSIGNEE_QTY_DAYS_ONLY: /^\s*(\d{1,7})\s+(\d{1,4})\s*$/gm,
+    RESOURCE_HIRE_MARKERS: /Resources\s+to[\s\S]{0,80}?be\s+hired/i,
+    RESOURCE_QTY_ROW:
+        /^\s*\d+\s+[^\n]*?\*{3,}[^\n]*?\*{3,}[^\n]*?\s+(\d{1,6})\b/gm,
+    ATC_QTY_NOS: /\b(\d+(?:\.\d+)?)\s*Nos\.?\b/gi,
 };
 
 const sleep = (driver, ms) => driver.sleep(ms);
@@ -206,44 +214,182 @@ function parseQuantityNumber(value) {
     return Math.round(number);
 }
 
-function extractQuantityFromConsignees(text) {
-    const sectionMatch = text.match(TENDER_DETAIL_REGEXES.CONSIGNEES_SECTION);
-    if (!sectionMatch || sectionMatch.index == null) {
-        return 0;
+function firstPositiveQuantity(...candidates) {
+    for (const candidate of candidates) {
+        const quantity = parseQuantityNumber(candidate);
+        if (quantity > 0) {
+            return quantity;
+        }
     }
+    return 0;
+}
 
-    const sectionStart = sectionMatch.index;
-    const sectionEnd = Math.min(text.length, sectionStart + 6000);
-    const section = text.slice(sectionStart, sectionEnd);
+/** Way 1: Bid Details "Total Quantity N" (same line or nearby next line). */
+function extractQuantityFromTotalLabel(text) {
+    return firstPositiveQuantity(
+        text.match(TENDER_DETAIL_REGEXES.TOTAL_QUANTITY)?.[1],
+        text.match(TENDER_DETAIL_REGEXES.TOTAL_QUANTITY_MULTILINE)?.[1],
+    );
+}
+
+/**
+ * Way 2: Sum item headers like "Desktop Computer ( 11 pieces )".
+ * Skips "Additional Specification Parameters - … ( N pieces )" duplicates.
+ */
+function extractQuantityFromItemPieces(text) {
     let total = 0;
-    let matchedRows = 0;
+    let matched = 0;
 
-    for (const match of section.matchAll(TENDER_DETAIL_REGEXES.CONSIGNEE_QTY_ROW)) {
+    for (const rawLine of text.split(/\n/)) {
+        const line = rawLine.replace(/\f/g, "").trim();
+        if (!line || /Additional Specification Parameters/i.test(line)) {
+            continue;
+        }
+        if (!/\(\s*\d+\s*pieces?\s*\)$/i.test(line)) {
+            continue;
+        }
+        const match = line.match(TENDER_DETAIL_REGEXES.ITEM_PIECES_LINE);
+        if (!match?.[1]) {
+            continue;
+        }
         const quantity = parseQuantityNumber(match[1]);
-        const deliveryDays = parseQuantityNumber(match[2]);
-        // Skip obvious page markers / non-quantity pairs.
-        if (quantity <= 0 || deliveryDays <= 0 || deliveryDays > 3650) {
+        if (quantity <= 0) {
             continue;
         }
         total += quantity;
-        matchedRows += 1;
+        matched += 1;
+    }
+
+    return matched ? total : 0;
+}
+
+/** Way 3: Explicit "Bid Quantity: N". */
+function extractQuantityFromBidQuantity(text) {
+    return firstPositiveQuantity(text.match(TENDER_DETAIL_REGEXES.BID_QUANTITY)?.[1]);
+}
+
+/**
+ * Way 4: Sum consignee table rows (qty + delivery days).
+ * Prefer same-line "S.No … qty days" rows; only if none match, use
+ * standalone "qty days" lines (broken multi-line layouts).
+ */
+function extractQuantityFromConsignees(text) {
+    let total = 0;
+    let matchedRows = 0;
+    const sectionStarts = [...text.matchAll(TENDER_DETAIL_REGEXES.CONSIGNEES_SECTION)]
+        .map((match) => match.index)
+        .filter((index) => index != null);
+
+    for (let i = 0; i < sectionStarts.length; i += 1) {
+        const sectionStart = sectionStarts[i];
+        const nextStart = sectionStarts[i + 1] ?? text.length;
+        const section = text.slice(sectionStart, Math.min(nextStart, sectionStart + 8000));
+
+        let sectionTotal = 0;
+        let sectionRows = 0;
+
+        for (const match of section.matchAll(TENDER_DETAIL_REGEXES.CONSIGNEE_QTY_ROW)) {
+            const quantity = parseQuantityNumber(match[1]);
+            const deliveryDays = parseQuantityNumber(match[2]);
+            if (quantity <= 0 || deliveryDays <= 0 || deliveryDays > 3650) {
+                continue;
+            }
+            sectionTotal += quantity;
+            sectionRows += 1;
+        }
+
+        if (!sectionRows) {
+            for (const match of section.matchAll(TENDER_DETAIL_REGEXES.CONSIGNEE_QTY_DAYS_ONLY)) {
+                const quantity = parseQuantityNumber(match[1]);
+                const deliveryDays = parseQuantityNumber(match[2]);
+                if (quantity <= 0 || deliveryDays <= 0 || deliveryDays > 3650) {
+                    continue;
+                }
+                sectionTotal += quantity;
+                sectionRows += 1;
+            }
+        }
+
+        if (sectionRows) {
+            total += sectionTotal;
+            matchedRows += sectionRows;
+        }
     }
 
     return matchedRows ? total : 0;
 }
 
+/**
+ * Way 5: Manpower "Number of Resources to be hired" rows
+ * (headers are often column-split across lines in pdftotext).
+ */
+function extractQuantityFromResources(text) {
+    if (
+        !TENDER_DETAIL_REGEXES.RESOURCE_HIRE_MARKERS.test(text) &&
+        !(/Resources\s+to/i.test(text) && /be\s+hired/i.test(text))
+    ) {
+        return 0;
+    }
+
+    let total = 0;
+    let matched = 0;
+    for (const match of text.matchAll(TENDER_DETAIL_REGEXES.RESOURCE_QTY_ROW)) {
+        const quantity = parseQuantityNumber(match[1]);
+        if (quantity <= 0) {
+            continue;
+        }
+        total += quantity;
+        matched += 1;
+    }
+
+    return matched ? total : 0;
+}
+
+/** Way 6: ATC tables with "13.0 Nos." near a QTY header. */
+function extractQuantityFromNosTable(text) {
+    const qtyHeaderIndex = text.search(/\bQTY\b/i);
+    if (qtyHeaderIndex < 0) {
+        return 0;
+    }
+
+    const window = text.slice(qtyHeaderIndex, qtyHeaderIndex + 800);
+    let total = 0;
+    let matched = 0;
+    for (const match of window.matchAll(TENDER_DETAIL_REGEXES.ATC_QTY_NOS)) {
+        const quantity = parseQuantityNumber(match[1]);
+        if (quantity <= 0) {
+            continue;
+        }
+        total += quantity;
+        matched += 1;
+    }
+
+    return matched ? total : 0;
+}
+
+/**
+ * Sequential quantity extraction — first positive hit wins.
+ * Falls back to 0 when none of the layouts match (e.g. lumpsum services).
+ */
 function extractQuantity(text) {
-    const totalMatch = text.match(TENDER_DETAIL_REGEXES.TOTAL_QUANTITY);
-    if (totalMatch?.[1]) {
-        return parseQuantityNumber(totalMatch[1]);
+    const normalized = String(text || "").replace(/\u00a0/g, " ");
+    const strategies = [
+        extractQuantityFromTotalLabel,
+        extractQuantityFromItemPieces,
+        extractQuantityFromBidQuantity,
+        extractQuantityFromConsignees,
+        extractQuantityFromResources,
+        extractQuantityFromNosTable,
+    ];
+
+    for (const strategy of strategies) {
+        const quantity = strategy(normalized);
+        if (quantity > 0) {
+            return quantity;
+        }
     }
 
-    const bidMatch = text.match(TENDER_DETAIL_REGEXES.BID_QUANTITY);
-    if (bidMatch?.[1]) {
-        return parseQuantityNumber(bidMatch[1]);
-    }
-
-    return extractQuantityFromConsignees(text);
+    return 0;
 }
 
 const extractTenderDetails = (text, buffer) => {
