@@ -460,6 +460,21 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
                 ],
             });
 
+            if (
+                previousStage !== GEM_KEYWORD_TENDER_STAGES.ELIGIBLE &&
+                nextStage === GEM_KEYWORD_TENDER_STAGES.ELIGIBLE
+            ) {
+                const updated = await getGemKeywordTenderById({ id: gemKeywordTender.id });
+                const quoteAssignee = assigneeUserId
+                    ? await getUserById({ id: assigneeUserId })
+                    : null;
+                await notifyGemKeywordTenderQuoteRequested({
+                    tender: updated || gemKeywordTender,
+                    requestedByUser: currentUser,
+                    assigneeUser: quoteAssignee,
+                });
+            }
+
             successCount += 1;
         } catch (error) {
             failedCount += 1;

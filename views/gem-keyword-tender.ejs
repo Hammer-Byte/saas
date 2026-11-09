@@ -116,15 +116,17 @@
                             />
                         <% } %>
                     </div>
-                    <div class="col-md-3 d-flex align-items-end <%= assigneeUserId ? 'd-none' : '' %>" id="gem-tender-assign-me-wrap">
-                        <button
-                            type="button"
-                            class="btn btn-outline-primary w-100"
-                            id="gem-tender-assign-me-btn"
-                        >
-                            Assign to me
-                        </button>
-                    </div>
+                    <% if (!assigneeUserId) { %>
+                        <div class="col-md-3 d-flex align-items-end" id="gem-tender-assign-me-wrap">
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary w-100"
+                                id="gem-tender-assign-me-btn"
+                            >
+                                Assign to me
+                            </button>
+                        </div>
+                    <% } %>
                 </div>
 
                 <div class="row g-3 mb-4">

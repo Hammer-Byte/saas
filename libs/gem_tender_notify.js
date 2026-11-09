@@ -62,15 +62,28 @@ export async function notifyGemKeywordTenderQuoteRequested({
 }) {
     try {
         const superAdmins = await getAllSuperAdminUsers();
-        const recipients = [
-            ...new Set(
-                (superAdmins || [])
-                    .map((user) => String(user.email || "").trim())
-                    .filter(Boolean),
-            ),
-        ];
-        if (!recipients.length) {
-            logger.error("notifyGemKeywordTenderQuoteRequested: no super admin emails");
+        const recipientUsers = [];
+        const seenEmails = new Set();
+
+        const pushRecipient = (user) => {
+            const email = String(user?.email || "").trim();
+            if (!email || seenEmails.has(email.toLowerCase())) return;
+            seenEmails.add(email.toLowerCase());
+            recipientUsers.push({
+                email,
+                name: user?.full_name || user?.email || "there",
+            });
+        };
+
+        for (const admin of superAdmins || []) {
+            pushRecipient(admin);
+        }
+        pushRecipient(assigneeUser);
+
+        if (!recipientUsers.length) {
+            logger.error(
+                "notifyGemKeywordTenderQuoteRequested: no assignee or super admin emails",
+            );
             return;
         }
 
@@ -80,11 +93,9 @@ export async function notifyGemKeywordTenderQuoteRequested({
             ? assigneeUser.full_name || assigneeUser.email || `User #${assigneeUser.id}`
             : "Unassigned";
 
-        for (const recipient of recipients) {
-            const admin =
-                (superAdmins || []).find((user) => user.email === recipient) || null;
+        for (const recipient of recipientUsers) {
             const html = filer.prepareTemplated("templates/gem_tender_quote_request.html", {
-                recipient_name: admin?.full_name || admin?.email || "there",
+                recipient_name: recipient.name,
                 requested_by_name: requestedByName,
                 assignee_name: assigneeName,
                 tender_id: tender.tender_id || "—",
@@ -95,7 +106,7 @@ export async function notifyGemKeywordTenderQuoteRequested({
             });
 
             transporter.transport({
-                recipient,
+                recipient: recipient.email,
                 subject: `Quote requested — GEM tender ${tender.tender_id || `#${tender.id}`}`,
                 body: html,
                 html_enabled: true,
@@ -103,7 +114,7 @@ export async function notifyGemKeywordTenderQuoteRequested({
         }
 
         logger.info(
-            `gem tender quote request emailed to ${recipients.length} super admin(s) (tender #${tender.id})`,
+            `gem tender quote request emailed to ${recipientUsers.length} recipient(s) (tender #${tender.id})`,
         );
     } catch (error) {
         logger.error(`notifyGemKeywordTenderQuoteRequested: ${error}`);

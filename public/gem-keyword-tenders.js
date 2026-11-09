@@ -10,12 +10,15 @@
     const showAllFilter = document.getElementById("gem-filter-show-all");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
     const quantityClearBtn = document.getElementById("gem-filter-quantity-clear");
+    const quoteFilter = document.getElementById("gem-filter-quote");
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
     const searchInput = document.getElementById("gem-tenders-search");
     const tableBody = document.getElementById("gem-tenders-tbody");
     const tableWrap = document.getElementById("gem-tenders-table-wrap");
     const emptyState = document.getElementById("gem-tenders-empty");
+    const loadingState = document.getElementById("gem-tenders-loading");
     const filterStatus = document.getElementById("gem-tenders-filter-status");
+    let listReady = false;
     const columnFilters = Array.from(document.querySelectorAll(".gem-tender-column-filter"));
     const selectAllCheckbox = document.getElementById("gem-tenders-select-all");
     const bulkBar = document.getElementById("gem-tenders-bulk-assign-bar");
@@ -119,8 +122,17 @@
             search: searchInput?.value || "",
             showAll: !!showAllFilter?.checked,
             quantityUpto: quantityUptoFilter?.value || "",
+            quote: quoteFilter?.value || "",
             columns,
         };
+    }
+
+    function finishListLoading() {
+        if (listReady) return;
+        listReady = true;
+        loadingState?.classList.add("d-none");
+        tableWrap?.setAttribute("aria-busy", "false");
+        applyFilters();
     }
 
     function saveFilters() {
@@ -413,6 +425,7 @@
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
         const hasQuantityUpto =
             quantityUpto != null && Number.isFinite(quantityUpto) && quantityUpto > 0;
+        const quoteFilterValue = String(quoteFilter?.value || "").trim();
         const activeColumnFilters = columnFilters
             .map((select) => ({
                 column: select.dataset.column,
@@ -461,6 +474,11 @@
             const matchesQuantity =
                 !hasQuantityUpto || (rowQuantity > 0 && rowQuantity <= quantityUpto);
 
+            const hasQuote = row.dataset.hasQuote === "1";
+            const matchesQuote =
+                !quoteFilterValue ||
+                (quoteFilterValue === "given" ? hasQuote : !hasQuote);
+
             const visible =
                 matchesHiddenStages &&
                 matchesKeyword &&
@@ -468,7 +486,8 @@
                 matchesAssignee &&
                 matchesSearch &&
                 matchesColumns &&
-                matchesQuantity;
+                matchesQuantity &&
+                matchesQuote;
             row.classList.toggle("d-none", !visible);
             if (!visible) {
                 const checkbox = row.querySelector(".gem-tender-select");
@@ -483,8 +502,11 @@
 
         const hasLoadedRows = rows.length > 0;
         const showEmpty = !hasLoadedRows || visibleCount === 0;
-        tableWrap?.classList.toggle("d-none", showEmpty);
-        emptyState?.classList.toggle("d-none", !showEmpty);
+        if (listReady) {
+            loadingState?.classList.add("d-none");
+            tableWrap?.classList.toggle("d-none", showEmpty);
+            emptyState?.classList.toggle("d-none", !showEmpty);
+        }
         if (emptyState) {
             emptyState.textContent = !hasLoadedRows
                 ? "No tenders ending in this date range."
@@ -534,6 +556,10 @@
             quantityUptoFilter.value =
                 Number.isFinite(restoredQty) && restoredQty > 0 ? String(restoredQty) : "";
         }
+        if (quoteFilter && filters.quote != null) {
+            quoteFilter.value =
+                filters.quote === "given" || filters.quote === "missing" ? filters.quote : "";
+        }
         if (filters.columns && typeof filters.columns === "object") {
             for (const select of columnFilters) {
                 const column = select.dataset.column;
@@ -554,6 +580,7 @@
         if (searchInput) searchInput.value = "";
         if (showAllFilter) showAllFilter.checked = false;
         if (quantityUptoFilter) quantityUptoFilter.value = "";
+        if (quoteFilter) quoteFilter.value = "";
         for (const select of columnFilters) {
             select.value = "";
         }
@@ -589,6 +616,7 @@
         if (quantityUptoFilter) quantityUptoFilter.value = "";
         applyFilters();
     });
+    quoteFilter?.addEventListener("change", applyFilters);
     resetFiltersBtn?.addEventListener("click", () => {
         resetClientFilters();
     });
@@ -805,5 +833,10 @@
     filtersCollapse?.addEventListener("hidden.bs.collapse", syncFiltersToggleLabel);
     syncFiltersToggleLabel();
 
-    applyFilters();
+    // Wait until layout/filters settle so users don't see a half-filtered flash.
+    window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+            finishListLoading();
+        });
+    });
 })();
