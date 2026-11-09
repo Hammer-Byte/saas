@@ -356,7 +356,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     return { message: "Tender updated", gemKeywordTender: updatedGemKeywordTender };
 }
 
-export async function bulkMarkGemKeywordTendersOutOfScope({ body, cookie, set }) {
+export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
     const currentUser = await getCurrentUser({ cookie });
     if (!currentUser?.id) {
         set.status = 401;
@@ -366,12 +366,18 @@ export async function bulkMarkGemKeywordTendersOutOfScope({ body, cookie, set })
     if (
         !hasAuthority(
             currentUser.authorities,
-            AUTHORITIES.MARK_GEM_TENDER_OUT_OF_SCOPE,
+            AUTHORITIES.MARK_GEM_TENDER_MASS_STAGE_CHANGE,
         )
     ) {
         set.status = 403;
-        return { error: "Missing authority to mark tenders out of scope" };
+        return { error: "Missing authority to bulk change tender stage" };
     }
+
+    if (body?.stage === undefined || !STAGE_VALUES.has(body.stage)) {
+        set.status = 400;
+        return { error: "Invalid stage" };
+    }
+    const nextStage = body.stage;
 
     const comment = asText(body?.comment).trim();
     if (!comment) {
@@ -387,7 +393,12 @@ export async function bulkMarkGemKeywordTendersOutOfScope({ body, cookie, set })
         return { error: "Select at least one tender" };
     }
 
-    const flags = flagsForStage(GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE);
+    const assigneeRequiredStages = new Set([
+        GEM_KEYWORD_TENDER_STAGES.ASSIGNED,
+        GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_DOCS,
+        GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS,
+    ]);
+    const flags = flagsForStage(nextStage);
     let successCount = 0;
     let skippedCount = 0;
     let failedCount = 0;
@@ -402,8 +413,17 @@ export async function bulkMarkGemKeywordTendersOutOfScope({ body, cookie, set })
         }
 
         const previousStage = normalizeStage(gemKeywordTender.stage);
-        if (previousStage === GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE) {
+        if (previousStage === nextStage) {
             skippedCount += 1;
+            continue;
+        }
+
+        const assigneeUserId = gemKeywordTender.assignee_user_id
+            ? Number(gemKeywordTender.assignee_user_id)
+            : null;
+        if (assigneeRequiredStages.has(nextStage) && !(assigneeUserId >= 1)) {
+            failedCount += 1;
+            failures.push({ id, error: "Assignee is required for this stage" });
             continue;
         }
 
@@ -414,10 +434,8 @@ export async function bulkMarkGemKeywordTendersOutOfScope({ body, cookie, set })
                 eligible: flags.eligible,
                 filed: flags.filed,
                 quote: gemKeywordTender.quote,
-                stage: GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE,
-                assignee_user_id: gemKeywordTender.assignee_user_id
-                    ? Number(gemKeywordTender.assignee_user_id)
-                    : null,
+                stage: nextStage,
+                assignee_user_id: assigneeUserId,
             });
 
             const commentId = await createGemKeywordTenderComment({
@@ -435,7 +453,7 @@ export async function bulkMarkGemKeywordTendersOutOfScope({ body, cookie, set })
                 gem_keyword_tender_id: gemKeywordTender.id,
                 user_id: currentUser.id,
                 activities: [
-                    `Changed stage from ${stageLabel(previousStage)} to ${stageLabel(GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE)}`,
+                    `Changed stage from ${stageLabel(previousStage)} to ${stageLabel(nextStage)}`,
                     `Added comment: "${quotePreview(comment)}"`,
                 ],
             });
@@ -443,13 +461,14 @@ export async function bulkMarkGemKeywordTendersOutOfScope({ body, cookie, set })
             successCount += 1;
         } catch (error) {
             failedCount += 1;
-            failures.push({ id, error: "Failed to mark out of scope" });
+            failures.push({ id, error: "Failed to change stage" });
         }
     }
 
     set.status = failedCount && !successCount ? 400 : 200;
     return {
-        message: `Marked ${successCount} out of scope` +
+        message:
+            `Changed stage on ${successCount}` +
             (skippedCount ? `, skipped ${skippedCount}` : "") +
             (failedCount ? `, failed ${failedCount}` : ""),
         successCount,

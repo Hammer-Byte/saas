@@ -24,16 +24,17 @@
     const bulkClearBtn = document.getElementById("gem-bulk-clear-btn");
     const bulkStatus = document.getElementById("gem-bulk-assign-status");
     const selectedCountLabel = document.getElementById("gem-tenders-selected-count");
-    const bulkOosBar = document.getElementById("gem-tenders-bulk-out-of-scope-bar");
-    const bulkOosComment = document.getElementById("gem-bulk-oos-comment");
-    const bulkOosBtn = document.getElementById("gem-bulk-oos-btn");
-    const bulkOosClearBtn = document.getElementById("gem-bulk-oos-clear-btn");
-    const bulkOosStatus = document.getElementById("gem-bulk-oos-status");
-    const oosSelectedCountLabel = document.getElementById("gem-tenders-oos-selected-count");
+    const bulkStageBar = document.getElementById("gem-tenders-bulk-stage-bar");
+    const bulkStageSelect = document.getElementById("gem-bulk-stage");
+    const bulkStageComment = document.getElementById("gem-bulk-stage-comment");
+    const bulkStageBtn = document.getElementById("gem-bulk-stage-btn");
+    const bulkStageClearBtn = document.getElementById("gem-bulk-stage-clear-btn");
+    const bulkStageStatus = document.getElementById("gem-bulk-stage-status");
+    const stageSelectedCountLabel = document.getElementById("gem-tenders-stage-selected-count");
     const currentUserId = Number(bulkBar?.dataset.currentUserId || 0);
     const canAssignOthers = bulkBar?.dataset.canAssignOthers === "1";
-    const canMarkOutOfScope =
-        bulkBar?.dataset.canMarkOutOfScope === "1" || !!bulkOosBar;
+    const canBulkChangeStage =
+        bulkBar?.dataset.canBulkChangeStage === "1" || !!bulkStageBar;
 
     function readStoredFilters() {
         try {
@@ -349,19 +350,20 @@
         if (selectedCountLabel) {
             selectedCountLabel.textContent = `${count} selected`;
         }
-        if (oosSelectedCountLabel) {
-            oosSelectedCountLabel.textContent = `${count} selected`;
+        if (stageSelectedCountLabel) {
+            stageSelectedCountLabel.textContent = `${count} selected`;
         }
         bulkBar?.classList.toggle("d-none", count === 0);
-        if (canMarkOutOfScope) {
-            bulkOosBar?.classList.toggle("d-none", count === 0);
+        if (canBulkChangeStage) {
+            bulkStageBar?.classList.toggle("d-none", count === 0);
         }
         if (bulkAssignBtn) {
             bulkAssignBtn.disabled = count === 0 || !bulkAssignee?.value;
         }
-        if (bulkOosBtn) {
-            const hasComment = !!(bulkOosComment?.value || "").trim();
-            bulkOosBtn.disabled = count === 0 || !hasComment;
+        if (bulkStageBtn) {
+            const hasStage = !!(bulkStageSelect?.value || "").trim();
+            const hasComment = !!(bulkStageComment?.value || "").trim();
+            bulkStageBtn.disabled = count === 0 || !hasStage || !hasComment;
         }
         if (selectAllCheckbox) {
             const visibles = visibleRows();
@@ -388,9 +390,9 @@
             bulkStatus.classList.add("d-none");
             bulkStatus.textContent = "";
         }
-        if (bulkOosStatus) {
-            bulkOosStatus.classList.add("d-none");
-            bulkOosStatus.textContent = "";
+        if (bulkStageStatus) {
+            bulkStageStatus.classList.add("d-none");
+            bulkStageStatus.textContent = "";
         }
         syncBulkBar();
     }
@@ -612,25 +614,38 @@
         clearSelection();
     });
 
-    bulkOosClearBtn?.addEventListener("click", () => {
+    bulkStageClearBtn?.addEventListener("click", () => {
         clearSelection();
     });
 
-    bulkOosComment?.addEventListener("input", () => {
+    bulkStageSelect?.addEventListener("change", () => {
         syncBulkBar();
     });
 
-    bulkOosBtn?.addEventListener("click", async () => {
-        if (!canMarkOutOfScope) return;
+    bulkStageComment?.addEventListener("input", () => {
+        syncBulkBar();
+    });
+
+    bulkStageBtn?.addEventListener("click", async () => {
+        if (!canBulkChangeStage) return;
 
         const selected = selectedCheckboxes();
-        const comment = String(bulkOosComment?.value || "").trim();
+        const stage = String(bulkStageSelect?.value || "").trim();
+        const comment = String(bulkStageComment?.value || "").trim();
         if (!selected.length) return;
+        if (!stage) {
+            if (bulkStageStatus) {
+                bulkStageStatus.textContent = "Stage is required.";
+                bulkStageStatus.classList.remove("d-none", "text-secondary");
+                bulkStageStatus.classList.add("text-danger");
+            }
+            return;
+        }
         if (!comment) {
-            if (bulkOosStatus) {
-                bulkOosStatus.textContent = "Comment is required.";
-                bulkOosStatus.classList.remove("d-none", "text-secondary");
-                bulkOosStatus.classList.add("text-danger");
+            if (bulkStageStatus) {
+                bulkStageStatus.textContent = "Comment is required.";
+                bulkStageStatus.classList.remove("d-none", "text-secondary");
+                bulkStageStatus.classList.add("text-danger");
             }
             return;
         }
@@ -640,29 +655,29 @@
             .filter((id) => id >= 1);
         if (!ids.length) return;
 
-        bulkOosBtn.disabled = true;
-        if (bulkOosStatus) {
-            bulkOosStatus.textContent = `Marking ${ids.length} tender(s) out of scope…`;
-            bulkOosStatus.classList.remove("d-none", "text-danger");
-            bulkOosStatus.classList.add("text-secondary");
+        bulkStageBtn.disabled = true;
+        if (bulkStageStatus) {
+            bulkStageStatus.textContent = `Changing stage on ${ids.length} tender(s)…`;
+            bulkStageStatus.classList.remove("d-none", "text-danger");
+            bulkStageStatus.classList.add("text-secondary");
         }
 
         try {
-            const response = await fetch("/api/gem-keyword-tenders/bulk-out-of-scope", {
+            const response = await fetch("/api/gem-keyword-tenders/bulk-change-stage", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ids, comment }),
+                body: JSON.stringify({ ids, stage, comment }),
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) {
-                if (bulkOosStatus) {
-                    bulkOosStatus.textContent =
-                        payload?.error || "Failed to mark tenders out of scope.";
-                    bulkOosStatus.classList.remove("text-secondary");
-                    bulkOosStatus.classList.add("text-danger");
+                if (bulkStageStatus) {
+                    bulkStageStatus.textContent =
+                        payload?.error || "Failed to change stage.";
+                    bulkStageStatus.classList.remove("text-secondary");
+                    bulkStageStatus.classList.add("text-danger");
                 }
-                bulkOosBtn.disabled = false;
+                bulkStageBtn.disabled = false;
                 syncBulkBar();
                 return;
             }
@@ -672,23 +687,23 @@
                 return;
             }
 
-            if (bulkOosStatus) {
-                bulkOosStatus.textContent =
+            if (bulkStageStatus) {
+                bulkStageStatus.textContent =
                     payload.message ||
                     `Updated ${payload.successCount || 0}, failed ${payload.failedCount || 0}.`;
-                bulkOosStatus.classList.remove("text-secondary");
-                bulkOosStatus.classList.add("text-danger");
+                bulkStageStatus.classList.remove("text-secondary");
+                bulkStageStatus.classList.add("text-danger");
             }
-            bulkOosBtn.disabled = false;
+            bulkStageBtn.disabled = false;
             syncBulkBar();
         } catch (error) {
             console.error(error);
-            if (bulkOosStatus) {
-                bulkOosStatus.textContent = "Failed to mark tenders out of scope.";
-                bulkOosStatus.classList.remove("text-secondary");
-                bulkOosStatus.classList.add("text-danger");
+            if (bulkStageStatus) {
+                bulkStageStatus.textContent = "Failed to change stage.";
+                bulkStageStatus.classList.remove("text-secondary");
+                bulkStageStatus.classList.add("text-danger");
             }
-            bulkOosBtn.disabled = false;
+            bulkStageBtn.disabled = false;
             syncBulkBar();
         }
     });

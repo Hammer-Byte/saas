@@ -4,7 +4,7 @@
     const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
     const stageValues = Object.keys(stageLabels);
     const canAssignOthers = (authorities || []).includes(AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE);
-    const canMarkOutOfScope = (authorities || []).includes(AUTHORITIES.MARK_GEM_TENDER_OUT_OF_SCOPE);
+    const canBulkChangeStage = (authorities || []).includes(AUTHORITIES.MARK_GEM_TENDER_MASS_STAGE_CHANGE);
     const currentUserId = Number(userId || 0);
 %>
 
@@ -61,7 +61,7 @@
             class="card border-0 shadow-sm mb-3 d-none"
             data-current-user-id="<%= currentUserId %>"
             data-can-assign-others="<%= canAssignOthers ? '1' : '0' %>"
-            data-can-mark-out-of-scope="<%= canMarkOutOfScope ? '1' : '0' %>"
+            data-can-bulk-change-stage="<%= canBulkChangeStage ? '1' : '0' %>"
         >
             <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-2">
                 <span class="small text-secondary" id="gem-tenders-selected-count">0 selected</span>
@@ -88,33 +88,44 @@
             </div>
         </div>
 
-        <% if (canMarkOutOfScope) { %>
-            <div id="gem-tenders-bulk-out-of-scope-bar" class="card border-0 shadow-sm mb-3 d-none">
+        <% if (canBulkChangeStage) { %>
+            <div id="gem-tenders-bulk-stage-bar" class="card border-0 shadow-sm mb-3 d-none">
                 <div class="card-body py-2 px-3">
                     <div class="d-flex flex-wrap align-items-start gap-2">
-                        <span class="small text-secondary pt-1" id="gem-tenders-oos-selected-count">0 selected</span>
+                        <span class="small text-secondary pt-1" id="gem-tenders-stage-selected-count">0 selected</span>
+                        <div style="min-width: 180px; max-width: 240px;">
+                            <label for="gem-bulk-stage" class="form-label small mb-1">
+                                Stage <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select form-select-sm" id="gem-bulk-stage">
+                                <option value="">Choose stage…</option>
+                                <% stageValues.forEach(function (stage) { %>
+                                    <option value="<%= stage %>"><%= stageLabels[stage] || stage %></option>
+                                <% }) %>
+                            </select>
+                        </div>
                         <div class="flex-grow-1" style="min-width: 220px; max-width: 520px;">
-                            <label for="gem-bulk-oos-comment" class="form-label small mb-1">
-                                Out of scope reason <span class="text-danger">*</span>
+                            <label for="gem-bulk-stage-comment" class="form-label small mb-1">
+                                Comment <span class="text-danger">*</span>
                             </label>
                             <textarea
                                 class="form-control form-control-sm"
-                                id="gem-bulk-oos-comment"
+                                id="gem-bulk-stage-comment"
                                 rows="2"
                                 placeholder="Required comment for selected tenders…"
                                 maxlength="2000"
                             ></textarea>
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-2 pt-4">
-                            <button type="button" class="btn btn-sm btn-warning" id="gem-bulk-oos-btn" disabled>
-                                Mark out of scope
+                            <button type="button" class="btn btn-sm btn-primary" id="gem-bulk-stage-btn" disabled>
+                                Change stage
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="gem-bulk-oos-clear-btn">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="gem-bulk-stage-clear-btn">
                                 Clear selection
                             </button>
                         </div>
                     </div>
-                    <span class="small text-danger d-none mt-1 d-inline-block" id="gem-bulk-oos-status" role="status"></span>
+                    <span class="small text-danger d-none mt-1 d-inline-block" id="gem-bulk-stage-status" role="status"></span>
                 </div>
             </div>
         <% } %>
@@ -502,12 +513,12 @@
     }
     .gem-tenders-page-header,
     #gem-tenders-bulk-assign-bar,
-    #gem-tenders-bulk-out-of-scope-bar,
+    #gem-tenders-bulk-stage-bar,
     .gem-tenders-filters-card {
         flex: 0 0 auto;
     }
     #gem-tenders-bulk-assign-bar,
-    #gem-tenders-bulk-out-of-scope-bar {
+    #gem-tenders-bulk-stage-bar {
         position: sticky;
         top: 0;
         z-index: 2;
