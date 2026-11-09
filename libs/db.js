@@ -480,15 +480,6 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
-        // Keep tenders when a keyword is deleted (null out keyword_id).
-        `ALTER TABLE GEM_KEYWORD_TENDERS DROP FOREIGN KEY fk_gem_keyword_tenders_keyword`,
-        `ALTER TABLE GEM_KEYWORD_TENDERS MODIFY COLUMN keyword_id INT NULL`,
-        `ALTER TABLE GEM_KEYWORD_TENDERS
-            ADD CONSTRAINT fk_gem_keyword_tenders_keyword
-            FOREIGN KEY (keyword_id)
-            REFERENCES GEM_TENDER_KEYWORDS(id)
-            ON DELETE SET NULL
-            ON UPDATE CASCADE`,
         // Migrate legacy GEM tender stages into the stage-centric workflow.
         `UPDATE GEM_KEYWORD_TENDERS SET stage = 'out_of_scope' WHERE hidden = TRUE`,
         `UPDATE GEM_KEYWORD_TENDERS SET stage = 'filed' WHERE hidden = FALSE AND filed = TRUE`,

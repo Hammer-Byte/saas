@@ -8,7 +8,10 @@ import {
     getGemTenderKeywordByKeyword,
     updateGemTenderKeywordById,
 } from "../db/gem_tender_keywords.js";
-import { getGemKeywordTendersByKeywordId } from "../db/gem_keyword_tenders.js";
+import {
+    clearKeywordIdOnGemKeywordTendersByKeywordIds,
+    getGemKeywordTendersByKeywordId,
+} from "../db/gem_keyword_tenders.js";
 import {
     createGemTenderScanRun,
     getGemTenderScanRunById,
@@ -112,7 +115,10 @@ export async function deleteGemTenderKeyword({ params, cookie, set }) {
         return { error: "Keyword not found" };
     }
 
-    // Tenders are kept; keyword_id is nulled by FK ON DELETE SET NULL.
+    // Null keyword_id first so tenders survive even if FK is still ON DELETE CASCADE.
+    await clearKeywordIdOnGemKeywordTendersByKeywordIds({
+        keyword_ids: [existingKeyword.id],
+    });
     await deleteGemTenderKeywordById({ id: existingKeyword.id });
     set.status = 204;
 }
@@ -130,7 +136,8 @@ export async function bulkDeleteGemTenderKeywords({ body, cookie, set }) {
         return { error: "Select at least one keyword to delete" };
     }
 
-    // Tenders are kept; keyword_id is nulled by FK ON DELETE SET NULL.
+    // Null keyword_id first so tenders survive even if FK is still ON DELETE CASCADE.
+    await clearKeywordIdOnGemKeywordTendersByKeywordIds({ keyword_ids: keywordIds });
     const deletedCount = await deleteGemTenderKeywordsByIds({ ids: keywordIds });
     if (!deletedCount) {
         set.status = 404;

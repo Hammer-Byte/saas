@@ -183,6 +183,30 @@ function getMonthRange(month) {
     };
 }
 
+/** Detach tenders from keywords before keyword delete (keeps rows even if FK is CASCADE). */
+export async function clearKeywordIdOnGemKeywordTendersByKeywordIds({ keyword_ids }) {
+    const ids = [
+        ...new Set(
+            (Array.isArray(keyword_ids) ? keyword_ids : [])
+                .map((id) => Number(id))
+                .filter((id) => id >= 1),
+        ),
+    ];
+    if (!ids.length) {
+        return;
+    }
+
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE GEM_KEYWORD_TENDERS
+            SET keyword_id = NULL
+            WHERE keyword_id IN ${sql(ids)}
+        `,
+    ).catch((error) => {
+        logger.error(`clearKeywordIdOnGemKeywordTendersByKeywordIds: ${error}`);
+    });
+}
+
 export async function getGemKeywordTendersByKeywordId({ keyword_id, month }) {
     const range = getMonthRange(month);
     if (!range) {
