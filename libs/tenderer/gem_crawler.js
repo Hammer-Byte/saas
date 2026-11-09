@@ -688,17 +688,159 @@ function sameDateTime(left, right) {
     return toDbDateTime(left) === toDbDateTime(right);
 }
 
-function hasSpecificationLinks(value) {
-    if (value == null || value === "") return false;
-    if (Array.isArray(value)) return value.length > 0;
+function normalizeScanText(value) {
+    if (value == null) {
+        return "";
+    }
+    return String(value).trim();
+}
+
+function sameScanText(left, right) {
+    return normalizeScanText(left) === normalizeScanText(right);
+}
+
+function sameScanNumber(left, right) {
+    const leftNumber = Number(left || 0);
+    const rightNumber = Number(right || 0);
+    const safeLeft = Number.isFinite(leftNumber) ? leftNumber : 0;
+    const safeRight = Number.isFinite(rightNumber) ? rightNumber : 0;
+    return safeLeft === safeRight;
+}
+
+function normalizeSpecificationLinks(value) {
+    if (value == null || value === "") {
+        return [];
+    }
+    if (Array.isArray(value)) {
+        return value
+            .filter((item) => item && item.url)
+            .map((item) => ({
+                url: String(item.url).trim(),
+                label: item.label != null ? String(item.label).trim() : "",
+            }))
+            .sort((left, right) => left.url.localeCompare(right.url));
+    }
     if (typeof value === "string") {
         try {
-            const parsed = JSON.parse(value);
-            return Array.isArray(parsed) && parsed.length > 0;
+            return normalizeSpecificationLinks(JSON.parse(value));
         } catch {
-            return false;
+            return [];
         }
     }
+    return [];
+}
+
+function sameSpecificationLinks(left, right) {
+    return (
+        JSON.stringify(normalizeSpecificationLinks(left)) ===
+        JSON.stringify(normalizeSpecificationLinks(right))
+    );
+}
+
+function hasSpecificationLinks(value) {
+    return normalizeSpecificationLinks(value).length > 0;
+}
+
+const SCAN_DETAIL_FIELDS = [
+    "document",
+    "start_date_time",
+    "end_date_time",
+    "ministry",
+    "department",
+    "organization",
+    "office",
+    "hod_email",
+    "buyer_email",
+    "buyer_phone",
+    "required_minimum_average_turnover",
+    "required_past_experice_years",
+    "mse_experience_relaxation",
+    "mse_turnover_relaxation",
+    "asked_documents",
+    "specification_links",
+    "quantity",
+    "emd_amount",
+];
+
+function preferPositiveNumber(nextValue, existingValue) {
+    const nextNumber = Number(nextValue || 0);
+    const existingNumber = Number(existingValue || 0);
+    if (Number.isFinite(nextNumber) && nextNumber > 0) {
+        return nextNumber;
+    }
+    if (Number.isFinite(existingNumber) && existingNumber > 0) {
+        return existingNumber;
+    }
+    return 0;
+}
+
+function buildScanDetailsForUpsert({ document, gemTenderDetails, existingTender = null }) {
+    const nextSpecificationLinks = hasSpecificationLinks(gemTenderDetails.specification_links)
+        ? gemTenderDetails.specification_links
+        : existingTender
+          ? normalizeSpecificationLinks(existingTender.specification_links)
+          : gemTenderDetails.specification_links;
+
+    return {
+        document: document || existingTender?.document || null,
+        start_date_time: gemTenderDetails.start_date_time,
+        end_date_time: gemTenderDetails.end_date_time,
+        ministry: gemTenderDetails.ministry,
+        department: gemTenderDetails.department,
+        organization: gemTenderDetails.organization,
+        office: gemTenderDetails.office,
+        hod_email: gemTenderDetails.hod_email,
+        buyer_email: gemTenderDetails.buyer_email,
+        buyer_phone: gemTenderDetails.buyer_phone,
+        required_minimum_average_turnover:
+            gemTenderDetails.required_minimum_average_turnover,
+        required_past_experice_years: gemTenderDetails.required_past_experice_years,
+        mse_experience_relaxation: gemTenderDetails.mse_experience_relaxation,
+        mse_turnover_relaxation: gemTenderDetails.mse_turnover_relaxation,
+        asked_documents: gemTenderDetails.asked_documents,
+        specification_links: nextSpecificationLinks,
+        quantity: preferPositiveNumber(
+            gemTenderDetails.quantity,
+            existingTender?.quantity,
+        ),
+        emd_amount: preferPositiveNumber(
+            gemTenderDetails.emd_amount,
+            existingTender?.emd_amount,
+        ),
+    };
+}
+
+function scanDetailsDiffer(existingTender, nextDetails) {
+    for (const field of SCAN_DETAIL_FIELDS) {
+        const existingValue = existingTender?.[field];
+        const nextValue = nextDetails?.[field];
+
+        if (field === "start_date_time" || field === "end_date_time") {
+            if (!sameDateTime(existingValue, nextValue)) {
+                return true;
+            }
+            continue;
+        }
+
+        if (field === "quantity" || field === "emd_amount") {
+            if (!sameScanNumber(existingValue, nextValue)) {
+                return true;
+            }
+            continue;
+        }
+
+        if (field === "specification_links") {
+            if (!sameSpecificationLinks(existingValue, nextValue)) {
+                return true;
+            }
+            continue;
+        }
+
+        if (!sameScanText(existingValue, nextValue)) {
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -731,56 +873,23 @@ export const processTender = async ({
             return true;
         }
 
-        const datesChanged =
-            !sameDateTime(existingTender.start_date_time, gemTenderDetails.start_date_time) ||
-            !sameDateTime(existingTender.end_date_time, gemTenderDetails.end_date_time);
-        const needsSpecBackfill =
-            !hasSpecificationLinks(existingTender.specification_links) &&
-            hasSpecificationLinks(gemTenderDetails.specification_links);
-        const existingQuantity = Number(existingTender.quantity || 0);
-        const needsQuantityBackfill =
-            existingQuantity <= 0 && Number(gemTenderDetails.quantity || 0) > 0;
-        const existingEmdAmount = Number(existingTender.emd_amount || 0);
-        const needsEmdBackfill =
-            existingEmdAmount <= 0 && Number(gemTenderDetails.emd_amount || 0) > 0;
+        const nextDetails = buildScanDetailsForUpsert({
+            document,
+            gemTenderDetails,
+            existingTender,
+        });
 
-        if (
-            !datesChanged &&
-            !needsSpecBackfill &&
-            !needsQuantityBackfill &&
-            !needsEmdBackfill
-        ) {
+        if (!scanDetailsDiffer(existingTender, nextDetails)) {
             logger.info(`Tender unchanged, skipping update: ${tender_id}`);
             return false;
         }
 
         await updateGemKeywordTenderScanDetailsById({
             id: existingTender.id,
-            document,
-            ...gemTenderDetails,
-            // Keep known qty/emd when a re-scan fails to re-detect them.
-            quantity:
-                needsQuantityBackfill || Number(gemTenderDetails.quantity || 0) > 0
-                    ? gemTenderDetails.quantity
-                    : existingQuantity,
-            emd_amount:
-                needsEmdBackfill || Number(gemTenderDetails.emd_amount || 0) > 0
-                    ? gemTenderDetails.emd_amount
-                    : existingEmdAmount,
+            ...nextDetails,
         });
 
-        if (datesChanged) {
-            logger.info(
-                `Updated tender after date change: ${tender_id} (${toDbDateTime(existingTender.start_date_time)}/${toDbDateTime(existingTender.end_date_time)} -> ${toDbDateTime(gemTenderDetails.start_date_time)}/${toDbDateTime(gemTenderDetails.end_date_time)})`,
-            );
-        } else if (needsQuantityBackfill || needsEmdBackfill) {
-            logger.info(
-                `Backfilled scan fields for ${tender_id} (qty=${needsQuantityBackfill}, emd=${needsEmdBackfill})`,
-            );
-        } else {
-            logger.info(`Backfilled specification links: ${tender_id}`);
-        }
-
+        logger.info(`Updated tender scan details: ${tender_id}`);
         return true;
     } catch (error) {
         logger.error(`Failed to process tender ${tender_id}: ${error}`);
