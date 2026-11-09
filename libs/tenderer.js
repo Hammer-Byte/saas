@@ -16,11 +16,11 @@ export function crawlGemForTenders({ keywords = [], runId = null } = {}) {
 
     const keywordList = (keywords || [])
         .map((entry) => ({
-            id: entry?.id,
+            id: entry?.id != null && Number(entry.id) >= 1 ? Number(entry.id) : null,
             keyword: String(entry?.keyword || "").trim(),
             exact_search: !!entry?.exact_search,
         }))
-        .filter((entry) => entry.id && entry.keyword);
+        .filter((entry) => entry.keyword);
 
     if (!keywordList.length) {
         processing = false;

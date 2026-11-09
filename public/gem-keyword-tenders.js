@@ -143,6 +143,65 @@
         });
     });
 
+    const addTenderForm = document.getElementById("gem-add-tender-form");
+    const addTenderQuery = document.getElementById("gem-add-tender-query");
+    const addTenderExact = document.getElementById("gem-add-tender-exact-search");
+    const addTenderSubmit = document.getElementById("gem-add-tender-submit-btn");
+    const addTenderAlert = document.getElementById("gem-add-tender-alert");
+    const addTenderModalEl = document.getElementById("gem-add-tender-modal");
+
+    function showAddTenderAlert(message, type) {
+        if (!addTenderAlert) return;
+        addTenderAlert.textContent = message;
+        addTenderAlert.className = `alert alert-${type}`;
+        addTenderAlert.classList.remove("d-none");
+    }
+
+    addTenderForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const query = String(addTenderQuery?.value || "").trim();
+        if (!query) {
+            addTenderQuery?.focus();
+            return;
+        }
+
+        if (addTenderSubmit) addTenderSubmit.disabled = true;
+        try {
+            const response = await fetch("/api/gem-keyword-tenders/adhoc-scan", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    query,
+                    exact_search: !!addTenderExact?.checked,
+                }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showAddTenderAlert(data.error || "Failed to start scan.", "danger");
+                if (addTenderSubmit) addTenderSubmit.disabled = false;
+                return;
+            }
+
+            const modal = window.bootstrap?.Modal?.getInstance?.(addTenderModalEl);
+            modal?.hide();
+            addTenderForm.reset();
+            showAddTenderAlert(
+                data.message || "Scan started. Matching tenders will appear after the scan finishes.",
+                "success",
+            );
+        } catch (error) {
+            console.error(error);
+            showAddTenderAlert("Failed to start scan.", "danger");
+        } finally {
+            if (addTenderSubmit) addTenderSubmit.disabled = false;
+        }
+    });
+
+    addTenderModalEl?.addEventListener("shown.bs.modal", () => {
+        addTenderQuery?.focus();
+    });
+
     const storedFilters = readStoredFilters();
     if (storedFilters?.from && storedFilters?.to) {
         const url = new URL(window.location.href);

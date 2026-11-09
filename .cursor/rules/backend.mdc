@@ -27,9 +27,9 @@ alwaysApply: false
 
 ## Database
 
-- Schema lives only in `libs/db.js` → `generateDBTables()` (`CREATE TABLE IF NOT EXISTS`).
-- **Do not** write migrations, `ALTER TABLE`, or backfill scripts for schema changes.
-- After commit/push, the DB is dropped and recreated from scratch — assume a clean schema on next boot.
+- Schema lives only in `libs/db.js` → `generateDBTables()`.
+- **Allowed in `libs/db.js`:** `CREATE TABLE IF NOT EXISTS` and `INSERT IGNORE` only.
+- **Never** put `ALTER TABLE` (or any other migration/DDL that mutates existing tables) in the codebase — the app must not execute alters. When an existing DB needs a column/FK/index change, give the user the `ALTER` SQL to run manually; also keep the matching `CREATE TABLE` definition up to date for fresh installs.
 - Prefer generated columns when a value is always derived (e.g. `amount = cost * quantity`).
 - Seed reference rows with `INSERT IGNORE` (e.g. `SERVICES`).
 - DB helpers take a single object: `getX({ id })`, not positional args.

@@ -2,6 +2,7 @@ import { t } from "elysia";
 import { GEM_KEYWORD_TENDER_STAGES } from "../../constants.js";
 import {
     bulkMarkGemKeywordTendersOutOfScope,
+    startGemAdhocTenderScan,
     updateGemKeywordTender,
 } from "../../services/gem_keyword_tenders.js";
 
@@ -15,6 +16,16 @@ export default function (app) {
             detail: {
                 tags: ["GEM Keyword Tenders"],
                 summary: "Mark selected GEM keyword tenders out of scope with a comment",
+            },
+        })
+        .post("/adhoc-scan", startGemAdhocTenderScan, {
+            body: t.Object({
+                query: t.String({ minLength: 1, maxLength: 255 }),
+                exact_search: t.Optional(t.Boolean()),
+            }),
+            detail: {
+                tags: ["GEM Keyword Tenders"],
+                summary: "Scan GeM for a one-off search query and store matching tenders",
             },
         })
         .patch("/:id", updateGemKeywordTender, {

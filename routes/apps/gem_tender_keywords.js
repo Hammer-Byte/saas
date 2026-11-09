@@ -1,6 +1,7 @@
 import { t } from "elysia";
 import {
     addGemTenderKeyword,
+    bulkDeleteGemTenderKeywords,
     deleteGemTenderKeyword,
     getGemKeywordTenders,
     getGemTenderKeywords,
@@ -37,6 +38,15 @@ export default function (app) {
             detail: {
                 tags: ["Gem Tender Keywords"],
                 summary: "Start GEM tender scan for selected keywords",
+            },
+        })
+        .post("/bulk-delete", bulkDeleteGemTenderKeywords, {
+            body: t.Object({
+                keyword_ids: t.Array(t.Numeric({ minimum: 1 }), { minItems: 1 }),
+            }),
+            detail: {
+                tags: ["Gem Tender Keywords"],
+                summary: "Delete selected GEM tender keywords (keeps associated tenders)",
             },
         })
         .patch("/:id", updateGemTenderKeyword, {

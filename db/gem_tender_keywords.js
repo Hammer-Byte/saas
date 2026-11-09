@@ -46,6 +46,30 @@ export async function deleteGemTenderKeywordById({ id }) {
     );
 }
 
+export async function deleteGemTenderKeywordsByIds({ ids }) {
+    const keywordIds = [
+        ...new Set((Array.isArray(ids) ? ids : []).map((id) => Number(id)).filter((id) => id >= 1)),
+    ];
+    if (!keywordIds.length) {
+        return 0;
+    }
+
+    return await executeSQLQuery(
+        (sql) => sql`
+            DELETE FROM GEM_TENDER_KEYWORDS
+            WHERE id IN ${sql(keywordIds)}
+        `,
+    )
+        .then((result) => {
+            const affected = Number(result?.affectedRows ?? result?.changes);
+            return Number.isFinite(affected) && affected >= 0 ? affected : keywordIds.length;
+        })
+        .catch((error) => {
+            logger.error(`deleteGemTenderKeywordsByIds: ${error}`);
+            return 0;
+        });
+}
+
 export async function getGemTenderKeywordById({ id }) {
     return await executeSQLQuery((sql) => sql`SELECT * FROM GEM_TENDER_KEYWORDS WHERE id = ${id}`)
         .then((result) => (result.length ? result[0] : null))

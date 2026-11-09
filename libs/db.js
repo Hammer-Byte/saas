@@ -441,7 +441,7 @@ export async function generateDBTables() {
         )`,
         `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            keyword_id INT NOT NULL,
+            keyword_id INT NULL,
             tender_id VARCHAR(128) NOT NULL,
             document VARCHAR(512) NULL,
             start_date_time VARCHAR(64) NULL,
@@ -472,7 +472,7 @@ export async function generateDBTables() {
             CONSTRAINT fk_gem_keyword_tenders_keyword
                 FOREIGN KEY (keyword_id)
                 REFERENCES GEM_TENDER_KEYWORDS(id)
-                ON DELETE CASCADE
+                ON DELETE SET NULL
                 ON UPDATE CASCADE,
             CONSTRAINT fk_gem_keyword_tenders_assignee
                 FOREIGN KEY (assignee_user_id)
@@ -480,6 +480,15 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
+        // Keep tenders when a keyword is deleted (null out keyword_id).
+        `ALTER TABLE GEM_KEYWORD_TENDERS DROP FOREIGN KEY fk_gem_keyword_tenders_keyword`,
+        `ALTER TABLE GEM_KEYWORD_TENDERS MODIFY COLUMN keyword_id INT NULL`,
+        `ALTER TABLE GEM_KEYWORD_TENDERS
+            ADD CONSTRAINT fk_gem_keyword_tenders_keyword
+            FOREIGN KEY (keyword_id)
+            REFERENCES GEM_TENDER_KEYWORDS(id)
+            ON DELETE SET NULL
+            ON UPDATE CASCADE`,
         // Migrate legacy GEM tender stages into the stage-centric workflow.
         `UPDATE GEM_KEYWORD_TENDERS SET stage = 'out_of_scope' WHERE hidden = TRUE`,
         `UPDATE GEM_KEYWORD_TENDERS SET stage = 'filed' WHERE hidden = FALSE AND filed = TRUE`,
@@ -996,7 +1005,7 @@ export async function generateDBTables() {
             const message = error instanceof Error ? error.message : String(error);
             // Ignore idempotent migration noise on already-migrated DBs.
             if (
-                !/duplicate column name|check that column\/key exists|can't drop|unknown column/i.test(
+                !/duplicate column name|check that column\/key exists|can't drop|unknown column|duplicate (foreign )?key|already exists/i.test(
                     message,
                 )
             ) {

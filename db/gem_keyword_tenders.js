@@ -227,7 +227,7 @@ export async function getAllGemKeywordTenders({ from, to }) {
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email
             FROM GEM_KEYWORD_TENDERS
-            INNER JOIN GEM_TENDER_KEYWORDS
+            LEFT JOIN GEM_TENDER_KEYWORDS
                 ON GEM_TENDER_KEYWORDS.id = GEM_KEYWORD_TENDERS.keyword_id
             LEFT JOIN USERS
                 ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
@@ -253,7 +253,7 @@ export async function getGemKeywordTenderById({ id }) {
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email
             FROM GEM_KEYWORD_TENDERS
-            INNER JOIN GEM_TENDER_KEYWORDS
+            LEFT JOIN GEM_TENDER_KEYWORDS
                 ON GEM_TENDER_KEYWORDS.id = GEM_KEYWORD_TENDERS.keyword_id
             LEFT JOIN USERS
                 ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
@@ -310,7 +310,7 @@ export async function getGemKeywordTendersPendingEligibilityReminder({
                 USERS.email AS assignee_email,
                 USERS.personal_email AS assignee_personal_email
             FROM GEM_KEYWORD_TENDERS
-            INNER JOIN GEM_TENDER_KEYWORDS
+            LEFT JOIN GEM_TENDER_KEYWORDS
                 ON GEM_TENDER_KEYWORDS.id = GEM_KEYWORD_TENDERS.keyword_id
             INNER JOIN USERS
                 ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id

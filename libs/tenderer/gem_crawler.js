@@ -654,9 +654,12 @@ export const processTender = async ({
 
 export const searchTendersByKeyword = async (
     driver,
-    { keyword, id: keyword_id, exact_search = false },
+    { keyword, id: keyword_id = null, exact_search = false },
 ) => {
-    if (!keyword || !keyword_id) {
+    const searchKeyword = String(keyword || "").trim();
+    const resolvedKeywordId =
+        keyword_id != null && Number(keyword_id) >= 1 ? Number(keyword_id) : null;
+    if (!searchKeyword) {
         logger.info("No keyword configured, skipping search.");
         return 0;
     }
@@ -668,23 +671,23 @@ export const searchTendersByKeyword = async (
     await page.open();
 
     if (exact_search) {
-        logger.info(`Exact search enabled for keyword: ${keyword}`);
+        logger.info(`Exact search enabled for keyword: ${searchKeyword}`);
         await page.clickElement(await page.searchTypeDropdown());
         await page.clickElement(await page.exactSearchOption());
     } else {
-        logger.info(`Contains/default search for keyword: ${keyword}`);
+        logger.info(`Contains/default search for keyword: ${searchKeyword}`);
     }
 
     const searchInput = await page.searchInput();
     await searchInput.clear();
-    await searchInput.sendKeys(keyword);
+    await searchInput.sendKeys(searchKeyword);
 
     await page.clickElement(await page.searchButton());
     await sleep(driver, DELAY_MEDIUM);
     await page.bidCardContainer();
 
     if (!(await page.isPaginationVisible())) {
-        logger.info(`No tenders found for keyword: ${keyword}`);
+        logger.info(`No tenders found for keyword: ${searchKeyword}`);
         return 0;
     }
 
@@ -692,7 +695,7 @@ export const searchTendersByKeyword = async (
     let changedCount = 0;
 
     for (let pageNumber = 1; pageNumber <= lastPage; pageNumber++) {
-        logger.info(`Downloading page ${pageNumber} of ${lastPage} for ${keyword}...`);
+        logger.info(`Downloading page ${pageNumber} of ${lastPage} for ${searchKeyword}...`);
 
         const tenders = await page.tenderDownloadLinks();
 
@@ -710,7 +713,7 @@ export const searchTendersByKeyword = async (
                 const { tenderFile, document, buffer } = await downloadTender(driver, tender);
                 const changed = await processTender({
                     tenderFile,
-                    keyword_id,
+                    keyword_id: resolvedKeywordId,
                     tender_id: tenderId,
                     document,
                     buffer,

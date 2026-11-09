@@ -5,6 +5,7 @@
     const emptyState = document.getElementById("gem-keywords-empty");
     const tableBody = document.getElementById("gem-keywords-tbody");
     const startScanButton = document.getElementById("gem-start-scan-btn");
+    const deleteKeywordsButton = document.getElementById("gem-delete-keywords-btn");
     const selectAllCheckbox = document.getElementById("gem-keywords-select-all");
     const idInput = form?.elements.namedItem("id");
     const keywordInput = form?.elements.namedItem("keyword");
@@ -44,9 +45,17 @@
         selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
     }
 
-    function syncScanButton() {
-        if (!startScanButton || scanWasProcessing) return;
+    function syncSelectionActions() {
         const selectedCount = selectedKeywordIds().length;
+
+        if (deleteKeywordsButton) {
+            deleteKeywordsButton.classList.toggle("d-none", selectedCount === 0);
+            deleteKeywordsButton.disabled = scanWasProcessing || selectedCount === 0;
+            deleteKeywordsButton.textContent =
+                selectedCount > 0 ? `Delete selected (${selectedCount})` : "Delete selected";
+        }
+
+        if (!startScanButton || scanWasProcessing) return;
         startScanButton.disabled = selectedCount === 0;
         startScanButton.textContent =
             selectedCount > 0 ? `Start scan (${selectedCount})` : "Start scan";
@@ -56,6 +65,9 @@
         if (!startScanButton) return;
         startScanButton.disabled = true;
         startScanButton.textContent = "Scan in progress…";
+        if (deleteKeywordsButton) {
+            deleteKeywordsButton.disabled = true;
+        }
         for (const input of keywordCheckboxes()) {
             input.disabled = true;
         }
@@ -129,13 +141,13 @@
             if (!input.disabled) input.checked = checked;
         }
         syncSelectAllState();
-        syncScanButton();
+        syncSelectionActions();
     });
 
     tableBody?.addEventListener("change", (event) => {
         if (!event.target?.classList?.contains("gem-keyword-select")) return;
         syncSelectAllState();
-        syncScanButton();
+        syncSelectionActions();
     });
 
     startScanButton?.addEventListener("click", async () => {
@@ -162,7 +174,7 @@
             if (!response.ok) {
                 showAlert(data.error || "Failed to start scan.", "danger");
                 if (!data.processing) {
-                    syncScanButton();
+                    syncSelectionActions();
                 } else {
                     setScanRunning();
                 }
@@ -174,28 +186,22 @@
         } catch (error) {
             console.error(error);
             showAlert("Failed to start scan.", "danger");
-            syncScanButton();
+            syncSelectionActions();
         }
     });
 
-    tableBody?.addEventListener("click", async (event) => {
-        const row = event.target.closest("tr[data-id]");
-        if (!row) return;
+    deleteKeywordsButton?.addEventListener("click", async () => {
+        if (deleteKeywordsButton.disabled) return;
 
-        if (event.target.closest(".gem-keyword-edit-btn")) {
-            openEditForm(row);
+        const keyword_ids = selectedKeywordIds();
+        if (!keyword_ids.length) {
+            showAlert("Select at least one keyword to delete.", "danger");
             return;
         }
 
-        const deleteButton = event.target.closest(".gem-keyword-delete-btn");
-        if (!deleteButton) return;
-
-        const keywordId = Number(deleteButton.dataset.id);
-        if (!keywordId) return;
-
         const confirmed = await showConfirm({
-            title: "Delete keyword?",
-            description: "This will also remove all tenders stored for this keyword.",
+            title: "Delete selected keywords?",
+            description: `Delete ${keyword_ids.length} keyword(s)? Associated tenders will be kept.`,
             choices: [
                 { label: "Cancel", variant: "secondary", value: false },
                 { label: "Delete", variant: "danger", value: true },
@@ -203,27 +209,38 @@
         });
         if (!confirmed) return;
 
-        deleteButton.disabled = true;
         hideAlert();
+        deleteKeywordsButton.disabled = true;
 
         try {
-            const response = await fetch(`/api/gem-tender-keywords/${keywordId}`, {
-                method: "DELETE",
+            const response = await fetch("/api/gem-tender-keywords/bulk-delete", {
+                method: "POST",
                 credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ keyword_ids }),
             });
+            const data = await response.json().catch(() => ({}));
 
-            if (!response.ok && response.status !== 204) {
-                const data = await response.json().catch(() => ({}));
-                showAlert(data.error || "Failed to delete keyword.", "danger");
-                deleteButton.disabled = false;
+            if (!response.ok) {
+                showAlert(data.error || "Failed to delete keywords.", "danger");
+                syncSelectionActions();
                 return;
             }
 
             window.location.reload();
         } catch (error) {
             console.error(error);
-            showAlert("Failed to delete keyword.", "danger");
-            deleteButton.disabled = false;
+            showAlert("Failed to delete keywords.", "danger");
+            syncSelectionActions();
+        }
+    });
+
+    tableBody?.addEventListener("click", (event) => {
+        const row = event.target.closest("tr[data-id]");
+        if (!row) return;
+
+        if (event.target.closest(".gem-keyword-edit-btn")) {
+            openEditForm(row);
         }
     });
 
@@ -234,6 +251,6 @@
     }
 
     syncSelectAllState();
-    syncScanButton();
+    syncSelectionActions();
     resetForm();
 })();

@@ -2,6 +2,7 @@ import { AUTHORITIES } from "../constants.js";
 import {
     createGemTenderKeyword,
     deleteGemTenderKeywordById,
+    deleteGemTenderKeywordsByIds,
     getAllGemTenderKeywords,
     getGemTenderKeywordById,
     getGemTenderKeywordByKeyword,
@@ -111,8 +112,36 @@ export async function deleteGemTenderKeyword({ params, cookie, set }) {
         return { error: "Keyword not found" };
     }
 
+    // Tenders are kept; keyword_id is nulled by FK ON DELETE SET NULL.
     await deleteGemTenderKeywordById({ id: existingKeyword.id });
     set.status = 204;
+}
+
+export async function bulkDeleteGemTenderKeywords({ body, cookie, set }) {
+    if (!(await requireGemTenderKeywordsAuthority({ cookie, set }))) {
+        return { error: set.status === 401 ? "Unauthorized" : "Missing authority" };
+    }
+
+    const keywordIds = Array.isArray(body?.keyword_ids)
+        ? [...new Set(body.keyword_ids.map((id) => Number(id)).filter((id) => id >= 1))]
+        : [];
+    if (!keywordIds.length) {
+        set.status = 400;
+        return { error: "Select at least one keyword to delete" };
+    }
+
+    // Tenders are kept; keyword_id is nulled by FK ON DELETE SET NULL.
+    const deletedCount = await deleteGemTenderKeywordsByIds({ ids: keywordIds });
+    if (!deletedCount) {
+        set.status = 404;
+        return { error: "No keywords deleted" };
+    }
+
+    set.status = 200;
+    return {
+        message: `Deleted ${deletedCount} keyword(s). Associated tenders were kept.`,
+        deletedCount,
+    };
 }
 
 export async function getGemTenderKeywords({ cookie, set }) {

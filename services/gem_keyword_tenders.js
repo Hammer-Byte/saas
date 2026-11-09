@@ -16,6 +16,7 @@ import {
     notifyGemKeywordTenderAssigned,
     notifyGemKeywordTenderQuoteRequested,
 } from "../libs/gem_tender_notify.js";
+import { crawlGemForTenders, processing } from "../libs/tenderer.js";
 import { getCurrentUser } from "./authentication.js";
 
 const STAGE_VALUES = new Set(Object.values(GEM_KEYWORD_TENDER_STAGES));
@@ -455,5 +456,53 @@ export async function bulkMarkGemKeywordTendersOutOfScope({ body, cookie, set })
         skippedCount,
         failedCount,
         failures,
+    };
+}
+
+/**
+ * One-off GeM search from the tenders list.
+ * Does not create/store a keyword row; saved tenders get keyword_id = null.
+ */
+export async function startGemAdhocTenderScan({ body, cookie, set }) {
+    if (processing) {
+        set.status = 409;
+        return { error: "Scan already in progress", processing: true };
+    }
+
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized", processing: false };
+    }
+
+    if (!hasAuthority(currentUser.authorities, AUTHORITIES.USE_PAGE_GEM_TENDERS)) {
+        set.status = 403;
+        return { error: "Missing authority", processing: false };
+    }
+
+    const query = asText(body?.query).trim();
+    if (!query) {
+        set.status = 400;
+        return { error: "Search text is required", processing: false };
+    }
+
+    const started = crawlGemForTenders({
+        keywords: [
+            {
+                id: null,
+                keyword: query,
+                exact_search: !!body?.exact_search,
+            },
+        ],
+    });
+    if (!started) {
+        set.status = 409;
+        return { error: "Scan already in progress", processing: true };
+    }
+
+    set.status = 202;
+    return {
+        message: `Scan started for “${query}”. Matching tenders will be added shortly.`,
+        processing: true,
     };
 }
