@@ -171,6 +171,11 @@
                     <div class="col-md-4"><strong>MSE Experience Relaxation</strong><br /><%= tender.mse_experience_relaxation || "-" %></div>
                     <div class="col-md-4"><strong>MSE Turnover Relaxation</strong><br /><%= tender.mse_turnover_relaxation || "-" %></div>
                     <div class="col-md-4"><strong>Quantity</strong><br /><%= Number(tender.quantity || 0) > 0 ? Number(tender.quantity) : "NA" %></div>
+                    <div class="col-md-4">
+                        <strong>EMD amount</strong><br />
+                        <% const emdAmount = Number(tender.emd_amount || 0); %>
+                        <%= emdAmount > 0 ? emdAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "NA" %>
+                    </div>
                     <div class="col-md-4"><strong>Asked documents</strong><br /><%= tender.asked_documents || "-" %></div>
                     <div class="col-md-4"><strong>HOD email</strong><br /><%= tender.hod_email || "-" %></div>
                     <div class="col-md-4"><strong>Buyer email</strong><br /><%= tender.buyer_email || "-" %></div>

@@ -460,6 +460,7 @@ export async function generateDBTables() {
             asked_documents TEXT NULL,
             specification_links TEXT NULL,
             quantity INT NOT NULL DEFAULT 0,
+            emd_amount DECIMAL(14, 2) NOT NULL DEFAULT 0,
             eligibility_reminder_sent_on DATETIME NULL,
             eligible VARCHAR(32) NOT NULL DEFAULT 'need_to_check',
             filed BOOLEAN NOT NULL DEFAULT FALSE,

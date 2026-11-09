@@ -36,30 +36,42 @@ const TENDER_DETAIL_REGEXES = {
     DEVANAGARI_START: /^[\u0900-\u097F]/,
     SCOPE_OF_WORK_FILE: /Scope\s+of\s+Work\s*:?\s*([0-9]+\.pdf)/gi,
     // Quantity extractors (tried in order by extractQuantity).
-    TOTAL_QUANTITY: /Total\s*Quantity[\s:\u00a0\-]*(\d+(?:\.\d+)?)/i,
+    // Captured numbers may include western/Indian thousand separators; stripped in parseQuantityNumber.
+    TOTAL_QUANTITY_SAME:
+        /Total\s*(?:Quantity|Qty)[\s:\u00a0\-]*([\d,]+(?:\.\d+)?)/i,
     TOTAL_QUANTITY_MULTILINE:
-        /Total\s*Quantity[^\d\n]{0,80}\n[^\d\n]{0,40}(\d+(?:\.\d+)?)/i,
-    ITEM_PIECES_LINE: /^.{0,160}?\(\s*(\d+)\s*pieces?\s*\)\s*$/i,
-    ITEM_PIECES_ONLY: /^\(\s*(\d+)\s*pieces?\s*\)$/i,
-    BID_QUANTITY: /\bBid\s*Quantity\s*[:=\-]?\s*(\d+(?:\.\d+)?)/i,
+        /Total\s*(?:Quantity|Qty)[^\d\n]{0,80}\n[^\d\n]{0,40}([\d,]+(?:\.\d+)?)/i,
+    ITEM_PIECES_LINE: /^.{0,160}?\(\s*([\d,]+)\s*(?:pieces?|units?)\s*\)\s*$/i,
+    ITEM_PIECES_ONLY: /^\(\s*([\d,]+)\s*(?:pieces?|units?)\s*\)$/i,
+    BID_QUANTITY: /\bBid\s*(?:Quantity|Qty)\s*[:=\-]?\s*([\d,]+(?:\.\d+)?)/i,
     CONSIGNEES_SECTION: /Consignees\/Reporting Officer(?:\s+and\s+Quantity)?/gi,
     CONSIGNEE_QTY_ROW: /^\s*\d+\s+.+\s+(\d{1,7})\s+(\d{1,4})\s*$/gm,
     CONSIGNEE_QTY_DAYS_ONLY: /^\s*(\d{1,7})\s+(\d{1,4})\s*$/gm,
     // AMC / service consignee columns: "Number of each Asset", "Number of Devices",
     // "Quantity of Data Center Assets", etc. (not goods qty+delivery-days tables).
     SERVICE_CONSIGNEE_COLUMN:
-        /\/\s*Number of|\/\s*Quantity of|each\s+Asset|for\s+AMC|Resources\s+to/i,
+        /\/\s*Number of|\/\s*Quantity of|each\s+Asset|for\s+AMC|Number of Devices|Resources\s+to/i,
     SERVICE_CONSIGNEE_QTY_ROW:
         /^\s*\d+\s+[A-Za-z*][^\n/]{3,}?\s+(\d{1,7})\s*(?:Resident engineers|N\/A)?\s*$/gm,
     RESOURCE_HIRE_MARKERS: /Resources\s+to[\s\S]{0,80}?be\s+hired/i,
     RESOURCE_QTY_ROW:
         /^\s*\d+\s+[^\n]*?\*{3,}[^\n]*?\*{3,}[^\n]*?\s+(\d{1,6})\b/gm,
-    SERVICE_ITEM_DOC_MARKERS: /Annual Maintenance|each\s+Asset|for\s+AMC/i,
-    SERVICE_ITEM_PAREN_SAME: /\(\s*(\d+)\s*\)\s*$/,
-    SERVICE_ITEM_PAREN_ONLY: /^\(\s*(\d+)\s*\)$/,
+    SERVICE_ITEM_DOC_MARKERS:
+        /Annual Maintenance|Maintenance Contract|each\s+Asset|for\s+AMC|Networking Devices/i,
+    SERVICE_ITEM_PAREN_SAME: /\(\s*([\d,]+)\s*\)\s*$/,
+    SERVICE_ITEM_PAREN_ONLY: /^\(\s*([\d,]+)\s*\)$/,
     SERVICE_ITEM_PAREN_OPEN: /\(\s*$/,
-    SERVICE_ITEM_PAREN_CLOSE: /^(\d+)\s*\)$/,
-    ATC_QTY_NOS: /\b(\d+(?:\.\d+)?)\s*Nos\.?\b/gi,
+    SERVICE_ITEM_PAREN_CLOSE: /^([\d,]+)\s*\)$/,
+    ATC_QTY_NOS: /\b([\d,]+(?:\.\d+)?)\s*Nos\.?\b/gi,
+    // EMD amount (GeM "EMD Detail" block).
+    EMD_DETAIL: /EMD\s*Detail/i,
+    EMD_SECTION_END:
+        /ePBG\s*Detail|Bid\s+splitting|MII\s+Purchase|MSE\s+Purchase/i,
+    EMD_REQUIRED_NO: /Required\s+No/i,
+    EMD_AMOUNT_LABEL: /(?:\/\s*EMD\b|EMD\s*Amount)/gi,
+    EMD_AMOUNT_IS: /EMD\s*AMOUNT\s+IS\s+([\d,]+(?:\.\d+)?)\s*INR/gi,
+    EMD_MONEY_NUMBER: /([\d,]{2,}(?:\.\d+)?)/g,
+    EMD_APPLICABLE_PROSE: /will\s+be\s+applicable/i,
 };
 
 const sleep = (driver, ms) => driver.sleep(ms);
@@ -219,11 +231,27 @@ function extractSpecificationLinks({ buffer, pdfText }) {
 }
 
 function parseQuantityNumber(value) {
-    const number = Number(value);
+    if (value == null) {
+        return 0;
+    }
+    const normalized = String(value).replace(/,/g, "").trim();
+    const number = Number(normalized);
     if (!Number.isFinite(number) || number < 0) {
         return 0;
     }
     return Math.round(number);
+}
+
+function parseMoneyAmount(value) {
+    if (value == null) {
+        return 0;
+    }
+    const normalized = String(value).replace(/,/g, "").trim();
+    const number = Number(normalized);
+    if (!Number.isFinite(number) || number <= 0) {
+        return 0;
+    }
+    return Math.round(number * 100) / 100;
 }
 
 function firstPositiveQuantity(...candidates) {
@@ -236,10 +264,10 @@ function firstPositiveQuantity(...candidates) {
     return 0;
 }
 
-/** Way 1: Bid Details "Total Quantity N" (same line or nearby next line). */
+/** Way 1: Bid Details "Total Quantity/Qty N" (same line or nearby next line). */
 function extractQuantityFromTotalLabel(text) {
     return firstPositiveQuantity(
-        text.match(TENDER_DETAIL_REGEXES.TOTAL_QUANTITY)?.[1],
+        text.match(TENDER_DETAIL_REGEXES.TOTAL_QUANTITY_SAME)?.[1],
         text.match(TENDER_DETAIL_REGEXES.TOTAL_QUANTITY_MULTILINE)?.[1],
     );
 }
@@ -278,7 +306,7 @@ function extractQuantityFromItemPieces(text) {
                 quantity = parseQuantityNumber(only[1]);
             }
         } else if (/\(\s*$/.test(line) && i + 1 < lines.length) {
-            const next = lines[i + 1].match(/^(\d+)\s*pieces?\s*\)$/i);
+            const next = lines[i + 1].match(/^([\d,]+)\s*(?:pieces?|units?)\s*\)$/i);
             if (next?.[1] && line.length >= 8) {
                 quantity = parseQuantityNumber(next[1]);
                 i += 1;
@@ -532,6 +560,92 @@ function extractQuantity(text) {
     return 0;
 }
 
+function firstMoneyInWindow(window, { fromEnd = false } = {}) {
+    const matches = [...String(window || "").matchAll(TENDER_DETAIL_REGEXES.EMD_MONEY_NUMBER)];
+    const ordered = fromEnd ? matches.reverse() : matches;
+    for (const match of ordered) {
+        const amount = parseMoneyAmount(match[1]);
+        // GeM EMDs are currency amounts; ignore tiny page/serial numbers.
+        if (amount >= 100) {
+            return amount;
+        }
+    }
+    return 0;
+}
+
+/**
+ * EMD amount from the GeM "EMD Detail" block.
+ * - Required No → 0
+ * - Single "EMD Amount N" → N
+ * - Multi-schedule rows → sum of schedule amounts
+ * Handles split layouts where the number sits before or after the label.
+ */
+function extractEmdAmount(text) {
+    const normalized = String(text || "")
+        .replace(/\u00a0/g, " ")
+        .replace(/\f/g, "\n");
+
+    const detailMatch = normalized.match(TENDER_DETAIL_REGEXES.EMD_DETAIL);
+    let section = normalized;
+    if (detailMatch?.index != null) {
+        const start = detailMatch.index + detailMatch[0].length;
+        const rest = normalized.slice(start);
+        const endMatch = rest.match(TENDER_DETAIL_REGEXES.EMD_SECTION_END);
+        const end = endMatch?.index != null ? start + endMatch.index : start + 3000;
+        section = normalized.slice(start, end);
+    }
+
+    const hasAmountLabel =
+        /\/\s*EMD\b/i.test(section) || /EMD\s*Amount/i.test(section);
+    if (TENDER_DETAIL_REGEXES.EMD_REQUIRED_NO.test(section) && !hasAmountLabel) {
+        return 0;
+    }
+
+    const amounts = [];
+    for (const match of section.matchAll(TENDER_DETAIL_REGEXES.EMD_AMOUNT_LABEL)) {
+        const labelStart = match.index ?? 0;
+        const windowStart = Math.max(0, labelStart);
+        if (
+            TENDER_DETAIL_REGEXES.EMD_APPLICABLE_PROSE.test(
+                section.slice(windowStart, windowStart + 80),
+            )
+        ) {
+            continue;
+        }
+        const after = section.slice(labelStart + match[0].length, labelStart + match[0].length + 120);
+        const before = section.slice(Math.max(0, labelStart - 100), labelStart);
+        const amount = firstMoneyInWindow(after) || firstMoneyInWindow(before, { fromEnd: true });
+        if (amount > 0) {
+            amounts.push(amount);
+        }
+    }
+
+    for (const match of normalized.matchAll(TENDER_DETAIL_REGEXES.EMD_AMOUNT_IS)) {
+        const amount = parseMoneyAmount(match[1]);
+        if (amount > 0) {
+            amounts.push(amount);
+        }
+    }
+
+    if (!amounts.length) {
+        return 0;
+    }
+
+    // Collapse consecutive duplicate hits from overlapping "/EMD" + "EMD Amount" labels.
+    const collapsed = [];
+    for (const amount of amounts) {
+        if (!collapsed.length || collapsed[collapsed.length - 1] !== amount) {
+            collapsed.push(amount);
+        }
+    }
+
+    const unique = new Set(collapsed);
+    if (unique.size === 1) {
+        return collapsed[0];
+    }
+    return collapsed.reduce((sum, amount) => sum + amount, 0);
+}
+
 const extractTenderDetails = (text, buffer) => {
     const end_date_time =
         text.match(TENDER_DETAIL_REGEXES.BID_END_DATE_TIME)?.[1] ||
@@ -566,6 +680,7 @@ const extractTenderDetails = (text, buffer) => {
         asked_documents: extractDocumentsRequired(text),
         specification_links: extractSpecificationLinks({ buffer, pdfText: text }),
         quantity: extractQuantity(text),
+        emd_amount: extractEmdAmount(text),
     };
 };
 
@@ -625,8 +740,16 @@ export const processTender = async ({
         const existingQuantity = Number(existingTender.quantity || 0);
         const needsQuantityBackfill =
             existingQuantity <= 0 && Number(gemTenderDetails.quantity || 0) > 0;
+        const existingEmdAmount = Number(existingTender.emd_amount || 0);
+        const needsEmdBackfill =
+            existingEmdAmount <= 0 && Number(gemTenderDetails.emd_amount || 0) > 0;
 
-        if (!datesChanged && !needsSpecBackfill && !needsQuantityBackfill) {
+        if (
+            !datesChanged &&
+            !needsSpecBackfill &&
+            !needsQuantityBackfill &&
+            !needsEmdBackfill
+        ) {
             logger.info(`Tender unchanged, skipping update: ${tender_id}`);
             return false;
         }
@@ -635,11 +758,24 @@ export const processTender = async ({
             id: existingTender.id,
             document,
             ...gemTenderDetails,
+            // Keep known qty/emd when a re-scan fails to re-detect them.
+            quantity:
+                needsQuantityBackfill || Number(gemTenderDetails.quantity || 0) > 0
+                    ? gemTenderDetails.quantity
+                    : existingQuantity,
+            emd_amount:
+                needsEmdBackfill || Number(gemTenderDetails.emd_amount || 0) > 0
+                    ? gemTenderDetails.emd_amount
+                    : existingEmdAmount,
         });
 
         if (datesChanged) {
             logger.info(
                 `Updated tender after date change: ${tender_id} (${toDbDateTime(existingTender.start_date_time)}/${toDbDateTime(existingTender.end_date_time)} -> ${toDbDateTime(gemTenderDetails.start_date_time)}/${toDbDateTime(gemTenderDetails.end_date_time)})`,
+            );
+        } else if (needsQuantityBackfill || needsEmdBackfill) {
+            logger.info(
+                `Backfilled scan fields for ${tender_id} (qty=${needsQuantityBackfill}, emd=${needsEmdBackfill})`,
             );
         } else {
             logger.info(`Backfilled specification links: ${tender_id}`);

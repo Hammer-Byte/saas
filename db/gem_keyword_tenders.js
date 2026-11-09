@@ -39,10 +39,14 @@ export async function createGemKeywordTender({
     asked_documents = null,
     specification_links = null,
     quantity = 0,
+    emd_amount = 0,
 }) {
     const quantityValue = Number(quantity);
     const safeQuantity =
         Number.isFinite(quantityValue) && quantityValue > 0 ? Math.round(quantityValue) : 0;
+    const emdValue = Number(emd_amount);
+    const safeEmdAmount =
+        Number.isFinite(emdValue) && emdValue > 0 ? Math.round(emdValue * 100) / 100 : 0;
 
     return await executeSQLQuery(
         (sql) => sql`
@@ -67,6 +71,7 @@ export async function createGemKeywordTender({
                     asked_documents,
                     specification_links: serializeSpecificationLinks(specification_links),
                     quantity: safeQuantity,
+                    emd_amount: safeEmdAmount,
                 },
                 "keyword_id",
                 "tender_id",
@@ -87,6 +92,7 @@ export async function createGemKeywordTender({
                 "asked_documents",
                 "specification_links",
                 "quantity",
+                "emd_amount",
             )}
         `,
     )
@@ -115,10 +121,14 @@ export async function updateGemKeywordTenderScanDetailsById({
     asked_documents = null,
     specification_links = null,
     quantity = 0,
+    emd_amount = 0,
 }) {
     const quantityValue = Number(quantity);
     const safeQuantity =
         Number.isFinite(quantityValue) && quantityValue > 0 ? Math.round(quantityValue) : 0;
+    const emdValue = Number(emd_amount);
+    const safeEmdAmount =
+        Number.isFinite(emdValue) && emdValue > 0 ? Math.round(emdValue * 100) / 100 : 0;
 
     await executeSQLQuery(
         (sql) => sql`
@@ -140,7 +150,8 @@ export async function updateGemKeywordTenderScanDetailsById({
                 mse_turnover_relaxation = ${mse_turnover_relaxation},
                 asked_documents = ${asked_documents},
                 specification_links = ${serializeSpecificationLinks(specification_links)},
-                quantity = ${safeQuantity}
+                quantity = ${safeQuantity},
+                emd_amount = ${safeEmdAmount}
             WHERE id = ${id}
         `,
     ).catch((error) => {
