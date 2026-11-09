@@ -309,6 +309,7 @@
                                 <th>New</th>
                                 <th>Out of scope</th>
                                 <th>Unattended</th>
+                                <th>Missed</th>
                                 <th>Assigned</th>
                                 <th>Waiting for docs</th>
                                 <th>Preparing docs</th>
@@ -325,6 +326,7 @@
                                     <td><%= row.stage_new %></td>
                                     <td><%= row.stage_out_of_scope %></td>
                                     <td><%= row.stage_unattended || 0 %></td>
+                                    <td><%= row.stage_missed || 0 %></td>
                                     <td><%= row.stage_assigned %></td>
                                     <td><%= row.stage_waiting_for_docs || 0 %></td>
                                     <td><%= row.stage_preparing_docs || 0 %></td>

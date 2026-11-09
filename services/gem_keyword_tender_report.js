@@ -13,6 +13,7 @@ function emptyAssigneeBucket(key, label) {
         stage_new: 0,
         stage_out_of_scope: 0,
         stage_unattended: 0,
+        stage_missed: 0,
         stage_assigned: 0,
         stage_waiting_for_docs: 0,
         stage_preparing_docs: 0,
@@ -52,6 +53,7 @@ export async function buildGemKeywordTenderReport({ from, to }) {
     let unassignedCount = 0;
     let outOfScopeCount = 0;
     let unattendedCount = 0;
+    let missedCount = 0;
     let filedCount = 0;
     let eligibleCount = 0;
     let assignedStageCount = 0;
@@ -88,6 +90,10 @@ export async function buildGemKeywordTenderReport({ from, to }) {
         if (stage === GEM_KEYWORD_TENDER_STAGES.UNATTENDED) {
             bucket.stage_unattended += 1;
             unattendedCount += 1;
+        }
+        if (stage === GEM_KEYWORD_TENDER_STAGES.MISSED) {
+            bucket.stage_missed += 1;
+            missedCount += 1;
         }
         if (stage === GEM_KEYWORD_TENDER_STAGES.ASSIGNED) {
             bucket.stage_assigned += 1;
@@ -187,6 +193,7 @@ export async function buildGemKeywordTenderReport({ from, to }) {
             unassigned: unassignedCount,
             hidden: outOfScopeCount,
             unattended: unattendedCount,
+            missed: missedCount,
             filed: filedCount,
             eligible: eligibleCount,
             need_to_check: assignedStageCount,

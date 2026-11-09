@@ -425,11 +425,14 @@
         for (const row of rows) {
             const rowStage = String(row.dataset.stage || "new");
             const isHiddenStage =
-                rowStage === "out_of_scope" || rowStage === "unattended";
+                rowStage === "out_of_scope" ||
+                rowStage === "unattended" ||
+                rowStage === "missed";
             const matchesHiddenStages =
                 showHiddenStages ||
                 selectedStages.includes("out_of_scope") ||
                 selectedStages.includes("unattended") ||
+                selectedStages.includes("missed") ||
                 !isHiddenStage;
 
             const rowKeywordId = String(row.dataset.keywordId || "");

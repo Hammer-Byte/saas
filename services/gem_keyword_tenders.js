@@ -61,6 +61,7 @@ function flagsForStage(stage) {
     switch (stage) {
         case GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE:
         case GEM_KEYWORD_TENDER_STAGES.UNATTENDED:
+        case GEM_KEYWORD_TENDER_STAGES.MISSED:
             return {
                 hidden: true,
                 filed: false,
@@ -211,13 +212,14 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         return { error: "Invalid stage" };
     }
 
-    // Assign to me / new assignee auto-selects Assigned when still in New / Out of scope.
+    // Assign to me / new assignee auto-selects Assigned when still in New / Out of scope / Missed.
     if (
         assigneeChanging &&
         nextAssigneeUserId != null &&
         body.stage === undefined &&
         (previousStage === GEM_KEYWORD_TENDER_STAGES.NEW ||
-            previousStage === GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE)
+            previousStage === GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE ||
+            previousStage === GEM_KEYWORD_TENDER_STAGES.MISSED)
     ) {
         nextStage = GEM_KEYWORD_TENDER_STAGES.ASSIGNED;
     }
