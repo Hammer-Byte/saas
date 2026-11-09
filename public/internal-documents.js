@@ -140,6 +140,47 @@
         const row = event.target.closest("tr[data-id]");
         if (!row) return;
 
+        if (event.target.closest(".document-copy-gem-btn")) {
+            const copyButton = event.target.closest(".document-copy-gem-btn");
+            copyButton.disabled = true;
+            try {
+                const response = await fetch("/api/gem-mandatory-documents/copy-from-internal", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        internal_document_id: Number(row.dataset.id || 0),
+                    }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    showAlert(
+                        pageAlert,
+                        data.error || "Failed to copy document to GEM Mandatory Documents.",
+                        "danger",
+                    );
+                    return;
+                }
+                showAlert(
+                    pageAlert,
+                    data.alreadyCopied
+                        ? "Document already in GEM Mandatory Documents."
+                        : data.message || "Copied to GEM Mandatory Documents.",
+                    "success",
+                );
+            } catch (error) {
+                console.error(error);
+                showAlert(
+                    pageAlert,
+                    "Failed to copy document to GEM Mandatory Documents.",
+                    "danger",
+                );
+            } finally {
+                copyButton.disabled = false;
+            }
+            return;
+        }
+
         if (event.target.closest(".document-edit-btn")) {
             openEditModal(row);
             const modal = window.bootstrap?.Modal?.getOrCreateInstance(modalElement);

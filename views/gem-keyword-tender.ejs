@@ -212,29 +212,43 @@
             <li class="nav-item" role="presentation">
                 <button
                     class="nav-link active"
-                    id="gem-tender-activities-tab"
-                    data-bs-toggle="tab"
-                    data-bs-target="#gem-tender-activities-pane"
-                    type="button"
-                    role="tab"
-                    aria-controls="gem-tender-activities-pane"
-                    aria-selected="true"
-                >
-                    Activities
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button
-                    class="nav-link"
                     id="gem-tender-comments-tab"
                     data-bs-toggle="tab"
                     data-bs-target="#gem-tender-comments-pane"
                     type="button"
                     role="tab"
                     aria-controls="gem-tender-comments-pane"
-                    aria-selected="false"
+                    aria-selected="true"
                 >
                     Comments
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link"
+                    id="gem-tender-documents-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#gem-tender-documents-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="gem-tender-documents-pane"
+                    aria-selected="false"
+                >
+                    Documents
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link"
+                    id="gem-tender-activities-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#gem-tender-activities-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="gem-tender-activities-pane"
+                    aria-selected="false"
+                >
+                    Activities
                 </button>
             </li>
         </ul>
@@ -242,37 +256,6 @@
         <div class="tab-content border border-top-0 bg-white shadow-sm rounded-bottom p-4 mb-4">
             <div
                 class="tab-pane fade show active"
-                id="gem-tender-activities-pane"
-                role="tabpanel"
-                aria-labelledby="gem-tender-activities-tab"
-            >
-                <div
-                    id="gem-tender-activities-empty"
-                    class="text-secondary <%= activities && activities.length ? 'd-none' : '' %>"
-                >
-                    No activities yet.
-                </div>
-                <ul class="list-group list-group-flush" id="gem-tender-activities-list">
-                    <% (activities || []).forEach(function (activity) { %>
-                        <li class="list-group-item px-0">
-                            <div class="d-flex justify-content-between gap-3">
-                                <div>
-                                    <strong><%= activity.user_full_name || activity.user_email %></strong>
-                                    <span class="text-secondary">— <%= activity.activity %></span>
-                                </div>
-                                <span
-                                    class="text-secondary small text-nowrap"
-                                    data-readable-date="<%= activity.created_on %>"
-                                    data-date-format="YYYY-MM-DD HH:mm:ss"
-                                ></span>
-                            </div>
-                        </li>
-                    <% }) %>
-                </ul>
-            </div>
-
-            <div
-                class="tab-pane fade"
                 id="gem-tender-comments-pane"
                 role="tabpanel"
                 aria-labelledby="gem-tender-comments-tab"
@@ -343,6 +326,46 @@
                                     </button>
                                 </div>
                             <% } %>
+                        </li>
+                    <% }) %>
+                </ul>
+            </div>
+
+            <div
+                class="tab-pane fade"
+                id="gem-tender-documents-pane"
+                role="tabpanel"
+                aria-labelledby="gem-tender-documents-tab"
+            >
+                <div class="text-secondary">No documents yet.</div>
+            </div>
+
+            <div
+                class="tab-pane fade"
+                id="gem-tender-activities-pane"
+                role="tabpanel"
+                aria-labelledby="gem-tender-activities-tab"
+            >
+                <div
+                    id="gem-tender-activities-empty"
+                    class="text-secondary <%= activities && activities.length ? 'd-none' : '' %>"
+                >
+                    No activities yet.
+                </div>
+                <ul class="list-group list-group-flush" id="gem-tender-activities-list">
+                    <% (activities || []).forEach(function (activity) { %>
+                        <li class="list-group-item px-0">
+                            <div class="d-flex justify-content-between gap-3">
+                                <div>
+                                    <strong><%= activity.user_full_name || activity.user_email %></strong>
+                                    <span class="text-secondary">— <%= activity.activity %></span>
+                                </div>
+                                <span
+                                    class="text-secondary small text-nowrap"
+                                    data-readable-date="<%= activity.created_on %>"
+                                    data-date-format="YYYY-MM-DD HH:mm:ss"
+                                ></span>
+                            </div>
                         </li>
                     <% }) %>
                 </ul>

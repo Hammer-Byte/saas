@@ -72,3 +72,18 @@ export async function deleteInternalDocumentById({ id }) {
         },
     );
 }
+
+export async function countInternalDocumentsByMediaId({ media_id }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT COUNT(*) AS count
+            FROM INTERNAL_DOCUMENTS
+            WHERE media_id = ${media_id}
+        `,
+    )
+        .then((result) => Number(result?.[0]?.count || 0))
+        .catch((error) => {
+            logger.error(`countInternalDocumentsByMediaId: ${error}`);
+            return 0;
+        });
+}

@@ -30,6 +30,7 @@ import {
 } from "../db/customer_projects.js";
 import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
 import { getAllInternalDocuments } from "../db/internal_documents.js";
+import { getAllGemMandatoryDocuments } from "../db/gem_mandatory_documents.js";
 import { getAllServers, getServerById, getServersByProjectId } from "../db/servers.js";
 import { getServerMetricsByServerId } from "../db/server_metrics.js";
 import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
@@ -753,6 +754,12 @@ export const uiRoutes = new Elysia()
             .get("/app/gem-tenders", ({ render, session }) =>
                 render("gem-tenders-hub", appPage(session, {
                     title: "GEM Tenders — HammerByte",
+                })),
+            )
+            .get("/app/gem-mandatory-documents", async ({ render, session }) =>
+                render("gem-mandatory-documents", appPage(session, {
+                    title: "Mandatory Documents — GEM Tenders — HammerByte",
+                    documents: await getAllGemMandatoryDocuments(),
                 })),
             )
             .get("/app/gem-tender-keywords", async ({ render, session, redirect }) => {

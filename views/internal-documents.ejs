@@ -1,5 +1,9 @@
 <%- include('common/header') %>
 
+<%
+    const canCopyToGemMandatory = !!super_admin;
+%>
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
         <a class="navbar-brand" href="/app">HammerByte App</a>
@@ -92,6 +96,14 @@
                                                 >
                                                     View
                                                 </a>
+                                                <% if (canCopyToGemMandatory) { %>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-outline-success document-copy-gem-btn"
+                                                    >
+                                                        Copy to Gem Mandatory Documents
+                                                    </button>
+                                                <% } %>
                                                 <button
                                                     type="button"
                                                     class="btn btn-sm btn-outline-secondary document-edit-btn"

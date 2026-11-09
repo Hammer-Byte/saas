@@ -19,6 +19,7 @@ import services from "./apps/services.js";
 import media from "./apps/media.js";
 import projectDocuments from "./apps/project_documents.js";
 import internalDocuments from "./apps/internal_documents.js";
+import gemMandatoryDocuments from "./apps/gem_mandatory_documents.js";
 import contracts from "./apps/contracts.js";
 import contractsSign from "./apps/contracts_sign.js";
 import contractClauses from "./apps/contract_clauses.js";
@@ -86,6 +87,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/media", media)
             .group("/project-documents", projectDocuments)
             .group("/internal-documents", internalDocuments)
+            .group("/gem-mandatory-documents", gemMandatoryDocuments)
             .group("/contracts", contracts)
             .group("/contract-clauses", contractClauses)
             .group("/clause-subclauses", clauseSubclauses)

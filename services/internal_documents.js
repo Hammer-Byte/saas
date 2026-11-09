@@ -8,11 +8,13 @@ import {
     updateMediaById,
 } from "../db/media.js";
 import {
+    countInternalDocumentsByMediaId,
     createInternalDocument,
     deleteInternalDocumentById,
     getInternalDocumentById,
     updateInternalDocumentById,
 } from "../db/internal_documents.js";
+import { countGemMandatoryDocumentsByMediaId } from "../db/gem_mandatory_documents.js";
 
 async function removeMediaFile(fileName) {
     if (!fileName) {
@@ -168,8 +170,16 @@ export async function deleteInternalDocument({ params, set }) {
         await deleteInternalDocumentById({ id: internalDocument.id });
 
         if (media) {
-            await removeMediaFile(media.file);
-            await deleteMediaById({ id: media.id });
+            const remainingInternal = await countInternalDocumentsByMediaId({
+                media_id: media.id,
+            });
+            const remainingMandatory = await countGemMandatoryDocumentsByMediaId({
+                media_id: media.id,
+            });
+            if (remainingInternal + remainingMandatory === 0) {
+                await removeMediaFile(media.file);
+                await deleteMediaById({ id: media.id });
+            }
         }
 
         logger.success(`deleteInternalDocument success | id=${params.id}`);
