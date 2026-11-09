@@ -86,7 +86,7 @@
                                 <option
                                     value="<%= stage %>"
                                     <%= currentStage === stage ? 'selected' : '' %>
-                                    <%= stage === 'assigned' && !assigneeUserId ? 'disabled' : '' %>
+                                    <%= ['assigned', 'waiting_for_docs', 'preparing_docs'].includes(stage) && !assigneeUserId ? 'disabled' : '' %>
                                 >
                                     <%= stageLabels[stage] %>
                                 </option>

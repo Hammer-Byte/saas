@@ -84,6 +84,8 @@ function flagsForStage(stage) {
                 eligible: GEM_KEYWORD_TENDER_ELIGIBILITY.ELIGIBLE,
             };
         case GEM_KEYWORD_TENDER_STAGES.ASSIGNED:
+        case GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_DOCS:
+        case GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS:
             return {
                 hidden: false,
                 filed: false,
@@ -219,22 +221,26 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         nextStage = GEM_KEYWORD_TENDER_STAGES.ASSIGNED;
     }
 
-    // Unassign while on Assigned → back to New.
+    // Unassign while on Assigned / docs stages → back to New.
     if (
         assigneeChanging &&
         nextAssigneeUserId == null &&
         body.stage === undefined &&
-        previousStage === GEM_KEYWORD_TENDER_STAGES.ASSIGNED
+        (previousStage === GEM_KEYWORD_TENDER_STAGES.ASSIGNED ||
+            previousStage === GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_DOCS ||
+            previousStage === GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS)
     ) {
         nextStage = GEM_KEYWORD_TENDER_STAGES.NEW;
     }
 
-    if (
-        nextStage === GEM_KEYWORD_TENDER_STAGES.ASSIGNED &&
-        !(nextAssigneeUserId >= 1)
-    ) {
+    const assigneeRequiredStages = new Set([
+        GEM_KEYWORD_TENDER_STAGES.ASSIGNED,
+        GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_DOCS,
+        GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS,
+    ]);
+    if (assigneeRequiredStages.has(nextStage) && !(nextAssigneeUserId >= 1)) {
         set.status = 400;
-        return { error: "Assignee is required for Assigned stage" };
+        return { error: "Assignee is required for this stage" };
     }
 
     const nextQuoteRaw = body.quote !== undefined ? asText(body.quote) : previousQuote;

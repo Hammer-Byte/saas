@@ -29,6 +29,8 @@ export default function (app) {
                         t.Literal(GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE),
                         t.Literal(GEM_KEYWORD_TENDER_STAGES.UNATTENDED),
                         t.Literal(GEM_KEYWORD_TENDER_STAGES.ASSIGNED),
+                        t.Literal(GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_DOCS),
+                        t.Literal(GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS),
                         t.Literal(GEM_KEYWORD_TENDER_STAGES.ELIGIBLE),
                         t.Literal(GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE),
                         t.Literal(GEM_KEYWORD_TENDER_STAGES.FILED),

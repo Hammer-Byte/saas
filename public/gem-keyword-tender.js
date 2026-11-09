@@ -60,9 +60,11 @@
 
     function syncAssignedOption() {
         if (!stageSelect) return;
-        const assignedOption = stageSelect.querySelector('option[value="assigned"]');
-        if (!assignedOption) return;
-        assignedOption.disabled = !currentAssigneeId();
+        const hasAssignee = !!currentAssigneeId();
+        for (const value of ["assigned", "waiting_for_docs", "preparing_docs"]) {
+            const option = stageSelect.querySelector(`option[value="${value}"]`);
+            if (option) option.disabled = !hasAssignee;
+        }
     }
 
     function syncControls() {
@@ -111,8 +113,11 @@
     stageSelect?.addEventListener("change", async () => {
         const previous = detail.dataset.stage || "new";
         const stage = stageSelect.value;
-        if (stage === "assigned" && !currentAssigneeId()) {
-            showAlert("Assign someone before selecting Assigned.", "danger");
+        if (
+            ["assigned", "waiting_for_docs", "preparing_docs"].includes(stage) &&
+            !currentAssigneeId()
+        ) {
+            showAlert("Assign someone before selecting this stage.", "danger");
             stageSelect.value = previous;
             return;
         }

@@ -125,7 +125,7 @@ export async function getGemTenderKeywords({ cookie, set }) {
     return { gemTenderKeywords, processing };
 }
 
-export async function startGemTenderScan({ cookie, set }) {
+export async function startGemTenderScan({ body, cookie, set }) {
     if (processing) {
         set.status = 409;
         return { error: "Scan already in progress", processing: true };
@@ -139,10 +139,22 @@ export async function startGemTenderScan({ cookie, set }) {
         };
     }
 
-    const gemTenderKeywords = await getAllGemTenderKeywords();
+    const selectedIds = Array.isArray(body?.keyword_ids)
+        ? [...new Set(body.keyword_ids.map((id) => Number(id)).filter((id) => id >= 1))]
+        : [];
+    if (!selectedIds.length) {
+        set.status = 400;
+        return { error: "Select at least one keyword to scan", processing: false };
+    }
+
+    const allKeywords = await getAllGemTenderKeywords();
+    const selectedIdSet = new Set(selectedIds);
+    const gemTenderKeywords = allKeywords.filter((keyword) =>
+        selectedIdSet.has(Number(keyword.id)),
+    );
     if (!gemTenderKeywords.length) {
         set.status = 400;
-        return { error: "No keywords to scan", processing: false };
+        return { error: "No valid keywords selected", processing: false };
     }
 
     const runId = await createGemTenderScanRun({
@@ -165,8 +177,9 @@ export async function startGemTenderScan({ cookie, set }) {
 
     set.status = 202;
     return {
-        message: "Scan started",
+        message: `Scan started for ${gemTenderKeywords.length} keyword(s)`,
         processing: true,
+        keyword_count: gemTenderKeywords.length,
         run: await getGemTenderScanRunById({ id: runId }),
     };
 }

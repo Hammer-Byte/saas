@@ -31,9 +31,12 @@ export default function (app) {
             },
         })
         .post("/scan", startGemTenderScan, {
+            body: t.Object({
+                keyword_ids: t.Array(t.Numeric({ minimum: 1 }), { minItems: 1 }),
+            }),
             detail: {
                 tags: ["Gem Tender Keywords"],
-                summary: "Start GEM tender scan for all keywords",
+                summary: "Start GEM tender scan for selected keywords",
             },
         })
         .patch("/:id", updateGemTenderKeyword, {

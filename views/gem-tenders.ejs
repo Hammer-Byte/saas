@@ -23,7 +23,9 @@
                     Keyword + scan
                 </p>
                 <h1 class="h3 mb-1">Keyword + scan</h1>
-                <p class="text-secondary mb-0">Add, edit, and delete GEM search keywords. Start a scan to crawl matches.</p>
+                <p class="text-secondary mb-0">
+                    Add, edit, and delete GEM search keywords. Select keywords, then start a scan.
+                </p>
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <a href="/app/gem-tender-scan-history" class="btn btn-outline-secondary">History</a>
@@ -97,6 +99,16 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
+                                <th scope="col" style="width: 2.5rem;">
+                                    <input
+                                        type="checkbox"
+                                        class="form-check-input"
+                                        id="gem-keywords-select-all"
+                                        title="Select all keywords"
+                                        aria-label="Select all keywords"
+                                        <% if (processing) { %>disabled<% } %>
+                                    />
+                                </th>
                                 <th scope="col">ID</th>
                                 <th scope="col">Keyword</th>
                                 <th scope="col">Exact search</th>
@@ -111,6 +123,15 @@
                                     data-keyword="<%= keyword.keyword %>"
                                     data-exact-search="<%= isExact ? '1' : '0' %>"
                                 >
+                                    <td>
+                                        <input
+                                            type="checkbox"
+                                            class="form-check-input gem-keyword-select"
+                                            value="<%= keyword.id %>"
+                                            aria-label="Select keyword <%= keyword.keyword %>"
+                                            <% if (processing) { %>disabled<% } %>
+                                        />
+                                    </td>
                                     <td><%= keyword.id %></td>
                                     <td><%= keyword.keyword %></td>
                                     <td><%= isExact ? "Yes" : "No" %></td>
