@@ -31,7 +31,18 @@
                     Tenders
                 </p>
                 <h1 class="h3 mb-1">Tenders</h1>
-                <p class="text-secondary mb-0">Matched GEM tenders by end date range. Open a tender for details and actions.</p>
+                <p class="text-secondary mb-0">
+                    Matched GEM tenders by end date range
+                    <span
+                        class="gem-tenders-range-highlight"
+                        title="Selected ends-at date range"
+                    >
+                        <span data-readable-date="<%= from %>" data-date-format="DD/MM/YYYY"><%= from %></span>
+                        –
+                        <span data-readable-date="<%= to %>" data-date-format="DD/MM/YYYY"><%= to %></span>
+                    </span>.
+                    Open a tender for details and actions.
+                </p>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
                 <button
@@ -183,19 +194,26 @@
                             </div>
                         </div>
                         <div class="d-flex flex-wrap gap-1 mt-2">
-                            <button
-                                type="button"
-                                class="btn btn-outline-secondary btn-sm gem-date-quick-btn"
-                                data-range="this-month"
-                            >
+                            <button type="button" class="btn btn-outline-secondary btn-sm gem-date-quick-btn" data-range="today">
+                                Today
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm gem-date-quick-btn" data-range="this-week">
+                                This week
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm gem-date-quick-btn" data-range="next-15-days">
+                                Next 15 days
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm gem-date-quick-btn" data-range="this-month">
                                 This month
                             </button>
-                            <button
-                                type="button"
-                                class="btn btn-outline-secondary btn-sm gem-date-quick-btn"
-                                data-range="next-15-days"
-                            >
-                                Next 15 days
+                            <button type="button" class="btn btn-outline-secondary btn-sm gem-date-quick-btn" data-range="last-month">
+                                Last month
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm gem-date-quick-btn" data-range="this-quarter">
+                                This quarter
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm gem-date-quick-btn" data-range="last-quarter">
+                                Last quarter
                             </button>
                         </div>
                     </div>
@@ -232,12 +250,11 @@
                             </div>
                             <button
                                 type="button"
-                                class="btn btn-outline-secondary btn-sm gem-filter-clear-btn"
+                                class="btn btn-outline-secondary btn-sm gem-filter-clear-btn gem-filter-clear-x"
                                 data-clear-multi="gem-filter-keyword"
                                 title="Clear keyword"
-                            >
-                                Clear
-                            </button>
+                                aria-label="Clear keyword"
+                            >×</button>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -273,12 +290,11 @@
                             </div>
                             <button
                                 type="button"
-                                class="btn btn-outline-secondary btn-sm gem-filter-clear-btn"
+                                class="btn btn-outline-secondary btn-sm gem-filter-clear-btn gem-filter-clear-x"
                                 data-clear-multi="gem-filter-stage"
                                 title="Clear stage"
-                            >
-                                Clear
-                            </button>
+                                aria-label="Clear stage"
+                            >×</button>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -293,12 +309,11 @@
                             />
                             <button
                                 type="button"
-                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                class="btn btn-outline-secondary gem-filter-clear-btn gem-filter-clear-x"
                                 data-clear-input="gem-tenders-search"
                                 title="Clear search"
-                            >
-                                Clear
-                            </button>
+                                aria-label="Clear search"
+                            >×</button>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -346,12 +361,11 @@
                             </div>
                             <button
                                 type="button"
-                                class="btn btn-outline-secondary btn-sm gem-filter-clear-btn"
+                                class="btn btn-outline-secondary btn-sm gem-filter-clear-btn gem-filter-clear-x"
                                 data-clear-multi="gem-filter-assignee"
                                 title="Clear assignee"
-                            >
-                                Clear
-                            </button>
+                                aria-label="Clear assignee"
+                            >×</button>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -366,12 +380,11 @@
                             </select>
                             <button
                                 type="button"
-                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                class="btn btn-outline-secondary gem-filter-clear-btn gem-filter-clear-x"
                                 data-clear-select="gem-filter-past-experience"
                                 title="Clear past experience"
-                            >
-                                Clear
-                            </button>
+                                aria-label="Clear past experience"
+                            >×</button>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -386,12 +399,11 @@
                             </select>
                             <button
                                 type="button"
-                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                class="btn btn-outline-secondary gem-filter-clear-btn gem-filter-clear-x"
                                 data-clear-select="gem-filter-mse-exp"
                                 title="Clear experience relaxation"
-                            >
-                                Clear
-                            </button>
+                                aria-label="Clear experience relaxation"
+                            >×</button>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -406,12 +418,11 @@
                             </select>
                             <button
                                 type="button"
-                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                class="btn btn-outline-secondary gem-filter-clear-btn gem-filter-clear-x"
                                 data-clear-select="gem-filter-mse-turnover"
                                 title="Clear turnover relaxation"
-                            >
-                                Clear
-                            </button>
+                                aria-label="Clear turnover relaxation"
+                            >×</button>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -429,13 +440,12 @@
                             />
                             <button
                                 type="button"
-                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                class="btn btn-outline-secondary gem-filter-clear-btn gem-filter-clear-x"
                                 data-clear-input="gem-filter-quantity-upto"
                                 id="gem-filter-quantity-clear"
                                 title="Clear quantity"
-                            >
-                                Clear
-                            </button>
+                                aria-label="Clear quantity"
+                            >×</button>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -448,12 +458,11 @@
                             </select>
                             <button
                                 type="button"
-                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                class="btn btn-outline-secondary gem-filter-clear-btn gem-filter-clear-x"
                                 data-clear-select="gem-filter-quote"
                                 title="Clear quote"
-                            >
-                                Clear
-                            </button>
+                                aria-label="Clear quote"
+                            >×</button>
                         </div>
                     </div>
                     <div class="mb-1">
@@ -651,6 +660,16 @@
     #gem-tenders-bulk-stage-bar {
         flex: 0 0 auto;
     }
+    .gem-tenders-range-highlight {
+        display: inline-block;
+        margin: 0 0.15rem;
+        padding: 0.1rem 0.45rem;
+        border-radius: 0.35rem;
+        background: #fff3cd;
+        color: #7a5b00;
+        font-weight: 600;
+        white-space: nowrap;
+    }
     .gem-tenders-filters-panel {
         width: min(24rem, 100vw);
     }
@@ -661,6 +680,18 @@
     .gem-tenders-filters-actions {
         flex: 0 0 auto;
         background: #fff;
+    }
+    .gem-filter-clear-x {
+        width: 2rem;
+        min-width: 2rem;
+        padding-left: 0;
+        padding-right: 0;
+        line-height: 1;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    .input-group .gem-filter-clear-x {
+        width: 2rem;
     }
     #gem-tenders-bulk-assign-bar,
     #gem-tenders-bulk-stage-bar {

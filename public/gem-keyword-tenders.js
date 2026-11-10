@@ -718,19 +718,64 @@
         return `${year}-${month}-${day}`;
     }
 
+    function startOfIndianQuarter(date) {
+        const year = date.getFullYear();
+        const month = date.getMonth(); // 0-11
+        // Indian FY quarters: Apr-Jun, Jul-Sep, Oct-Dec, Jan-Mar
+        if (month <= 2) return new Date(year, 0, 1); // Jan-Mar
+        if (month <= 5) return new Date(year, 3, 1); // Apr-Jun
+        if (month <= 8) return new Date(year, 6, 1); // Jul-Sep
+        return new Date(year, 9, 1); // Oct-Dec
+    }
+
+    function endOfIndianQuarter(date) {
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        if (month <= 2) return new Date(year, 2, 31); // Jan-Mar
+        if (month <= 5) return new Date(year, 5, 30); // Apr-Jun
+        if (month <= 8) return new Date(year, 8, 30); // Jul-Sep
+        return new Date(year, 11, 31); // Oct-Dec
+    }
+
+    function startOfWeekMonday(date) {
+        const value = new Date(date);
+        const weekday = value.getDay(); // 0 Sun .. 6 Sat
+        const offset = weekday === 0 ? -6 : 1 - weekday;
+        value.setDate(value.getDate() + offset);
+        return value;
+    }
+
     function setQuickDateRange(range) {
         const now = new Date();
         now.setHours(0, 0, 0, 0);
-        let fromDate = now;
-        let toDate = now;
+        let fromDate = new Date(now);
+        let toDate = new Date(now);
 
-        if (range === "this-month") {
-            fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        if (range === "today") {
+            fromDate = now;
+            toDate = now;
+        } else if (range === "this-week") {
+            fromDate = startOfWeekMonday(now);
+            toDate = new Date(fromDate);
+            toDate.setDate(toDate.getDate() + 6);
         } else if (range === "next-15-days") {
             fromDate = now;
             toDate = new Date(now);
             toDate.setDate(toDate.getDate() + 15);
+        } else if (range === "this-month") {
+            fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        } else if (range === "last-month") {
+            fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            toDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        } else if (range === "this-quarter") {
+            fromDate = startOfIndianQuarter(now);
+            toDate = endOfIndianQuarter(now);
+        } else if (range === "last-quarter") {
+            const previous = new Date(startOfIndianQuarter(now));
+            previous.setDate(previous.getDate() - 1);
+            fromDate = startOfIndianQuarter(previous);
+            toDate = endOfIndianQuarter(previous);
         } else {
             return;
         }
