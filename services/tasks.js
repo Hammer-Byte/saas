@@ -32,6 +32,7 @@ import { getUserById } from "../db/users.js";
 import {
     getIstDateTime,
     getMondayDate,
+    getSundayDate,
     normalizeSprintWeekStart,
     toDbDateTime,
 } from "../libs/date.js";
@@ -199,6 +200,45 @@ function normalizeOptionalProjectId(value) {
 
 function normalizeDateField(value) {
     return toDbDateTime(value);
+}
+
+function dateKeyFromDateTime(value) {
+    if (value == null || value === "") {
+        return null;
+    }
+    const text = String(value).trim();
+    return text.length >= 10 ? text.slice(0, 10) : null;
+}
+
+function validateDatesWithinSprintWeek({ start_at, end_at, sprint_week_start }) {
+    const monday = normalizeSprintWeekStart(sprint_week_start);
+    if (!monday) {
+        return {};
+    }
+    const sunday = getSundayDate(monday);
+    if (!sunday) {
+        return { error: "Invalid sprint week" };
+    }
+
+    const startKey = dateKeyFromDateTime(start_at);
+    if (startKey && (startKey < monday || startKey > sunday)) {
+        return {
+            error: `Start must fall within the sprint week (${monday} to ${sunday})`,
+        };
+    }
+
+    const endKey = dateKeyFromDateTime(end_at);
+    if (endKey && (endKey < monday || endKey > sunday)) {
+        return {
+            error: `End must fall within the sprint week (${monday} to ${sunday})`,
+        };
+    }
+
+    if (start_at && end_at && String(start_at) > String(end_at)) {
+        return { error: "Start must be before end" };
+    }
+
+    return {};
 }
 
 function completedOnForState(state, previousCompletedOn) {
@@ -526,14 +566,26 @@ export async function updateTask({ body, cookie, set }) {
     if (state === TASK_STATES.BACKLOG) {
         sprintWeekStart = null;
     }
-    // No sprint week means the task belongs in backlog.
-    if (!sprintWeekStart) {
+    // No sprint week means the task belongs in backlog (done stays done).
+    if (!sprintWeekStart && state !== TASK_STATES.DONE) {
         state = TASK_STATES.BACKLOG;
         sprintWeekStart = null;
     }
 
     const previousSprintWeek = normalizeSprintWeekStart(existingTask.sprint_week_start);
     const sprintChanging = previousSprintWeek !== sprintWeekStart;
+
+    const startAt = normalizeDateField(body.start_at);
+    const endAt = normalizeDateField(body.end_at);
+    const sprintDateCheck = validateDatesWithinSprintWeek({
+        start_at: startAt,
+        end_at: endAt,
+        sprint_week_start: sprintWeekStart,
+    });
+    if (sprintDateCheck.error) {
+        set.status = 400;
+        return { error: sprintDateCheck.error };
+    }
 
     const costResult = normalizeMoney(
         body.cost !== undefined ? body.cost : existingTask.cost,
@@ -572,8 +624,8 @@ export async function updateTask({ body, cookie, set }) {
         actual_hours: actualHoursResult.hours,
         cost: costResult.amount,
         charge: existingTask.charge,
-        start_at: normalizeDateField(body.start_at),
-        end_at: normalizeDateField(body.end_at),
+        start_at: startAt,
+        end_at: endAt,
         completed_on: completedOn,
         state,
         priority,

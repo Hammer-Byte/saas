@@ -113,7 +113,13 @@ import {
 } from "../db/linkedin_message_runs.js";
 import { processing as gemTendereProcessing } from "../libs/tenderer.js";
 import { processing as linkedinProcessing } from "../libs/linkedin_browser.js";
-import { getMondayDate, getReadableDate, getSundayDate, parseQueryDate } from "../libs/date.js";
+import {
+    buildSprintWeekOptions,
+    getMondayDate,
+    getReadableDate,
+    getSundayDate,
+    parseQueryDate,
+} from "../libs/date.js";
 import { formatContractCreatedOn } from "../libs/contractor.js";
 import { isContractSigned } from "../services/contracts.js";
 
@@ -477,6 +483,10 @@ export const uiRoutes = new Elysia()
                     ? await getCustomerInvoicesByProjectId({ project_id: task.project_id })
                     : [];
 
+                const taskSprintWeek = task.sprint_week_start
+                    ? String(task.sprint_week_start).slice(0, 10)
+                    : "";
+
                 return render("task", appPage(session, {
                     title: `${task.title} — Tasks — HammerByte`,
                     task,
@@ -493,6 +503,9 @@ export const uiRoutes = new Elysia()
                     activities: await getAllTaskActivitiesByTaskId({ task_id: task.id }),
                     followers: await getAllTaskFollowersByTaskId({ task_id: task.id }),
                     isFollowing: !!follower,
+                    sprintWeekOptions: buildSprintWeekOptions({
+                        include: taskSprintWeek ? [taskSprintWeek] : [],
+                    }),
                     TASK_STATES,
                     TASK_STATE_LABELS,
                     TASK_PRIORITIES,

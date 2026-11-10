@@ -215,6 +215,53 @@ export function normalizeSprintWeekStart(value) {
     return getMondayDate(value);
 }
 
+/**
+ * Sprint week options for selects: past/future Mondays around today,
+ * plus any extra week keys (e.g. the task's current sprint).
+ */
+export function buildSprintWeekOptions({
+    around = new Date(),
+    pastWeeks = 12,
+    futureWeeks = 8,
+    include = [],
+} = {}) {
+    const currentMonday = getMondayDate(around);
+    if (!currentMonday) {
+        return [];
+    }
+
+    const year = Number(currentMonday.slice(0, 4));
+    const month = Number(currentMonday.slice(5, 7));
+    const day = Number(currentMonday.slice(8, 10));
+    const base = new Date(year, month - 1, day);
+
+    const weekKeys = new Set();
+    for (let offset = -pastWeeks; offset <= futureWeeks; offset += 1) {
+        const date = new Date(base);
+        date.setDate(base.getDate() + offset * 7);
+        const monday = getMondayDate(date);
+        if (monday) weekKeys.add(monday);
+    }
+
+    for (const value of include) {
+        const monday = normalizeSprintWeekStart(value);
+        if (monday) weekKeys.add(monday);
+    }
+
+    return Array.from(weekKeys)
+        .sort((left, right) => (left < right ? 1 : left > right ? -1 : 0))
+        .map((start) => {
+            const end = getSundayDate(start);
+            const startLabel = getReadableDate("DD/MM/YYYY", start) || start;
+            const endLabel = getReadableDate("DD/MM/YYYY", end) || end || "";
+            return {
+                value: start,
+                label: `${startLabel} – ${endLabel}`,
+                isCurrent: start === currentMonday,
+            };
+        });
+}
+
 /** Parse query/user date input into YYYY-MM-DD, or null if invalid. */
 export function parseQueryDate(value) {
     const normalized = toDbDate(value);

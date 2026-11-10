@@ -95,13 +95,8 @@
         }
 
         if (sprintWeekRaw.trim()) {
-            const sprintWeek =
-                window.getMondayDate?.(sprintWeekRaw) ||
-                window.getWritableDate?.("YYYY-MM-DD", sprintWeekRaw);
-            if (!sprintWeek) {
-                return { error: "Enter a valid sprint week date." };
-            }
-            payload.sprint_week_start = sprintWeek;
+            payload.sprint_week_start =
+                window.getMondayDate?.(sprintWeekRaw) || sprintWeekRaw.trim();
         } else {
             payload.sprint_week_start = null;
         }
@@ -143,6 +138,30 @@
         }
         payload.start_at = startAt;
         payload.end_at = endAt;
+
+        if (payload.sprint_week_start) {
+            const monday =
+                window.getMondayDate?.(payload.sprint_week_start) || payload.sprint_week_start;
+            const sunday = window.getSundayDate?.(monday);
+            if (monday && sunday) {
+                const startKey = startAt ? String(startAt).slice(0, 10) : null;
+                const endKey = endAt ? String(endAt).slice(0, 10) : null;
+                if (startKey && (startKey < monday || startKey > sunday)) {
+                    return {
+                        error: `Start must fall within the sprint week (${monday} to ${sunday}).`,
+                    };
+                }
+                if (endKey && (endKey < monday || endKey > sunday)) {
+                    return {
+                        error: `End must fall within the sprint week (${monday} to ${sunday}).`,
+                    };
+                }
+            }
+        }
+
+        if (startAt && endAt && String(startAt) > String(endAt)) {
+            return { error: "Start must be before end." };
+        }
 
         if (!title) {
             return { error: "Title is required." };

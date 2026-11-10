@@ -191,6 +191,7 @@
                                 data-date-value="<%= task.start_at || '' %>"
                                 value="<%= task.start_at || '' %>"
                             />
+                            <div class="form-text">Must be inside the selected sprint week.</div>
                         </div>
                         <div class="col-md-3">
                             <label for="task-edit-end-at" class="form-label">End</label>
@@ -204,6 +205,7 @@
                                 data-date-value="<%= task.end_at || '' %>"
                                 value="<%= task.end_at || '' %>"
                             />
+                            <div class="form-text">Must be inside the selected sprint week.</div>
                         </div>
                         <div class="col-md-4">
                             <label for="task-edit-state" class="form-label">State</label>
@@ -274,19 +276,27 @@
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label for="task-edit-sprint-week" class="form-label">Sprint week (Monday)</label>
-                            <input
-                                type="text"
-                                class="form-control js-date-input"
-                                id="task-edit-sprint-week"
-                                name="sprint_week_start"
-                                placeholder="dd/mm/yyyy"
-                                autocomplete="off"
-                                inputmode="numeric"
-                                data-date-value="<%= task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : '' %>"
-                                value="<%= task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : '' %>"
-                            />
-                            <div class="form-text">Empty = backlog. Snaps to Monday.</div>
+                            <label for="task-edit-sprint-week" class="form-label">Sprint week</label>
+                            <%
+                                const selectedSprintWeek = task.sprint_week_start
+                                    ? String(task.sprint_week_start).slice(0, 10)
+                                    : "";
+                                const weekOptions = sprintWeekOptions || [];
+                            %>
+                            <select class="form-select" id="task-edit-sprint-week" name="sprint_week_start">
+                                <option value="" <%= !selectedSprintWeek ? "selected" : "" %>>
+                                    Backlog (no week)
+                                </option>
+                                <% weekOptions.forEach(function (week) { %>
+                                    <option
+                                        value="<%= week.value %>"
+                                        <%= selectedSprintWeek === week.value ? "selected" : "" %>
+                                    >
+                                        <%= week.label %><%= week.isCurrent ? " (current)" : "" %>
+                                    </option>
+                                <% }) %>
+                            </select>
+                            <div class="form-text">Backlog has no sprint week. Leaving backlog needs a week.</div>
                         </div>
                         <div class="col-md-4">
                             <label for="task-edit-cost" class="form-label">Cost</label>
