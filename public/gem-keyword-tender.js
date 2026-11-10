@@ -301,5 +301,247 @@
         }
     });
 
+    const canManageDocuments = detail.dataset.canManageDocuments === "1";
+    const documentsForm = document.getElementById("gem-tender-documents-form");
+    const documentsFormAlert = document.getElementById("gem-tender-documents-form-alert");
+    const documentsFilesInput = document.getElementById("gem-tender-documents-files");
+    const documentsNameList = document.getElementById("gem-tender-documents-name-list");
+    const documentsNameFields = document.getElementById("gem-tender-documents-name-fields");
+    const documentsSubmitBtn = document.getElementById("gem-tender-documents-submit-btn");
+    const documentsTableBody = document.getElementById("gem-tender-documents-tbody");
+    const documentsEmpty = document.getElementById("gem-tender-documents-empty");
+    const documentsTableWrap = document.getElementById("gem-tender-documents-table-wrap");
+    const documentsModalEl = document.getElementById("gem-tender-documents-modal");
+    const documentsProgressWrap = document.getElementById("gem-tender-documents-upload-progress");
+    const documentsProgressBar = document.getElementById("gem-tender-documents-upload-bar");
+    const documentsProgressHost = document.getElementById("gem-tender-documents-upload-progressbar");
+    const documentsProgressStatus = document.getElementById("gem-tender-documents-upload-status");
+    const documentsProgressPercent = document.getElementById("gem-tender-documents-upload-percent");
+
+    function showDocumentsFormAlert(message, type) {
+        if (!documentsFormAlert) return;
+        documentsFormAlert.textContent = message;
+        documentsFormAlert.className = `alert alert-${type}`;
+        documentsFormAlert.classList.remove("d-none");
+    }
+
+    function hideDocumentsFormAlert() {
+        if (!documentsFormAlert) return;
+        documentsFormAlert.classList.add("d-none");
+        documentsFormAlert.textContent = "";
+    }
+
+    function setDocumentsUploadProgress(percent, statusText) {
+        const value = Math.max(0, Math.min(100, Math.round(percent)));
+        documentsProgressWrap?.classList.remove("d-none");
+        if (documentsProgressBar) documentsProgressBar.style.width = `${value}%`;
+        if (documentsProgressHost) {
+            documentsProgressHost.setAttribute("aria-valuenow", String(value));
+        }
+        if (documentsProgressPercent) documentsProgressPercent.textContent = `${value}%`;
+        if (documentsProgressStatus && statusText) {
+            documentsProgressStatus.textContent = statusText;
+        }
+    }
+
+    function hideDocumentsUploadProgress() {
+        documentsProgressWrap?.classList.add("d-none");
+        if (documentsProgressBar) documentsProgressBar.style.width = "0%";
+        if (documentsProgressHost) documentsProgressHost.setAttribute("aria-valuenow", "0");
+        if (documentsProgressPercent) documentsProgressPercent.textContent = "0%";
+        if (documentsProgressStatus) documentsProgressStatus.textContent = "Uploading…";
+    }
+
+    function selectedDocumentFiles() {
+        return Array.from(documentsFilesInput?.files || []);
+    }
+
+    function renderDocumentNameFields() {
+        if (!documentsNameFields || !documentsNameList) return;
+        const files = selectedDocumentFiles();
+        documentsNameFields.replaceChildren();
+
+        if (!files.length) {
+            documentsNameList.classList.add("d-none");
+            if (documentsSubmitBtn) documentsSubmitBtn.disabled = true;
+            return;
+        }
+
+        documentsNameList.classList.remove("d-none");
+        files.forEach((file, index) => {
+            const wrap = document.createElement("div");
+            const label = document.createElement("label");
+            label.className = "form-label small mb-1";
+            label.setAttribute("for", `gem-tender-document-name-${index}`);
+            label.textContent = file.name || `File ${index + 1}`;
+
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "form-control form-control-sm gem-tender-document-name-input";
+            input.id = `gem-tender-document-name-${index}`;
+            input.maxLength = 128;
+            input.required = true;
+            input.value = String(file.name || "").slice(0, 128);
+            input.dataset.index = String(index);
+
+            wrap.appendChild(label);
+            wrap.appendChild(input);
+            documentsNameFields.appendChild(wrap);
+        });
+
+        if (documentsSubmitBtn) documentsSubmitBtn.disabled = false;
+    }
+
+    function collectDocumentNames() {
+        return Array.from(
+            documentsNameFields?.querySelectorAll(".gem-tender-document-name-input") || [],
+        ).map((input) => String(input.value || "").trim());
+    }
+
+    async function uploadTenderDocument({ file, name }) {
+        const body = new FormData();
+        body.append("gem_keyword_tender_id", String(tenderId));
+        body.append("name", name);
+        body.append("file", file);
+
+        const response = await fetch("/api/gem-keyword-tender-documents", {
+            method: "POST",
+            credentials: "same-origin",
+            body,
+        });
+        const data = await response.json().catch(() => ({}));
+        return { ok: response.ok, data };
+    }
+
+    documentsFilesInput?.addEventListener("change", () => {
+        hideDocumentsFormAlert();
+        hideDocumentsUploadProgress();
+        renderDocumentNameFields();
+    });
+
+    documentsModalEl?.addEventListener("hidden.bs.modal", () => {
+        documentsForm?.reset();
+        hideDocumentsFormAlert();
+        hideDocumentsUploadProgress();
+        renderDocumentNameFields();
+    });
+
+    documentsForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!canManageDocuments) return;
+
+        const files = selectedDocumentFiles();
+        const names = collectDocumentNames();
+        hideDocumentsFormAlert();
+
+        if (!files.length) {
+            showDocumentsFormAlert("Select at least one file.", "danger");
+            return;
+        }
+
+        if (names.length !== files.length || names.some((name) => !name)) {
+            showDocumentsFormAlert("Enter a visible name for every file.", "danger");
+            return;
+        }
+
+        if (documentsSubmitBtn) documentsSubmitBtn.disabled = true;
+        if (documentsFilesInput) documentsFilesInput.disabled = true;
+        for (const input of documentsNameFields?.querySelectorAll("input") || []) {
+            input.disabled = true;
+        }
+
+        let successCount = 0;
+        let failCount = 0;
+        const failures = [];
+
+        for (let index = 0; index < files.length; index += 1) {
+            const file = files[index];
+            const name = names[index];
+            const overall = ((index) / files.length) * 100;
+            setDocumentsUploadProgress(
+                overall,
+                `Uploading ${index + 1} of ${files.length}: ${file.name}`,
+            );
+            try {
+                const { ok, data } = await uploadTenderDocument({ file, name });
+                if (ok) {
+                    successCount += 1;
+                } else {
+                    failCount += 1;
+                    failures.push(data.error || file.name || `File ${index + 1}`);
+                }
+            } catch (error) {
+                console.error(error);
+                failCount += 1;
+                failures.push(file.name || `File ${index + 1}`);
+            }
+        }
+
+        setDocumentsUploadProgress(100, "Done");
+
+        if (failCount === 0) {
+            window.location.reload();
+            return;
+        }
+
+        showDocumentsFormAlert(
+            `Uploaded ${successCount}, failed ${failCount}. ${failures.slice(0, 3).join("; ")}`,
+            successCount ? "warning" : "danger",
+        );
+
+        if (successCount > 0) {
+            setTimeout(() => window.location.reload(), 1500);
+            return;
+        }
+
+        if (documentsSubmitBtn) documentsSubmitBtn.disabled = false;
+        if (documentsFilesInput) documentsFilesInput.disabled = false;
+        for (const input of documentsNameFields?.querySelectorAll("input") || []) {
+            input.disabled = false;
+        }
+    });
+
+    documentsTableBody?.addEventListener("click", async (event) => {
+        if (!canManageDocuments) return;
+        const deleteBtn = event.target.closest(".gem-tender-document-delete-btn");
+        if (!deleteBtn) return;
+
+        const row = deleteBtn.closest("tr[data-id]");
+        const documentId = Number(row?.dataset.id || 0);
+        if (!(documentId >= 1)) return;
+
+        const confirmed = await window.showConfirm({
+            title: "Delete document?",
+            description: "This will remove the document from this tender permanently.",
+            choices: [
+                { label: "Cancel", variant: "secondary", value: false },
+                { label: "Delete", variant: "danger", value: true },
+            ],
+        });
+        if (!confirmed) return;
+
+        deleteBtn.disabled = true;
+        try {
+            const response = await fetch(`/api/gem-keyword-tender-documents/${documentId}`, {
+                method: "DELETE",
+                credentials: "same-origin",
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showAlert(data.error || "Failed to delete document.", "danger");
+                deleteBtn.disabled = false;
+                return;
+            }
+            row.remove();
+            const remaining = documentsTableBody.querySelectorAll("tr[data-id]").length;
+            documentsEmpty?.classList.toggle("d-none", remaining > 0);
+            documentsTableWrap?.classList.toggle("d-none", remaining === 0);
+        } catch (error) {
+            console.error(error);
+            showAlert("Failed to delete document.", "danger");
+            deleteBtn.disabled = false;
+        }
+    });
+
     syncControls();
 })();

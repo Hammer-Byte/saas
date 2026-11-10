@@ -99,118 +99,244 @@
                     <div class="mb-3">
                         <div class="row g-2">
                             <div class="col-6">
-                                <label for="inquiries-from" class="form-label">From</label>
+                                <label for="inquiries-from" class="form-label">Created from</label>
                                 <input
                                     type="date"
                                     class="form-control form-control-sm"
                                     id="inquiries-from"
                                     value="<%= from %>"
                                     data-page-from="<%= from %>"
+                                    autocomplete="off"
                                 />
                             </div>
                             <div class="col-6">
-                                <label for="inquiries-to" class="form-label">To</label>
+                                <label for="inquiries-to" class="form-label">Created to</label>
                                 <input
                                     type="date"
                                     class="form-control form-control-sm"
                                     id="inquiries-to"
                                     value="<%= to %>"
                                     data-page-to="<%= to %>"
+                                    autocomplete="off"
                                 />
                             </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1 mt-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm inquiries-date-quick-btn" data-range="today">
+                                Today
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm inquiries-date-quick-btn" data-range="this-week">
+                                This week
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm inquiries-date-quick-btn" data-range="last-7-days">
+                                Last 7 days
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm inquiries-date-quick-btn" data-range="last-15-days">
+                                Last 15 days
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm inquiries-date-quick-btn" data-range="last-30-days">
+                                Last 30 days
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm inquiries-date-quick-btn" data-range="this-month">
+                                This month
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm inquiries-date-quick-btn" data-range="last-month">
+                                Last month
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm inquiries-date-quick-btn" data-range="this-quarter">
+                                This quarter
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm inquiries-date-quick-btn" data-range="last-quarter">
+                                Last quarter
+                            </button>
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label for="inquiries-search" class="form-label">Search</label>
-                        <input
-                            type="search"
-                            class="form-control form-control-sm"
-                            id="inquiries-search"
-                            placeholder="Name, phone, email…"
-                            autocomplete="off"
-                        />
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">State</label>
-                        <div id="inquiries-filter-state">
-                            <% stateValues.forEach(function (state) { %>
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input inquiries-multi-option"
-                                        type="checkbox"
-                                        value="<%= state %>"
-                                        data-label="<%= stateLabels[state] %>"
-                                        id="filter-state-<%= state %>"
-                                    />
-                                    <label class="form-check-label" for="filter-state-<%= state %>">
-                                        <%= stateLabels[state] %>
-                                    </label>
-                                </div>
-                            <% }) %>
+                        <div class="input-group input-group-sm">
+                            <input
+                                type="search"
+                                class="form-control"
+                                id="inquiries-search"
+                                placeholder="Name, phone, email…"
+                                autocomplete="off"
+                            />
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary inquiries-filter-clear-btn inquiries-filter-clear-x"
+                                data-clear-input="inquiries-search"
+                                title="Clear search"
+                                aria-label="Clear search"
+                            >×</button>
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Source</label>
-                        <div id="inquiries-filter-source">
-                            <% Object.keys(sourceLabels).forEach(function (source) { %>
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input inquiries-multi-option"
-                                        type="checkbox"
-                                        value="<%= source %>"
-                                        data-label="<%= sourceLabels[source] %>"
-                                        id="filter-source-<%= source %>"
-                                    />
-                                    <label class="form-check-label" for="filter-source-<%= source %>">
-                                        <%= sourceLabels[source] %>
-                                    </label>
+                        <span class="form-label d-block">State</span>
+                        <div class="d-flex gap-1 align-items-stretch">
+                            <div
+                                class="dropdown inquiries-multi-filter flex-grow-1"
+                                id="inquiries-filter-state"
+                                data-empty-label="All states"
+                            >
+                                <button
+                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start inquiries-multi-filter-toggle"
+                                    type="button"
+                                    data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside"
+                                    data-bs-display="static"
+                                    aria-expanded="false"
+                                >
+                                    <span class="inquiries-multi-filter-label">All states</span>
+                                </button>
+                                <div class="dropdown-menu inquiries-multi-filter-menu p-2 shadow">
+                                    <% stateValues.forEach(function (state) { %>
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input inquiries-multi-filter-option"
+                                                type="checkbox"
+                                                value="<%= state %>"
+                                                data-label="<%= stateLabels[state] %>"
+                                                id="filter-state-<%= state %>"
+                                            />
+                                            <label class="form-check-label" for="filter-state-<%= state %>">
+                                                <%= stateLabels[state] %>
+                                            </label>
+                                        </div>
+                                    <% }) %>
                                 </div>
-                            <% }) %>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Assignee</label>
-                        <div id="inquiries-filter-assignee">
-                            <div class="form-check">
-                                <input
-                                    class="form-check-input inquiries-multi-option"
-                                    type="checkbox"
-                                    value="unassigned"
-                                    data-label="Unassigned"
-                                    id="filter-assignee-unassigned"
-                                />
-                                <label class="form-check-label" for="filter-assignee-unassigned">Unassigned</label>
                             </div>
-                            <% (users || []).forEach(function (user) { %>
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input inquiries-multi-option"
-                                        type="checkbox"
-                                        value="<%= user.id %>"
-                                        data-label="<%= user.full_name %>"
-                                        id="filter-assignee-<%= user.id %>"
-                                    />
-                                    <label class="form-check-label" for="filter-assignee-<%= user.id %>">
-                                        <%= user.full_name %>
-                                    </label>
-                                </div>
-                            <% }) %>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm inquiries-filter-clear-btn inquiries-filter-clear-x"
+                                data-clear-multi="inquiries-filter-state"
+                                title="Clear state"
+                                aria-label="Clear state"
+                            >×</button>
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Follow-ups</label>
-                        <select class="form-select form-select-sm" id="inquiries-filter-followup">
-                            <option value="">Any</option>
-                            <option value="pending">Pending follow-ups</option>
-                            <option value="1">1st follow-up</option>
-                            <option value="2">2nd follow-up</option>
-                            <option value="3">3rd follow-up</option>
-                        </select>
+                        <span class="form-label d-block">Source</span>
+                        <div class="d-flex gap-1 align-items-stretch">
+                            <div
+                                class="dropdown inquiries-multi-filter flex-grow-1"
+                                id="inquiries-filter-source"
+                                data-empty-label="All sources"
+                            >
+                                <button
+                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start inquiries-multi-filter-toggle"
+                                    type="button"
+                                    data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside"
+                                    data-bs-display="static"
+                                    aria-expanded="false"
+                                >
+                                    <span class="inquiries-multi-filter-label">All sources</span>
+                                </button>
+                                <div class="dropdown-menu inquiries-multi-filter-menu p-2 shadow">
+                                    <% Object.keys(sourceLabels).forEach(function (source) { %>
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input inquiries-multi-filter-option"
+                                                type="checkbox"
+                                                value="<%= source %>"
+                                                data-label="<%= sourceLabels[source] %>"
+                                                id="filter-source-<%= source %>"
+                                            />
+                                            <label class="form-check-label" for="filter-source-<%= source %>">
+                                                <%= sourceLabels[source] %>
+                                            </label>
+                                        </div>
+                                    <% }) %>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm inquiries-filter-clear-btn inquiries-filter-clear-x"
+                                data-clear-multi="inquiries-filter-source"
+                                title="Clear source"
+                                aria-label="Clear source"
+                            >×</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <span class="form-label d-block">Assignee</span>
+                        <div class="d-flex gap-1 align-items-stretch">
+                            <div
+                                class="dropdown inquiries-multi-filter flex-grow-1"
+                                id="inquiries-filter-assignee"
+                                data-empty-label="All assignees"
+                            >
+                                <button
+                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start inquiries-multi-filter-toggle"
+                                    type="button"
+                                    data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside"
+                                    data-bs-display="static"
+                                    aria-expanded="false"
+                                >
+                                    <span class="inquiries-multi-filter-label">All assignees</span>
+                                </button>
+                                <div class="dropdown-menu inquiries-multi-filter-menu p-2 shadow">
+                                    <div class="form-check">
+                                        <input
+                                            class="form-check-input inquiries-multi-filter-option"
+                                            type="checkbox"
+                                            value="unassigned"
+                                            data-label="Unassigned"
+                                            id="filter-assignee-unassigned"
+                                        />
+                                        <label class="form-check-label" for="filter-assignee-unassigned">
+                                            Unassigned
+                                        </label>
+                                    </div>
+                                    <% (users || []).forEach(function (user) { %>
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input inquiries-multi-filter-option"
+                                                type="checkbox"
+                                                value="<%= user.id %>"
+                                                data-label="<%= user.full_name %>"
+                                                id="filter-assignee-<%= user.id %>"
+                                            />
+                                            <label class="form-check-label" for="filter-assignee-<%= user.id %>">
+                                                <%= user.full_name %>
+                                            </label>
+                                        </div>
+                                    <% }) %>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm inquiries-filter-clear-btn inquiries-filter-clear-x"
+                                data-clear-multi="inquiries-filter-assignee"
+                                title="Clear assignee"
+                                aria-label="Clear assignee"
+                            >×</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="inquiries-filter-followup" class="form-label">Follow-ups</label>
+                        <div class="input-group input-group-sm">
+                            <select class="form-select" id="inquiries-filter-followup">
+                                <option value="">Any</option>
+                                <option value="pending">Pending follow-ups</option>
+                                <option value="1">1st follow-up</option>
+                                <option value="2">2nd follow-up</option>
+                                <option value="3">3rd follow-up</option>
+                            </select>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary inquiries-filter-clear-btn inquiries-filter-clear-x"
+                                data-clear-select="inquiries-filter-followup"
+                                title="Clear follow-ups"
+                                aria-label="Clear follow-ups"
+                            >×</button>
+                        </div>
                     </div>
                 </div>
                 <div class="border-top p-3 d-flex gap-2">
@@ -368,6 +494,31 @@
     }
     .inquiries-table-scroll thead th {
         z-index: 1;
+    }
+    .inquiries-filter-clear-x {
+        width: 2rem;
+        min-width: 2rem;
+        padding-left: 0;
+        padding-right: 0;
+        line-height: 1;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    .input-group .inquiries-filter-clear-x {
+        width: 2rem;
+    }
+    .inquiries-multi-filter .inquiries-multi-filter-toggle {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .inquiries-multi-filter-menu {
+        max-height: 240px;
+        overflow: auto;
+        min-width: 100%;
+    }
+    .inquiries-multi-filter-menu .form-check {
+        margin-bottom: 0.25rem;
     }
 </style>
 

@@ -60,8 +60,10 @@ import {
 } from "../db/gem_keyword_tenders.js";
 import { getAllGemKeywordTenderActivitiesByTenderId } from "../db/gem_keyword_tender_activities.js";
 import { getAllGemKeywordTenderCommentsByTenderId } from "../db/gem_keyword_tender_comments.js";
+import { getAllGemKeywordTenderDocumentsByTenderId } from "../db/gem_keyword_tender_documents.js";
 import { getAllGemTenderScanRuns } from "../db/gem_tender_scan_runs.js";
 import { buildGemKeywordTenderReport } from "../services/gem_keyword_tender_report.js";
+import { canManageTenderDocuments } from "../services/gem_keyword_tender_documents.js";
 import {
     AUTHORITIES,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
@@ -955,6 +957,14 @@ export const uiRoutes = new Elysia()
                         return redirect("/not-found");
                     }
 
+                    const canManageDocuments = canManageTenderDocuments({
+                        currentUser: {
+                            id: session?.id,
+                            super_admin: !!session?.super_admin,
+                        },
+                        tender,
+                    });
+
                     return render("gem-keyword-tender", appPage(session, {
                         title: `Tender ${tender.tender_id} — HammerByte`,
                         tender,
@@ -966,6 +976,10 @@ export const uiRoutes = new Elysia()
                         comments: await getAllGemKeywordTenderCommentsByTenderId({
                             gem_keyword_tender_id: tender.id,
                         }),
+                        documents: await getAllGemKeywordTenderDocumentsByTenderId({
+                            gem_keyword_tender_id: tender.id,
+                        }),
+                        canManageDocuments,
                         GEM_KEYWORD_TENDER_STAGE_LABELS,
                     }));
                 },

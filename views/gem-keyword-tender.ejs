@@ -11,6 +11,7 @@
     const isEligibleStage = currentStage === "eligible";
     const canEditQuote =
         isEligibleStage && (isSuperAdmin || (assigneeUserId && assigneeUserId === currentUserId));
+    const canManageDocs = !!canManageDocuments;
 
     let specificationLinks = [];
     if (tender.specification_links) {
@@ -76,6 +77,7 @@
             data-current-user-id="<%= currentUserId %>"
             data-super-admin="<%= isSuperAdmin ? '1' : '0' %>"
             data-can-assign-others="<%= canAssignOthers ? '1' : '0' %>"
+            data-can-manage-documents="<%= canManageDocs ? '1' : '0' %>"
         >
             <div class="card-body p-4">
                 <div class="row g-3 mb-4">
@@ -337,7 +339,83 @@
                 role="tabpanel"
                 aria-labelledby="gem-tender-documents-tab"
             >
-                <div class="text-secondary">No documents yet.</div>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <p class="text-secondary small mb-0">Tender documents for this bid.</p>
+                    <% if (canManageDocs) { %>
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-primary"
+                            id="gem-tender-documents-add-btn"
+                            data-bs-toggle="modal"
+                            data-bs-target="#gem-tender-documents-modal"
+                        >
+                            Add documents
+                        </button>
+                    <% } %>
+                </div>
+
+                <div
+                    id="gem-tender-documents-empty"
+                    class="text-secondary <%= documents && documents.length ? 'd-none' : '' %>"
+                >
+                    No documents yet.
+                </div>
+
+                <div
+                    class="table-responsive <%= !documents || !documents.length ? 'd-none' : '' %>"
+                    id="gem-tender-documents-table-wrap"
+                >
+                    <table class="table table-hover align-middle mb-0" id="gem-tender-documents-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Uploaded</th>
+                                <th scope="col" class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gem-tender-documents-tbody">
+                            <% (documents || []).forEach(function (document) { %>
+                                <tr data-id="<%= document.id %>">
+                                    <td><%= document.name || document.media_name || "—" %></td>
+                                    <td
+                                        data-readable-date="<%= document.created_on || '' %>"
+                                        data-date-format="DD/MM/YYYY HH:mm:ss"
+                                    ></td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1 justify-content-end">
+                                            <a
+                                                href="/api/media/<%= document.media_id %>"
+                                                class="btn btn-sm btn-outline-primary document-icon-btn"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                title="View"
+                                                aria-label="View"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
+                                                    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                                                </svg>
+                                            </a>
+                                            <% if (canManageDocs) { %>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-danger document-icon-btn gem-tender-document-delete-btn"
+                                                    title="Delete"
+                                                    aria-label="Delete"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                                                        <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                                                    </svg>
+                                                </button>
+                                            <% } %>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div
@@ -395,6 +473,76 @@
         </div>
     </div>
 </div>
+
+<% if (canManageDocs) { %>
+<div class="modal fade" id="gem-tender-documents-modal" tabindex="-1" aria-labelledby="gem-tender-documents-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="gem-tender-documents-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="gem-tender-documents-modal-label">Add documents</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="gem-tender-documents-form-alert" class="alert d-none" role="alert"></div>
+                    <div class="mb-3">
+                        <label for="gem-tender-documents-files" class="form-label">Files</label>
+                        <input
+                            type="file"
+                            class="form-control"
+                            id="gem-tender-documents-files"
+                            multiple
+                            required
+                        />
+                        <div class="form-text">Select one or more files. A visible name is required for each.</div>
+                    </div>
+                    <div id="gem-tender-documents-name-list" class="d-none">
+                        <p class="form-label">Visible names</p>
+                        <div id="gem-tender-documents-name-fields" class="d-grid gap-2"></div>
+                    </div>
+                    <div id="gem-tender-documents-upload-progress" class="d-none mt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-secondary" id="gem-tender-documents-upload-status">Uploading…</span>
+                            <span class="small text-secondary" id="gem-tender-documents-upload-percent">0%</span>
+                        </div>
+                        <div
+                            class="progress"
+                            role="progressbar"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow="0"
+                            id="gem-tender-documents-upload-progressbar"
+                        >
+                            <div
+                                class="progress-bar progress-bar-striped progress-bar-animated"
+                                id="gem-tender-documents-upload-bar"
+                                style="width: 0%"
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="gem-tender-documents-submit-btn" disabled>
+                        Upload
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<% } %>
+
+<style>
+    .document-icon-btn {
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>

@@ -29,6 +29,7 @@ import clauseSubclauses from "./apps/clause_subclauses.js";
 import gemTenderKeywords from "./apps/gem_tender_keywords.js";
 import gemKeywordTenders from "./apps/gem_keyword_tenders.js";
 import gemKeywordTenderComments from "./apps/gem_keyword_tender_comments.js";
+import gemKeywordTenderDocuments from "./apps/gem_keyword_tender_documents.js";
 import tasks from "./apps/tasks.js";
 import taskComments from "./apps/task_comments.js";
 import taskAttachments from "./apps/task_attachments.js";
@@ -95,6 +96,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/gem-tender-keywords", gemTenderKeywords)
             .group("/gem-keyword-tenders", gemKeywordTenders)
             .group("/gem-keyword-tender-comments", gemKeywordTenderComments)
+            .group("/gem-keyword-tender-documents", gemKeywordTenderDocuments)
             .group("/inquiries", inquiryAdmin)
             .group("/inquiry-notes", inquiryNotes)
             .group("/inquiry-followups", inquiryFollowups)

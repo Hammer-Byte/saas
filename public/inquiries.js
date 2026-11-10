@@ -7,6 +7,8 @@
     const stateFilterRoot = document.getElementById("inquiries-filter-state");
     const sourceFilterRoot = document.getElementById("inquiries-filter-source");
     const assigneeFilterRoot = document.getElementById("inquiries-filter-assignee");
+    const multiFilters = [stateFilterRoot, sourceFilterRoot, assigneeFilterRoot].filter(Boolean);
+    const filtersPanel = document.getElementById("inquiries-filters-panel");
     const applyFiltersBtn = document.getElementById("inquiries-filters-apply-btn");
     const resetFiltersBtn = document.getElementById("inquiries-filters-reset-btn");
     const filterStatus = document.getElementById("inquiries-filter-status");
@@ -59,7 +61,7 @@
     }
 
     function multiOptions(root) {
-        return Array.from(root?.querySelectorAll(".inquiries-multi-option") || []);
+        return Array.from(root?.querySelectorAll(".inquiries-multi-filter-option") || []);
     }
 
     function selectedMultiValues(root) {
@@ -69,12 +71,37 @@
             .filter(Boolean);
     }
 
+    function selectedMultiLabels(root) {
+        return multiOptions(root)
+            .filter((input) => input.checked)
+            .map((input) => String(input.dataset.label || input.value || "").trim())
+            .filter(Boolean);
+    }
+
+    function updateMultiFilterLabel(root) {
+        if (!root) return;
+        const labelElement = root.querySelector(".inquiries-multi-filter-label");
+        if (!labelElement) return;
+        const emptyLabel = root.dataset.emptyLabel || "All";
+        const labels = selectedMultiLabels(root);
+        if (!labels.length) {
+            labelElement.textContent = emptyLabel;
+            return;
+        }
+        if (labels.length <= 2) {
+            labelElement.textContent = labels.join(", ");
+            return;
+        }
+        labelElement.textContent = `${labels.slice(0, 2).join(", ")} +${labels.length - 2}`;
+    }
+
     function setSelectedMultiValues(root, values) {
         if (!root) return;
         const wanted = new Set((Array.isArray(values) ? values : []).map((value) => String(value)));
         for (const input of multiOptions(root)) {
             input.checked = wanted.has(String(input.value));
         }
+        updateMultiFilterLabel(root);
     }
 
     function normalizeDateInput(value, fallback = "") {
@@ -82,6 +109,22 @@
         if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
         const fallbackRaw = String(fallback || "").trim();
         return /^\d{4}-\d{2}-\d{2}$/.test(fallbackRaw) ? fallbackRaw : "";
+    }
+
+    function normalizeStoredFilters(filters) {
+        return {
+            from: normalizeDateInput(filters.from, pageFrom),
+            to: normalizeDateInput(filters.to, pageTo),
+            search: String(filters.search || "").trim().toLowerCase(),
+            states: Array.isArray(filters.states) ? filters.states.map(String).filter(Boolean) : [],
+            sources: Array.isArray(filters.sources)
+                ? filters.sources.map(String).filter(Boolean)
+                : [],
+            assignees: Array.isArray(filters.assignees)
+                ? filters.assignees.map(String).filter(Boolean)
+                : [],
+            followup: String(filters.followup || "").trim(),
+        };
     }
 
     function readFiltersFromDom() {
@@ -117,7 +160,6 @@
         const state = row.dataset.state || "";
         if (state !== "potential") return false;
 
-        const followupCount = Number(row.dataset.followupCount || 0);
         const openSlot = Number(row.dataset.openSlot || 0);
         const potentialEnteredOn = row.dataset.potentialEnteredOn || "";
 
@@ -180,24 +222,14 @@
         applyFilters();
     }
 
-    function showFormAlert(element, message, type = "danger") {
-        if (!element) return;
-        element.textContent = message;
-        element.className = `alert alert-${type}`;
-        element.classList.remove("d-none");
-    }
-
-    function hideFormAlert(element) {
-        if (!element) return;
-        element.classList.add("d-none");
-        element.textContent = "";
-    }
-
-    applyFiltersBtn?.addEventListener("click", () => {
+    function commitFilters({ reloadIfDatesChanged = true } = {}) {
         const nextFilters = readFiltersFromDom();
         writeStoredFilters(nextFilters);
 
-        if (nextFilters.from !== pageFrom || nextFilters.to !== pageTo) {
+        if (
+            reloadIfDatesChanged &&
+            (nextFilters.from !== pageFrom || nextFilters.to !== pageTo)
+        ) {
             const url = new URL(window.location.href);
             url.searchParams.set("from", nextFilters.from);
             url.searchParams.set("to", nextFilters.to);
@@ -211,6 +243,144 @@
             '#inquiries-filters-panel [data-bs-dismiss="offcanvas"]',
         );
         dismissButton?.click();
+    }
+
+    function formatIsoDate(date) {
+        const year = date.getFullYear();
+        const month = `${date.getMonth() + 1}`.padStart(2, "0");
+        const day = `${date.getDate()}`.padStart(2, "0");
+        return `${year}-${month}-${day}`;
+    }
+
+    function startOfIndianQuarter(date) {
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        if (month <= 2) return new Date(year, 0, 1);
+        if (month <= 5) return new Date(year, 3, 1);
+        if (month <= 8) return new Date(year, 6, 1);
+        return new Date(year, 9, 1);
+    }
+
+    function endOfIndianQuarter(date) {
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        if (month <= 2) return new Date(year, 2, 31);
+        if (month <= 5) return new Date(year, 5, 30);
+        if (month <= 8) return new Date(year, 8, 30);
+        return new Date(year, 11, 31);
+    }
+
+    function startOfWeekMonday(date) {
+        const value = new Date(date);
+        const weekday = value.getDay();
+        const offset = weekday === 0 ? -6 : 1 - weekday;
+        value.setDate(value.getDate() + offset);
+        return value;
+    }
+
+    function setQuickDateRange(range) {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        let fromDate = new Date(now);
+        let toDate = new Date(now);
+
+        if (range === "today") {
+            fromDate = now;
+            toDate = now;
+        } else if (range === "this-week") {
+            fromDate = startOfWeekMonday(now);
+            toDate = now;
+        } else if (range === "last-7-days") {
+            fromDate = new Date(now);
+            fromDate.setDate(fromDate.getDate() - 6);
+            toDate = now;
+        } else if (range === "last-15-days") {
+            fromDate = new Date(now);
+            fromDate.setDate(fromDate.getDate() - 14);
+            toDate = now;
+        } else if (range === "last-30-days") {
+            fromDate = new Date(now);
+            fromDate.setDate(fromDate.getDate() - 29);
+            toDate = now;
+        } else if (range === "this-month") {
+            fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            toDate = now;
+        } else if (range === "last-month") {
+            fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            toDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        } else if (range === "this-quarter") {
+            fromDate = startOfIndianQuarter(now);
+            toDate = now;
+        } else if (range === "last-quarter") {
+            const previous = new Date(startOfIndianQuarter(now));
+            previous.setDate(previous.getDate() - 1);
+            fromDate = startOfIndianQuarter(previous);
+            toDate = endOfIndianQuarter(previous);
+        } else {
+            return;
+        }
+
+        if (fromInput) fromInput.value = formatIsoDate(fromDate);
+        if (toInput) toInput.value = formatIsoDate(toDate);
+    }
+
+    function showFormAlert(element, message, type = "danger") {
+        if (!element) return;
+        element.textContent = message;
+        element.className = `alert alert-${type}`;
+        element.classList.remove("d-none");
+    }
+
+    function hideFormAlert(element) {
+        if (!element) return;
+        element.classList.add("d-none");
+        element.textContent = "";
+    }
+
+    for (const root of multiFilters) {
+        updateMultiFilterLabel(root);
+        root.addEventListener("change", (event) => {
+            if (!event.target?.classList?.contains("inquiries-multi-filter-option")) return;
+            updateMultiFilterLabel(root);
+        });
+    }
+
+    filtersPanel?.addEventListener("show.bs.offcanvas", () => {
+        writeFiltersToDom(appliedFilters);
+    });
+
+    filtersPanel?.addEventListener("click", (event) => {
+        const quickBtn = event.target?.closest?.(".inquiries-date-quick-btn");
+        if (quickBtn) {
+            setQuickDateRange(quickBtn.dataset.range || "");
+            return;
+        }
+
+        const clearBtn = event.target?.closest?.(".inquiries-filter-clear-btn");
+        if (!clearBtn) return;
+
+        const multiId = clearBtn.dataset.clearMulti;
+        if (multiId) {
+            setSelectedMultiValues(document.getElementById(multiId), []);
+            return;
+        }
+
+        const selectId = clearBtn.dataset.clearSelect;
+        if (selectId) {
+            const select = document.getElementById(selectId);
+            if (select) select.value = "";
+            return;
+        }
+
+        const inputId = clearBtn.dataset.clearInput;
+        if (inputId) {
+            const input = document.getElementById(inputId);
+            if (input) input.value = "";
+        }
+    });
+
+    applyFiltersBtn?.addEventListener("click", () => {
+        commitFilters();
     });
 
     resetFiltersBtn?.addEventListener("click", () => {
@@ -229,21 +399,22 @@
 
     const stored = readStoredFilters();
     if (stored) {
-        appliedFilters = {
+        appliedFilters = normalizeStoredFilters({
             ...emptyFilters(),
             ...stored,
-            from: normalizeDateInput(stored.from, pageFrom),
-            to: normalizeDateInput(stored.to, pageTo),
-        };
+            from: pageFrom,
+            to: pageTo,
+        });
         writeFiltersToDom(appliedFilters);
         if (
-            appliedFilters.from &&
-            appliedFilters.to &&
-            (appliedFilters.from !== pageFrom || appliedFilters.to !== pageTo)
+            stored.from &&
+            stored.to &&
+            (normalizeDateInput(stored.from, pageFrom) !== pageFrom ||
+                normalizeDateInput(stored.to, pageTo) !== pageTo)
         ) {
             const url = new URL(window.location.href);
-            url.searchParams.set("from", appliedFilters.from);
-            url.searchParams.set("to", appliedFilters.to);
+            url.searchParams.set("from", normalizeDateInput(stored.from, pageFrom));
+            url.searchParams.set("to", normalizeDateInput(stored.to, pageTo));
             window.location.replace(url.toString());
             return;
         }
@@ -274,10 +445,13 @@
         ).trim();
         const payload = {
             phone,
-            full_name: String(document.getElementById("inquiry-add-full-name")?.value || "").trim() || null,
+            full_name:
+                String(document.getElementById("inquiry-add-full-name")?.value || "").trim() ||
+                null,
             email: String(document.getElementById("inquiry-add-email")?.value || "").trim() || null,
             institute_name:
-                String(document.getElementById("inquiry-add-institute")?.value || "").trim() || null,
+                String(document.getElementById("inquiry-add-institute")?.value || "").trim() ||
+                null,
             city: String(document.getElementById("inquiry-add-city")?.value || "").trim() || null,
             quote: String(document.getElementById("inquiry-add-quote")?.value || "").trim() || null,
             assignee_user_id: assigneeValue ? Number(assigneeValue) : null,
