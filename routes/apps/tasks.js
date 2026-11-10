@@ -6,6 +6,7 @@ import {
     deleteTask,
     duplicateTask,
     followTask,
+    moveTaskToInvoice,
     unfollowTask,
     updateTask,
     updateTaskState,
@@ -33,6 +34,7 @@ export default function (app) {
                 description: t.Optional(t.String()),
                 expected_hours: t.Optional(t.Union([t.Numeric(), t.Null()])),
                 actual_hours: t.Optional(t.Union([t.Numeric(), t.Null()])),
+                cost: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
                 start_at: t.Optional(t.Union([t.String(), t.Null()])),
                 end_at: t.Optional(t.Union([t.String(), t.Null()])),
                 state: t.Optional(taskStateSchema),
@@ -54,6 +56,7 @@ export default function (app) {
                 description: t.Optional(t.Union([t.String(), t.Null()])),
                 expected_hours: t.Optional(t.Union([t.Numeric(), t.Null()])),
                 actual_hours: t.Optional(t.Union([t.Numeric(), t.Null()])),
+                cost: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
                 start_at: t.Optional(t.Union([t.String(), t.Null()])),
                 end_at: t.Optional(t.Union([t.String(), t.Null()])),
                 state: taskStateSchema,
@@ -63,6 +66,8 @@ export default function (app) {
                 reviewer_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
                 sprint_week_start: t.Optional(t.Union([t.String(), t.Null()])),
                 comment: t.Optional(t.Union([t.String(), t.Null()])),
+                spent_hours: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
+                spent_hours_note: t.Optional(t.Union([t.String(), t.Null()])),
             }),
             detail: {
                 tags: ["Tasks"],
@@ -105,6 +110,21 @@ export default function (app) {
             detail: {
                 tags: ["Tasks"],
                 summary: "Duplicate a task",
+            },
+        })
+        .post("/:id/move-to-invoice", moveTaskToInvoice, {
+            params: t.Object({
+                id: t.Numeric({ minimum: 1 }),
+            }),
+            body: t.Object({
+                customer_invoice_id: t.Numeric({ minimum: 1 }),
+                item: t.String({ minLength: 1, maxLength: 128 }),
+                cost: t.Numeric({ minimum: 0 }),
+                quantity: t.Numeric({ exclusiveMinimum: 0 }),
+            }),
+            detail: {
+                tags: ["Tasks"],
+                summary: "Move task to a project invoice",
             },
         })
         .delete("/:id", deleteTask, {

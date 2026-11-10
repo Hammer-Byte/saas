@@ -54,6 +54,7 @@
                                 <th scope="col">Full name</th>
                                 <th scope="col">Email</th>
                                 <th scope="col">Personal email</th>
+                                <th scope="col">Rate / hr</th>
                                 <th scope="col">Login method</th>
                                 <th scope="col">Actions</th>
                             </tr>
@@ -66,12 +67,16 @@
                                     data-full-name="<%= user.full_name %>"
                                     data-email="<%= user.email %>"
                                     data-personal-email="<%= user.personal_email || '' %>"
+                                    data-hourly-rate="<%= user.hourly_rate != null ? user.hourly_rate : '' %>"
                                     data-login-method="<%= method %>"
                                 >
                                     <td class="user-id"><%= user.id %></td>
                                     <td class="user-full-name"><%= user.full_name %></td>
                                     <td class="user-email"><%= user.email %></td>
                                     <td class="user-personal-email"><%= user.personal_email || "-" %></td>
+                                    <td class="user-hourly-rate">
+                                        <%= user.hourly_rate != null ? Number(user.hourly_rate).toFixed(2) : "—" %>
+                                    </td>
                                     <td class="user-login-method"><%= loginMethodLabels[method] || method %></td>
                                     <td>
                                         <div class="d-flex gap-2 flex-wrap">
@@ -118,6 +123,18 @@
                             maxlength="128"
                         />
                         <div class="form-text">Used for GEM tender eligibility reminders. Optional.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="user-hourly-rate" class="form-label">Rate per hour</label>
+                        <input
+                            type="number"
+                            class="form-control"
+                            id="user-hourly-rate"
+                            name="hourly_rate"
+                            min="0"
+                            step="0.01"
+                        />
+                        <div class="form-text">Used to calculate task charge (hours × rate).</div>
                     </div>
                     <div class="mb-3">
                         <label for="user-login-method" class="form-label">Login method</label>

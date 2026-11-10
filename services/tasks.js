@@ -5,14 +5,23 @@ import {
     TASK_STATES,
 } from "../constants.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
+import { getCustomerInvoiceById } from "../db/customer_invoices.js";
+import { createInvoiceItem } from "../db/invoice_items.js";
 import {
     createTask,
     deleteTaskById,
     getTaskById,
     updateTaskById,
+    updateTaskChargeById,
+    updateTaskInvoiceLinkById,
     updateTaskStateById,
 } from "../db/tasks.js";
 import { createTaskActivity } from "../db/task_activities.js";
+import {
+    createTaskEffort,
+    getTaskEffortsByTaskId,
+    getTaskEffortsChargeTotalByTaskId,
+} from "../db/task_efforts.js";
 import {
     createTaskFollower,
     deleteTaskFollowerByTaskIdAndUserId,
@@ -29,8 +38,12 @@ import {
 import { notifyTaskAssigned, notifyTaskFollowers, notifyTaskReviewRequested } from "../libs/task_notify.js";
 import {
     canUserMoveTask,
+    isTaskAdminUser,
     resolveTaskStateTransition,
 } from "../libs/task_workflow.js";
+import { createTaskComment } from "../db/task_comments.js";
+import { updateCustomerInvoiceTotal } from "./customer_invoices.js";
+import { getCurrentUser } from "./authentication.js";
 
 function transitionHttpStatus(code) {
     if (code === "reviewer_only" || code === "move_forbidden") {
@@ -38,8 +51,6 @@ function transitionHttpStatus(code) {
     }
     return 400;
 }
-import { createTaskComment } from "../db/task_comments.js";
-import { getCurrentUser } from "./authentication.js";
 
 const STATE_VALUES = new Set(Object.values(TASK_STATES));
 const PRIORITY_VALUES = new Set(Object.values(TASK_PRIORITIES));
@@ -89,6 +100,85 @@ function validateTaskHours(value, label) {
         return { error: `${label} cannot be more than ${TASK_HOURS_MAX} hours` };
     }
     return { hours };
+}
+
+function validateSpentHours(value) {
+    const hours = normalizeHours(value);
+    if (hours == null) {
+        return { error: "Spent hours are required when changing assignee" };
+    }
+    if (hours < 0) {
+        return { error: "Spent hours cannot be negative" };
+    }
+    if (hours > TASK_HOURS_MAX) {
+        return { error: `Spent hours cannot be more than ${TASK_HOURS_MAX}` };
+    }
+    return { hours };
+}
+
+function normalizeMoney(value, label) {
+    if (value == null || value === "") {
+        return { amount: null };
+    }
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) {
+        return { error: `${label} must be a non-negative number` };
+    }
+    return { amount: Math.round(amount * 100) / 100 };
+}
+
+function roundMoney(value) {
+    return Math.round(Number(value || 0) * 100) / 100;
+}
+
+async function recalculateTaskCharge({
+    taskId,
+    assigneeUserId = null,
+    actualHours = null,
+}) {
+    const totals = await getTaskEffortsChargeTotalByTaskId({ task_id: taskId });
+    let charge = roundMoney(totals.charge_total);
+    const loggedHours = Number(totals.hours_total || 0);
+    const actual = Number(actualHours || 0);
+
+    if (assigneeUserId >= 1 && Number.isFinite(actual) && actual > loggedHours) {
+        const assignee = await getUserById({ id: assigneeUserId });
+        const rate = Number(assignee?.hourly_rate || 0);
+        if (Number.isFinite(rate) && rate > 0) {
+            charge = roundMoney(charge + (actual - loggedHours) * rate);
+        }
+    }
+
+    await updateTaskChargeById({ id: taskId, charge });
+    return charge;
+}
+
+async function logAssigneeEffort({
+    taskId,
+    userId,
+    hours,
+    note = null,
+    createdByUserId,
+}) {
+    const user = await getUserById({ id: userId });
+    if (!user) {
+        return { error: "Previous assignee not found" };
+    }
+    const rate = roundMoney(user.hourly_rate || 0);
+    const charge = roundMoney(hours * rate);
+    const effortId = await createTaskEffort({
+        task_id: taskId,
+        user_id: userId,
+        hours,
+        hourly_rate: rate,
+        charge,
+        note,
+        created_by_user_id: createdByUserId,
+    });
+    if (!effortId) {
+        return { error: "Failed to log assignee effort" };
+    }
+    return { effortId, hours, rate, charge, user };
 }
 
 function normalizeOptionalUserId(value) {
@@ -203,12 +293,19 @@ export async function addTask({ body, cookie, set }) {
 
     // Backlog is a shared stack across sprints — no week until pulled into work.
     const sprintWeekStart = null;
+    const costResult = normalizeMoney(body.cost, "Cost");
+    if (costResult.error) {
+        set.status = 400;
+        return { error: costResult.error };
+    }
 
     const taskId = await createTask({
         title,
         description: trimmedOrNull(body.description),
         expected_hours: expectedHoursResult.hours,
         actual_hours: actualHoursResult.hours,
+        cost: costResult.amount,
+        charge: null,
         start_at: normalizeDateField(body.start_at),
         end_at: normalizeDateField(body.end_at),
         completed_on: completedOn,
@@ -226,6 +323,12 @@ export async function addTask({ body, cookie, set }) {
         set.status = 400;
         return { error: "Failed to create task" };
     }
+
+    await recalculateTaskCharge({
+        taskId,
+        assigneeUserId,
+        actualHours: actualHoursResult.hours,
+    });
 
     await logTaskActivity({
         task_id: taskId,
@@ -427,12 +530,43 @@ export async function updateTask({ body, cookie, set }) {
     const previousSprintWeek = normalizeSprintWeekStart(existingTask.sprint_week_start);
     const sprintChanging = previousSprintWeek !== sprintWeekStart;
 
+    const costResult = normalizeMoney(
+        body.cost !== undefined ? body.cost : existingTask.cost,
+        "Cost",
+    );
+    if (costResult.error) {
+        set.status = 400;
+        return { error: costResult.error };
+    }
+
+    let spentEffort = null;
+    if (assigneeChanging && previousAssigneeUserId >= 1) {
+        const spentHoursResult = validateSpentHours(body.spent_hours);
+        if (spentHoursResult.error) {
+            set.status = 400;
+            return { error: spentHoursResult.error, code: "spent_hours_required" };
+        }
+        spentEffort = await logAssigneeEffort({
+            taskId: existingTask.id,
+            userId: previousAssigneeUserId,
+            hours: spentHoursResult.hours,
+            note: trimmedOrNull(body.spent_hours_note),
+            createdByUserId: currentUser.id,
+        });
+        if (spentEffort.error) {
+            set.status = 400;
+            return { error: spentEffort.error };
+        }
+    }
+
     await updateTaskById({
         id: existingTask.id,
         title,
         description: trimmedOrNull(body.description),
         expected_hours: expectedHoursResult.hours,
         actual_hours: actualHoursResult.hours,
+        cost: costResult.amount,
+        charge: existingTask.charge,
         start_at: normalizeDateField(body.start_at),
         end_at: normalizeDateField(body.end_at),
         completed_on: completedOn,
@@ -443,6 +577,12 @@ export async function updateTask({ body, cookie, set }) {
         assignee_user_id: nextAssigneeUserId,
         reviewer_user_id: nextReviewerUserId,
         sprint_week_start: sprintWeekStart,
+    });
+
+    await recalculateTaskCharge({
+        taskId: existingTask.id,
+        assigneeUserId: nextAssigneeUserId,
+        actualHours: actualHoursResult.hours,
     });
 
     if (transition.requireComment && transition.comment) {
@@ -468,6 +608,13 @@ export async function updateTask({ body, cookie, set }) {
     if (priority !== previousPriority) {
         activities.push(
             `Changed priority from ${priorityLabel(previousPriority)} to ${priorityLabel(priority)}`,
+        );
+    }
+    if (spentEffort) {
+        activities.push(
+            `Logged ${spentEffort.hours}h effort for ${
+                spentEffort.user?.full_name || spentEffort.user?.email || `#${previousAssigneeUserId}`
+            } @ ${spentEffort.rate}/hr (charge ${spentEffort.charge})`,
         );
     }
     if (nextAssigneeUserId !== previousAssigneeUserId) {
@@ -945,4 +1092,105 @@ export async function unfollowTask({ params, cookie, set }) {
 
     set.status = 200;
     return { message: "Unfollowed task" };
+}
+
+export async function moveTaskToInvoice({ params, body, cookie, set }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+    }
+    if (!isTaskAdminUser(currentUser)) {
+        set.status = 403;
+        return { error: "Only admins can move a task to an invoice" };
+    }
+
+    const existingTask = await getTaskById({ id: params.id });
+    if (!existingTask) {
+        set.status = 404;
+        return { error: "Task not found" };
+    }
+    if (existingTask.customer_invoice_id) {
+        set.status = 400;
+        return { error: "This task is already added to an invoice" };
+    }
+    if (!(existingTask.project_id >= 1)) {
+        set.status = 400;
+        return { error: "Assign a project to this task before moving it to an invoice" };
+    }
+
+    const invoiceId = Number(body.customer_invoice_id || 0);
+    if (!(invoiceId >= 1)) {
+        set.status = 400;
+        return { error: "Invoice is required" };
+    }
+
+    const invoice = await getCustomerInvoiceById({ id: invoiceId });
+    if (!invoice) {
+        set.status = 404;
+        return { error: "Invoice not found" };
+    }
+    if (Number(invoice.project_id) !== Number(existingTask.project_id)) {
+        set.status = 400;
+        return { error: "Invoice must belong to the task project" };
+    }
+
+    const item = String(body.item || "").trim();
+    if (!item) {
+        set.status = 400;
+        return { error: "Item is required" };
+    }
+    if (item.length > 128) {
+        set.status = 400;
+        return { error: "Item must be 128 characters or fewer" };
+    }
+
+    const costResult = normalizeMoney(body.cost, "Cost");
+    if (costResult.error || costResult.amount == null) {
+        set.status = 400;
+        return { error: costResult.error || "Cost is required" };
+    }
+
+    const quantity = Number(body.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+        set.status = 400;
+        return { error: "Quantity must be greater than 0" };
+    }
+
+    const itemId = await createInvoiceItem({
+        customer_invoice_id: invoice.id,
+        item,
+        cost: costResult.amount,
+        quantity,
+    });
+    if (!itemId) {
+        set.status = 400;
+        return { error: "Failed to add invoice item" };
+    }
+
+    await updateCustomerInvoiceTotal({ id: invoice.id });
+    await updateTaskInvoiceLinkById({
+        id: existingTask.id,
+        customer_invoice_id: invoice.id,
+        invoice_item_id: itemId,
+    });
+
+    await logTaskActivity({
+        task_id: existingTask.id,
+        user_id: currentUser.id,
+        activity: `Added to invoice #${invoice.id}${
+            invoice.hbt_sequence ? ` (HBT-${invoice.hbt_sequence})` : ""
+        }`,
+    });
+
+    const task = await getTaskById({ id: existingTask.id });
+    const updatedInvoice = await getCustomerInvoiceById({ id: invoice.id });
+
+    set.status = 200;
+    return {
+        message: "Task added to invoice",
+        task,
+        invoice: updatedInvoice,
+        invoice_item_id: itemId,
+    };
 }

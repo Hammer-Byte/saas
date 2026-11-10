@@ -136,11 +136,13 @@ export async function generateDBTables() {
             personal_email VARCHAR(128) NULL,
             login_method VARCHAR(16) NOT NULL DEFAULT 'otp',
             password_hash VARCHAR(255) NULL,
+            hourly_rate DECIMAL(10, 2) NULL,
             super_admin BOOLEAN NOT NULL DEFAULT FALSE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY unique_user_email (email)
         )`,
+        `ALTER TABLE USERS ADD COLUMN hourly_rate DECIMAL(10, 2) NULL`,
         `CREATE TABLE IF NOT EXISTS USER_AUTHENTICATION_TOKENS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,
@@ -840,6 +842,8 @@ export async function generateDBTables() {
             description TEXT NULL,
             expected_hours DECIMAL(10, 2) NULL,
             actual_hours DECIMAL(10, 2) NULL,
+            cost DECIMAL(10, 2) NULL,
+            charge DECIMAL(10, 2) NULL,
             start_at DATETIME NULL,
             end_at DATETIME NULL,
             completed_on DATETIME NULL,
@@ -851,6 +855,8 @@ export async function generateDBTables() {
             reviewer_user_id INT NULL,
             created_by_user_id INT NOT NULL,
             sprint_week_start DATE NULL,
+            customer_invoice_id INT NULL,
+            invoice_item_id INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             CONSTRAINT fk_tasks_customer_project
@@ -873,12 +879,65 @@ export async function generateDBTables() {
                 REFERENCES USERS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE,
+            CONSTRAINT fk_tasks_customer_invoice
+                FOREIGN KEY (customer_invoice_id)
+                REFERENCES CUSTOMER_INVOICES(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_tasks_invoice_item
+                FOREIGN KEY (invoice_item_id)
+                REFERENCES INVOICE_ITEMS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE,
             INDEX idx_tasks_state (state),
             INDEX idx_tasks_assignee (assignee_user_id),
             INDEX idx_tasks_reviewer (reviewer_user_id),
             INDEX idx_tasks_project (project_id),
             INDEX idx_tasks_end_at (end_at),
             INDEX idx_tasks_sprint_week_start (sprint_week_start)
+        )`,
+        `ALTER TABLE TASKS ADD COLUMN cost DECIMAL(10, 2) NULL`,
+        `ALTER TABLE TASKS ADD COLUMN charge DECIMAL(10, 2) NULL`,
+        `ALTER TABLE TASKS ADD COLUMN customer_invoice_id INT NULL`,
+        `ALTER TABLE TASKS ADD COLUMN invoice_item_id INT NULL`,
+        `ALTER TABLE TASKS
+            ADD CONSTRAINT fk_tasks_customer_invoice
+            FOREIGN KEY (customer_invoice_id)
+            REFERENCES CUSTOMER_INVOICES(id)
+            ON DELETE SET NULL
+            ON UPDATE CASCADE`,
+        `ALTER TABLE TASKS
+            ADD CONSTRAINT fk_tasks_invoice_item
+            FOREIGN KEY (invoice_item_id)
+            REFERENCES INVOICE_ITEMS(id)
+            ON DELETE SET NULL
+            ON UPDATE CASCADE`,
+        `CREATE TABLE IF NOT EXISTS TASK_EFFORTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            task_id INT NOT NULL,
+            user_id INT NOT NULL,
+            hours DECIMAL(10, 2) NOT NULL,
+            hourly_rate DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+            charge DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+            note VARCHAR(512) NULL,
+            created_by_user_id INT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_task_efforts_task
+                FOREIGN KEY (task_id)
+                REFERENCES TASKS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_task_efforts_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_task_efforts_created_by_user
+                FOREIGN KEY (created_by_user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_task_efforts_task (task_id)
         )`,
         `CREATE TABLE IF NOT EXISTS TASK_COMMENTS (
             id INT AUTO_INCREMENT PRIMARY KEY,

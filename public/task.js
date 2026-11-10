@@ -70,6 +70,7 @@
         const reviewerRaw = document.getElementById("task-edit-reviewer")?.value || "";
         const projectRaw = document.getElementById("task-edit-project")?.value || "";
         const sprintWeekRaw = document.getElementById("task-edit-sprint-week")?.value || "";
+        const costRaw = document.getElementById("task-edit-cost")?.value || "";
         const state = editStateSelect?.value || "backlog";
         const priority = document.getElementById("task-edit-priority")?.value || "medium";
 
@@ -82,7 +83,16 @@
             assignee_user_id: assigneeRaw ? Number(assigneeRaw) : null,
             reviewer_user_id: reviewerRaw ? Number(reviewerRaw) : null,
             project_id: projectRaw ? Number(projectRaw) : null,
+            cost: null,
         };
+
+        if (costRaw !== "") {
+            const cost = Number(costRaw);
+            if (!Number.isFinite(cost) || cost < 0) {
+                return { error: "Enter a valid cost." };
+            }
+            payload.cost = cost;
+        }
 
         if (sprintWeekRaw.trim()) {
             const sprintWeek =
@@ -139,6 +149,63 @@
         }
 
         return { payload };
+    }
+
+    function promptSpentHours() {
+        return new Promise((resolve) => {
+            const modalElement = document.getElementById("task-spent-hours-modal");
+            const formElement = document.getElementById("task-spent-hours-form");
+            const hoursInput = document.getElementById("task-spent-hours");
+            const noteInput = document.getElementById("task-spent-hours-note");
+            if (!modalElement || !formElement || !window.bootstrap?.Modal) {
+                const hours = window.prompt("Spent hours by previous assignee (required):");
+                if (hours == null || String(hours).trim() === "") {
+                    resolve(null);
+                    return;
+                }
+                resolve({ spent_hours: Number(hours), spent_hours_note: null });
+                return;
+            }
+
+            const modal = window.bootstrap.Modal.getOrCreateInstance(modalElement);
+            let settled = false;
+
+            function finish(value) {
+                if (settled) return;
+                settled = true;
+                formElement.removeEventListener("submit", onSubmit);
+                modalElement.removeEventListener("hidden.bs.modal", onHidden);
+                resolve(value);
+            }
+
+            function onSubmit(event) {
+                event.preventDefault();
+                const hours = Number(hoursInput?.value || "");
+                if (!Number.isFinite(hours) || hours < 0) return;
+                if (hours > 8) {
+                    hoursInput?.setCustomValidity("Max 8 hours");
+                    hoursInput?.reportValidity();
+                    return;
+                }
+                hoursInput?.setCustomValidity("");
+                modal.hide();
+                finish({
+                    spent_hours: hours,
+                    spent_hours_note: (noteInput?.value || "").trim() || null,
+                });
+            }
+
+            function onHidden() {
+                finish(null);
+            }
+
+            formElement.addEventListener("submit", onSubmit);
+            modalElement.addEventListener("hidden.bs.modal", onHidden, { once: true });
+            if (hoursInput) hoursInput.value = "";
+            if (noteInput) noteInput.value = "";
+            modal.show();
+            hoursInput?.focus();
+        });
     }
 
     function buildStateChangeBody(nextState) {
@@ -347,6 +414,23 @@
         if (built.error) {
             showAlert(pageAlert, built.error, "danger");
             return;
+        }
+
+        const previousAssigneeId = Number(detail.dataset.initialAssigneeId || 0);
+        const nextAssigneeId = Number(built.payload.assignee_user_id || 0) || null;
+        const previousNormalized = previousAssigneeId >= 1 ? previousAssigneeId : null;
+        if (previousNormalized != null && previousNormalized !== nextAssigneeId) {
+            const spent = await promptSpentHours();
+            if (!spent) {
+                showAlert(pageAlert, "Spent hours are required when changing assignee.", "warning");
+                return;
+            }
+            if (!Number.isFinite(spent.spent_hours) || spent.spent_hours < 0) {
+                showAlert(pageAlert, "Enter valid spent hours.", "danger");
+                return;
+            }
+            built.payload.spent_hours = spent.spent_hours;
+            built.payload.spent_hours_note = spent.spent_hours_note;
         }
 
         if (saveButton) saveButton.disabled = true;
@@ -669,6 +753,67 @@
         } catch (error) {
             console.error(error);
             showAlert(pageAlert, "Failed to cancel reminder.", "danger");
+        }
+    });
+
+    const moveToInvoiceForm = document.getElementById("task-move-to-invoice-form");
+    const moveToInvoiceAlert = document.getElementById("task-move-to-invoice-alert");
+    const moveToInvoiceSubmit = document.getElementById("task-move-to-invoice-submit");
+
+    moveToInvoiceForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        hideAlert(moveToInvoiceAlert);
+        if (!isTaskAdmin || detail.dataset.invoiced === "1") {
+            showAlert(moveToInvoiceAlert, "This task cannot be moved to an invoice.", "warning");
+            return;
+        }
+
+        const invoiceId = Number(document.getElementById("task-invoice-select")?.value || 0);
+        const item = document.getElementById("task-invoice-item")?.value?.trim() || "";
+        const cost = Number(document.getElementById("task-invoice-cost")?.value || "");
+        const quantity = Number(document.getElementById("task-invoice-quantity")?.value || "");
+
+        if (!(invoiceId >= 1)) {
+            showAlert(moveToInvoiceAlert, "Select an invoice.", "danger");
+            return;
+        }
+        if (!item) {
+            showAlert(moveToInvoiceAlert, "Item is required.", "danger");
+            return;
+        }
+        if (!Number.isFinite(cost) || cost < 0) {
+            showAlert(moveToInvoiceAlert, "Enter a valid cost.", "danger");
+            return;
+        }
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            showAlert(moveToInvoiceAlert, "Quantity must be greater than 0.", "danger");
+            return;
+        }
+
+        if (moveToInvoiceSubmit) moveToInvoiceSubmit.disabled = true;
+        try {
+            const response = await fetch(`/api/tasks/${taskId}/move-to-invoice`, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    customer_invoice_id: invoiceId,
+                    item,
+                    cost,
+                    quantity,
+                }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showAlert(moveToInvoiceAlert, data.error || "Failed to add to invoice.", "danger");
+                return;
+            }
+            window.location.reload();
+        } catch (error) {
+            console.error(error);
+            showAlert(moveToInvoiceAlert, "Failed to add to invoice.", "danger");
+        } finally {
+            if (moveToInvoiceSubmit) moveToInvoiceSubmit.disabled = false;
         }
     });
 

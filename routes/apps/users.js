@@ -32,6 +32,7 @@ export default function (app) {
                 ),
                 login_method: loginMethodSchema,
                 password: t.Optional(t.String({ maxLength: 128 })),
+                hourly_rate: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
             }),
             detail: {
                 tags: ["Users"],
@@ -60,6 +61,7 @@ export default function (app) {
                 ),
                 login_method: loginMethodSchema,
                 password: t.Optional(t.String({ maxLength: 128 })),
+                hourly_rate: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
             }),
             detail: {
                 tags: ["Users"],

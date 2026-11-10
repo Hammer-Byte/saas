@@ -21,6 +21,7 @@
     const fullNameInput = form.elements.namedItem("full_name");
     const emailInput = form.elements.namedItem("email");
     const personalEmailInput = form.elements.namedItem("personal_email");
+    const hourlyRateInput = form.elements.namedItem("hourly_rate");
     const userRoleIds = new Map();
     const canManageRoles =
         typeof window.hasRequiredAuthority === "function"
@@ -119,6 +120,7 @@
         fullNameInput.value = row.dataset.fullName || "";
         emailInput.value = row.dataset.email || "";
         if (personalEmailInput) personalEmailInput.value = row.dataset.personalEmail || "";
+        if (hourlyRateInput) hourlyRateInput.value = row.dataset.hourlyRate || "";
         if (loginMethodSelect) loginMethodSelect.value = row.dataset.loginMethod || "otp";
         if (passwordInput) passwordInput.value = "";
         syncPasswordField();
@@ -242,16 +244,27 @@
         const id = idInput.value ? Number(idInput.value) : null;
         const loginMethod = loginMethodSelect?.value || "otp";
         const password = passwordInput?.value || "";
+        const hourlyRateRaw = (hourlyRateInput?.value || "").trim();
         const payload = {
             full_name: fullNameInput.value.trim(),
             email: emailInput.value.trim(),
             personal_email: (personalEmailInput?.value || "").trim() || null,
             login_method: loginMethod,
+            hourly_rate: null,
         };
 
         if (!payload.full_name || !payload.email) {
             showAlert(formAlert, "Please fill in full name and email.", "danger");
             return;
+        }
+
+        if (hourlyRateRaw !== "") {
+            const hourlyRate = Number(hourlyRateRaw);
+            if (!Number.isFinite(hourlyRate) || hourlyRate < 0) {
+                showAlert(formAlert, "Enter a valid hourly rate.", "danger");
+                return;
+            }
+            payload.hourly_rate = hourlyRate;
         }
 
         if ((loginMethod === "password" || loginMethod === "both") && !id && password.length < 8) {

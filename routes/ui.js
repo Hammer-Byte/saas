@@ -73,6 +73,7 @@ import { getAllTasks, getTaskById, getTasksByProjectId } from "../db/tasks.js";
 import { getAllTaskActivitiesByTaskId } from "../db/task_activities.js";
 import { getAllTaskAttachmentsByTaskId } from "../db/task_attachments.js";
 import { getAllTaskCommentsByTaskId } from "../db/task_comments.js";
+import { getTaskEffortsByTaskId } from "../db/task_efforts.js";
 import { getAllTaskFollowersByTaskId, getTaskFollowerByTaskIdAndUserId } from "../db/task_followers.js";
 import { getAllTaskRemindersByTaskId } from "../db/task_reminders.js";
 import { buildSprintBurnReport, buildTaskReport } from "../services/task_report.js";
@@ -461,6 +462,10 @@ export const uiRoutes = new Elysia()
                         (sessionUserId === Number(task.assignee_user_id) ||
                             sessionUserId === Number(task.reviewer_user_id)));
 
+                const projectInvoices = task.project_id
+                    ? await getCustomerInvoicesByProjectId({ project_id: task.project_id })
+                    : [];
+
                 return render("task", appPage(session, {
                     title: `${task.title} — Tasks — HammerByte`,
                     task,
@@ -469,6 +474,8 @@ export const uiRoutes = new Elysia()
                     canMoveTask,
                     users: await getAllUsers(),
                     projects: await getAllCustomerProjects(),
+                    projectInvoices,
+                    efforts: await getTaskEffortsByTaskId({ task_id: task.id }),
                     comments: await getAllTaskCommentsByTaskId({ task_id: task.id }),
                     attachments: await getAllTaskAttachmentsByTaskId({ task_id: task.id }),
                     reminders: await getAllTaskRemindersByTaskId({ task_id: task.id }),

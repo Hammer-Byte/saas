@@ -9,9 +9,10 @@
     const multiFilters = [keywordFilter, stageFilter, assigneeFilter].filter(Boolean);
     const showAllFilter = document.getElementById("gem-filter-show-all");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
-    const quantityClearBtn = document.getElementById("gem-filter-quantity-clear");
     const quoteFilter = document.getElementById("gem-filter-quote");
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
+    const applyFiltersBtn = document.getElementById("gem-filters-apply-btn");
+    const filtersPanel = document.getElementById("gem-tenders-filters-panel");
     const searchInput = document.getElementById("gem-tenders-search");
     const tableBody = document.getElementById("gem-tenders-tbody");
     const tableWrap = document.getElementById("gem-tenders-table-wrap");
@@ -106,6 +107,12 @@
         labelEl.textContent = `${labels.slice(0, 2).join(", ")} +${labels.length - 2}`;
     }
 
+    function normalizeDateInput(value) {
+        const raw = String(value || "").trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+        return window.getWritableDate?.("YYYY-MM-DD", raw) || "";
+    }
+
     function collectFilters() {
         const columns = {};
         for (const select of columnFilters) {
@@ -114,8 +121,8 @@
             columns[column] = select.value || "";
         }
         return {
-            from: window.getWritableDate?.("YYYY-MM-DD", fromInput?.value || "") || "",
-            to: window.getWritableDate?.("YYYY-MM-DD", toInput?.value || "") || "",
+            from: normalizeDateInput(fromInput?.value || ""),
+            to: normalizeDateInput(toInput?.value || ""),
             keywords: selectedMultiValues(keywordFilter),
             stages: selectedMultiValues(stageFilter),
             assignees: selectedMultiValues(assigneeFilter),
@@ -125,6 +132,71 @@
             quote: quoteFilter?.value || "",
             columns,
         };
+    }
+
+    function closeFiltersPanel() {
+        const instance = window.bootstrap?.Offcanvas?.getInstance?.(filtersPanel);
+        instance?.hide();
+    }
+
+    function currentPageDates() {
+        return {
+            from:
+                fromInput?.dataset.pageFrom ||
+                new URL(window.location.href).searchParams.get("from") ||
+                "",
+            to:
+                toInput?.dataset.pageTo ||
+                new URL(window.location.href).searchParams.get("to") ||
+                "",
+        };
+    }
+
+    function commitFilters({ reloadIfDatesChanged = true } = {}) {
+        const filters = collectFilters();
+        const from = filters.from;
+        const to = filters.to;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+            window.alert("Select valid Ends from and Ends to dates.");
+            return false;
+        }
+
+        writeStoredFilters(filters);
+
+        if (reloadIfDatesChanged) {
+            const pageDates = currentPageDates();
+            if (from !== pageDates.from || to !== pageDates.to) {
+                const url = new URL(window.location.href);
+                url.searchParams.set("from", from);
+                url.searchParams.set("to", to);
+                window.location.assign(url.toString());
+                return true;
+            }
+        }
+
+        applyFilters();
+        closeFiltersPanel();
+        return true;
+    }
+
+    function parseEndAtMs(value) {
+        if (!value) return null;
+        const normalized =
+            window.getWritableDate?.("YYYY-MM-DD HH:mm:ss", value) ||
+            String(value).trim().replace(" ", "T");
+        const parsed = Date.parse(normalized);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    function markEndsSoonRows() {
+        const nowMs = Date.now();
+        const windowMs = 24 * 60 * 60 * 1000;
+        for (const row of rows) {
+            const endMs = parseEndAtMs(row.dataset.endAt);
+            const endsSoon =
+                endMs != null && endMs >= nowMs && endMs - nowMs <= windowMs;
+            row.classList.toggle("gem-tender-ends-soon", endsSoon);
+        }
     }
 
     function finishListLoading() {
@@ -140,20 +212,8 @@
     }
 
     dateForm?.addEventListener("submit", (event) => {
-        const from = window.getWritableDate("YYYY-MM-DD", fromInput?.value || "");
-        const to = window.getWritableDate("YYYY-MM-DD", toInput?.value || "");
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(from || "") || !/^\d{4}-\d{2}-\d{2}$/.test(to || "")) {
-            event.preventDefault();
-            window.alert("Enter valid end dates as dd/mm/yyyy.");
-            return;
-        }
-        if (fromInput) fromInput.value = from;
-        if (toInput) toInput.value = to;
-        writeStoredFilters({
-            ...collectFilters(),
-            from,
-            to,
-        });
+        event.preventDefault();
+        commitFilters();
     });
 
     const addTenderForm = document.getElementById("gem-add-tender-form");
@@ -512,6 +572,7 @@
                 ? "No tenders ending in this date range."
                 : "No tenders match the current filters.";
         }
+        markEndsSoonRows();
         syncBulkBar();
         saveFilters();
     }
@@ -584,12 +645,11 @@
         for (const select of columnFilters) {
             select.value = "";
         }
-        applyFilters();
+        commitFilters({ reloadIfDatesChanged: false });
     }
 
     for (const select of columnFilters) {
         fillColumnFilter(select);
-        select.addEventListener("change", applyFilters);
     }
 
     for (const root of multiFilters) {
@@ -597,30 +657,41 @@
         root.addEventListener("change", (event) => {
             if (!event.target?.classList?.contains("gem-multi-filter-option")) return;
             updateMultiFilterLabel(root);
-            applyFilters();
         });
     }
 
     restoreClientFilters(storedFilters);
 
-    showAllFilter?.addEventListener("change", applyFilters);
-    quantityUptoFilter?.addEventListener("input", applyFilters);
-    quantityUptoFilter?.addEventListener("change", applyFilters);
-    quantityUptoFilter?.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            applyFilters();
+    filtersPanel?.addEventListener("click", (event) => {
+        const clearBtn = event.target?.closest?.(".gem-filter-clear-btn");
+        if (!clearBtn) return;
+
+        const multiId = clearBtn.dataset.clearMulti;
+        if (multiId) {
+            setSelectedMultiValues(document.getElementById(multiId), []);
+            return;
+        }
+
+        const selectId = clearBtn.dataset.clearSelect;
+        if (selectId) {
+            const select = document.getElementById(selectId);
+            if (select) select.value = "";
+            return;
+        }
+
+        const inputId = clearBtn.dataset.clearInput;
+        if (inputId) {
+            const input = document.getElementById(inputId);
+            if (input) input.value = "";
         }
     });
-    quantityClearBtn?.addEventListener("click", () => {
-        if (quantityUptoFilter) quantityUptoFilter.value = "";
-        applyFilters();
+
+    applyFiltersBtn?.addEventListener("click", () => {
+        commitFilters();
     });
-    quoteFilter?.addEventListener("change", applyFilters);
     resetFiltersBtn?.addEventListener("click", () => {
         resetClientFilters();
     });
-    searchInput?.addEventListener("input", applyFilters);
 
     tableBody.addEventListener("change", (event) => {
         if (event.target?.classList?.contains("gem-tender-select")) {
@@ -820,18 +891,6 @@
         }
         bulkAssignBtn.disabled = false;
     });
-
-    const filtersCollapse = document.getElementById("gem-tenders-filters");
-    const filtersToggle = document.getElementById("gem-tenders-filters-toggle");
-    function syncFiltersToggleLabel() {
-        if (!filtersToggle || !filtersCollapse) return;
-        const expanded = filtersCollapse.classList.contains("show");
-        filtersToggle.textContent = expanded ? "Hide filters" : "Filters";
-        filtersToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
-    }
-    filtersCollapse?.addEventListener("shown.bs.collapse", syncFiltersToggleLabel);
-    filtersCollapse?.addEventListener("hidden.bs.collapse", syncFiltersToggleLabel);
-    syncFiltersToggleLabel();
 
     // Wait until layout/filters settle so users don't see a half-filtered flash.
     window.requestAnimationFrame(() => {

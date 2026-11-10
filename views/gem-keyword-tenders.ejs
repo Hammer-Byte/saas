@@ -33,7 +33,17 @@
                 <h1 class="h3 mb-1">Tenders</h1>
                 <p class="text-secondary mb-0">Matched GEM tenders by end date range. Open a tender for details and actions.</p>
             </div>
-            <div class="d-flex flex-wrap gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    id="gem-tenders-filters-toggle"
+                    data-bs-toggle="offcanvas"
+                    data-bs-target="#gem-tenders-filters-panel"
+                    aria-controls="gem-tenders-filters-panel"
+                >
+                    Filters
+                </button>
                 <button
                     type="button"
                     class="btn btn-primary"
@@ -53,6 +63,7 @@
                 </a>
             </div>
         </div>
+        <p class="text-secondary small mb-3" id="gem-tenders-filter-status" role="status"></p>
 
         <div id="gem-add-tender-alert" class="alert d-none" role="alert"></div>
 
@@ -130,72 +141,57 @@
             </div>
         <% } %>
 
-        <div class="card border-0 shadow-sm mb-3 gem-tenders-filters-card">
-            <div class="card-header bg-white border-0 d-flex flex-wrap justify-content-between align-items-center gap-2 py-3 px-3 px-md-4">
-                <button
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#gem-tenders-filters"
-                    aria-expanded="false"
-                    aria-controls="gem-tenders-filters"
-                    id="gem-tenders-filters-toggle"
-                >
-                    Filters
-                </button>
-                <p class="text-secondary small mb-0" id="gem-tenders-filter-status" role="status"></p>
+        <div
+            class="offcanvas offcanvas-end gem-tenders-filters-panel"
+            tabindex="-1"
+            id="gem-tenders-filters-panel"
+            aria-labelledby="gem-tenders-filters-panel-label"
+        >
+            <div class="offcanvas-header border-bottom">
+                <h2 class="offcanvas-title h5 mb-0" id="gem-tenders-filters-panel-label">Filters</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
-            <div class="collapse" id="gem-tenders-filters">
-                <div class="card-body border-top pt-3 px-3 px-md-4 pb-3">
-                    <form
-                        class="row g-2 align-items-end gem-tenders-date-range mb-2"
-                        method="get"
-                        action="/app/gem-keyword-tenders"
-                        id="gem-tenders-date-form"
-                    >
-                        <div class="col-6 col-md-3 col-xl-2">
-                            <label for="gem-tenders-from" class="form-label">Ends from</label>
-                            <input
-                                type="text"
-                                class="form-control form-control-sm js-date-input"
-                                id="gem-tenders-from"
-                                name="from"
-                                placeholder="dd/mm/yyyy"
-                                autocomplete="off"
-                                inputmode="numeric"
-                                data-date-value="<%= from %>"
-                                value="<%= from %>"
-                                required
-                            />
-                        </div>
-                        <div class="col-6 col-md-3 col-xl-2">
-                            <label for="gem-tenders-to" class="form-label">Ends to</label>
-                            <input
-                                type="text"
-                                class="form-control form-control-sm js-date-input"
-                                id="gem-tenders-to"
-                                name="to"
-                                placeholder="dd/mm/yyyy"
-                                autocomplete="off"
-                                inputmode="numeric"
-                                data-date-value="<%= to %>"
-                                value="<%= to %>"
-                                required
-                            />
-                        </div>
-                        <div class="col-12 col-md-3 col-xl-2">
-                            <button type="submit" class="btn btn-primary btn-sm w-100">Apply dates</button>
-                        </div>
-                    </form>
-                    <div class="row g-2 align-items-end gem-tenders-filters-row">
-                        <div class="col-6 col-md-4 col-xl-2">
-                            <span class="form-label d-block">Keyword</span>
-                            <div class="dropdown gem-multi-filter w-100" id="gem-filter-keyword" data-empty-label="All keywords">
+            <div class="offcanvas-body d-flex flex-column p-0">
+                <form
+                    class="flex-grow-1 overflow-auto p-3 gem-tenders-filters-form"
+                    method="get"
+                    action="/app/gem-keyword-tenders"
+                    id="gem-tenders-date-form"
+                >
+                    <div class="mb-3">
+                        <label for="gem-tenders-from" class="form-label">Ends from</label>
+                        <input
+                            type="date"
+                            class="form-control form-control-sm"
+                            id="gem-tenders-from"
+                            name="from"
+                            value="<%= from %>"
+                            data-page-from="<%= from %>"
+                            required
+                        />
+                    </div>
+                    <div class="mb-3">
+                        <label for="gem-tenders-to" class="form-label">Ends to</label>
+                        <input
+                            type="date"
+                            class="form-control form-control-sm"
+                            id="gem-tenders-to"
+                            name="to"
+                            value="<%= to %>"
+                            data-page-to="<%= to %>"
+                            required
+                        />
+                    </div>
+                    <div class="mb-3">
+                        <span class="form-label d-block">Keyword</span>
+                        <div class="d-flex gap-1 align-items-stretch">
+                            <div class="dropdown gem-multi-filter flex-grow-1" id="gem-filter-keyword" data-empty-label="All keywords">
                                 <button
                                     class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
                                     type="button"
                                     data-bs-toggle="dropdown"
                                     data-bs-auto-close="outside"
+                                    data-bs-display="static"
                                     aria-expanded="false"
                                 >
                                     <span class="gem-multi-filter-label">All keywords</span>
@@ -217,15 +213,26 @@
                                     <% }) %>
                                 </div>
                             </div>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm gem-filter-clear-btn"
+                                data-clear-multi="gem-filter-keyword"
+                                title="Clear keyword"
+                            >
+                                Clear
+                            </button>
                         </div>
-                        <div class="col-6 col-md-4 col-xl-2">
-                            <span class="form-label d-block">Stage</span>
-                            <div class="dropdown gem-multi-filter w-100" id="gem-filter-stage" data-empty-label="All stages">
+                    </div>
+                    <div class="mb-3">
+                        <span class="form-label d-block">Stage</span>
+                        <div class="d-flex gap-1 align-items-stretch">
+                            <div class="dropdown gem-multi-filter flex-grow-1" id="gem-filter-stage" data-empty-label="All stages">
                                 <button
                                     class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
                                     type="button"
                                     data-bs-toggle="dropdown"
                                     data-bs-auto-close="outside"
+                                    data-bs-display="static"
                                     aria-expanded="false"
                                 >
                                     <span class="gem-multi-filter-label">All stages</span>
@@ -247,25 +254,46 @@
                                     <% }) %>
                                 </div>
                             </div>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm gem-filter-clear-btn"
+                                data-clear-multi="gem-filter-stage"
+                                title="Clear stage"
+                            >
+                                Clear
+                            </button>
                         </div>
-                        <div class="col-6 col-md-4 col-xl-2">
-                            <label for="gem-tenders-search" class="form-label">Search</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="gem-tenders-search" class="form-label">Search</label>
+                        <div class="input-group input-group-sm">
                             <input
                                 type="search"
-                                class="form-control form-control-sm"
+                                class="form-control"
                                 id="gem-tenders-search"
                                 placeholder="Tender ID…"
                                 autocomplete="off"
                             />
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                data-clear-input="gem-tenders-search"
+                                title="Clear search"
+                            >
+                                Clear
+                            </button>
                         </div>
-                        <div class="col-6 col-md-4 col-xl-2">
-                            <span class="form-label d-block">Assignee</span>
-                            <div class="dropdown gem-multi-filter w-100" id="gem-filter-assignee" data-empty-label="All assignees">
+                    </div>
+                    <div class="mb-3">
+                        <span class="form-label d-block">Assignee</span>
+                        <div class="d-flex gap-1 align-items-stretch">
+                            <div class="dropdown gem-multi-filter flex-grow-1" id="gem-filter-assignee" data-empty-label="All assignees">
                                 <button
                                     class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
                                     type="button"
                                     data-bs-toggle="dropdown"
                                     data-bs-auto-close="outside"
+                                    data-bs-display="static"
                                     aria-expanded="false"
                                 >
                                     <span class="gem-multi-filter-label">All assignees</span>
@@ -299,87 +327,137 @@
                                     <% }) %>
                                 </div>
                             </div>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm gem-filter-clear-btn"
+                                data-clear-multi="gem-filter-assignee"
+                                title="Clear assignee"
+                            >
+                                Clear
+                            </button>
                         </div>
-                        <div class="col-6 col-md-4 col-xl-1">
-                            <label for="gem-filter-past-experience" class="form-label">Past exp.</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="gem-filter-past-experience" class="form-label">Past exp.</label>
+                        <div class="input-group input-group-sm">
                             <select
-                                class="form-select form-select-sm gem-tender-column-filter"
+                                class="form-select gem-tender-column-filter"
                                 id="gem-filter-past-experience"
                                 data-column="pastExperience"
                             >
                                 <option value="">All</option>
                             </select>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                data-clear-select="gem-filter-past-experience"
+                                title="Clear past experience"
+                            >
+                                Clear
+                            </button>
                         </div>
-                        <div class="col-6 col-md-4 col-xl-1">
-                            <label for="gem-filter-mse-exp" class="form-label">MSE exp exc…</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="gem-filter-mse-exp" class="form-label">Experience Relaxation</label>
+                        <div class="input-group input-group-sm">
                             <select
-                                class="form-select form-select-sm gem-tender-column-filter"
+                                class="form-select gem-tender-column-filter"
                                 id="gem-filter-mse-exp"
                                 data-column="mseExp"
                             >
                                 <option value="">All</option>
                             </select>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                data-clear-select="gem-filter-mse-exp"
+                                title="Clear experience relaxation"
+                            >
+                                Clear
+                            </button>
                         </div>
-                        <div class="col-6 col-md-4 col-xl-1">
-                            <label for="gem-filter-mse-turnover" class="form-label">MSE turn exc…</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="gem-filter-mse-turnover" class="form-label">Turnover Relaxation</label>
+                        <div class="input-group input-group-sm">
                             <select
-                                class="form-select form-select-sm gem-tender-column-filter"
+                                class="form-select gem-tender-column-filter"
                                 id="gem-filter-mse-turnover"
                                 data-column="mseTurnover"
                             >
                                 <option value="">All</option>
                             </select>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                data-clear-select="gem-filter-mse-turnover"
+                                title="Clear turnover relaxation"
+                            >
+                                Clear
+                            </button>
                         </div>
-                        <div class="col-6 col-md-4 col-xl-2">
-                            <label for="gem-filter-quantity-upto" class="form-label">Qty up to</label>
-                            <div class="input-group input-group-sm">
-                                <input
-                                    type="number"
-                                    class="form-control"
-                                    id="gem-filter-quantity-upto"
-                                    min="1"
-                                    step="1"
-                                    placeholder="e.g. 10"
-                                    inputmode="numeric"
-                                />
-                                <button
-                                    type="button"
-                                    class="btn btn-outline-secondary"
-                                    id="gem-filter-quantity-clear"
-                                    title="Clear quantity"
-                                >
-                                    Clear
-                                </button>
-                            </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="gem-filter-quantity-upto" class="form-label">Quantity up to</label>
+                        <div class="input-group input-group-sm">
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="gem-filter-quantity-upto"
+                                min="1"
+                                step="1"
+                                placeholder="e.g. 10"
+                                inputmode="numeric"
+                            />
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                data-clear-input="gem-filter-quantity-upto"
+                                id="gem-filter-quantity-clear"
+                                title="Clear quantity"
+                            >
+                                Clear
+                            </button>
                         </div>
-                        <div class="col-6 col-md-4 col-xl-2">
-                            <label for="gem-filter-quote" class="form-label">Quote</label>
-                            <select class="form-select form-select-sm" id="gem-filter-quote">
+                    </div>
+                    <div class="mb-3">
+                        <label for="gem-filter-quote" class="form-label">Quote</label>
+                        <div class="input-group input-group-sm">
+                            <select class="form-select" id="gem-filter-quote">
                                 <option value="">All</option>
                                 <option value="given">Quote given</option>
                                 <option value="missing">Quote not given</option>
                             </select>
-                        </div>
-                        <div class="col-6 col-md-4 col-xl-auto d-flex flex-wrap align-items-end gap-2">
-                            <div class="form-check mb-1">
-                                <input
-                                    class="form-check-input"
-                                    type="checkbox"
-                                    id="gem-filter-show-all"
-                                />
-                                <label class="form-check-label small" for="gem-filter-show-all">
-                                    Show out of scope / unattended / missed
-                                </label>
-                            </div>
                             <button
                                 type="button"
-                                class="btn btn-outline-secondary btn-sm"
-                                id="gem-filters-reset-btn"
+                                class="btn btn-outline-secondary gem-filter-clear-btn"
+                                data-clear-select="gem-filter-quote"
+                                title="Clear quote"
                             >
-                                Reset filters
+                                Clear
                             </button>
                         </div>
                     </div>
+                    <div class="mb-1">
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="gem-filter-show-all"
+                            />
+                            <label class="form-check-label small" for="gem-filter-show-all">
+                                Show out of scope / unattended / missed
+                            </label>
+                        </div>
+                    </div>
+                </form>
+                <div class="border-top p-3 d-grid gap-2 gem-tenders-filters-actions">
+                    <button type="button" class="btn btn-primary" id="gem-filters-apply-btn">
+                        Apply filters
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="gem-filters-reset-btn">
+                        Reset filters
+                    </button>
                 </div>
             </div>
         </div>
@@ -418,9 +496,6 @@
                                     />
                                 </th>
                                 <th scope="col">Tender ID</th>
-                                <th scope="col">Keyword</th>
-                                <th scope="col">Stage</th>
-                                <th scope="col">Assignee</th>
                                 <th
                                     scope="col"
                                     class="gem-tenders-sortable"
@@ -432,7 +507,8 @@
                                 >
                                     Ends at <span class="gem-tenders-sort-indicator" aria-hidden="true"></span>
                                 </th>
-                                <th scope="col">Buyer</th>
+                                <th scope="col">Keyword</th>
+                                <th scope="col" class="gem-tenders-buyer-col">Buyer</th>
                                 <th
                                     scope="col"
                                     class="gem-tenders-sortable"
@@ -442,11 +518,14 @@
                                     tabindex="0"
                                     title="Sort by quantity"
                                 >
-                                    Qty <span class="gem-tenders-sort-indicator" aria-hidden="true"></span>
+                                    Quantity <span class="gem-tenders-sort-indicator" aria-hidden="true"></span>
                                 </th>
+                                <th scope="col">EMD</th>
                                 <th scope="col">Past exp.</th>
-                                <th scope="col">MSE Experience Relaxation</th>
-                                <th scope="col">MSE Turnover Relaxation</th>
+                                <th scope="col">Experience Relaxation</th>
+                                <th scope="col">Turnover Relaxation</th>
+                                <th scope="col">Stage</th>
+                                <th scope="col">Assignee</th>
                             </tr>
                         </thead>
                         <tbody id="gem-tenders-tbody">
@@ -454,6 +533,18 @@
                                     <% const stage = tender.stage || "new"; %>
                                     <% const quoteText = String(tender.quote || "").trim(); %>
                                     <% const hasQuote = !!quoteText; %>
+                                    <% const emdAmount = Number(tender.emd_amount || 0); %>
+                                    <%
+                                        const buyerParts = [
+                                            tender.ministry,
+                                            tender.department,
+                                            tender.organization,
+                                            tender.office,
+                                        ].filter(Boolean);
+                                        const buyerText = buyerParts.length ? buyerParts.join(" / ") : "-";
+                                        const assigneeName = tender.assignee_full_name || "-";
+                                        const stageLabel = stageLabels[stage] || stage || "New";
+                                    %>
                                     <tr
                                         data-id="<%= tender.id %>"
                                         data-keyword-id="<%= tender.keyword_id %>"
@@ -483,32 +574,36 @@
                                             <%= tender.tender_id %>
                                         </a>
                                     </td>
-                                    <td><%= tender.keyword || "-" %></td>
-                                    <td><%= stageLabels[stage] || stage || "New" %></td>
-                                    <td><%= tender.assignee_full_name || "-" %></td>
                                     <td
+                                        class="gem-tenders-ends-at"
                                         data-readable-date="<%= tender.end_date_time || '' %>"
                                         data-date-format="DD/MM/YYYY HH:mm:ss"
                                     ></td>
-                                    <td>
-                                        <%
-                                            const buyerParts = [
-                                                tender.ministry,
-                                                tender.department,
-                                                tender.organization,
-                                                tender.office,
-                                            ].filter(Boolean);
-                                        %>
-                                        <% if (buyerParts.length) { %>
-                                            <%= buyerParts.join(" / ") %>
-                                        <% } else { %>
-                                            -
-                                        <% } %>
+                                    <td><%= tender.keyword || "-" %></td>
+                                    <td class="gem-tenders-buyer-col">
+                                        <span class="gem-tenders-buyer-text" title="<%= buyerText %>">
+                                            <%= buyerText %>
+                                        </span>
                                     </td>
                                     <td><%= Number(tender.quantity || 0) > 0 ? Number(tender.quantity) : "NA" %></td>
+                                    <td>
+                                        <%= emdAmount > 0
+                                            ? emdAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })
+                                            : "NA" %>
+                                    </td>
                                     <td><%= tender.required_past_experice_years || "-" %></td>
                                     <td><%= tender.mse_experience_relaxation || "-" %></td>
                                     <td><%= tender.mse_turnover_relaxation || "-" %></td>
+                                    <td>
+                                        <span class="gem-tender-tag gem-tender-stage-tag gem-tender-stage-<%= stage %>">
+                                            <%= stageLabel %>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="gem-tender-tag gem-tender-assignee-tag<%= tender.assignee_user_id ? '' : ' gem-tender-assignee-empty' %>">
+                                            <%= assigneeName %>
+                                        </span>
+                                    </td>
                                 </tr>
                             <% }) %>
                         </tbody>
@@ -533,10 +628,21 @@
         flex-direction: column;
     }
     .gem-tenders-page-header,
+    #gem-tenders-filter-status,
     #gem-tenders-bulk-assign-bar,
-    #gem-tenders-bulk-stage-bar,
-    .gem-tenders-filters-card {
+    #gem-tenders-bulk-stage-bar {
         flex: 0 0 auto;
+    }
+    .gem-tenders-filters-panel {
+        width: min(24rem, 100vw);
+    }
+    .gem-tenders-filters-form .form-label {
+        font-size: 0.8rem;
+        margin-bottom: 0.3rem;
+    }
+    .gem-tenders-filters-actions {
+        flex: 0 0 auto;
+        background: #fff;
     }
     #gem-tenders-bulk-assign-bar,
     #gem-tenders-bulk-stage-bar {
@@ -594,10 +700,6 @@
         content: "▼";
         opacity: 0.85;
     }
-    .gem-tenders-filters-row .form-label {
-        font-size: 0.75rem;
-        margin-bottom: 0.25rem;
-    }
     .gem-multi-filter .gem-multi-filter-toggle {
         overflow: hidden;
         text-overflow: ellipsis;
@@ -610,6 +712,105 @@
     }
     .gem-multi-filter-menu .form-check {
         margin-bottom: 0.25rem;
+    }
+    .gem-tenders-buyer-col {
+        max-width: 10rem;
+        width: 10rem;
+    }
+    .gem-tenders-buyer-text {
+        display: block;
+        max-width: 10rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .gem-tender-tag {
+        display: inline-block;
+        max-width: 100%;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1.2;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+    .gem-tender-stage-tag {
+        color: #1f2937;
+        background: #e5e7eb;
+        border-color: #d1d5db;
+    }
+    .gem-tender-stage-new {
+        color: #1e3a8a;
+        background: #dbeafe;
+        border-color: #93c5fd;
+    }
+    .gem-tender-stage-assigned {
+        color: #164e63;
+        background: #cffafe;
+        border-color: #67e8f9;
+    }
+    .gem-tender-stage-waiting_for_docs {
+        color: #713f12;
+        background: #fef3c7;
+        border-color: #fcd34d;
+    }
+    .gem-tender-stage-preparing_docs {
+        color: #7c2d12;
+        background: #ffedd5;
+        border-color: #fdba74;
+    }
+    .gem-tender-stage-eligible {
+        color: #14532d;
+        background: #dcfce7;
+        border-color: #86efac;
+    }
+    .gem-tender-stage-not_eligible {
+        color: #7f1d1d;
+        background: #fee2e2;
+        border-color: #fca5a5;
+    }
+    .gem-tender-stage-filed {
+        color: #312e81;
+        background: #e0e7ff;
+        border-color: #a5b4fc;
+    }
+    .gem-tender-stage-out_of_scope,
+    .gem-tender-stage-unattended,
+    .gem-tender-stage-missed {
+        color: #374151;
+        background: #f3f4f6;
+        border-color: #d1d5db;
+    }
+    .gem-tender-assignee-tag {
+        color: #5b21b6;
+        background: #ede9fe;
+        border-color: #c4b5fd;
+    }
+    .gem-tender-assignee-empty {
+        color: #6b7280;
+        background: #f3f4f6;
+        border-color: #d1d5db;
+        font-weight: 500;
+    }
+    #gem-tenders-table tbody tr.gem-tender-ends-soon {
+        animation: gem-tender-ends-soon-blink 1.2s ease-in-out infinite;
+    }
+    #gem-tenders-table tbody tr.gem-tender-ends-soon .gem-tenders-ends-at {
+        color: #b91c1c;
+        font-weight: 700;
+    }
+    @keyframes gem-tender-ends-soon-blink {
+        0%,
+        100% {
+            background-color: #ffe5e5;
+            box-shadow: inset 0 0 0 1px rgba(220, 53, 69, 0.15);
+        }
+        50% {
+            background-color: #ffc9c9;
+            box-shadow: inset 0 0 0 1px rgba(220, 53, 69, 0.4);
+        }
     }
 </style>
 

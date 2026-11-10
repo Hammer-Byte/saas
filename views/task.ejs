@@ -10,6 +10,10 @@
     const reviewerUserId = task.reviewer_user_id ? Number(task.reviewer_user_id) : null;
     const projectId = task.project_id ? Number(task.project_id) : null;
     const canEditTask = !!canMoveTask;
+    const taskAdmin = !!isTaskAdmin;
+    const invoiced = !!(task.customer_invoice_id);
+    const invoices = projectInvoices || [];
+    const effortRows = efforts || [];
 %>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -39,21 +43,47 @@
                     Created by <%= task.created_by_full_name || task.created_by_email || "—" %>
                 </p>
             </div>
-            <a href="/app/tasks" class="btn btn-outline-secondary">Back to tasks</a>
+            <div class="d-flex flex-wrap gap-2">
+                <% if (taskAdmin && !invoiced && projectId) { %>
+                    <button
+                        type="button"
+                        class="btn btn-outline-primary"
+                        id="task-move-to-invoice-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#task-move-to-invoice-modal"
+                    >
+                        Move to invoice
+                    </button>
+                <% } %>
+                <a href="/app/tasks" class="btn btn-outline-secondary">Back to tasks</a>
+            </div>
         </div>
 
         <div id="task-alert" class="alert d-none" role="alert"></div>
+
+        <% if (invoiced) { %>
+            <div class="alert alert-info" role="status">
+                Added to invoice
+                <a href="/app/invoices/<%= task.customer_invoice_id %>" class="alert-link">
+                    #<%= task.customer_invoice_id %><% if (task.invoice_hbt_sequence) { %> (HBT-<%= task.invoice_hbt_sequence %>)<% } %>
+                </a>.
+            </div>
+        <% } %>
 
         <div
             class="card border-0 shadow-sm mb-4"
             id="task-detail"
             data-id="<%= task.id %>"
             data-current-user-id="<%= currentUserId %>"
-            data-is-task-admin="<%= isTaskAdmin ? '1' : '0' %>"
+            data-is-task-admin="<%= taskAdmin ? '1' : '0' %>"
             data-can-move="<%= canEditTask ? '1' : '0' %>"
             data-state="<%= task.state || '' %>"
             data-assignee-id="<%= assigneeUserId || '' %>"
             data-reviewer-id="<%= reviewerUserId || '' %>"
+            data-initial-assignee-id="<%= assigneeUserId || '' %>"
+            data-cost="<%= task.cost != null ? task.cost : '' %>"
+            data-charge="<%= task.charge != null ? task.charge : '' %>"
+            data-invoiced="<%= invoiced ? '1' : '0' %>"
         >
             <div class="card-body p-4">
                 <% if (!canEditTask) { %>
@@ -257,6 +287,26 @@
                                 value="<%= task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : '' %>"
                             />
                             <div class="form-text">Empty = backlog. Snaps to Monday.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="task-edit-cost" class="form-label">Cost</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="task-edit-cost"
+                                name="cost"
+                                min="0"
+                                step="0.01"
+                                value="<%= task.cost != null ? task.cost : '' %>"
+                            />
+                            <div class="form-text">Manual amount for this ticket.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="form-label mb-1">Charge</p>
+                            <p class="mb-0 fw-semibold" id="task-charge-display">
+                                <%= task.charge != null ? Number(task.charge).toFixed(2) : "—" %>
+                            </p>
+                            <div class="form-text">Hours × assignee rate (incl. logged efforts).</div>
                         </div>
                         <div class="col-md-4">
                             <p class="form-label mb-1">Completed on</p>
@@ -491,6 +541,48 @@
             <div class="col-lg-6">
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-header bg-white border-0 pt-4 px-4">
+                        <h2 class="h5 mb-0">Assignee efforts</h2>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <p class="text-secondary small">
+                            Logged when the assignee changes. Charge = hours × that user’s rate at the time.
+                        </p>
+                        <% if (!effortRows.length) { %>
+                            <p class="text-secondary mb-0">No effort logs yet.</p>
+                        <% } else { %>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Assignee</th>
+                                            <th>Hours</th>
+                                            <th>Rate</th>
+                                            <th>Charge</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% effortRows.forEach(function (effort) { %>
+                                            <tr>
+                                                <td>
+                                                    <%= effort.user_full_name || effort.user_email %>
+                                                    <% if (effort.note) { %>
+                                                        <div class="small text-secondary"><%= effort.note %></div>
+                                                    <% } %>
+                                                </td>
+                                                <td><%= Number(effort.hours || 0).toFixed(2) %></td>
+                                                <td><%= Number(effort.hourly_rate || 0).toFixed(2) %></td>
+                                                <td><%= Number(effort.charge || 0).toFixed(2) %></td>
+                                            </tr>
+                                        <% }) %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <% } %>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
                         <h2 class="h5 mb-0">Followers</h2>
                     </div>
                     <div class="card-body px-4 pb-4">
@@ -566,6 +658,121 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="task-spent-hours-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="task-spent-hours-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Log previous assignee effort</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small">
+                        Assignee is changing. Enter hours spent by the previous assignee so charge can be calculated at their rate.
+                    </p>
+                    <div class="mb-3">
+                        <label for="task-spent-hours" class="form-label">Spent hours</label>
+                        <input
+                            type="number"
+                            class="form-control"
+                            id="task-spent-hours"
+                            min="0"
+                            max="8"
+                            step="0.25"
+                            required
+                        />
+                    </div>
+                    <div class="mb-0">
+                        <label for="task-spent-hours-note" class="form-label">Note (optional)</label>
+                        <input type="text" class="form-control" id="task-spent-hours-note" maxlength="512" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Continue save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<% if (taskAdmin && !invoiced && projectId) { %>
+<div class="modal fade" id="task-move-to-invoice-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="task-move-to-invoice-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Move to invoice</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="task-move-to-invoice-alert" class="alert d-none" role="alert"></div>
+                    <div class="mb-3">
+                        <label for="task-invoice-select" class="form-label">Project invoice</label>
+                        <select class="form-select" id="task-invoice-select" required>
+                            <option value="">Select invoice…</option>
+                            <% invoices.forEach(function (invoice) { %>
+                                <option value="<%= invoice.id %>">
+                                    #<%= invoice.id %><% if (invoice.hbt_sequence) { %> · HBT-<%= invoice.hbt_sequence %><% } %>
+                                    · <%= invoice.due_date ? String(invoice.due_date).slice(0, 10) : "" %>
+                                    · total <%= Number(invoice.total || 0).toFixed(2) %>
+                                </option>
+                            <% }) %>
+                        </select>
+                        <% if (!invoices.length) { %>
+                            <div class="form-text text-danger">No invoices found for this project.</div>
+                        <% } %>
+                    </div>
+                    <div class="mb-3">
+                        <label for="task-invoice-item" class="form-label">Item</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="task-invoice-item"
+                            maxlength="128"
+                            value="<%= (task.title || '').replace(/"/g, '&quot;') %>"
+                            required
+                        />
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="task-invoice-cost" class="form-label">Cost</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="task-invoice-cost"
+                                min="0"
+                                step="0.01"
+                                value="<%= task.cost != null ? task.cost : (task.charge != null ? task.charge : '') %>"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="task-invoice-quantity" class="form-label">Quantity</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="task-invoice-quantity"
+                                min="0.01"
+                                step="0.01"
+                                value="1"
+                                required
+                            />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="task-move-to-invoice-submit" <%= invoices.length ? '' : 'disabled' %>>
+                        Add to invoice
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<% } %>
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>

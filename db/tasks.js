@@ -6,6 +6,8 @@ export async function createTask({
     description = null,
     expected_hours = null,
     actual_hours = null,
+    cost = null,
+    charge = null,
     start_at = null,
     end_at = null,
     completed_on = null,
@@ -26,6 +28,8 @@ export async function createTask({
                     description,
                     expected_hours,
                     actual_hours,
+                    cost,
+                    charge,
                     start_at,
                     end_at,
                     completed_on,
@@ -42,6 +46,8 @@ export async function createTask({
                 "description",
                 "expected_hours",
                 "actual_hours",
+                "cost",
+                "charge",
                 "start_at",
                 "end_at",
                 "completed_on",
@@ -70,19 +76,23 @@ export async function getTaskById({ id }) {
                 ASSIGNEE.full_name AS assignee_full_name,
                 ASSIGNEE.email AS assignee_email,
                 ASSIGNEE.personal_email AS assignee_personal_email,
+                ASSIGNEE.hourly_rate AS assignee_hourly_rate,
                 REVIEWER.full_name AS reviewer_full_name,
                 REVIEWER.email AS reviewer_email,
                 REVIEWER.personal_email AS reviewer_personal_email,
                 CREATOR.full_name AS created_by_full_name,
                 CREATOR.email AS created_by_email,
                 CUSTOMER_PROJECTS.title AS project_title,
-                CUSTOMERS.full_name AS customer_full_name
+                CUSTOMERS.full_name AS customer_full_name,
+                CUSTOMER_INVOICES.hbt_sequence AS invoice_hbt_sequence,
+                CUSTOMER_INVOICES.due_date AS invoice_due_date
             FROM TASKS
             LEFT JOIN USERS AS ASSIGNEE ON ASSIGNEE.id = TASKS.assignee_user_id
             LEFT JOIN USERS AS REVIEWER ON REVIEWER.id = TASKS.reviewer_user_id
             INNER JOIN USERS AS CREATOR ON CREATOR.id = TASKS.created_by_user_id
             LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = TASKS.project_id
             LEFT JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_PROJECTS.customer_id
+            LEFT JOIN CUSTOMER_INVOICES ON CUSTOMER_INVOICES.id = TASKS.customer_invoice_id
             WHERE TASKS.id = ${id}
         `,
     )
@@ -201,6 +211,8 @@ export async function updateTaskById({
     description = null,
     expected_hours = null,
     actual_hours = null,
+    cost = null,
+    charge = null,
     start_at = null,
     end_at = null,
     completed_on = null,
@@ -220,6 +232,8 @@ export async function updateTaskById({
                 description = ${description},
                 expected_hours = ${expected_hours},
                 actual_hours = ${actual_hours},
+                cost = ${cost},
+                charge = ${charge},
                 start_at = ${start_at},
                 end_at = ${end_at},
                 completed_on = ${completed_on},
@@ -234,6 +248,36 @@ export async function updateTaskById({
         `,
     ).catch((error) => {
         logger.error(`updateTaskById: ${error}`);
+    });
+}
+
+export async function updateTaskChargeById({ id, charge }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE TASKS
+            SET charge = ${charge}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateTaskChargeById: ${error}`);
+    });
+}
+
+export async function updateTaskInvoiceLinkById({
+    id,
+    customer_invoice_id = null,
+    invoice_item_id = null,
+}) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE TASKS
+            SET
+                customer_invoice_id = ${customer_invoice_id},
+                invoice_item_id = ${invoice_item_id}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateTaskInvoiceLinkById: ${error}`);
     });
 }
 

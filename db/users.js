@@ -7,6 +7,7 @@ export async function createUser({
     personal_email = null,
     login_method = "otp",
     password_hash = null,
+    hourly_rate = null,
 }) {
     return await executeSQLQuery(
         (sql) => sql`
@@ -17,12 +18,14 @@ export async function createUser({
                     personal_email,
                     login_method,
                     password_hash,
+                    hourly_rate,
                 },
                 "full_name",
                 "email",
                 "personal_email",
                 "login_method",
                 "password_hash",
+                "hourly_rate",
             )}
         `,
     )
@@ -39,6 +42,7 @@ export async function updateUserById({
     personal_email = null,
     login_method,
     password_hash = null,
+    hourly_rate = null,
     update_password = false,
 }) {
     if (update_password) {
@@ -50,7 +54,8 @@ export async function updateUserById({
                     email = ${email},
                     personal_email = ${personal_email},
                     login_method = ${login_method},
-                    password_hash = ${password_hash}
+                    password_hash = ${password_hash},
+                    hourly_rate = ${hourly_rate}
                 WHERE id = ${id}
             `,
         ).catch((error) => {
@@ -66,7 +71,8 @@ export async function updateUserById({
                 full_name = ${full_name},
                 email = ${email},
                 personal_email = ${personal_email},
-                login_method = ${login_method}
+                login_method = ${login_method},
+                hourly_rate = ${hourly_rate}
             WHERE id = ${id}
         `,
     ).catch((error) => {
@@ -119,6 +125,7 @@ export async function getAllUsers() {
                 email,
                 personal_email,
                 login_method,
+                hourly_rate,
                 super_admin,
                 created_on,
                 updated_at
@@ -142,6 +149,7 @@ export async function getAllSuperAdminUsers() {
                 email,
                 personal_email,
                 login_method,
+                hourly_rate,
                 super_admin,
                 created_on,
                 updated_at

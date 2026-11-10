@@ -27,6 +27,17 @@ function passwordRequiredForMethod(loginMethod) {
     );
 }
 
+function normalizeHourlyRate(value) {
+    if (value == null || value === "") {
+        return { rate: null };
+    }
+    const rate = Number(value);
+    if (!Number.isFinite(rate) || rate < 0) {
+        return { error: "Hourly rate must be a non-negative number" };
+    }
+    return { rate: Math.round(rate * 100) / 100 };
+}
+
 export async function addUser({ body, set }) {
     const email = body.email.trim().toLowerCase();
     const existingUser = await getUserByEmail({ email });
@@ -53,6 +64,11 @@ export async function addUser({ body, set }) {
     }
 
     const personalEmail = String(body.personal_email || "").trim().toLowerCase() || null;
+    const hourlyRateResult = normalizeHourlyRate(body.hourly_rate);
+    if (hourlyRateResult.error) {
+        set.status = 400;
+        return { error: hourlyRateResult.error };
+    }
 
     const id = await createUser({
         full_name: body.full_name.trim(),
@@ -60,6 +76,7 @@ export async function addUser({ body, set }) {
         personal_email: personalEmail,
         login_method: loginMethod,
         password_hash: passwordHash,
+        hourly_rate: hourlyRateResult.rate,
     });
     if (!id) {
         set.status = 400;
@@ -117,6 +134,11 @@ export async function updateUser({ body, set }) {
     }
 
     const personalEmail = String(body.personal_email || "").trim().toLowerCase() || null;
+    const hourlyRateResult = normalizeHourlyRate(body.hourly_rate);
+    if (hourlyRateResult.error) {
+        set.status = 400;
+        return { error: hourlyRateResult.error };
+    }
 
     await updateUserById({
         id: existingUser.id,
@@ -125,6 +147,7 @@ export async function updateUser({ body, set }) {
         personal_email: personalEmail,
         login_method: loginMethod,
         password_hash: passwordHash,
+        hourly_rate: hourlyRateResult.rate,
         update_password: updatePassword,
     });
 
