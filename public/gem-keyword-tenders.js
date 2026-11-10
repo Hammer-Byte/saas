@@ -1,6 +1,5 @@
 (() => {
     const FILTERS_STORAGE_KEY = "gem-tenders-filters";
-    const dateForm = document.getElementById("gem-tenders-date-form");
     const fromInput = document.getElementById("gem-tenders-from");
     const toInput = document.getElementById("gem-tenders-to");
     const keywordFilter = document.getElementById("gem-filter-keyword");
@@ -21,6 +20,31 @@
     const filterStatus = document.getElementById("gem-tenders-filter-status");
     let listReady = false;
     const columnFilters = Array.from(document.querySelectorAll(".gem-tender-column-filter"));
+    const pageFrom =
+        fromInput?.dataset.pageFrom ||
+        new URL(window.location.href).searchParams.get("from") ||
+        "";
+    const pageTo =
+        toInput?.dataset.pageTo ||
+        new URL(window.location.href).searchParams.get("to") ||
+        "";
+
+    function emptyFilters(from = pageFrom, to = pageTo) {
+        return {
+            from: from || "",
+            to: to || "",
+            keywords: [],
+            stages: [],
+            assignees: [],
+            search: "",
+            showAll: false,
+            quantityUpto: "",
+            quote: "",
+            columns: {},
+        };
+    }
+
+    let appliedFilters = emptyFilters();
     const selectAllCheckbox = document.getElementById("gem-tenders-select-all");
     const bulkBar = document.getElementById("gem-tenders-bulk-assign-bar");
     const bulkAssignee = document.getElementById("gem-bulk-assignee");
@@ -107,31 +131,67 @@
         labelEl.textContent = `${labels.slice(0, 2).join(", ")} +${labels.length - 2}`;
     }
 
-    function normalizeDateInput(value) {
+    function normalizeDateInput(value, fallback = "") {
         const raw = String(value || "").trim();
         if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-        return window.getWritableDate?.("YYYY-MM-DD", raw) || "";
+        const parsed = window.getWritableDate?.("YYYY-MM-DD", raw) || "";
+        if (/^\d{4}-\d{2}-\d{2}$/.test(parsed)) return parsed;
+        const fallbackRaw = String(fallback || "").trim();
+        return /^\d{4}-\d{2}-\d{2}$/.test(fallbackRaw) ? fallbackRaw : "";
     }
 
-    function collectFilters() {
+    function readFiltersFromDom() {
         const columns = {};
         for (const select of columnFilters) {
             const column = select.dataset.column;
             if (!column) continue;
-            columns[column] = select.value || "";
+            columns[column] = String(select.value || "").trim();
         }
+        const quote = String(quoteFilter?.value || "").trim();
         return {
-            from: normalizeDateInput(fromInput?.value || ""),
-            to: normalizeDateInput(toInput?.value || ""),
+            from: normalizeDateInput(fromInput?.value || "", pageFrom),
+            to: normalizeDateInput(toInput?.value || "", pageTo),
             keywords: selectedMultiValues(keywordFilter),
             stages: selectedMultiValues(stageFilter),
             assignees: selectedMultiValues(assigneeFilter),
-            search: searchInput?.value || "",
+            search: String(searchInput?.value || "").trim(),
             showAll: !!showAllFilter?.checked,
-            quantityUpto: quantityUptoFilter?.value || "",
-            quote: quoteFilter?.value || "",
+            quantityUpto: String(quantityUptoFilter?.value || "").trim(),
+            quote: quote === "given" || quote === "missing" ? quote : "",
             columns,
         };
+    }
+
+    function writeFiltersToDom(filters) {
+        if (!filters) return;
+        if (fromInput && filters.from) fromInput.value = filters.from;
+        if (toInput && filters.to) toInput.value = filters.to;
+        setSelectedMultiValues(keywordFilter, filters.keywords || []);
+        setSelectedMultiValues(stageFilter, filters.stages || []);
+        setSelectedMultiValues(assigneeFilter, filters.assignees || []);
+        if (searchInput) searchInput.value = filters.search || "";
+        if (showAllFilter) showAllFilter.checked = !!filters.showAll;
+        if (quantityUptoFilter) {
+            const qty = Number(filters.quantityUpto);
+            quantityUptoFilter.value =
+                Number.isFinite(qty) && qty > 0 ? String(qty) : "";
+        }
+        if (quoteFilter) {
+            quoteFilter.value =
+                filters.quote === "given" || filters.quote === "missing"
+                    ? filters.quote
+                    : "";
+        }
+        const columns =
+            filters.columns && typeof filters.columns === "object" ? filters.columns : {};
+        for (const select of columnFilters) {
+            const column = select.dataset.column;
+            if (!column) continue;
+            const value = columns[column] == null ? "" : String(columns[column]);
+            select.value = [...select.options].some((option) => option.value === value)
+                ? value
+                : "";
+        }
     }
 
     function closeFiltersPanel() {
@@ -139,21 +199,8 @@
         instance?.hide();
     }
 
-    function currentPageDates() {
-        return {
-            from:
-                fromInput?.dataset.pageFrom ||
-                new URL(window.location.href).searchParams.get("from") ||
-                "",
-            to:
-                toInput?.dataset.pageTo ||
-                new URL(window.location.href).searchParams.get("to") ||
-                "",
-        };
-    }
-
     function commitFilters({ reloadIfDatesChanged = true } = {}) {
-        const filters = collectFilters();
+        const filters = readFiltersFromDom();
         const from = filters.from;
         const to = filters.to;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
@@ -161,17 +208,15 @@
             return false;
         }
 
-        writeStoredFilters(filters);
+        appliedFilters = filters;
+        writeStoredFilters(appliedFilters);
 
-        if (reloadIfDatesChanged) {
-            const pageDates = currentPageDates();
-            if (from !== pageDates.from || to !== pageDates.to) {
-                const url = new URL(window.location.href);
-                url.searchParams.set("from", from);
-                url.searchParams.set("to", to);
-                window.location.assign(url.toString());
-                return true;
-            }
+        if (reloadIfDatesChanged && (from !== pageFrom || to !== pageTo)) {
+            const url = new URL(window.location.href);
+            url.searchParams.set("from", from);
+            url.searchParams.set("to", to);
+            window.location.assign(url.toString());
+            return true;
         }
 
         applyFilters();
@@ -206,15 +251,6 @@
         tableWrap?.setAttribute("aria-busy", "false");
         applyFilters();
     }
-
-    function saveFilters() {
-        writeStoredFilters(collectFilters());
-    }
-
-    dateForm?.addEventListener("submit", (event) => {
-        event.preventDefault();
-        commitFilters();
-    });
 
     const addTenderForm = document.getElementById("gem-add-tender-form");
     const addTenderQuery = document.getElementById("gem-add-tender-query");
@@ -476,20 +512,24 @@
     }
 
     function applyFilters() {
-        const query = (searchInput?.value || "").trim().toLowerCase();
-        const selectedKeywords = selectedMultiValues(keywordFilter);
-        const selectedStages = selectedMultiValues(stageFilter);
-        const selectedAssignees = selectedMultiValues(assigneeFilter);
-        const showHiddenStages = !!showAllFilter?.checked;
-        const quantityUptoRaw = String(quantityUptoFilter?.value ?? "").trim();
+        const query = String(appliedFilters.search || "").trim().toLowerCase();
+        const selectedKeywords = (appliedFilters.keywords || []).map(String);
+        const selectedStages = (appliedFilters.stages || []).map(String);
+        const selectedAssignees = (appliedFilters.assignees || []).map(String);
+        const showHiddenStages = !!appliedFilters.showAll;
+        const quantityUptoRaw = String(appliedFilters.quantityUpto ?? "").trim();
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
         const hasQuantityUpto =
             quantityUpto != null && Number.isFinite(quantityUpto) && quantityUpto > 0;
-        const quoteFilterValue = String(quoteFilter?.value || "").trim();
-        const activeColumnFilters = columnFilters
-            .map((select) => ({
-                column: select.dataset.column,
-                value: (select.value || "").trim().toLowerCase(),
+        const quoteFilterValue = String(appliedFilters.quote || "").trim();
+        const columns =
+            appliedFilters.columns && typeof appliedFilters.columns === "object"
+                ? appliedFilters.columns
+                : {};
+        const activeColumnFilters = Object.entries(columns)
+            .map(([column, value]) => ({
+                column,
+                value: String(value || "").trim().toLowerCase(),
             }))
             .filter((filter) => filter.column && filter.value);
 
@@ -522,7 +562,16 @@
                     value === "unassigned" ? !rowAssigneeId : rowAssigneeId === value,
                 );
 
-            const matchesSearch = !query || row.textContent.toLowerCase().includes(query);
+            const tenderIdText = String(
+                row.querySelector("a")?.textContent || "",
+            )
+                .trim()
+                .toLowerCase();
+            const matchesSearch =
+                !query ||
+                tenderIdText.includes(query) ||
+                rowKeywordId === query ||
+                String(row.dataset.id || "") === query;
 
             const matchesColumns = activeColumnFilters.every((filter) => {
                 const cellValue = (row.dataset[filter.column] || "").trim().toLowerCase();
@@ -574,77 +623,52 @@
         }
         markEndsSoonRows();
         syncBulkBar();
-        saveFilters();
+        writeStoredFilters(appliedFilters);
     }
 
-    function restoreClientFilters(filters) {
-        if (!filters) return;
-        if (keywordFilter) {
-            const keywords =
-                Array.isArray(filters.keywords)
-                    ? filters.keywords
-                    : filters.keywordId != null && filters.keywordId !== ""
-                      ? [filters.keywordId]
-                      : [];
-            setSelectedMultiValues(keywordFilter, keywords);
-        }
-        if (stageFilter) {
-            const stages =
-                Array.isArray(filters.stages)
-                    ? filters.stages
-                    : filters.stage != null && filters.stage !== ""
-                      ? [filters.stage]
-                      : [];
-            setSelectedMultiValues(stageFilter, stages);
-        }
-        if (assigneeFilter) {
-            const assignees =
-                Array.isArray(filters.assignees)
-                    ? filters.assignees
-                    : filters.assignee != null && filters.assignee !== ""
-                      ? [filters.assignee]
-                      : [];
-            setSelectedMultiValues(assigneeFilter, assignees);
-        }
-        if (searchInput && filters.search != null) {
-            searchInput.value = filters.search;
-        }
-        if (showAllFilter && typeof filters.showAll === "boolean") {
-            showAllFilter.checked = filters.showAll;
-        }
-        if (quantityUptoFilter && filters.quantityUpto != null && filters.quantityUpto !== "") {
-            const restoredQty = Number(filters.quantityUpto);
-            quantityUptoFilter.value =
-                Number.isFinite(restoredQty) && restoredQty > 0 ? String(restoredQty) : "";
-        }
-        if (quoteFilter && filters.quote != null) {
-            quoteFilter.value =
-                filters.quote === "given" || filters.quote === "missing" ? filters.quote : "";
-        }
-        if (filters.columns && typeof filters.columns === "object") {
-            for (const select of columnFilters) {
-                const column = select.dataset.column;
-                if (!column) continue;
-                const value = filters.columns[column];
-                if (value == null) continue;
-                if ([...select.options].some((option) => option.value === value)) {
-                    select.value = value;
-                }
-            }
-        }
+    function normalizeStoredFilters(filters) {
+        if (!filters || typeof filters !== "object") return emptyFilters();
+        const keywords = Array.isArray(filters.keywords)
+            ? filters.keywords
+            : filters.keywordId != null && filters.keywordId !== ""
+              ? [filters.keywordId]
+              : [];
+        const stages = Array.isArray(filters.stages)
+            ? filters.stages
+            : filters.stage != null && filters.stage !== ""
+              ? [filters.stage]
+              : [];
+        const assignees = Array.isArray(filters.assignees)
+            ? filters.assignees
+            : filters.assignee != null && filters.assignee !== ""
+              ? [filters.assignee]
+              : [];
+        const columns =
+            filters.columns && typeof filters.columns === "object" ? filters.columns : {};
+        const quantityRaw = String(filters.quantityUpto ?? "").trim();
+        const quantity = Number(quantityRaw);
+        return {
+            from: normalizeDateInput(filters.from, pageFrom),
+            to: normalizeDateInput(filters.to, pageTo),
+            keywords: keywords.map(String).filter(Boolean),
+            stages: stages.map(String).filter(Boolean),
+            assignees: assignees.map(String).filter(Boolean),
+            search: String(filters.search || "").trim(),
+            showAll: !!filters.showAll,
+            quantityUpto:
+                Number.isFinite(quantity) && quantity > 0 ? String(quantity) : "",
+            quote:
+                filters.quote === "given" || filters.quote === "missing"
+                    ? filters.quote
+                    : "",
+            columns,
+        };
     }
 
     function resetClientFilters() {
-        setSelectedMultiValues(keywordFilter, []);
-        setSelectedMultiValues(stageFilter, []);
-        setSelectedMultiValues(assigneeFilter, []);
-        if (searchInput) searchInput.value = "";
-        if (showAllFilter) showAllFilter.checked = false;
-        if (quantityUptoFilter) quantityUptoFilter.value = "";
-        if (quoteFilter) quoteFilter.value = "";
-        for (const select of columnFilters) {
-            select.value = "";
-        }
+        if (fromInput) fromInput.value = pageFrom;
+        if (toInput) toInput.value = pageTo;
+        writeFiltersToDom(emptyFilters());
         commitFilters({ reloadIfDatesChanged: false });
     }
 
@@ -660,7 +684,17 @@
         });
     }
 
-    restoreClientFilters(storedFilters);
+    appliedFilters = normalizeStoredFilters({
+        ...emptyFilters(),
+        ...(storedFilters || {}),
+        from: pageFrom,
+        to: pageTo,
+    });
+    writeFiltersToDom(appliedFilters);
+
+    filtersPanel?.addEventListener("show.bs.offcanvas", () => {
+        writeFiltersToDom(appliedFilters);
+    });
 
     filtersPanel?.addEventListener("click", (event) => {
         const clearBtn = event.target?.closest?.(".gem-filter-clear-btn");

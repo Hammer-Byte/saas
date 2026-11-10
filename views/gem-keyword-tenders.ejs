@@ -152,11 +152,10 @@
                 <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
             <div class="offcanvas-body d-flex flex-column p-0">
-                <form
+                <div
                     class="flex-grow-1 overflow-auto p-3 gem-tenders-filters-form"
-                    method="get"
-                    action="/app/gem-keyword-tenders"
-                    id="gem-tenders-date-form"
+                    id="gem-tenders-filters-form"
+                    autocomplete="off"
                 >
                     <div class="mb-3">
                         <label for="gem-tenders-from" class="form-label">Ends from</label>
@@ -164,10 +163,9 @@
                             type="date"
                             class="form-control form-control-sm"
                             id="gem-tenders-from"
-                            name="from"
                             value="<%= from %>"
                             data-page-from="<%= from %>"
-                            required
+                            autocomplete="off"
                         />
                     </div>
                     <div class="mb-3">
@@ -176,10 +174,9 @@
                             type="date"
                             class="form-control form-control-sm"
                             id="gem-tenders-to"
-                            name="to"
                             value="<%= to %>"
                             data-page-to="<%= to %>"
-                            required
+                            autocomplete="off"
                         />
                     </div>
                     <div class="mb-3">
@@ -408,6 +405,7 @@
                                 step="1"
                                 placeholder="e.g. 10"
                                 inputmode="numeric"
+                                autocomplete="off"
                             />
                             <button
                                 type="button"
@@ -450,7 +448,7 @@
                             </label>
                         </div>
                     </div>
-                </form>
+                </div>
                 <div class="border-top p-3 d-grid gap-2 gem-tenders-filters-actions">
                     <button type="button" class="btn btn-primary" id="gem-filters-apply-btn">
                         Apply filters
@@ -547,8 +545,8 @@
                                     %>
                                     <tr
                                         data-id="<%= tender.id %>"
-                                        data-keyword-id="<%= tender.keyword_id %>"
-                                        data-assignee-user-id="<%= tender.assignee_user_id || '' %>"
+                                        data-keyword-id="<%= tender.keyword_id != null ? tender.keyword_id : '' %>"
+                                        data-assignee-user-id="<%= tender.assignee_user_id != null ? tender.assignee_user_id : '' %>"
                                         data-stage="<%= stage %>"
                                         data-has-quote="<%= hasQuote ? '1' : '0' %>"
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"
