@@ -15,6 +15,11 @@
     const progressBarHost = document.getElementById("document-upload-progressbar");
     const progressStatus = document.getElementById("document-upload-status");
     const progressPercent = document.getElementById("document-upload-percent");
+    const selectAllCheckbox = document.getElementById("documents-select-all");
+    const bulkBar = document.getElementById("internal-documents-bulk-bar");
+    const selectedCountLabel = document.getElementById("internal-documents-selected-count");
+    const bulkDeleteBtn = document.getElementById("internal-documents-bulk-delete-btn");
+    const bulkClearBtn = document.getElementById("internal-documents-bulk-clear-btn");
 
     const idInput = form?.elements.namedItem("id");
     const fileInput = form?.elements.namedItem("file");
@@ -77,6 +82,54 @@
         }
     }
 
+    function visibleRows() {
+        if (!tableBody) return [];
+        return [...tableBody.querySelectorAll("tr[data-id]")].filter(
+            (row) => !row.classList.contains("d-none"),
+        );
+    }
+
+    function selectedCheckboxes() {
+        if (!tableBody) return [];
+        return [...tableBody.querySelectorAll(".document-select:checked")].filter(
+            (input) => !input.closest("tr")?.classList.contains("d-none"),
+        );
+    }
+
+    function syncBulkBar() {
+        const selected = selectedCheckboxes();
+        const count = selected.length;
+        if (selectedCountLabel) {
+            selectedCountLabel.textContent = `${count} selected`;
+        }
+        bulkBar?.classList.toggle("d-none", count === 0);
+        if (bulkDeleteBtn) bulkDeleteBtn.disabled = count === 0;
+
+        if (selectAllCheckbox) {
+            const visibles = visibleRows();
+            const visibleChecks = visibles
+                .map((row) => row.querySelector(".document-select"))
+                .filter(Boolean);
+            const checkedVisible = visibleChecks.filter((input) => input.checked).length;
+            selectAllCheckbox.checked =
+                visibleChecks.length > 0 && checkedVisible === visibleChecks.length;
+            selectAllCheckbox.indeterminate =
+                checkedVisible > 0 && checkedVisible < visibleChecks.length;
+        }
+    }
+
+    function clearSelection() {
+        if (!tableBody) return;
+        for (const input of tableBody.querySelectorAll(".document-select")) {
+            input.checked = false;
+        }
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        }
+        syncBulkBar();
+    }
+
     function applySearch() {
         if (!tableBody) return;
 
@@ -88,11 +141,16 @@
                 .join(" ")
                 .toLowerCase();
             row.classList.toggle("d-none", Boolean(query) && !haystack.includes(query));
+            if (row.classList.contains("d-none")) {
+                const checkbox = row.querySelector(".document-select");
+                if (checkbox) checkbox.checked = false;
+            }
         });
 
         const hasVisible = rows.some((row) => !row.classList.contains("d-none"));
         emptyState?.classList.toggle("d-none", hasVisible);
         tableWrap?.classList.toggle("d-none", !hasVisible);
+        syncBulkBar();
     }
 
     function uploadWithProgress({ url, method, body }) {
@@ -133,53 +191,87 @@
         });
     }
 
+    async function deleteDocumentById(id) {
+        const response = await fetch(`/api/internal-documents/${id}`, {
+            method: "DELETE",
+            credentials: "same-origin",
+        });
+        const data = await response.json().catch(() => ({}));
+        return { ok: response.ok, data };
+    }
+
     openAddButton?.addEventListener("click", openAddModal);
     searchInput?.addEventListener("input", applySearch);
+
+    tableBody?.addEventListener("change", (event) => {
+        if (event.target?.classList?.contains("document-select")) {
+            syncBulkBar();
+        }
+    });
+
+    selectAllCheckbox?.addEventListener("change", () => {
+        const checked = !!selectAllCheckbox.checked;
+        for (const row of visibleRows()) {
+            const checkbox = row.querySelector(".document-select");
+            if (checkbox) checkbox.checked = checked;
+        }
+        syncBulkBar();
+    });
+
+    bulkClearBtn?.addEventListener("click", () => {
+        clearSelection();
+    });
+
+    bulkDeleteBtn?.addEventListener("click", async () => {
+        const selected = selectedCheckboxes();
+        if (!selected.length) return;
+
+        const confirmed = await showConfirm({
+            title: "Delete documents?",
+            description: `This will permanently delete ${selected.length} document(s).`,
+            choices: [
+                { label: "Cancel", variant: "secondary", value: false },
+                { label: "Delete", variant: "danger", value: true },
+            ],
+        });
+        if (!confirmed) return;
+
+        bulkDeleteBtn.disabled = true;
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const checkbox of selected) {
+            const id = Number(checkbox.value || 0);
+            if (!(id >= 1)) {
+                failCount += 1;
+                continue;
+            }
+            try {
+                const { ok } = await deleteDocumentById(id);
+                if (ok) successCount += 1;
+                else failCount += 1;
+            } catch (error) {
+                console.error(error);
+                failCount += 1;
+            }
+        }
+
+        if (failCount === 0) {
+            window.location.reload();
+            return;
+        }
+
+        showAlert(
+            pageAlert,
+            `Deleted ${successCount}, failed ${failCount}. Refresh to see updates.`,
+            "danger",
+        );
+        bulkDeleteBtn.disabled = false;
+    });
 
     tableBody?.addEventListener("click", async (event) => {
         const row = event.target.closest("tr[data-id]");
         if (!row) return;
-
-        if (event.target.closest(".document-copy-gem-btn")) {
-            const copyButton = event.target.closest(".document-copy-gem-btn");
-            copyButton.disabled = true;
-            try {
-                const response = await fetch("/api/gem-mandatory-documents/copy-from-internal", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        internal_document_id: Number(row.dataset.id || 0),
-                    }),
-                });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    showAlert(
-                        pageAlert,
-                        data.error || "Failed to copy document to GEM Mandatory Documents.",
-                        "danger",
-                    );
-                    return;
-                }
-                showAlert(
-                    pageAlert,
-                    data.alreadyCopied
-                        ? "Document already in GEM Mandatory Documents."
-                        : data.message || "Copied to GEM Mandatory Documents.",
-                    "success",
-                );
-            } catch (error) {
-                console.error(error);
-                showAlert(
-                    pageAlert,
-                    "Failed to copy document to GEM Mandatory Documents.",
-                    "danger",
-                );
-            } finally {
-                copyButton.disabled = false;
-            }
-            return;
-        }
 
         if (event.target.closest(".document-edit-btn")) {
             openEditModal(row);
@@ -202,12 +294,8 @@
             }
 
             try {
-                const response = await fetch(`/api/internal-documents/${row.dataset.id}`, {
-                    method: "DELETE",
-                    credentials: "same-origin",
-                });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) {
+                const { ok, data } = await deleteDocumentById(row.dataset.id);
+                if (!ok) {
                     showAlert(pageAlert, data.error || "Failed to delete document.", "danger");
                     return;
                 }
@@ -280,4 +368,6 @@
             if (descriptionInput) descriptionInput.disabled = false;
         }
     });
+
+    syncBulkBar();
 })();

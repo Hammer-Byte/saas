@@ -405,18 +405,6 @@ export async function generateDBTables() {
                 ON DELETE RESTRICT
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS GEM_MANDATORY_DOCUMENTS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            media_id INT NOT NULL,
-            description VARCHAR(512) NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_gem_mandatory_media (media_id),
-            CONSTRAINT fk_gem_mandatory_documents_media
-                FOREIGN KEY (media_id)
-                REFERENCES MEDIA(id)
-                ON DELETE RESTRICT
-                ON UPDATE CASCADE
-        )`,
         `CREATE TABLE IF NOT EXISTS JOB_POSITIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(128) NOT NULL,

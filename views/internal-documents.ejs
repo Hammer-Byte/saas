@@ -1,9 +1,5 @@
 <%- include('common/header') %>
 
-<%
-    const canCopyToGemMandatory = !!super_admin;
-%>
-
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
         <a class="navbar-brand" href="/app">HammerByte App</a>
@@ -28,6 +24,30 @@
         </div>
 
         <div id="internal-documents-alert" class="alert d-none" role="alert"></div>
+
+        <div
+            id="internal-documents-bulk-bar"
+            class="card border-0 shadow-sm mb-3 d-none"
+        >
+            <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-2">
+                <span class="small text-secondary" id="internal-documents-selected-count">0 selected</span>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    id="internal-documents-bulk-delete-btn"
+                    disabled
+                >
+                    Delete
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    id="internal-documents-bulk-clear-btn"
+                >
+                    Clear selection
+                </button>
+            </div>
+        </div>
 
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 pt-4 px-4">
@@ -67,10 +87,18 @@
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th scope="col">Name</th>
+                                    <th scope="col" style="width: 2.5rem;">
+                                        <input
+                                            type="checkbox"
+                                            class="form-check-input"
+                                            id="documents-select-all"
+                                            aria-label="Select all visible documents"
+                                        />
+                                    </th>
+                                    <th scope="col">File name</th>
                                     <th scope="col">Description</th>
                                     <th scope="col">Created On</th>
-                                    <th scope="col">Actions</th>
+                                    <th scope="col" class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="documents-tbody">
@@ -80,41 +108,55 @@
                                         data-name="<%= document.media_name || '' %>"
                                         data-description="<%= document.description || '' %>"
                                     >
-                                        <td><%= document.media_name %></td>
+                                        <td>
+                                            <input
+                                                type="checkbox"
+                                                class="form-check-input document-select"
+                                                value="<%= document.id %>"
+                                                aria-label="Select document"
+                                            />
+                                        </td>
+                                        <td><%= document.media_name || "—" %></td>
                                         <td><%= document.description || "—" %></td>
                                         <td
                                             data-readable-date="<%= document.created_on || '' %>"
                                             data-date-format="DD/MM/YYYY HH:mm:ss"
                                         ></td>
-                                        <td>
-                                            <div class="d-flex gap-2 flex-wrap">
+                                        <td class="text-end">
+                                            <div class="d-inline-flex gap-1 justify-content-end">
                                                 <a
                                                     href="/api/media/<%= document.media_id %>"
-                                                    class="btn btn-sm btn-outline-primary"
+                                                    class="btn btn-sm btn-outline-primary document-icon-btn"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
+                                                    title="View"
+                                                    aria-label="View"
                                                 >
-                                                    View
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                        <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
+                                                        <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                                                    </svg>
                                                 </a>
-                                                <% if (canCopyToGemMandatory) { %>
-                                                    <button
-                                                        type="button"
-                                                        class="btn btn-sm btn-outline-success document-copy-gem-btn"
-                                                    >
-                                                        Copy to Gem Mandatory Documents
-                                                    </button>
-                                                <% } %>
                                                 <button
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-secondary document-edit-btn"
+                                                    class="btn btn-sm btn-outline-secondary document-edit-btn document-icon-btn"
+                                                    title="Edit"
+                                                    aria-label="Edit"
                                                 >
-                                                    Edit
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>
+                                                    </svg>
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-danger document-delete-btn"
+                                                    class="btn btn-sm btn-outline-danger document-delete-btn document-icon-btn"
+                                                    title="Delete"
+                                                    aria-label="Delete"
                                                 >
-                                                    Delete
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                                                        <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                                                    </svg>
                                                 </button>
                                             </div>
                                         </td>
@@ -128,6 +170,17 @@
         </div>
     </div>
 </main>
+
+<style>
+    .document-icon-btn {
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
 
 <div class="modal fade" id="document-modal" tabindex="-1" aria-labelledby="document-modal-label" aria-hidden="true">
     <div class="modal-dialog">
