@@ -191,13 +191,21 @@
         const comment = (commentText?.value || "").trim();
         if (!comment) return;
 
+        const uploadedFile = commentFile?.files?.[0];
+        if (uploadedFile) {
+            const sizeCheck = window.validateUploadFiles?.(uploadedFile);
+            if (sizeCheck && !sizeCheck.ok) {
+                showAlert(sizeCheck.error, "danger");
+                return;
+            }
+        }
+
         if (commentSubmitButton) commentSubmitButton.disabled = true;
         if (commentFile) commentFile.disabled = true;
         try {
             const body = new FormData();
             body.append("gem_keyword_tender_id", String(tenderId));
             body.append("comment", comment);
-            const uploadedFile = commentFile?.files?.[0];
             if (uploadedFile) {
                 body.append("file", uploadedFile);
             }
@@ -441,6 +449,12 @@
 
         if (names.length !== files.length || names.some((name) => !name)) {
             showDocumentsFormAlert("Enter a visible name for every file.", "danger");
+            return;
+        }
+
+        const sizeCheck = window.validateUploadFiles?.(files);
+        if (sizeCheck && !sizeCheck.ok) {
+            showDocumentsFormAlert(sizeCheck.error, "danger");
             return;
         }
 

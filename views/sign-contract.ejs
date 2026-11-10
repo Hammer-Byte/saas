@@ -388,6 +388,9 @@
         crossorigin="anonymous"
     ></script>
     <% if (!is_signed) { %>
+    <script>
+        window.__MAX_REQUEST_BODY_SIZE__ = <%= Number(maxRequestBodySize) > 0 ? Number(maxRequestBodySize) : 1536 * 1024 * 1024 %>;
+    </script>
     <script src="/public/utils.js" defer></script>
     <script src="/public/sign-contract.js" defer></script>
     <% } %>

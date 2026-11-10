@@ -1,5 +1,6 @@
 import { AUTHORITIES } from "../constants.js";
 import { resolveInvoiceNumber } from "./invoicer.js";
+import { getMaxRequestBodySize } from "./upload_limits.js";
 
 export function appPage(session, extra = {}) {
     return {
@@ -9,6 +10,7 @@ export function appPage(session, extra = {}) {
         super_admin: !!session?.super_admin,
         AUTHORITIES,
         resolveInvoiceNumber,
+        maxRequestBodySize: getMaxRequestBodySize(),
         ...extra,
     };
 }

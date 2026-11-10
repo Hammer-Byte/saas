@@ -70,6 +70,12 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        const sizeCheck = window.validateUploadFiles?.(videoInput.files[0]);
+        if (sizeCheck && !sizeCheck.ok) {
+            showAlert(sizeCheck.error, "danger");
+            return;
+        }
+
         const platforms = platformChecks
             .filter((checkbox) => checkbox.checked)
             .map((checkbox) => checkbox.value);

@@ -467,6 +467,12 @@
             return;
         }
 
+        const sizeCheck = window.validateUploadFiles?.(uploadedFile);
+        if (sizeCheck && !sizeCheck.ok) {
+            showAlert(attachmentFormAlert, sizeCheck.error, "danger");
+            return;
+        }
+
         const submitButton = document.getElementById("task-attachment-submit-btn");
         if (submitButton) submitButton.disabled = true;
 
@@ -557,6 +563,15 @@
         const comment = commentTextInput?.value?.trim() || "";
         if (!comment) return;
 
+        const file = commentFileInput?.files?.[0];
+        if (file) {
+            const sizeCheck = window.validateUploadFiles?.(file);
+            if (sizeCheck && !sizeCheck.ok) {
+                showAlert(pageAlert, sizeCheck.error, "danger");
+                return;
+            }
+        }
+
         const submitButton = document.getElementById("task-comment-submit-btn");
         if (submitButton) submitButton.disabled = true;
 
@@ -564,7 +579,6 @@
             const body = new FormData();
             body.append("task_id", String(taskId));
             body.append("comment", comment);
-            const file = commentFileInput?.files?.[0];
             if (file) body.append("file", file);
 
             const response = await fetch("/api/task-comments", {

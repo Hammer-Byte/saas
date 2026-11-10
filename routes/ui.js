@@ -65,6 +65,7 @@ import { getAllGemTenderScanRuns } from "../db/gem_tender_scan_runs.js";
 import { buildGemKeywordTenderReport } from "../services/gem_keyword_tender_report.js";
 import { canManageTenderDocuments } from "../services/gem_keyword_tender_documents.js";
 import { canManageInternalDocuments } from "../services/internal_documents.js";
+import { getMaxRequestBodySize } from "../libs/upload_limits.js";
 import {
     AUTHORITIES,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
@@ -181,6 +182,7 @@ export const uiRoutes = new Elysia()
 
         return render("sign-contract", {
             title: `Contract — ${contractorName}`,
+            maxRequestBodySize: getMaxRequestBodySize(),
             header_image_src: await getSharedAssetDataUri({
                 fileName: "header.png",
                 mimeType: "image/png",

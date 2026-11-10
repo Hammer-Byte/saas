@@ -131,6 +131,12 @@
             return;
         }
 
+        const sizeCheck = window.validateUploadFiles?.(uploadedFile);
+        if (sizeCheck && !sizeCheck.ok) {
+            showAlert(formAlert, sizeCheck.error, "danger");
+            return;
+        }
+
         if (submitButton) {
             submitButton.disabled = true;
         }

@@ -1,3 +1,6 @@
+/** Default Bun/Elysia max request body size (bytes). Override with MAX_REQUEST_BODY_SIZE. */
+export const DEFAULT_MAX_REQUEST_BODY_SIZE = 1536 * 1024 * 1024;
+
 export const ERRORS = {
     UNAUTHORIZED: "Unauthorized",
     FILE_REQUIRED: "File name is required",

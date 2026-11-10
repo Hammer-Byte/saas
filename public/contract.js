@@ -224,6 +224,13 @@
             }
 
             hideAlert(pageAlert);
+            const sizeCheck = window.validateUploadFiles?.(uploadedFile);
+            if (sizeCheck && !sizeCheck.ok) {
+                showAlert(pageAlert, sizeCheck.error, "danger");
+                fileInput.value = "";
+                return;
+            }
+
             fileInput.disabled = true;
 
             try {

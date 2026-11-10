@@ -51,6 +51,15 @@
             return;
         }
 
+        const sizeCheck = window.validateUploadFiles?.(uploadedFile);
+        if (sizeCheck && !sizeCheck.ok) {
+            setUploadStatus(requiredAttachmentId, sizeCheck.error, "error");
+            fileInput.value = "";
+            fileInput.dataset.hasAttachment = "0";
+            updateSignButton();
+            return;
+        }
+
         setUploadStatus(requiredAttachmentId, "Uploading…", "idle");
         fileInput.disabled = true;
 

@@ -242,6 +242,50 @@
         return authorities.includes(requiredAuthority);
     };
 
+    window.getMaxUploadBytes = function getMaxUploadBytes() {
+        const fromWindow = Number(window.__MAX_REQUEST_BODY_SIZE__);
+        if (Number.isFinite(fromWindow) && fromWindow > 0) {
+            return fromWindow;
+        }
+        return 1536 * 1024 * 1024;
+    };
+
+    window.formatUploadBytes = function formatUploadBytes(bytes) {
+        const value = Number(bytes || 0);
+        if (!(value >= 0)) return "0 B";
+        const gb = value / 1024 ** 3;
+        if (gb >= 1) {
+            return `${gb >= 10 ? gb.toFixed(0) : gb.toFixed(1)} GB`;
+        }
+        const mb = value / 1024 ** 2;
+        if (mb >= 1) {
+            return `${mb >= 10 ? mb.toFixed(0) : mb.toFixed(1)} MB`;
+        }
+        const kb = value / 1024;
+        if (kb >= 1) {
+            return `${kb >= 10 ? kb.toFixed(0) : kb.toFixed(1)} KB`;
+        }
+        return `${Math.round(value)} B`;
+    };
+
+    /** Returns { ok: true } or { ok: false, error } if any file exceeds the server upload limit. */
+    window.validateUploadFiles = function validateUploadFiles(files) {
+        const list = Array.isArray(files) ? files : files ? [files] : [];
+        const maxBytes = window.getMaxUploadBytes();
+        for (const file of list) {
+            if (!file) continue;
+            const size = Number(file.size || 0);
+            if (size > maxBytes) {
+                const name = file.name || "File";
+                return {
+                    ok: false,
+                    error: `"${name}" is ${window.formatUploadBytes(size)}. Maximum upload size is ${window.formatUploadBytes(maxBytes)}.`,
+                };
+            }
+        }
+        return { ok: true };
+    };
+
     function formatLocalDateKey(date) {
         return [
             date.getFullYear(),
