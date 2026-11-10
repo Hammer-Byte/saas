@@ -4,6 +4,9 @@ import parseApplication from "../middlewares/parse_application.js";
 import mailer from "./apps/mailer.js";
 import bucketizer from "./apps/bucketizer.js";
 import inquiries from "./apps/inquiries.js";
+import inquiryAdmin from "./apps/inquiry_admin.js";
+import inquiryNotes from "./apps/inquiry_notes.js";
+import inquiryFollowups from "./apps/inquiry_followups.js";
 import authentication from "./apps/authentication.js";
 import userAuthenticationTokens from "./apps/user_authentication_tokens.js";
 import customers from "./apps/customers.js";
@@ -94,6 +97,9 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/gem-tender-keywords", gemTenderKeywords)
             .group("/gem-keyword-tenders", gemKeywordTenders)
             .group("/gem-keyword-tender-comments", gemKeywordTenderComments)
+            .group("/inquiries", inquiryAdmin)
+            .group("/inquiry-notes", inquiryNotes)
+            .group("/inquiry-followups", inquiryFollowups)
             .group("/tasks", tasks)
             .group("/task-comments", taskComments)
             .group("/task-attachments", taskAttachments)

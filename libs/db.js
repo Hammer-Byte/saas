@@ -240,7 +240,74 @@ export async function generateDBTables() {
             source VARCHAR(64) NULL,
             institute_name VARCHAR(128) NULL,
             city VARCHAR(64) NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP
+            state VARCHAR(32) NOT NULL DEFAULT 'new',
+            assignee_user_id INT NULL,
+            quote TEXT NULL,
+            potential_entered_on DATETIME NULL,
+            followup_1_reminder_sent_on DATETIME NULL,
+            followup_2_reminder_sent_on DATETIME NULL,
+            followup_3_reminder_sent_on DATETIME NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_inquiries_assignee
+                FOREIGN KEY (assignee_user_id)
+                REFERENCES USERS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS INQUIRY_NOTES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            inquiry_id INT NOT NULL,
+            user_id INT NOT NULL,
+            note TEXT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_inquiry_notes_inquiry
+                FOREIGN KEY (inquiry_id)
+                REFERENCES INQUIRIES(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_inquiry_notes_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS INQUIRY_FOLLOWUPS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            inquiry_id INT NOT NULL,
+            user_id INT NOT NULL,
+            note TEXT NOT NULL,
+            followed_up_on DATETIME NOT NULL,
+            slot TINYINT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_inquiry_followup_slot (inquiry_id, slot),
+            CONSTRAINT fk_inquiry_followups_inquiry
+                FOREIGN KEY (inquiry_id)
+                REFERENCES INQUIRIES(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_inquiry_followups_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS INQUIRY_ACTIVITIES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            inquiry_id INT NOT NULL,
+            user_id INT NOT NULL,
+            activity VARCHAR(512) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_inquiry_activities_inquiry
+                FOREIGN KEY (inquiry_id)
+                REFERENCES INQUIRIES(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_inquiry_activities_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
         )`,
         `CREATE TABLE IF NOT EXISTS CUSTOMER_INVOICES (
             id INT AUTO_INCREMENT PRIMARY KEY,

@@ -13,7 +13,11 @@ import {
 } from "../db/project_applications.js";
 import { getAllServices } from "../db/services.js";
 import { getAllApplicationServicesByApplicationId, getApplicationServiceById } from "../db/application_services.js";
-import { getAllInquiries } from "../db/inquiries.js";
+import { getAllInquiries, getInquiryById } from "../db/inquiries.js";
+import { getAllInquiryActivitiesByInquiryId } from "../db/inquiry_activities.js";
+import { getAllInquiryFollowupsByInquiryId } from "../db/inquiry_followups.js";
+import { getAllInquiryNotesByInquiryId } from "../db/inquiry_notes.js";
+import { buildInquiryReport } from "../services/inquiry_report.js";
 import { getMailsByApplicationServiceId } from "../db/mails.js";
 import {
     getFilesByApplicationServiceId,
@@ -62,6 +66,9 @@ import { buildGemKeywordTenderReport } from "../services/gem_keyword_tender_repo
 import {
     AUTHORITIES,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
+    INQUIRY_FOLLOWUP_DAY_OFFSETS,
+    INQUIRY_SOURCE_LABELS,
+    INQUIRY_STATE_LABELS,
     TASK_PRIORITIES,
     TASK_PRIORITY_LABELS,
     TASK_STATE_LABELS,
@@ -723,12 +730,84 @@ export const uiRoutes = new Elysia()
                     })}`,
                 });
             })
-            .get("/app/inquiries", async ({ render, session }) =>
-                render("inquiries", appPage(session, {
+            .get("/app/inquiries", async ({ render, session, query }) => {
+                const now = new Date();
+                const defaultTo = getReadableDate("YYYY-MM-DD", now);
+                const defaultFrom = getReadableDate(
+                    "YYYY-MM-DD",
+                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30),
+                );
+
+                const from = parseQueryDate(query.from) || defaultFrom;
+                const to = parseQueryDate(query.to) || defaultTo;
+                const rangeFrom = from <= to ? from : to;
+                const rangeTo = from <= to ? to : from;
+
+                return render("inquiries", appPage(session, {
                     title: "Inquiries — HammerByte",
-                    inquiries: await getAllInquiries(),
-                })),
-            )
+                    from: rangeFrom,
+                    to: rangeTo,
+                    userId: session?.id,
+                    users: await getAllUsers(),
+                    inquiries: await getAllInquiries({
+                        from: rangeFrom,
+                        to: rangeTo,
+                    }),
+                    INQUIRY_STATE_LABELS,
+                    INQUIRY_SOURCE_LABELS,
+                    INQUIRY_FOLLOWUP_DAY_OFFSETS,
+                }));
+            })
+            .get("/app/inquiries-report", async ({ render, session, query }) => {
+                const now = new Date();
+                const defaultTo = getReadableDate("YYYY-MM-DD", now);
+                const defaultFrom = getReadableDate(
+                    "YYYY-MM-DD",
+                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30),
+                );
+
+                const from = parseQueryDate(query.from) || defaultFrom;
+                const to = parseQueryDate(query.to) || defaultTo;
+                const rangeFrom = from <= to ? from : to;
+                const rangeTo = from <= to ? to : from;
+                const report = await buildInquiryReport({
+                    from: rangeFrom,
+                    to: rangeTo,
+                });
+
+                return render("inquiries-report", appPage(session, {
+                    title: "Inquiries report — HammerByte",
+                    from: rangeFrom,
+                    to: rangeTo,
+                    report,
+                    INQUIRY_STATE_LABELS,
+                }));
+            })
+            .get("/app/inquiries/:id", async ({ render, session, params, redirect }) => {
+                const inquiry = await getInquiryById({ id: params.id });
+                if (!inquiry) {
+                    return redirect("/not-found");
+                }
+
+                return render("inquiry", appPage(session, {
+                    title: `Inquiry #${inquiry.id} — HammerByte`,
+                    inquiry,
+                    userId: session?.id,
+                    users: await getAllUsers(),
+                    notes: await getAllInquiryNotesByInquiryId({
+                        inquiry_id: inquiry.id,
+                    }),
+                    followups: await getAllInquiryFollowupsByInquiryId({
+                        inquiry_id: inquiry.id,
+                    }),
+                    activities: await getAllInquiryActivitiesByInquiryId({
+                        inquiry_id: inquiry.id,
+                    }),
+                    INQUIRY_STATE_LABELS,
+                    INQUIRY_SOURCE_LABELS,
+                    INQUIRY_FOLLOWUP_DAY_OFFSETS,
+                }));
+            })
             .get("/app/contracts", async ({ render, session }) =>
                 render("contracts", appPage(session, {
                     title: "Contracts — HammerByte",

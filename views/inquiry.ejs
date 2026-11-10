@@ -1,0 +1,423 @@
+<%- include('common/header') %>
+
+<%
+    const stateLabels = INQUIRY_STATE_LABELS || {};
+    const stateValues = Object.keys(stateLabels);
+    const sourceLabels = INQUIRY_SOURCE_LABELS || {};
+    const followupOffsets = INQUIRY_FOLLOWUP_DAY_OFFSETS || { 1: 3, 2: 7, 3: 15 };
+    const currentUserId = Number(userId || 0);
+    const isSuperAdmin = !!super_admin;
+    const isAdmin = isSuperAdmin || (Array.isArray(roles) && roles.includes("ADMIN"));
+    const canAssignOthers = isAdmin
+        || (authorities || []).includes(AUTHORITIES.ASSIGN_INQUIRY_ASSIGNEE);
+    const assigneeUserId = inquiry.assignee_user_id ? Number(inquiry.assignee_user_id) : null;
+    const isAssignee = assigneeUserId && assigneeUserId === currentUserId;
+    const canManage = isAdmin || isAssignee;
+    const currentState = inquiry.state || "new";
+    const isPotential = currentState === "potential";
+    const sourceKey = inquiry.source || "website";
+    const sourceLabel = sourceLabels[sourceKey] || sourceKey;
+    const followupBySlot = {};
+    (followups || []).forEach(function (followup) {
+        followupBySlot[Number(followup.slot)] = followup;
+    });
+    const completedCount = (followups || []).length;
+    const nextSlot = isPotential && completedCount < 3 ? completedCount + 1 : 0;
+
+    function dueDateLabel(potentialEnteredOn, dayOffset) {
+        if (!potentialEnteredOn) return "—";
+        const entered = new Date(potentialEnteredOn);
+        if (Number.isNaN(entered.getTime())) return "—";
+        entered.setDate(entered.getDate() + Number(dayOffset || 0));
+        return entered.toISOString();
+    }
+%>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/inquiries" class="text-decoration-none">Inquiries</a> /
+                #<%= inquiry.id %>
+            </p>
+            <h1 class="h3 mb-1">Inquiry #<%= inquiry.id %></h1>
+            <p class="text-secondary mb-0">
+                Source: <%= sourceLabel %> · Created
+                <span
+                    data-readable-date="<%= inquiry.created_on || '' %>"
+                    data-date-format="DD/MM/YYYY HH:mm:ss"
+                ></span>
+            </p>
+        </div>
+
+        <div id="inquiry-alert" class="alert d-none" role="alert"></div>
+
+        <div
+            class="card border-0 shadow-sm mb-4"
+            id="inquiry-detail"
+            data-id="<%= inquiry.id %>"
+            data-state="<%= currentState %>"
+            data-assignee-user-id="<%= assigneeUserId || '' %>"
+            data-current-user-id="<%= currentUserId %>"
+            data-can-manage="<%= canManage ? '1' : '0' %>"
+            data-can-assign-others="<%= canAssignOthers ? '1' : '0' %>"
+            data-is-admin="<%= isAdmin ? '1' : '0' %>"
+            data-is-potential="<%= isPotential ? '1' : '0' %>"
+            data-next-slot="<%= nextSlot %>"
+        >
+            <div class="card-body p-4">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label for="inquiry-state" class="form-label">State</label>
+                        <select class="form-select" id="inquiry-state" <%= !canManage ? "disabled" : "" %>>
+                            <% stateValues.forEach(function (state) { %>
+                                <option value="<%= state %>" <%= currentState === state ? "selected" : "" %>>
+                                    <%= stateLabels[state] %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="inquiry-assignee" class="form-label">Assignee</label>
+                        <% if (canAssignOthers) { %>
+                            <select class="form-select" id="inquiry-assignee">
+                                <option value="">Unassigned</option>
+                                <% (users || []).forEach(function (user) { %>
+                                    <option
+                                        value="<%= user.id %>"
+                                        <%= assigneeUserId === Number(user.id) ? "selected" : "" %>
+                                    >
+                                        <%= user.full_name %> (<%= user.email %>)
+                                    </option>
+                                <% }) %>
+                            </select>
+                        <% } else { %>
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="<%= inquiry.assignee_full_name || 'Unassigned' %>"
+                                disabled
+                            />
+                        <% } %>
+                    </div>
+                    <% if (!assigneeUserId && canManage) { %>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" class="btn btn-outline-primary w-100" id="inquiry-assign-me-btn">
+                                Assign to me
+                            </button>
+                        </div>
+                    <% } %>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-8 col-lg-6">
+                        <label for="inquiry-quote" class="form-label">Quote</label>
+                        <textarea
+                            class="form-control"
+                            id="inquiry-quote"
+                            rows="3"
+                            <%= !canManage ? "disabled" : "" %>
+                        ><%= inquiry.quote || "" %></textarea>
+                        <% if (canManage) { %>
+                            <button type="button" class="btn btn-sm btn-primary mt-2" id="inquiry-quote-save-btn">
+                                Save quote
+                            </button>
+                        <% } %>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-2">
+                    <div class="col-md-4">
+                        <label for="inquiry-full-name" class="form-label">Full name</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="inquiry-full-name"
+                            value="<%= inquiry.full_name || '' %>"
+                            <%= !isAdmin ? "disabled" : "" %>
+                        />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="inquiry-phone" class="form-label">Phone</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="inquiry-phone"
+                            value="<%= inquiry.phone || '' %>"
+                            <%= !isAdmin ? "disabled" : "" %>
+                        />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="inquiry-email" class="form-label">Email</label>
+                        <input
+                            type="email"
+                            class="form-control"
+                            id="inquiry-email"
+                            value="<%= inquiry.email || '' %>"
+                            <%= !isAdmin ? "disabled" : "" %>
+                        />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="inquiry-institute" class="form-label">Institute</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="inquiry-institute"
+                            value="<%= inquiry.institute_name || '' %>"
+                            <%= !isAdmin ? "disabled" : "" %>
+                        />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="inquiry-city" class="form-label">City</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="inquiry-city"
+                            value="<%= inquiry.city || '' %>"
+                            <%= !isAdmin ? "disabled" : "" %>
+                        />
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <% if (isAdmin) { %>
+                            <button type="button" class="btn btn-outline-primary w-100" id="inquiry-contact-save-btn">
+                                Save contact
+                            </button>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs" id="inquiry-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link active"
+                    id="inquiry-notes-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#inquiry-notes-pane"
+                    type="button"
+                    role="tab"
+                >
+                    Notes
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link"
+                    id="inquiry-followups-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#inquiry-followups-pane"
+                    type="button"
+                    role="tab"
+                >
+                    Follow-ups
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link"
+                    id="inquiry-activities-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#inquiry-activities-pane"
+                    type="button"
+                    role="tab"
+                >
+                    Activities
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content border border-top-0 bg-white rounded-bottom shadow-sm p-4 mb-5">
+            <div class="tab-pane fade show active" id="inquiry-notes-pane" role="tabpanel">
+                <% if (canManage) { %>
+                    <form id="inquiry-note-form" class="mb-4" novalidate>
+                        <label for="inquiry-note-text" class="form-label">Add note</label>
+                        <textarea class="form-control mb-2" id="inquiry-note-text" rows="3" required></textarea>
+                        <button type="submit" class="btn btn-primary btn-sm" id="inquiry-note-submit-btn">
+                            Add note
+                        </button>
+                    </form>
+                <% } %>
+
+                <% if (!notes || !notes.length) { %>
+                    <p class="text-secondary mb-0">No notes yet.</p>
+                <% } else { %>
+                    <div class="list-group list-group-flush">
+                        <% notes.forEach(function (note) { %>
+                            <div class="list-group-item px-0" data-note-id="<%= note.id %>">
+                                <div class="d-flex justify-content-between gap-3">
+                                    <div>
+                                        <div class="fw-semibold"><%= note.user_full_name || note.user_email %></div>
+                                        <div class="small text-secondary mb-2"
+                                            data-readable-date="<%= note.created_on || '' %>"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                                        ></div>
+                                        <div class="inquiry-note-body" style="white-space: pre-wrap;"><%= note.note %></div>
+                                    </div>
+                                    <% if (Number(note.user_id) === currentUserId) { %>
+                                        <div class="d-flex flex-column gap-1">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary inquiry-note-edit-btn"
+                                                data-note-id="<%= note.id %>"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger inquiry-note-delete-btn"
+                                                data-note-id="<%= note.id %>"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    <% } %>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                <% } %>
+            </div>
+
+            <div class="tab-pane fade" id="inquiry-followups-pane" role="tabpanel">
+                <% if (!isPotential) { %>
+                    <p class="text-secondary mb-0">
+                        Follow-ups are enabled when the inquiry state is <strong>Potential</strong>.
+                    </p>
+                <% } else { %>
+                    <p class="text-secondary small mb-3">
+                        Schedule from potential start:
+                        <span
+                            data-readable-date="<%= inquiry.potential_entered_on || '' %>"
+                            data-date-format="DD/MM/YYYY HH:mm"
+                        ></span>
+                        · day 3 / 7 / 15.
+                    </p>
+
+                    <% [1, 2, 3].forEach(function (slot) { %>
+                        <% const existing = followupBySlot[slot]; %>
+                        <div class="border rounded p-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                <div>
+                                    <div class="fw-semibold">Follow-up #<%= slot %></div>
+                                    <div class="small text-secondary">
+                                        Due around day <%= followupOffsets[slot] %>
+                                        (
+                                        <span
+                                            data-readable-date="<%= dueDateLabel(inquiry.potential_entered_on, followupOffsets[slot]) %>"
+                                            data-date-format="DD/MM/YYYY"
+                                        ></span>
+                                        )
+                                    </div>
+                                </div>
+                                <% if (existing) { %>
+                                    <span class="badge text-bg-success">Done</span>
+                                <% } else if (nextSlot === slot) { %>
+                                    <span class="badge text-bg-warning">Next</span>
+                                <% } else { %>
+                                    <span class="badge text-bg-secondary">Pending</span>
+                                <% } %>
+                            </div>
+
+                            <% if (existing) { %>
+                                <div class="small text-secondary mb-1">
+                                    Taken
+                                    <span
+                                        data-readable-date="<%= existing.followed_up_on || '' %>"
+                                        data-date-format="DD/MM/YYYY HH:mm"
+                                    ></span>
+                                    by <%= existing.user_full_name || existing.user_email %>
+                                </div>
+                                <div style="white-space: pre-wrap;"><%= existing.note %></div>
+                            <% } %>
+                        </div>
+                    <% }) %>
+
+                    <% if (canManage && nextSlot >= 1) { %>
+                        <form id="inquiry-followup-form" novalidate>
+                            <h3 class="h6">Record follow-up #<%= nextSlot %></h3>
+                            <input type="hidden" id="inquiry-followup-slot" value="<%= nextSlot %>" />
+                            <div class="mb-2">
+                                <label for="inquiry-followup-on" class="form-label">Followed up on</label>
+                                <input
+                                    type="datetime-local"
+                                    class="form-control"
+                                    id="inquiry-followup-on"
+                                />
+                            </div>
+                            <div class="mb-2">
+                                <label for="inquiry-followup-note" class="form-label">Note</label>
+                                <textarea class="form-control" id="inquiry-followup-note" rows="3" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm" id="inquiry-followup-submit-btn">
+                                Save follow-up
+                            </button>
+                        </form>
+                    <% } else if (completedCount >= 3) { %>
+                        <p class="text-secondary mb-0">All 3 follow-ups recorded.</p>
+                    <% } %>
+                <% } %>
+            </div>
+
+            <div class="tab-pane fade" id="inquiry-activities-pane" role="tabpanel">
+                <% if (!activities || !activities.length) { %>
+                    <p class="text-secondary mb-0">No activities yet.</p>
+                <% } else { %>
+                    <ul class="list-unstyled mb-0">
+                        <% activities.forEach(function (activity) { %>
+                            <li class="mb-3 pb-3 border-bottom">
+                                <div class="fw-semibold"><%= activity.user_full_name || activity.user_email %></div>
+                                <div
+                                    class="small text-secondary mb-1"
+                                    data-readable-date="<%= activity.created_on || '' %>"
+                                    data-date-format="DD/MM/YYYY HH:mm:ss"
+                                ></div>
+                                <div><%= activity.activity %></div>
+                            </li>
+                        <% }) %>
+                    </ul>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="inquiry-note-edit-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="inquiry-note-edit-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Edit note</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="inquiry-note-edit-id" />
+                    <textarea class="form-control" id="inquiry-note-edit-text" rows="4" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/inquiry.js" defer></script>
+<%- include('common/footer') %>

@@ -50,6 +50,7 @@ export const AUTHORITIES = {
     USE_PAGE_GEM_TENDER_KEYWORDS: "USE_PAGE_GEM_TENDER_KEYWORDS",
     ASSIGN_GEM_TENDER_ASSIGNEE: "ASSIGN_GEM_TENDER_ASSIGNEE",
     MARK_GEM_TENDER_MASS_STAGE_CHANGE: "MARK_GEM_TENDER_MASS_STAGE_CHANGE",
+    ASSIGN_INQUIRY_ASSIGNEE: "ASSIGN_INQUIRY_ASSIGNEE",
     USE_PAGE_AUTOMATION: "USE_PAGE_AUTOMATION",
     USE_PAGE_APPLICATIONS: "USE_PAGE_APPLICATIONS",
     USE_PAGE_SERVICES: "USE_PAGE_SERVICES",
@@ -128,6 +129,45 @@ export const GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS = {
     [GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE]: "Not eligible",
 };
 
+export const INQUIRY_STATES = {
+    NEW: "new",
+    ASSIGNED: "assigned",
+    IN_PROGRESS: "in_progress",
+    POTENTIAL: "potential",
+    IGNORED: "ignored",
+    CLOSED: "closed",
+    CANCELED: "canceled",
+};
+
+export const INQUIRY_STATE_LABELS = {
+    [INQUIRY_STATES.NEW]: "New",
+    [INQUIRY_STATES.ASSIGNED]: "Assigned",
+    [INQUIRY_STATES.IN_PROGRESS]: "In progress",
+    [INQUIRY_STATES.POTENTIAL]: "Potential",
+    [INQUIRY_STATES.IGNORED]: "Ignored",
+    [INQUIRY_STATES.CLOSED]: "Closed",
+    [INQUIRY_STATES.CANCELED]: "Canceled",
+};
+
+export const INQUIRY_SOURCES = {
+    WEBSITE: "website",
+    MANUAL: "manual",
+    YOUR_INSTITUTE: "your-institute",
+};
+
+export const INQUIRY_SOURCE_LABELS = {
+    [INQUIRY_SOURCES.WEBSITE]: "Website",
+    [INQUIRY_SOURCES.MANUAL]: "Manual",
+    [INQUIRY_SOURCES.YOUR_INSTITUTE]: "Your Institute",
+};
+
+/** Day offsets after potential_entered_on for follow-up slots 1–3. */
+export const INQUIRY_FOLLOWUP_DAY_OFFSETS = {
+    1: 3,
+    2: 7,
+    3: 15,
+};
+
 export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_PROJECTS: "View Projects page",
     USE_PAGE_EXPENSES: "View Expenses page",
@@ -143,6 +183,7 @@ export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_GEM_TENDER_KEYWORDS: "View GEM Tenders keyword + scan and history pages",
     ASSIGN_GEM_TENDER_ASSIGNEE: "Assign any user as GEM tender assignee",
     MARK_GEM_TENDER_MASS_STAGE_CHANGE: "Bulk change GEM tender stage (comment required)",
+    ASSIGN_INQUIRY_ASSIGNEE: "Assign any user as inquiry assignee",
     USE_PAGE_AUTOMATION: "View Automation page",
     USE_PAGE_APPLICATIONS: "View Applications page",
     USE_PAGE_SERVICES: "View Services page",

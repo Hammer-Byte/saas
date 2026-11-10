@@ -164,3 +164,31 @@ export async function getAllSuperAdminUsers() {
             return [];
         });
 }
+
+export async function getAllAdminUsers() {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT DISTINCT
+                USERS.id,
+                USERS.full_name,
+                USERS.email,
+                USERS.personal_email,
+                USERS.login_method,
+                USERS.hourly_rate,
+                USERS.super_admin,
+                USERS.created_on,
+                USERS.updated_at
+            FROM USERS
+            LEFT JOIN USER_ROLES ON USER_ROLES.user_id = USERS.id
+            LEFT JOIN ROLES ON ROLES.id = USER_ROLES.role_id
+            WHERE USERS.super_admin = TRUE
+               OR ROLES.title = 'ADMIN'
+            ORDER BY USERS.id ASC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getAllAdminUsers: ${error}`);
+            return [];
+        });
+}
