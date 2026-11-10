@@ -18,7 +18,7 @@ function taskUrl(taskId) {
 }
 
 function stateLabel(state) {
-    return TASK_STATE_LABELS[state] || state || TASK_STATE_LABELS[TASK_STATES.TODO];
+    return TASK_STATE_LABELS[state] || state || TASK_STATE_LABELS[TASK_STATES.BACKLOG];
 }
 
 function sendTaskReminderEmail({ reminder }) {

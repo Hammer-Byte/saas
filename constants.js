@@ -63,19 +63,19 @@ export const AUTHORITIES = {
 };
 
 export const TASK_STATES = {
-    TODO: "todo",
+    BACKLOG: "backlog",
+    ANALYZING: "analyzing",
     IN_PROGRESS: "in_progress",
-    BLOCKED: "blocked",
+    UNDER_REVIEW: "under_review",
     DONE: "done",
-    CANCELLED: "cancelled",
 };
 
 export const TASK_STATE_LABELS = {
-    [TASK_STATES.TODO]: "To do",
+    [TASK_STATES.BACKLOG]: "Backlog",
+    [TASK_STATES.ANALYZING]: "Analyzing",
     [TASK_STATES.IN_PROGRESS]: "In progress",
-    [TASK_STATES.BLOCKED]: "Blocked",
+    [TASK_STATES.UNDER_REVIEW]: "Under review",
     [TASK_STATES.DONE]: "Done",
-    [TASK_STATES.CANCELLED]: "Cancelled",
 };
 
 export const TASK_PRIORITIES = {

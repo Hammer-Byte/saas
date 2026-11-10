@@ -1,0 +1,177 @@
+<%- include('common/header') %>
+
+<%
+    const stateLabels = TASK_STATE_LABELS || {};
+    const reportData = report || {};
+    const totals = reportData.totals || {};
+    const employees = reportData.byEmployee || [];
+%>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100" id="tasks-sprint-report-page">
+    <div class="container-fluid px-3 px-lg-4 py-4">
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/tasks" class="text-decoration-none">Tasks</a> /
+                    Sprint report
+                </p>
+                <h1 class="h3 mb-1">Sprint burn report</h1>
+                <p class="text-secondary mb-0">
+                    Week
+                    <strong data-readable-date="<%= weekStart %>" data-date-format="DD/MM/YYYY"></strong>
+                    –
+                    <strong data-readable-date="<%= weekEnd %>" data-date-format="DD/MM/YYYY"></strong>
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="/app/tasks" class="btn btn-outline-secondary">Back to tasks</a>
+                <a href="/app/tasks/report" class="btn btn-outline-primary">Tasks report</a>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-3 p-md-4">
+                <form class="row g-3 align-items-end" method="get" action="/app/tasks/sprint-report">
+                    <div class="col-md-4 col-lg-3">
+                        <label for="sprint-report-week" class="form-label">Sprint week (any day)</label>
+                        <input
+                            type="text"
+                            class="form-control js-date-input"
+                            id="sprint-report-week"
+                            name="week"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            data-date-value="<%= weekStart %>"
+                            value="<%= weekStart %>"
+                            required
+                        />
+                    </div>
+                    <div class="col-md-3 col-lg-2">
+                        <button type="submit" class="btn btn-primary w-100">Apply week</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary small mb-1">Tasks in sprint</p>
+                        <p class="h4 mb-0"><%= totals.tasks || 0 %></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary small mb-1">Done</p>
+                        <p class="h4 mb-0"><%= totals.done || 0 %></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary small mb-1">Expected hours</p>
+                        <p class="h4 mb-0"><%= Number(totals.expected_hours || 0).toFixed(2) %></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary small mb-1">Actual hours burnt</p>
+                        <p class="h4 mb-0"><%= Number(totals.actual_hours || 0).toFixed(2) %></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <h2 class="h5 mb-0">Actual hours by person</h2>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="sprint-actual-hours-chart" height="220"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <h2 class="h5 mb-0">Expected hours by person</h2>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="sprint-expected-hours-chart" height="220"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">Burn by employee</h2>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Employee</th>
+                                <th scope="col">Tasks</th>
+                                <th scope="col">Done</th>
+                                <th scope="col">Expected hrs</th>
+                                <th scope="col">Actual hrs burnt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (!employees.length) { %>
+                                <tr>
+                                    <td colspan="5" class="text-secondary text-center py-4">
+                                        No sprint tasks for this week.
+                                    </td>
+                                </tr>
+                            <% } %>
+                            <% employees.forEach(function (row) { %>
+                                <tr>
+                                    <td><%= row.label %></td>
+                                    <td><%= row.task_count %></td>
+                                    <td><%= row.done_count %></td>
+                                    <td><%= Number(row.expected_hours || 0).toFixed(2) %></td>
+                                    <td><%= Number(row.actual_hours || 0).toFixed(2) %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    window.__SPRINT_BURN_CHARTS__ = <%- JSON.stringify((report && report.charts) || {}) %>;
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/tasks-sprint-report.js" defer></script>
+<%- include('common/footer') %>

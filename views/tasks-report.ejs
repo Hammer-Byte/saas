@@ -36,6 +36,7 @@
             </div>
             <div class="d-flex gap-2">
                 <a href="/app/tasks" class="btn btn-outline-secondary">Back to tasks</a>
+                <a href="/app/tasks/sprint-report" class="btn btn-outline-primary">Sprint burn</a>
                 <button type="button" class="btn btn-outline-secondary" id="tasks-report-clear-filters-btn">
                     Clear filters
                 </button>
@@ -172,7 +173,7 @@
                                 <th scope="col">Employee</th>
                                 <th scope="col">Tasks</th>
                                 <th scope="col">Done</th>
-                                <th scope="col">Blocked</th>
+                                <th scope="col">Under review</th>
                                 <th scope="col">Overdue</th>
                             </tr>
                         </thead>
@@ -182,7 +183,7 @@
                                     <td><%= row.label %></td>
                                     <td><%= row.task_count %></td>
                                     <td><%= row.done_count %></td>
-                                    <td><%= row.blocked_count %></td>
+                                    <td><%= row.under_review_count %></td>
                                     <td><%= row.overdue_count %></td>
                                 </tr>
                             <% }) %>
@@ -204,7 +205,7 @@
                                 <th scope="col">Project</th>
                                 <th scope="col">Tasks</th>
                                 <th scope="col">Done</th>
-                                <th scope="col">Blocked</th>
+                                <th scope="col">Under review</th>
                                 <th scope="col">Overdue</th>
                             </tr>
                         </thead>
@@ -214,7 +215,7 @@
                                     <td><%= row.label %></td>
                                     <td><%= row.task_count %></td>
                                     <td><%= row.done_count %></td>
-                                    <td><%= row.blocked_count %></td>
+                                    <td><%= row.under_review_count %></td>
                                     <td><%= row.overdue_count %></td>
                                 </tr>
                             <% }) %>

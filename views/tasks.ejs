@@ -6,6 +6,7 @@
     const stateValues = Object.values(TASK_STATES || {});
     const priorityValues = Object.values(TASK_PRIORITIES || {});
     const currentUserId = Number(userId || 0);
+    const taskAdmin = !!isTaskAdmin;
 %>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -21,7 +22,12 @@
     </div>
 </nav>
 
-<main class="bg-light min-vh-100" id="tasks-page" data-current-user-id="<%= currentUserId %>">
+<main
+    class="bg-light min-vh-100"
+    id="tasks-page"
+    data-current-user-id="<%= currentUserId %>"
+    data-is-task-admin="<%= taskAdmin ? '1' : '0' %>"
+>
     <div class="container-fluid px-3 px-lg-4 py-4">
         <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
@@ -42,6 +48,7 @@
                     Add Task
                 </button>
                 <a href="/app/tasks/report" class="btn btn-outline-primary">Report</a>
+                <a href="/app/tasks/sprint-report" class="btn btn-outline-primary">Sprint burn</a>
                 <button type="button" class="btn btn-outline-secondary" id="tasks-export-csv-btn">
                     Export CSV
                 </button>
@@ -165,23 +172,67 @@
             </div>
         </div>
 
+        <div class="card border-0 shadow-sm mb-3" id="tasks-sprint-bar">
+            <div class="card-body py-3 px-3 d-flex flex-wrap align-items-center gap-2">
+                <span class="fw-semibold me-1">Sprint week</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="tasks-sprint-prev" aria-label="Previous week">
+                    ← Prev
+                </button>
+                <span class="small" id="tasks-sprint-label" role="status"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="tasks-sprint-next" aria-label="Next week">
+                    Next →
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="tasks-sprint-current">
+                    This week
+                </button>
+                <div class="form-check form-check-inline ms-md-2 mb-0">
+                    <input class="form-check-input" type="checkbox" id="tasks-filter-all-weeks" />
+                    <label class="form-check-label small" for="tasks-filter-all-weeks">All weeks (table)</label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="checkbox" id="tasks-filter-backlog" />
+                    <label class="form-check-label small" for="tasks-filter-backlog">Unscheduled sprint</label>
+                </div>
+                <span class="text-secondary small ms-md-auto" id="tasks-board-hint">
+                    Board: shared backlog + selected week. Drag backlog cards into Analyzing / In progress to assign this sprint.
+                </span>
+            </div>
+        </div>
+
+        <style>
+            .task-item.task-overdue,
+            .task-board-card.task-overdue {
+                background-color: #ffe5e5;
+                border-color: #f5a3a3 !important;
+                animation: task-overdue-blink 1.2s ease-in-out infinite;
+            }
+            @keyframes task-overdue-blink {
+                0%,
+                100% {
+                    background-color: #ffe5e5;
+                    box-shadow: inset 0 0 0 1px rgba(220, 53, 69, 0.15);
+                }
+                50% {
+                    background-color: #ffc9c9;
+                    box-shadow: inset 0 0 0 1px rgba(220, 53, 69, 0.35);
+                }
+            }
+        </style>
+
         <%
             function taskOverdueClass(task) {
                 const state = task.state || "";
-                if (state === TASK_STATES.DONE || state === TASK_STATES.CANCELLED) {
+                if (state === TASK_STATES.DONE) {
                     return "";
                 }
                 if (!task.end_at) {
                     return "";
                 }
-                const endKey = String(task.end_at).slice(0, 10);
-                const today = new Date();
-                const todayKey = [
-                    today.getFullYear(),
-                    String(today.getMonth() + 1).padStart(2, "0"),
-                    String(today.getDate()).padStart(2, "0"),
-                ].join("-");
-                return endKey < todayKey ? "table-warning border border-warning" : "";
+                const endMs = Date.parse(String(task.end_at).trim().replace(" ", "T"));
+                if (!Number.isFinite(endMs) || endMs >= Date.now()) {
+                    return "";
+                }
+                return "task-overdue table-danger";
             }
         %>
 
@@ -214,6 +265,7 @@
                                     <th scope="col">Priority</th>
                                     <th scope="col">Assignee</th>
                                     <th scope="col">Project</th>
+                                    <th scope="col">Sprint</th>
                                     <th scope="col">End</th>
                                     <th scope="col">Expected hrs</th>
                                 </tr>
@@ -221,6 +273,7 @@
                             <tbody id="tasks-tbody">
                                 <% (tasks || []).forEach(function (task) { %>
                                     <% const overdueClass = taskOverdueClass(task); %>
+                                    <% const sprintWeek = task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : ""; %>
                                     <tr
                                         class="task-item task-row <%= overdueClass %>"
                                         role="link"
@@ -232,7 +285,9 @@
                                         data-state="<%= task.state || '' %>"
                                         data-priority="<%= task.priority || '' %>"
                                         data-assignee-id="<%= task.assignee_user_id || '' %>"
+                                        data-reviewer-id="<%= task.reviewer_user_id || '' %>"
                                         data-project-id="<%= task.project_id || '' %>"
+                                        data-sprint-week-start="<%= sprintWeek %>"
                                         data-end-at="<%= task.end_at || '' %>"
                                         data-created-on="<%= task.created_on || '' %>"
                                         data-expected-hours="<%= task.expected_hours != null ? task.expected_hours : '' %>"
@@ -257,6 +312,16 @@
                                                 —
                                             <% } %>
                                         </td>
+                                        <td>
+                                            <% if (sprintWeek) { %>
+                                                <span
+                                                    data-readable-date="<%= sprintWeek %>"
+                                                    data-date-format="DD/MM/YYYY"
+                                                ></span>
+                                            <% } else { %>
+                                                Backlog
+                                            <% } %>
+                                        </td>
                                         <td
                                             data-readable-date="<%= task.end_at || '' %>"
                                             data-date-format="DD/MM/YYYY HH:mm"
@@ -272,6 +337,28 @@
         </div>
 
         <div id="tasks-board-view" class="d-none">
+            <style>
+                .task-board-column {
+                    min-height: 12rem;
+                    transition: background-color 0.15s ease, outline-color 0.15s ease;
+                }
+                .task-board-column.drag-over {
+                    background-color: #eef5ff;
+                    outline: 2px dashed #6ea8fe;
+                    outline-offset: -2px;
+                }
+                .task-board-card {
+                    cursor: grab;
+                }
+                .task-board-card.dragging {
+                    opacity: 0.55;
+                    cursor: grabbing;
+                }
+                .task-board-card-readonly {
+                    cursor: pointer;
+                    opacity: 0.92;
+                }
+            </style>
             <div class="row g-3">
                 <% stateValues.forEach(function (state) { %>
                     <div class="col-12 col-md-6 col-xl">
@@ -280,21 +367,36 @@
                                 <h2 class="h6 mb-0"><%= stateLabels[state] || state %></h2>
                             </div>
                             <div class="card-body p-2 task-board-column" data-state="<%= state %>">
-                                <% (tasks || []).filter(function (task) { return (task.state || TASK_STATES.TODO) === state; }).forEach(function (task) { %>
+                                <% (tasks || []).filter(function (task) { return (task.state || TASK_STATES.BACKLOG) === state; }).forEach(function (task) { %>
                                     <% const overdueClass = taskOverdueClass(task); %>
-                                    <a
-                                        href="/app/tasks/<%= task.id %>"
-                                        class="task-item card mb-2 text-decoration-none text-body <%= overdueClass %>"
+                                    <% const boardSprintWeek = task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : ""; %>
+                                    <%
+                                        const cardAssigneeId = task.assignee_user_id ? Number(task.assignee_user_id) : 0;
+                                        const cardReviewerId = task.reviewer_user_id ? Number(task.reviewer_user_id) : 0;
+                                        const canMoveCard = taskAdmin ||
+                                            (currentUserId >= 1 && (
+                                                currentUserId === cardAssigneeId ||
+                                                currentUserId === cardReviewerId
+                                            ));
+                                    %>
+                                    <div
+                                        class="task-item task-board-card card mb-2 text-body <%= overdueClass %><%= canMoveCard ? '' : ' task-board-card-readonly' %>"
+                                        draggable="<%= canMoveCard ? 'true' : 'false' %>"
+                                        data-can-move="<%= canMoveCard ? '1' : '0' %>"
+                                        data-href="/app/tasks/<%= task.id %>"
                                         data-id="<%= task.id %>"
                                         data-title="<%= (task.title || '').replace(/"/g, '&quot;') %>"
                                         data-description="<%= encodeURIComponent(task.description || '') %>"
                                         data-state="<%= task.state || '' %>"
                                         data-priority="<%= task.priority || '' %>"
                                         data-assignee-id="<%= task.assignee_user_id || '' %>"
+                                        data-reviewer-id="<%= task.reviewer_user_id || '' %>"
                                         data-project-id="<%= task.project_id || '' %>"
+                                        data-sprint-week-start="<%= boardSprintWeek %>"
                                         data-end-at="<%= task.end_at || '' %>"
                                         data-created-on="<%= task.created_on || '' %>"
                                         data-expected-hours="<%= task.expected_hours != null ? task.expected_hours : '' %>"
+                                        title="<%= canMoveCard ? '' : 'View only — only assignee, reviewer, or admin can move' %>"
                                     >
                                         <div class="card-body p-3">
                                             <p class="fw-semibold mb-1"><%= task.title %></p>
@@ -310,7 +412,7 @@
                                                 ></p>
                                             <% } %>
                                         </div>
-                                    </a>
+                                    </div>
                                 <% }) %>
                             </div>
                         </div>
@@ -348,8 +450,10 @@
                                 id="task-expected-hours"
                                 name="expected_hours"
                                 min="0"
+                                max="8"
                                 step="0.25"
                             />
+                            <div class="form-text">Max 8 hours per task.</div>
                         </div>
                         <div class="col-md-4">
                             <label for="task-start-at" class="form-label">Start</label>
@@ -408,22 +512,99 @@
                         </div>
                         <div class="col-md-6">
                             <label for="task-state" class="form-label">State</label>
-                            <select class="form-select" id="task-state" name="state" required>
-                                <% stateValues.forEach(function (state) { %>
-                                    <option
-                                        value="<%= state %>"
-                                        <%= state === TASK_STATES.TODO ? "selected" : "" %>
-                                    >
-                                        <%= stateLabels[state] || state %>
-                                    </option>
-                                <% }) %>
+                            <select class="form-select" id="task-state" name="state" required disabled>
+                                <option value="<%= TASK_STATES.BACKLOG %>" selected>
+                                    <%= stateLabels[TASK_STATES.BACKLOG] || "Backlog" %>
+                                </option>
                             </select>
+                            <div class="form-text">New tasks start in Backlog. Assignee is optional here.</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-text">
+                                New tasks land in the shared Backlog. Pull them into a sprint week from the board.
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary" id="task-submit-btn">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="task-workflow-assignee-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="task-workflow-assignee-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Select assignee</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small">Assignee is required to leave Backlog for Analyzing or In progress.</p>
+                    <label for="task-workflow-assignee" class="form-label">Assignee</label>
+                    <select class="form-select" id="task-workflow-assignee" required>
+                        <option value="">Select assignee…</option>
+                        <% (users || []).forEach(function (user) { %>
+                            <option value="<%= user.id %>"><%= user.full_name %> (<%= user.email %>)</option>
+                        <% }) %>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Continue</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="task-workflow-reviewer-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="task-workflow-reviewer-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Select reviewer</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small">A reviewer is required when moving to Under review. They will get an email.</p>
+                    <label for="task-workflow-reviewer" class="form-label">Reviewer</label>
+                    <select class="form-select" id="task-workflow-reviewer" required>
+                        <option value="">Select reviewer…</option>
+                        <% (users || []).forEach(function (user) { %>
+                            <option value="<%= user.id %>"><%= user.full_name %> (<%= user.email %>)</option>
+                        <% }) %>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Send to review</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="task-workflow-comment-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="task-workflow-comment-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Comment required</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small">Admin or reviewer must add a comment when sending the task back to In progress.</p>
+                    <label for="task-workflow-comment" class="form-label">Comment</label>
+                    <textarea class="form-control" id="task-workflow-comment" rows="3" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Send back</button>
                 </div>
             </form>
         </div>

@@ -4,13 +4,13 @@
 
     const taskId = Number(detail.dataset.id || 0);
     const currentUserId = Number(detail.dataset.currentUserId || 0);
+    const isTaskAdmin = detail.dataset.isTaskAdmin === "1";
+    const canMoveTask = detail.dataset.canMove === "1";
 
     const pageAlert = document.getElementById("task-alert");
     const editForm = document.getElementById("task-edit-form");
     const quickStateSelect = document.getElementById("task-quick-state");
     const editStateSelect = document.getElementById("task-edit-state");
-    const blockedReasonWrap = document.getElementById("task-blocked-reason-wrap");
-    const blockedReasonInput = document.getElementById("task-blocked-reason");
     const markDoneButton = document.getElementById("task-mark-done-btn");
     const duplicateButton = document.getElementById("task-duplicate-btn");
     const deleteButton = document.getElementById("task-delete-btn");
@@ -51,19 +51,12 @@
         target.textContent = "";
     }
 
-    function syncBlockedReasonVisibility() {
-        const state = editStateSelect?.value || quickStateSelect?.value || "";
-        const blocked = state === "blocked";
-        blockedReasonWrap?.classList.toggle("d-none", !blocked);
-    }
-
     function syncStateSelects(fromQuick) {
         if (fromQuick && editStateSelect && quickStateSelect) {
             editStateSelect.value = quickStateSelect.value;
         } else if (!fromQuick && editStateSelect && quickStateSelect) {
             quickStateSelect.value = editStateSelect.value;
         }
-        syncBlockedReasonVisibility();
     }
 
     function buildTaskPayload() {
@@ -74,10 +67,11 @@
         const startAtRaw = document.getElementById("task-edit-start-at")?.value || "";
         const endAtRaw = document.getElementById("task-edit-end-at")?.value || "";
         const assigneeRaw = document.getElementById("task-edit-assignee")?.value || "";
+        const reviewerRaw = document.getElementById("task-edit-reviewer")?.value || "";
         const projectRaw = document.getElementById("task-edit-project")?.value || "";
-        const state = editStateSelect?.value || "todo";
+        const sprintWeekRaw = document.getElementById("task-edit-sprint-week")?.value || "";
+        const state = editStateSelect?.value || "backlog";
         const priority = document.getElementById("task-edit-priority")?.value || "medium";
-        const blockedReason = blockedReasonInput?.value?.trim() || "";
 
         const payload = {
             id: taskId,
@@ -85,18 +79,44 @@
             state,
             priority,
             description: description || null,
-            blocked_reason: state === "blocked" ? blockedReason || null : null,
             assignee_user_id: assigneeRaw ? Number(assigneeRaw) : null,
+            reviewer_user_id: reviewerRaw ? Number(reviewerRaw) : null,
             project_id: projectRaw ? Number(projectRaw) : null,
         };
 
+        if (sprintWeekRaw.trim()) {
+            const sprintWeek =
+                window.getMondayDate?.(sprintWeekRaw) ||
+                window.getWritableDate?.("YYYY-MM-DD", sprintWeekRaw);
+            if (!sprintWeek) {
+                return { error: "Enter a valid sprint week date." };
+            }
+            payload.sprint_week_start = sprintWeek;
+        } else {
+            payload.sprint_week_start = null;
+        }
+
         if (expectedHoursRaw !== "") {
-            payload.expected_hours = Number(expectedHoursRaw);
+            const expectedHours = Number(expectedHoursRaw);
+            if (!Number.isFinite(expectedHours) || expectedHours < 0) {
+                return { error: "Enter valid expected hours." };
+            }
+            if (expectedHours > 8) {
+                return { error: "Expected hours cannot be more than 8." };
+            }
+            payload.expected_hours = expectedHours;
         } else {
             payload.expected_hours = null;
         }
         if (actualHoursRaw !== "") {
-            payload.actual_hours = Number(actualHoursRaw);
+            const actualHours = Number(actualHoursRaw);
+            if (!Number.isFinite(actualHours) || actualHours < 0) {
+                return { error: "Enter valid actual hours." };
+            }
+            if (actualHours > 8) {
+                return { error: "Actual hours cannot be more than 8." };
+            }
+            payload.actual_hours = actualHours;
         } else {
             payload.actual_hours = null;
         }
@@ -121,20 +141,78 @@
         return { payload };
     }
 
+    function buildStateChangeBody(nextState) {
+        const body = { state: nextState };
+        const assigneeRaw = document.getElementById("task-edit-assignee")?.value || "";
+        const reviewerRaw = document.getElementById("task-edit-reviewer")?.value || "";
+        if (assigneeRaw) body.assignee_user_id = Number(assigneeRaw);
+        if (reviewerRaw) body.reviewer_user_id = Number(reviewerRaw);
+
+        const previous = detail.dataset.state || "";
+        const reviewerId = Number(detail.dataset.reviewerId || reviewerRaw || 0);
+        const isReviewer =
+            currentUserId >= 1 && reviewerId >= 1 && currentUserId === reviewerId;
+
+        if (
+            previous === "under_review" &&
+            nextState === "in_progress" &&
+            (isTaskAdmin || isReviewer)
+        ) {
+            const comment = window.prompt(
+                "Admin or reviewer comment is required when sending back to In progress:",
+            );
+            if (!comment || !String(comment).trim()) {
+                return { error: "Comment is required." };
+            }
+            body.comment = String(comment).trim();
+        }
+
+        if (nextState === "backlog") {
+            body.sprint_week_start = null;
+        } else if (
+            previous === "backlog" &&
+            (nextState === "analyzing" || nextState === "in_progress")
+        ) {
+            const sprintWeekRaw =
+                document.getElementById("task-edit-sprint-week")?.value || "";
+            const sprintWeek = sprintWeekRaw.trim()
+                ? window.getMondayDate?.(sprintWeekRaw) ||
+                  window.getWritableDate?.("YYYY-MM-DD", sprintWeekRaw)
+                : window.getMondayDate?.(new Date());
+            if (!sprintWeek) {
+                return { error: "Sprint week is required when leaving backlog." };
+            }
+            body.sprint_week_start = sprintWeek;
+        }
+
+        return { body };
+    }
+
+    if (!canMoveTask) {
+        editForm?.querySelectorAll("input, select, textarea, button").forEach((element) => {
+            if (element.id === "task-follow-btn") return;
+            element.disabled = true;
+        });
+    }
+
     quickStateSelect?.addEventListener("change", async () => {
+        if (!canMoveTask) return;
         syncStateSelects(true);
         const previous = detail.dataset.state || "";
         const state = quickStateSelect.value;
-        const body = { state };
-        if (state === "blocked") {
-            body.blocked_reason = blockedReasonInput?.value?.trim() || null;
+        const built = buildStateChangeBody(state);
+        if (built.error) {
+            showAlert(pageAlert, built.error, "danger");
+            quickStateSelect.value = previous;
+            syncStateSelects(true);
+            return;
         }
         try {
             const response = await fetch(`/api/tasks/${taskId}/state`, {
                 method: "PATCH",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
+                body: JSON.stringify(built.body),
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
@@ -156,12 +234,18 @@
 
     markDoneButton?.addEventListener("click", async () => {
         markDoneButton.disabled = true;
+        const built = buildStateChangeBody("done");
+        if (built.error) {
+            showAlert(pageAlert, built.error, "danger");
+            markDoneButton.disabled = false;
+            return;
+        }
         try {
             const response = await fetch(`/api/tasks/${taskId}/state`, {
                 method: "PATCH",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ state: "done" }),
+                body: JSON.stringify(built.body),
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
@@ -254,6 +338,10 @@
     editForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
         hideAlert(pageAlert);
+        if (!canMoveTask) {
+            showAlert(pageAlert, "View only — you cannot edit this task.", "warning");
+            return;
+        }
 
         const built = buildTaskPayload();
         if (built.error) {
@@ -584,5 +672,4 @@
         }
     });
 
-    syncBlockedReasonVisibility();
 })();

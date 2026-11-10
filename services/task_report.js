@@ -1,8 +1,8 @@
 import { TASK_STATE_LABELS, TASK_STATES } from "../constants.js";
-import { getAllTasks } from "../db/tasks.js";
-import { getIstDateTime } from "../libs/date.js";
+import { getAllTasks, getTasksBySprintWeekStart } from "../db/tasks.js";
+import { getIstDateTime, getMondayDate, getSundayDate } from "../libs/date.js";
 
-const TERMINAL_STATES = new Set([TASK_STATES.DONE, TASK_STATES.CANCELLED]);
+const TERMINAL_STATES = new Set([TASK_STATES.DONE]);
 
 function dateKeyFromDateTime(value) {
     if (value == null || value === "") {
@@ -34,7 +34,7 @@ function emptyEmployeeBucket(key, label) {
         label,
         task_count: 0,
         done_count: 0,
-        blocked_count: 0,
+        under_review_count: 0,
         overdue_count: 0,
     };
 }
@@ -45,7 +45,7 @@ function emptyProjectBucket(key, label) {
         label,
         task_count: 0,
         done_count: 0,
-        blocked_count: 0,
+        under_review_count: 0,
         overdue_count: 0,
     };
 }
@@ -69,7 +69,7 @@ export async function buildTaskReport({ from, to }) {
     let doneCount = 0;
 
     for (const task of tasks) {
-        const state = task.state || TASK_STATES.TODO;
+        const state = task.state || TASK_STATES.BACKLOG;
         if (stateTotals[state] == null) {
             stateTotals[state] = 0;
         }
@@ -105,8 +105,8 @@ export async function buildTaskReport({ from, to }) {
         if (state === TASK_STATES.DONE) {
             employeeBucket.done_count += 1;
         }
-        if (state === TASK_STATES.BLOCKED) {
-            employeeBucket.blocked_count += 1;
+        if (state === TASK_STATES.UNDER_REVIEW) {
+            employeeBucket.under_review_count += 1;
         }
         if (isOverdue) {
             employeeBucket.overdue_count += 1;
@@ -132,8 +132,8 @@ export async function buildTaskReport({ from, to }) {
         if (state === TASK_STATES.DONE) {
             projectBucket.done_count += 1;
         }
-        if (state === TASK_STATES.BLOCKED) {
-            projectBucket.blocked_count += 1;
+        if (state === TASK_STATES.UNDER_REVIEW) {
+            projectBucket.under_review_count += 1;
         }
         if (isOverdue) {
             projectBucket.overdue_count += 1;
@@ -190,6 +190,85 @@ export async function buildTaskReport({ from, to }) {
             overdueByEmployee: {
                 labels: chartEmployees.map((row) => row.label),
                 values: chartEmployees.map((row) => row.overdue_count),
+            },
+        },
+    };
+}
+
+export async function buildSprintBurnReport({ weekStart }) {
+    const monday = getMondayDate(weekStart) || getMondayDate();
+    const sunday = getSundayDate(monday);
+    const tasks = await getTasksBySprintWeekStart({ sprint_week_start: monday });
+
+    const byEmployee = new Map();
+    let expectedTotal = 0;
+    let actualTotal = 0;
+    let doneCount = 0;
+
+    for (const task of tasks) {
+        const expected = Number(task.expected_hours || 0);
+        const actual = Number(task.actual_hours || 0);
+        expectedTotal += Number.isFinite(expected) ? expected : 0;
+        actualTotal += Number.isFinite(actual) ? actual : 0;
+        if ((task.state || "") === TASK_STATES.DONE) {
+            doneCount += 1;
+        }
+
+        const key = task.assignee_user_id ? String(task.assignee_user_id) : "unassigned";
+        const label = task.assignee_user_id
+            ? task.assignee_full_name || task.assignee_email || `User #${task.assignee_user_id}`
+            : "Unassigned";
+        if (!byEmployee.has(key)) {
+            byEmployee.set(key, {
+                key,
+                label,
+                task_count: 0,
+                done_count: 0,
+                expected_hours: 0,
+                actual_hours: 0,
+            });
+        }
+        const bucket = byEmployee.get(key);
+        bucket.task_count += 1;
+        if ((task.state || "") === TASK_STATES.DONE) {
+            bucket.done_count += 1;
+        }
+        bucket.expected_hours += Number.isFinite(expected) ? expected : 0;
+        bucket.actual_hours += Number.isFinite(actual) ? actual : 0;
+    }
+
+    const employees = Array.from(byEmployee.values()).sort((left, right) => {
+        if (left.key === "unassigned") return 1;
+        if (right.key === "unassigned") return -1;
+        return right.actual_hours - left.actual_hours;
+    });
+
+    return {
+        week: { start: monday, end: sunday },
+        totals: {
+            tasks: tasks.length,
+            done: doneCount,
+            expected_hours: Math.round(expectedTotal * 100) / 100,
+            actual_hours: Math.round(actualTotal * 100) / 100,
+        },
+        byEmployee: employees.map((row) => ({
+            ...row,
+            expected_hours: Math.round(row.expected_hours * 100) / 100,
+            actual_hours: Math.round(row.actual_hours * 100) / 100,
+        })),
+        tasks,
+        charts: {
+            actualHoursByEmployee: {
+                labels: employees.filter((row) => row.key !== "unassigned").map((row) => row.label),
+                values: employees
+                    .filter((row) => row.key !== "unassigned")
+                    .map((row) => Math.round(row.actual_hours * 100) / 100),
+            },
+            expectedHoursByEmployee: {
+                labels: employees.filter((row) => row.key !== "unassigned").map((row) => row.label),
+                values: employees
+                    .filter((row) => row.key !== "unassigned")
+                    .map((row) => Math.round(row.expected_hours * 100) / 100),
             },
         },
     };

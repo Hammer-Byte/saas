@@ -11,7 +11,7 @@ function taskUrl(taskId) {
 }
 
 function stateLabel(state) {
-    return TASK_STATE_LABELS[state] || state || TASK_STATE_LABELS[TASK_STATES.TODO];
+    return TASK_STATE_LABELS[state] || state || TASK_STATE_LABELS[TASK_STATES.BACKLOG];
 }
 
 function priorityLabel(priority) {
@@ -53,6 +53,45 @@ export function notifyTaskAssigned({ task, assigneeUser, assignedByUser }) {
         );
     } catch (error) {
         logger.error(`notifyTaskAssigned: ${error}`);
+    }
+}
+
+export function notifyTaskReviewRequested({ task, reviewerUser, requestedByUser }) {
+    try {
+        const recipient = String(reviewerUser?.email || "").trim();
+        if (!recipient) {
+            logger.error("notifyTaskReviewRequested: reviewer has no email");
+            return;
+        }
+
+        const reviewerName = reviewerUser.full_name || reviewerUser.email || "there";
+        const requestedByName =
+            requestedByUser?.full_name || requestedByUser?.email || "A teammate";
+
+        const html = filer.prepareTemplated("templates/task_review_requested.html", {
+            reviewer_name: reviewerName,
+            requested_by_name: requestedByName,
+            task_title: task.title || "—",
+            task_state: stateLabel(task.state),
+            task_priority: priorityLabel(task.priority),
+            task_end_at: task.end_at || "—",
+            assignee_name: task.assignee_full_name || task.assignee_email || "—",
+            record_id: task.id,
+            task_url: taskUrl(task.id),
+            app_name: "HammerByte",
+        });
+
+        transporter.transport({
+            recipient,
+            subject: `Review requested — ${task.title || `#${task.id}`}`,
+            body: html,
+            html_enabled: true,
+        });
+        logger.info(
+            `task review email queued for ${recipient} (task #${task.id})`,
+        );
+    } catch (error) {
+        logger.error(`notifyTaskReviewRequested: ${error}`);
     }
 }
 

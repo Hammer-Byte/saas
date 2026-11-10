@@ -1,10 +1,11 @@
 (() => {
     const FILTERS_STORAGE_KEY = "tasks-filters";
-    const TERMINAL_STATES = new Set(["done", "cancelled"]);
+    const TERMINAL_STATES = new Set(["done"]);
     const PRIORITY_ORDER = { high: 1, medium: 2, low: 3 };
 
     const pageElement = document.getElementById("tasks-page");
     const currentUserId = Number(pageElement?.dataset.currentUserId || 0);
+    const isTaskAdmin = pageElement?.dataset.isTaskAdmin === "1";
 
     const searchInput = document.getElementById("tasks-search");
     const stateFilter = document.getElementById("tasks-filter-state");
@@ -19,6 +20,28 @@
     const filterStatus = document.getElementById("tasks-filter-status");
     const clearFiltersButton = document.getElementById("tasks-clear-filters-btn");
     const exportCsvButton = document.getElementById("tasks-export-csv-btn");
+    const sprintPrevButton = document.getElementById("tasks-sprint-prev");
+    const sprintNextButton = document.getElementById("tasks-sprint-next");
+    const sprintCurrentButton = document.getElementById("tasks-sprint-current");
+    const sprintLabel = document.getElementById("tasks-sprint-label");
+    const allWeeksFilter = document.getElementById("tasks-filter-all-weeks");
+    const backlogFilter = document.getElementById("tasks-filter-backlog");
+
+    let selectedSprintWeek =
+        window.getMondayDate?.(new Date()) ||
+        (() => {
+            const now = new Date();
+            const weekday = now.getDay();
+            const offset = weekday === 0 ? -6 : 1 - weekday;
+            now.setDate(now.getDate() + offset);
+            return [
+                now.getFullYear(),
+                String(now.getMonth() + 1).padStart(2, "0"),
+                String(now.getDate()).padStart(2, "0"),
+            ].join("-");
+        })();
+    let dragTaskId = null;
+    let dragMoved = false;
 
     const tableView = document.getElementById("tasks-table-view");
     const boardView = document.getElementById("tasks-board-view");
@@ -70,6 +93,38 @@
         }
     }
 
+    function formatSprintLabel(mondayKey) {
+        const sundayKey = window.getSundayDate?.(mondayKey);
+        const mondayDisplay =
+            window.getReadableDate?.("DD/MM/YYYY", mondayKey) || mondayKey || "—";
+        const sundayDisplay =
+            window.getReadableDate?.("DD/MM/YYYY", sundayKey) || sundayKey || "—";
+        return `${mondayDisplay} – ${sundayDisplay}`;
+    }
+
+    function shiftSprintWeek(days) {
+        const year = Number(selectedSprintWeek.slice(0, 4));
+        const month = Number(selectedSprintWeek.slice(5, 7));
+        const day = Number(selectedSprintWeek.slice(8, 10));
+        const date = new Date(year, month - 1, day);
+        date.setDate(date.getDate() + days);
+        selectedSprintWeek =
+            window.getMondayDate?.(date) ||
+            [
+                date.getFullYear(),
+                String(date.getMonth() + 1).padStart(2, "0"),
+                String(date.getDate()).padStart(2, "0"),
+            ].join("-");
+        syncSprintLabel();
+        applyFilters();
+    }
+
+    function syncSprintLabel() {
+        if (sprintLabel) {
+            sprintLabel.textContent = formatSprintLabel(selectedSprintWeek);
+        }
+    }
+
     function collectFilters() {
         const view = viewBoardInput?.checked ? "board" : "table";
         return {
@@ -82,6 +137,9 @@
             overdue: !!overdueFilter?.checked,
             dueSoon: !!dueSoonFilter?.checked,
             view,
+            sprintWeek: selectedSprintWeek,
+            allWeeks: !!allWeeksFilter?.checked,
+            backlogOnly: !!backlogFilter?.checked,
         };
     }
 
@@ -97,6 +155,18 @@
         if (projectFilter && filters.project != null) projectFilter.value = filters.project;
         if (priorityFilter && filters.priority != null) priorityFilter.value = filters.priority;
         if (sortFilter && filters.sort) sortFilter.value = filters.sort;
+        if (filters.sprintWeek) {
+            const monday = window.getMondayDate?.(filters.sprintWeek) || filters.sprintWeek;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(monday)) {
+                selectedSprintWeek = monday;
+            }
+        }
+        if (allWeeksFilter && typeof filters.allWeeks === "boolean") {
+            allWeeksFilter.checked = filters.allWeeks;
+        }
+        if (backlogFilter && typeof filters.backlogOnly === "boolean") {
+            backlogFilter.checked = filters.backlogOnly;
+        }
         if (overdueFilter && typeof filters.overdue === "boolean") {
             overdueFilter.checked = filters.overdue;
         }
@@ -135,18 +205,12 @@
         return Number.isFinite(parsed) ? parsed : null;
     }
 
-    function startOfTodayMs() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return today.getTime();
-    }
-
     function isItemOverdue(item) {
         const state = (item.dataset.state || "").trim();
         if (TERMINAL_STATES.has(state)) return false;
         const endMs = parseDateTimeMs(item.dataset.endAt);
         if (endMs == null) return false;
-        return endMs < startOfTodayMs();
+        return endMs < Date.now();
     }
 
     function isItemDueSoon(item) {
@@ -204,6 +268,21 @@
         const matchesOverdue = !overdueOnly || isItemOverdue(item);
         const matchesDueSoon = !dueSoonOnly || isItemDueSoon(item);
 
+        const boardMode = !!viewBoardInput?.checked;
+        const backlogOnly = !!backlogFilter?.checked;
+        const allWeeks = !!allWeeksFilter?.checked && !boardMode;
+        const itemSprint = (item.dataset.sprintWeekStart || "").slice(0, 10);
+        let matchesSprint = true;
+        if (backlogOnly) {
+            matchesSprint = itemState === "backlog";
+        } else if (boardMode) {
+            // Shared backlog stack always stays visible alongside the selected sprint week.
+            matchesSprint = itemState === "backlog" || itemSprint === selectedSprintWeek;
+        } else if (!allWeeks) {
+            matchesSprint =
+                itemState === "backlog" || !itemSprint || itemSprint === selectedSprintWeek;
+        }
+
         return (
             matchesSearch &&
             matchesState &&
@@ -211,11 +290,27 @@
             matchesProject &&
             matchesPriority &&
             matchesOverdue &&
-            matchesDueSoon
+            matchesDueSoon &&
+            matchesSprint
         );
     }
 
+    function isCurrentUserTask(item) {
+        if (!(currentUserId >= 1)) return false;
+        const assigneeId = Number(item.dataset.assigneeId || 0);
+        return assigneeId >= 1 && assigneeId === currentUserId;
+    }
+
+    function compareOwnFirst(left, right) {
+        const leftMine = isCurrentUserTask(left) ? 0 : 1;
+        const rightMine = isCurrentUserTask(right) ? 0 : 1;
+        return leftMine - rightMine;
+    }
+
     function compareItems(left, right) {
+        const ownDelta = compareOwnFirst(left, right);
+        if (ownDelta !== 0) return ownDelta;
+
         const sortKey = sortFilter?.value || "end_asc";
 
         if (sortKey === "title_asc") {
@@ -259,18 +354,259 @@
         }
     }
 
+    function sortBoardColumns() {
+        for (const column of document.querySelectorAll(".task-board-column")) {
+            const cards = Array.from(column.querySelectorAll(".task-board-card"));
+            const sorted = [...cards].sort(compareItems);
+            for (const card of sorted) {
+                column.appendChild(card);
+            }
+        }
+    }
+
     function syncViewMode() {
         const boardMode = !!viewBoardInput?.checked;
         tableView?.classList.toggle("d-none", boardMode);
         boardView?.classList.toggle("d-none", !boardMode);
+        if (boardMode) {
+            if (allWeeksFilter) allWeeksFilter.checked = false;
+            if (backlogFilter) backlogFilter.checked = false;
+        }
         saveFilters();
+    }
+
+    function syncTaskStateInDom(taskId, state) {
+        for (const item of allTaskItems()) {
+            if (String(item.dataset.id) !== String(taskId)) continue;
+            item.dataset.state = state;
+            if (item.tagName === "TR") {
+                const stateCell = item.children[2];
+                if (stateCell) {
+                    stateCell.textContent = state.replaceAll("_", " ");
+                }
+            }
+        }
+    }
+
+    function promptSelect(modalElement, formElement, valueElement) {
+        return new Promise((resolve) => {
+            if (!modalElement || !formElement || !window.bootstrap?.Modal) {
+                resolve(null);
+                return;
+            }
+            const modal = window.bootstrap.Modal.getOrCreateInstance(modalElement);
+            let settled = false;
+
+            function finish(value) {
+                if (settled) return;
+                settled = true;
+                formElement.removeEventListener("submit", onSubmit);
+                modalElement.removeEventListener("hidden.bs.modal", onHidden);
+                resolve(value);
+            }
+
+            function onSubmit(event) {
+                event.preventDefault();
+                const value = valueElement?.value?.trim() || "";
+                if (!value) return;
+                modal.hide();
+                finish(value);
+            }
+
+            function onHidden() {
+                finish(null);
+            }
+
+            formElement.addEventListener("submit", onSubmit);
+            modalElement.addEventListener("hidden.bs.modal", onHidden, { once: true });
+            if (valueElement) valueElement.value = "";
+            modal.show();
+        });
+    }
+
+    async function collectStateTransitionExtras(card, previousState, nextState) {
+        const extras = {};
+        const assigneeId = Number(card.dataset.assigneeId || 0);
+        const reviewerId = Number(card.dataset.reviewerId || 0);
+
+        const needsAssignee =
+            (previousState === "backlog" &&
+                (nextState === "analyzing" || nextState === "in_progress")) ||
+            ((nextState === "analyzing" || nextState === "in_progress") && !(assigneeId >= 1));
+
+        if (needsAssignee && !(assigneeId >= 1)) {
+            const selected = await promptSelect(
+                document.getElementById("task-workflow-assignee-modal"),
+                document.getElementById("task-workflow-assignee-form"),
+                document.getElementById("task-workflow-assignee"),
+            );
+            if (!selected) return null;
+            extras.assignee_user_id = Number(selected);
+        }
+
+        if (nextState === "under_review") {
+            const selected = await promptSelect(
+                document.getElementById("task-workflow-reviewer-modal"),
+                document.getElementById("task-workflow-reviewer-form"),
+                document.getElementById("task-workflow-reviewer"),
+            );
+            if (!selected) return null;
+            extras.reviewer_user_id = Number(selected);
+        }
+
+        if (previousState === "under_review" && nextState === "in_progress") {
+            const isReviewer =
+                currentUserId >= 1 && reviewerId >= 1 && currentUserId === reviewerId;
+            if (isTaskAdmin || isReviewer) {
+                const comment = await promptSelect(
+                    document.getElementById("task-workflow-comment-modal"),
+                    document.getElementById("task-workflow-comment-form"),
+                    document.getElementById("task-workflow-comment"),
+                );
+                if (!comment) return null;
+                extras.comment = comment;
+            }
+        }
+
+        return extras;
+    }
+
+    async function moveBoardCardToState(card, nextState) {
+        const taskId = Number(card.dataset.id || 0);
+        const previousState = card.dataset.state || "";
+        if (!(taskId >= 1) || !nextState || previousState === nextState) {
+            return;
+        }
+        if (card.dataset.canMove !== "1") {
+            showAlert(
+                pageAlert,
+                "View only — only the assignee, reviewer, or an admin can move this task.",
+                "warning",
+            );
+            return;
+        }
+
+        const extras = await collectStateTransitionExtras(card, previousState, nextState);
+        if (extras == null) {
+            return;
+        }
+
+        const body = { state: nextState, ...extras };
+        if (
+            previousState === "backlog" &&
+            (nextState === "analyzing" || nextState === "in_progress")
+        ) {
+            body.sprint_week_start = selectedSprintWeek;
+        }
+        if (nextState === "backlog") {
+            body.sprint_week_start = null;
+        }
+
+        try {
+            const response = await fetch(`/api/tasks/${taskId}/state`, {
+                method: "PATCH",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showAlert(pageAlert, data.error || "Failed to update task state.", "danger");
+                return;
+            }
+
+            const targetColumn = document.querySelector(
+                `.task-board-column[data-state="${nextState}"]`,
+            );
+            targetColumn?.appendChild(card);
+            card.dataset.state = nextState;
+            if (extras.assignee_user_id) {
+                card.dataset.assigneeId = String(extras.assignee_user_id);
+            }
+            if (extras.reviewer_user_id) {
+                card.dataset.reviewerId = String(extras.reviewer_user_id);
+            }
+            if (body.sprint_week_start) {
+                card.dataset.sprintWeekStart = String(body.sprint_week_start).slice(0, 10);
+            } else if (nextState === "backlog") {
+                card.dataset.sprintWeekStart = "";
+            }
+            syncTaskStateInDom(taskId, nextState);
+            applyFilters();
+        } catch (error) {
+            console.error(error);
+            showAlert(pageAlert, "Failed to update task state.", "danger");
+        }
+    }
+
+    function setupBoardDragAndDrop() {
+        for (const card of document.querySelectorAll(".task-board-card")) {
+            card.addEventListener("dragstart", (event) => {
+                if (card.dataset.canMove !== "1") {
+                    event.preventDefault();
+                    return;
+                }
+                dragTaskId = card.dataset.id || null;
+                dragMoved = false;
+                card.classList.add("dragging");
+                event.dataTransfer?.setData("text/plain", String(dragTaskId || ""));
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = "move";
+                }
+            });
+            card.addEventListener("dragend", () => {
+                card.classList.remove("dragging");
+                for (const column of document.querySelectorAll(".task-board-column")) {
+                    column.classList.remove("drag-over");
+                }
+                dragTaskId = null;
+            });
+            card.addEventListener("click", (event) => {
+                if (dragMoved) {
+                    event.preventDefault();
+                    dragMoved = false;
+                    return;
+                }
+                const href = card.dataset.href;
+                if (href) {
+                    window.location.href = href;
+                }
+            });
+        }
+
+        for (const column of document.querySelectorAll(".task-board-column")) {
+            column.addEventListener("dragover", (event) => {
+                event.preventDefault();
+                column.classList.add("drag-over");
+                if (event.dataTransfer) {
+                    event.dataTransfer.dropEffect = "move";
+                }
+            });
+            column.addEventListener("dragleave", () => {
+                column.classList.remove("drag-over");
+            });
+            column.addEventListener("drop", async (event) => {
+                event.preventDefault();
+                column.classList.remove("drag-over");
+                const taskId =
+                    event.dataTransfer?.getData("text/plain") || dragTaskId || "";
+                const card = document.querySelector(
+                    `.task-board-card[data-id="${taskId}"]`,
+                );
+                const nextState = column.dataset.state || "";
+                if (!card || !nextState) return;
+                dragMoved = true;
+                await moveBoardCardToState(card, nextState);
+            });
+        }
     }
 
     function syncOverdueHighlight(item) {
         const overdue = isItemOverdue(item);
-        item.classList.toggle("table-warning", overdue && item.tagName === "TR");
-        item.classList.toggle("border", overdue);
-        item.classList.toggle("border-warning", overdue);
+        item.classList.toggle("task-overdue", overdue);
+        item.classList.toggle("table-danger", overdue && item.tagName === "TR");
+        item.classList.toggle("table-warning", false);
+        item.classList.toggle("border-warning", false);
     }
 
     function applyFilters() {
@@ -296,6 +632,7 @@
         }
 
         sortTableRows();
+        sortBoardColumns();
 
         const totalRows = tableRows().length;
         if (filterStatus) {
@@ -398,8 +735,10 @@
     }
 
     restoreClientFilters(readStoredFilters());
+    syncSprintLabel();
     syncViewMode();
     applyFilters();
+    setupBoardDragAndDrop();
 
     searchInput?.addEventListener("input", applyFilters);
     stateFilter?.addEventListener("change", applyFilters);
@@ -409,6 +748,27 @@
     sortFilter?.addEventListener("change", applyFilters);
     overdueFilter?.addEventListener("change", applyFilters);
     dueSoonFilter?.addEventListener("change", applyFilters);
+    allWeeksFilter?.addEventListener("change", () => {
+        if (allWeeksFilter.checked && backlogFilter) {
+            backlogFilter.checked = false;
+        }
+        applyFilters();
+    });
+    backlogFilter?.addEventListener("change", () => {
+        if (backlogFilter.checked && allWeeksFilter) {
+            allWeeksFilter.checked = false;
+        }
+        applyFilters();
+    });
+    sprintPrevButton?.addEventListener("click", () => shiftSprintWeek(-7));
+    sprintNextButton?.addEventListener("click", () => shiftSprintWeek(7));
+    sprintCurrentButton?.addEventListener("click", () => {
+        selectedSprintWeek = window.getMondayDate?.(new Date()) || selectedSprintWeek;
+        if (backlogFilter) backlogFilter.checked = false;
+        if (allWeeksFilter) allWeeksFilter.checked = false;
+        syncSprintLabel();
+        applyFilters();
+    });
     viewTableInput?.addEventListener("change", () => {
         syncViewMode();
         applyFilters();
@@ -427,11 +787,25 @@
         if (sortFilter) sortFilter.value = "end_asc";
         if (overdueFilter) overdueFilter.checked = false;
         if (dueSoonFilter) dueSoonFilter.checked = false;
+        if (allWeeksFilter) allWeeksFilter.checked = false;
+        if (backlogFilter) backlogFilter.checked = false;
         if (viewTableInput) viewTableInput.checked = true;
+        selectedSprintWeek = window.getMondayDate?.(new Date()) || selectedSprintWeek;
         clearStoredFilters();
+        syncSprintLabel();
         syncViewMode();
         applyFilters();
     });
+
+    const createSprintInput = document.getElementById("task-sprint-week");
+    if (createSprintInput && !createSprintInput.value) {
+        const monday = window.getMondayDate?.(new Date());
+        if (monday) {
+            createSprintInput.dataset.dateValue = monday;
+            createSprintInput.value =
+                window.getReadableDate?.("DD/MM/YYYY", monday) || monday;
+        }
+    }
 
     exportCsvButton?.addEventListener("click", exportVisibleCsv);
 
@@ -511,17 +885,26 @@
         const assigneeRaw = document.getElementById("task-assignee")?.value || "";
         const projectRaw = document.getElementById("task-project")?.value || "";
         const priority = document.getElementById("task-priority")?.value || "medium";
-        const state = document.getElementById("task-state")?.value || "todo";
+        const state = document.getElementById("task-state")?.value || "backlog";
 
         if (!title) {
             showAlert(taskFormAlert, "Title is required.", "danger");
             return;
         }
 
-        const payload = { title, priority, state };
+        const payload = { title, priority, state: "backlog", sprint_week_start: null };
         if (description) payload.description = description;
         if (expectedHoursRaw !== "") {
-            payload.expected_hours = Number(expectedHoursRaw);
+            const expectedHours = Number(expectedHoursRaw);
+            if (!Number.isFinite(expectedHours) || expectedHours < 0) {
+                showAlert(taskFormAlert, "Enter valid expected hours.", "danger");
+                return;
+            }
+            if (expectedHours > 8) {
+                showAlert(taskFormAlert, "Expected hours cannot be more than 8.", "danger");
+                return;
+            }
+            payload.expected_hours = expectedHours;
         }
         const startAt = window.getWritableDate?.("YYYY-MM-DD HH:mm:ss", startAtRaw);
         const endAt = window.getWritableDate?.("YYYY-MM-DD HH:mm:ss", endAtRaw);

@@ -168,6 +168,53 @@ export function toDbDate(value) {
     return getWritableDate("YYYY-MM-DD", value) || null;
 }
 
+function formatLocalDateKey(date) {
+    return [
+        date.getFullYear(),
+        `${date.getMonth() + 1}`.padStart(2, "0"),
+        `${date.getDate()}`.padStart(2, "0"),
+    ].join("-");
+}
+
+/** Monday (YYYY-MM-DD) of the week containing the given date. Weeks are Mon–Sun. */
+export function getMondayDate(value = new Date()) {
+    const dateKey = toDbDate(value) || getIstDateTime()?.slice(0, 10);
+    if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+        return null;
+    }
+
+    const year = Number(dateKey.slice(0, 4));
+    const month = Number(dateKey.slice(5, 7));
+    const day = Number(dateKey.slice(8, 10));
+    const date = new Date(year, month - 1, day);
+    const weekday = date.getDay();
+    const offset = weekday === 0 ? -6 : 1 - weekday;
+    date.setDate(date.getDate() + offset);
+    return formatLocalDateKey(date);
+}
+
+/** Sunday (YYYY-MM-DD) for a Monday sprint week start. */
+export function getSundayDate(mondayValue) {
+    const mondayKey = getMondayDate(mondayValue);
+    if (!mondayKey) {
+        return null;
+    }
+    const year = Number(mondayKey.slice(0, 4));
+    const month = Number(mondayKey.slice(5, 7));
+    const day = Number(mondayKey.slice(8, 10));
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() + 6);
+    return formatLocalDateKey(date);
+}
+
+/** Normalize any date to its Monday sprint key, or null if empty/invalid. */
+export function normalizeSprintWeekStart(value) {
+    if (value == null || value === "") {
+        return null;
+    }
+    return getMondayDate(value);
+}
+
 /** Parse query/user date input into YYYY-MM-DD, or null if invalid. */
 export function parseQueryDate(value) {
     const normalized = toDbDate(value);

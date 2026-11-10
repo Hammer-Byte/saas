@@ -11,6 +11,20 @@ import {
     updateTaskState,
 } from "../../services/tasks.js";
 
+const taskStateSchema = t.Union([
+    t.Literal(TASK_STATES.BACKLOG),
+    t.Literal(TASK_STATES.ANALYZING),
+    t.Literal(TASK_STATES.IN_PROGRESS),
+    t.Literal(TASK_STATES.UNDER_REVIEW),
+    t.Literal(TASK_STATES.DONE),
+]);
+
+const taskPrioritySchema = t.Union([
+    t.Literal(TASK_PRIORITIES.LOW),
+    t.Literal(TASK_PRIORITIES.MEDIUM),
+    t.Literal(TASK_PRIORITIES.HIGH),
+]);
+
 export default function (app) {
     return app
         .post("/", addTask, {
@@ -21,25 +35,12 @@ export default function (app) {
                 actual_hours: t.Optional(t.Union([t.Numeric(), t.Null()])),
                 start_at: t.Optional(t.Union([t.String(), t.Null()])),
                 end_at: t.Optional(t.Union([t.String(), t.Null()])),
-                state: t.Optional(
-                    t.Union([
-                        t.Literal(TASK_STATES.TODO),
-                        t.Literal(TASK_STATES.IN_PROGRESS),
-                        t.Literal(TASK_STATES.BLOCKED),
-                        t.Literal(TASK_STATES.DONE),
-                        t.Literal(TASK_STATES.CANCELLED),
-                    ]),
-                ),
-                priority: t.Optional(
-                    t.Union([
-                        t.Literal(TASK_PRIORITIES.LOW),
-                        t.Literal(TASK_PRIORITIES.MEDIUM),
-                        t.Literal(TASK_PRIORITIES.HIGH),
-                    ]),
-                ),
-                blocked_reason: t.Optional(t.Union([t.String({ maxLength: 512 }), t.Null()])),
+                state: t.Optional(taskStateSchema),
+                priority: t.Optional(taskPrioritySchema),
                 project_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
                 assignee_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
+                reviewer_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
+                sprint_week_start: t.Optional(t.Union([t.String(), t.Null()])),
             }),
             detail: {
                 tags: ["Tasks"],
@@ -55,21 +56,13 @@ export default function (app) {
                 actual_hours: t.Optional(t.Union([t.Numeric(), t.Null()])),
                 start_at: t.Optional(t.Union([t.String(), t.Null()])),
                 end_at: t.Optional(t.Union([t.String(), t.Null()])),
-                state: t.Union([
-                    t.Literal(TASK_STATES.TODO),
-                    t.Literal(TASK_STATES.IN_PROGRESS),
-                    t.Literal(TASK_STATES.BLOCKED),
-                    t.Literal(TASK_STATES.DONE),
-                    t.Literal(TASK_STATES.CANCELLED),
-                ]),
-                priority: t.Union([
-                    t.Literal(TASK_PRIORITIES.LOW),
-                    t.Literal(TASK_PRIORITIES.MEDIUM),
-                    t.Literal(TASK_PRIORITIES.HIGH),
-                ]),
-                blocked_reason: t.Optional(t.Union([t.String({ maxLength: 512 }), t.Null()])),
+                state: taskStateSchema,
+                priority: taskPrioritySchema,
                 project_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
                 assignee_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
+                reviewer_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
+                sprint_week_start: t.Optional(t.Union([t.String(), t.Null()])),
+                comment: t.Optional(t.Union([t.String(), t.Null()])),
             }),
             detail: {
                 tags: ["Tasks"],
@@ -81,14 +74,11 @@ export default function (app) {
                 id: t.Numeric({ minimum: 1 }),
             }),
             body: t.Object({
-                state: t.Union([
-                    t.Literal(TASK_STATES.TODO),
-                    t.Literal(TASK_STATES.IN_PROGRESS),
-                    t.Literal(TASK_STATES.BLOCKED),
-                    t.Literal(TASK_STATES.DONE),
-                    t.Literal(TASK_STATES.CANCELLED),
-                ]),
-                blocked_reason: t.Optional(t.Union([t.String({ maxLength: 512 }), t.Null()])),
+                state: taskStateSchema,
+                assignee_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
+                reviewer_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
+                comment: t.Optional(t.Union([t.String(), t.Null()])),
+                sprint_week_start: t.Optional(t.Union([t.String(), t.Null()])),
             }),
             detail: {
                 tags: ["Tasks"],
@@ -98,13 +88,10 @@ export default function (app) {
         .post("/bulk-state", bulkUpdateTaskState, {
             body: t.Object({
                 ids: t.Array(t.Numeric({ minimum: 1 }), { minItems: 1 }),
-                state: t.Union([
-                    t.Literal(TASK_STATES.TODO),
-                    t.Literal(TASK_STATES.IN_PROGRESS),
-                    t.Literal(TASK_STATES.BLOCKED),
-                    t.Literal(TASK_STATES.DONE),
-                    t.Literal(TASK_STATES.CANCELLED),
-                ]),
+                state: taskStateSchema,
+                assignee_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
+                reviewer_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
+                comment: t.Optional(t.Union([t.String(), t.Null()])),
             }),
             detail: {
                 tags: ["Tasks"],

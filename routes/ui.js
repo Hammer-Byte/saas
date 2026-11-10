@@ -75,7 +75,7 @@ import { getAllTaskAttachmentsByTaskId } from "../db/task_attachments.js";
 import { getAllTaskCommentsByTaskId } from "../db/task_comments.js";
 import { getAllTaskFollowersByTaskId, getTaskFollowerByTaskIdAndUserId } from "../db/task_followers.js";
 import { getAllTaskRemindersByTaskId } from "../db/task_reminders.js";
-import { buildTaskReport } from "../services/task_report.js";
+import { buildSprintBurnReport, buildTaskReport } from "../services/task_report.js";
 import { getAllAutomationUsers } from "../db/automation_users.js";
 import {
     getContentPublishRunsByStartedOnRange,
@@ -102,7 +102,7 @@ import {
 } from "../db/linkedin_message_runs.js";
 import { processing as gemTendereProcessing } from "../libs/tenderer.js";
 import { processing as linkedinProcessing } from "../libs/linkedin_browser.js";
-import { getReadableDate, parseQueryDate } from "../libs/date.js";
+import { getMondayDate, getReadableDate, getSundayDate, parseQueryDate } from "../libs/date.js";
 import { formatContractCreatedOn } from "../libs/contractor.js";
 import { isContractSigned } from "../services/contracts.js";
 
@@ -384,6 +384,9 @@ export const uiRoutes = new Elysia()
                 render("tasks", appPage(session, {
                     title: "Tasks — HammerByte",
                     userId: session?.id,
+                    isTaskAdmin:
+                        !!session?.super_admin ||
+                        (Array.isArray(session?.roles) && session.roles.includes("ADMIN")),
                     tasks: await getAllTasks(),
                     users: await getAllUsers(),
                     projects: await getAllCustomerProjects(),
@@ -422,6 +425,21 @@ export const uiRoutes = new Elysia()
                     TASK_STATE_LABELS,
                 }));
             })
+            .get("/app/tasks/sprint-report", async ({ render, session, query }) => {
+                const requestedWeek =
+                    parseQueryDate(query.week) || getReadableDate("YYYY-MM-DD", new Date());
+                const weekStart = getMondayDate(requestedWeek) || getMondayDate();
+                const weekEnd = getSundayDate(weekStart);
+                const report = await buildSprintBurnReport({ weekStart });
+
+                return render("tasks-sprint-report", appPage(session, {
+                    title: "Sprint burn report — HammerByte",
+                    weekStart,
+                    weekEnd,
+                    report,
+                    TASK_STATE_LABELS,
+                }));
+            })
             .get("/app/tasks/:id", async ({ render, session, params, redirect }) => {
                 const task = await getTaskById({ id: params.id });
                 if (!task) {
@@ -433,10 +451,22 @@ export const uiRoutes = new Elysia()
                     user_id: session?.id,
                 });
 
+                const isTaskAdmin =
+                    !!session?.super_admin ||
+                    (Array.isArray(session?.roles) && session.roles.includes("ADMIN"));
+                const sessionUserId = Number(session?.id || 0);
+                const canMoveTask =
+                    isTaskAdmin ||
+                    (sessionUserId >= 1 &&
+                        (sessionUserId === Number(task.assignee_user_id) ||
+                            sessionUserId === Number(task.reviewer_user_id)));
+
                 return render("task", appPage(session, {
                     title: `${task.title} — Tasks — HammerByte`,
                     task,
                     userId: session?.id,
+                    isTaskAdmin,
+                    canMoveTask,
                     users: await getAllUsers(),
                     projects: await getAllCustomerProjects(),
                     comments: await getAllTaskCommentsByTaskId({ task_id: task.id }),

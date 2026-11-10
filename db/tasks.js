@@ -14,7 +14,9 @@ export async function createTask({
     blocked_reason = null,
     project_id = null,
     assignee_user_id = null,
+    reviewer_user_id = null,
     created_by_user_id,
+    sprint_week_start = null,
 }) {
     return await executeSQLQuery(
         (sql) => sql`
@@ -32,7 +34,9 @@ export async function createTask({
                     blocked_reason,
                     project_id,
                     assignee_user_id,
+                    reviewer_user_id,
                     created_by_user_id,
+                    sprint_week_start,
                 },
                 "title",
                 "description",
@@ -46,7 +50,9 @@ export async function createTask({
                 "blocked_reason",
                 "project_id",
                 "assignee_user_id",
+                "reviewer_user_id",
                 "created_by_user_id",
+                "sprint_week_start",
             )}
         `,
     )
@@ -64,12 +70,16 @@ export async function getTaskById({ id }) {
                 ASSIGNEE.full_name AS assignee_full_name,
                 ASSIGNEE.email AS assignee_email,
                 ASSIGNEE.personal_email AS assignee_personal_email,
+                REVIEWER.full_name AS reviewer_full_name,
+                REVIEWER.email AS reviewer_email,
+                REVIEWER.personal_email AS reviewer_personal_email,
                 CREATOR.full_name AS created_by_full_name,
                 CREATOR.email AS created_by_email,
                 CUSTOMER_PROJECTS.title AS project_title,
                 CUSTOMERS.full_name AS customer_full_name
             FROM TASKS
             LEFT JOIN USERS AS ASSIGNEE ON ASSIGNEE.id = TASKS.assignee_user_id
+            LEFT JOIN USERS AS REVIEWER ON REVIEWER.id = TASKS.reviewer_user_id
             INNER JOIN USERS AS CREATOR ON CREATOR.id = TASKS.created_by_user_id
             LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = TASKS.project_id
             LEFT JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_PROJECTS.customer_id
@@ -91,12 +101,16 @@ export async function getAllTasks() {
                 ASSIGNEE.full_name AS assignee_full_name,
                 ASSIGNEE.email AS assignee_email,
                 ASSIGNEE.personal_email AS assignee_personal_email,
+                REVIEWER.full_name AS reviewer_full_name,
+                REVIEWER.email AS reviewer_email,
+                REVIEWER.personal_email AS reviewer_personal_email,
                 CREATOR.full_name AS created_by_full_name,
                 CREATOR.email AS created_by_email,
                 CUSTOMER_PROJECTS.title AS project_title,
                 CUSTOMERS.full_name AS customer_full_name
             FROM TASKS
             LEFT JOIN USERS AS ASSIGNEE ON ASSIGNEE.id = TASKS.assignee_user_id
+            LEFT JOIN USERS AS REVIEWER ON REVIEWER.id = TASKS.reviewer_user_id
             INNER JOIN USERS AS CREATOR ON CREATOR.id = TASKS.created_by_user_id
             LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = TASKS.project_id
             LEFT JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_PROJECTS.customer_id
@@ -126,12 +140,16 @@ export async function getTasksByProjectId({ project_id }) {
                 ASSIGNEE.full_name AS assignee_full_name,
                 ASSIGNEE.email AS assignee_email,
                 ASSIGNEE.personal_email AS assignee_personal_email,
+                REVIEWER.full_name AS reviewer_full_name,
+                REVIEWER.email AS reviewer_email,
+                REVIEWER.personal_email AS reviewer_personal_email,
                 CREATOR.full_name AS created_by_full_name,
                 CREATOR.email AS created_by_email,
                 CUSTOMER_PROJECTS.title AS project_title,
                 CUSTOMERS.full_name AS customer_full_name
             FROM TASKS
             LEFT JOIN USERS AS ASSIGNEE ON ASSIGNEE.id = TASKS.assignee_user_id
+            LEFT JOIN USERS AS REVIEWER ON REVIEWER.id = TASKS.reviewer_user_id
             INNER JOIN USERS AS CREATOR ON CREATOR.id = TASKS.created_by_user_id
             LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = TASKS.project_id
             LEFT JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_PROJECTS.customer_id
@@ -142,6 +160,37 @@ export async function getTasksByProjectId({ project_id }) {
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
             logger.error(`getTasksByProjectId: ${error}`);
+            return [];
+        });
+}
+
+export async function getTasksBySprintWeekStart({ sprint_week_start }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                TASKS.*,
+                ASSIGNEE.full_name AS assignee_full_name,
+                ASSIGNEE.email AS assignee_email,
+                ASSIGNEE.personal_email AS assignee_personal_email,
+                REVIEWER.full_name AS reviewer_full_name,
+                REVIEWER.email AS reviewer_email,
+                CREATOR.full_name AS created_by_full_name,
+                CREATOR.email AS created_by_email,
+                CUSTOMER_PROJECTS.title AS project_title,
+                CUSTOMERS.full_name AS customer_full_name
+            FROM TASKS
+            LEFT JOIN USERS AS ASSIGNEE ON ASSIGNEE.id = TASKS.assignee_user_id
+            LEFT JOIN USERS AS REVIEWER ON REVIEWER.id = TASKS.reviewer_user_id
+            INNER JOIN USERS AS CREATOR ON CREATOR.id = TASKS.created_by_user_id
+            LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = TASKS.project_id
+            LEFT JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_PROJECTS.customer_id
+            WHERE TASKS.sprint_week_start = ${sprint_week_start}
+            ORDER BY ASSIGNEE.full_name ASC, TASKS.id ASC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getTasksBySprintWeekStart: ${error}`);
             return [];
         });
 }
@@ -160,6 +209,8 @@ export async function updateTaskById({
     blocked_reason = null,
     project_id = null,
     assignee_user_id = null,
+    reviewer_user_id = null,
+    sprint_week_start = null,
 }) {
     await executeSQLQuery(
         (sql) => sql`
@@ -176,7 +227,9 @@ export async function updateTaskById({
                 priority = ${priority},
                 blocked_reason = ${blocked_reason},
                 project_id = ${project_id},
-                assignee_user_id = ${assignee_user_id}
+                assignee_user_id = ${assignee_user_id},
+                reviewer_user_id = ${reviewer_user_id},
+                sprint_week_start = ${sprint_week_start}
             WHERE id = ${id}
         `,
     ).catch((error) => {
@@ -184,14 +237,25 @@ export async function updateTaskById({
     });
 }
 
-export async function updateTaskStateById({ id, state, completed_on = null, blocked_reason = null }) {
+export async function updateTaskStateById({
+    id,
+    state,
+    completed_on = null,
+    blocked_reason = null,
+    assignee_user_id = null,
+    reviewer_user_id = null,
+    sprint_week_start = null,
+}) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE TASKS
             SET
                 state = ${state},
                 completed_on = ${completed_on},
-                blocked_reason = ${blocked_reason}
+                blocked_reason = ${blocked_reason},
+                assignee_user_id = ${assignee_user_id},
+                reviewer_user_id = ${reviewer_user_id},
+                sprint_week_start = ${sprint_week_start}
             WHERE id = ${id}
         `,
     ).catch((error) => {

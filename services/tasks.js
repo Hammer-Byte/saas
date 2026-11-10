@@ -20,8 +20,25 @@ import {
     getTaskFollowerByTaskIdAndUserId,
 } from "../db/task_followers.js";
 import { getUserById } from "../db/users.js";
-import { getIstDateTime, toDbDateTime } from "../libs/date.js";
-import { notifyTaskAssigned, notifyTaskFollowers } from "../libs/task_notify.js";
+import {
+    getIstDateTime,
+    getMondayDate,
+    normalizeSprintWeekStart,
+    toDbDateTime,
+} from "../libs/date.js";
+import { notifyTaskAssigned, notifyTaskFollowers, notifyTaskReviewRequested } from "../libs/task_notify.js";
+import {
+    canUserMoveTask,
+    resolveTaskStateTransition,
+} from "../libs/task_workflow.js";
+
+function transitionHttpStatus(code) {
+    if (code === "reviewer_only" || code === "move_forbidden") {
+        return 403;
+    }
+    return 400;
+}
+import { createTaskComment } from "../db/task_comments.js";
 import { getCurrentUser } from "./authentication.js";
 
 const STATE_VALUES = new Set(Object.values(TASK_STATES));
@@ -50,12 +67,28 @@ function trimmedOrNull(value) {
     return text || null;
 }
 
+const TASK_HOURS_MAX = 8;
+
 function normalizeHours(value) {
     if (value == null || value === "") {
         return null;
     }
     const amount = Number(value);
     return Number.isFinite(amount) ? amount : null;
+}
+
+function validateTaskHours(value, label) {
+    const hours = normalizeHours(value);
+    if (hours == null) {
+        return { hours: null };
+    }
+    if (hours < 0) {
+        return { error: `${label} cannot be negative` };
+    }
+    if (hours > TASK_HOURS_MAX) {
+        return { error: `${label} cannot be more than ${TASK_HOURS_MAX} hours` };
+    }
+    return { hours };
 }
 
 function normalizeOptionalUserId(value) {
@@ -110,7 +143,7 @@ export async function addTask({ body, cookie, set }) {
         return { error: "Title is required" };
     }
 
-    const state = body.state || TASK_STATES.TODO;
+    const state = body.state || TASK_STATES.BACKLOG;
     const priority = body.priority || TASK_PRIORITIES.MEDIUM;
 
     if (!STATE_VALUES.has(state)) {
@@ -120,6 +153,11 @@ export async function addTask({ body, cookie, set }) {
     if (!PRIORITY_VALUES.has(priority)) {
         set.status = 400;
         return { error: "Invalid priority" };
+    }
+
+    if (state !== TASK_STATES.BACKLOG) {
+        set.status = 400;
+        return { error: "New tasks must start in backlog" };
     }
 
     const projectId = normalizeOptionalProjectId(body.project_id);
@@ -141,23 +179,47 @@ export async function addTask({ body, cookie, set }) {
         }
     }
 
-    const completedOn =
-        state === TASK_STATES.DONE ? getIstDateTime() : null;
+    const reviewerUserId = normalizeOptionalUserId(body.reviewer_user_id);
+    if (reviewerUserId != null) {
+        const reviewerUser = await getUserById({ id: reviewerUserId });
+        if (!reviewerUser) {
+            set.status = 400;
+            return { error: "Reviewer not found" };
+        }
+    }
+
+    const completedOn = null;
+
+    const expectedHoursResult = validateTaskHours(body.expected_hours, "Expected hours");
+    if (expectedHoursResult.error) {
+        set.status = 400;
+        return { error: expectedHoursResult.error };
+    }
+    const actualHoursResult = validateTaskHours(body.actual_hours, "Actual hours");
+    if (actualHoursResult.error) {
+        set.status = 400;
+        return { error: actualHoursResult.error };
+    }
+
+    // Backlog is a shared stack across sprints — no week until pulled into work.
+    const sprintWeekStart = null;
 
     const taskId = await createTask({
         title,
         description: trimmedOrNull(body.description),
-        expected_hours: normalizeHours(body.expected_hours),
-        actual_hours: normalizeHours(body.actual_hours),
+        expected_hours: expectedHoursResult.hours,
+        actual_hours: actualHoursResult.hours,
         start_at: normalizeDateField(body.start_at),
         end_at: normalizeDateField(body.end_at),
         completed_on: completedOn,
         state,
         priority,
-        blocked_reason: trimmedOrNull(body.blocked_reason),
+        blocked_reason: null,
         project_id: projectId,
         assignee_user_id: assigneeUserId,
+        reviewer_user_id: reviewerUserId,
         created_by_user_id: currentUser.id,
+        sprint_week_start: sprintWeekStart,
     });
 
     if (!taskId) {
@@ -234,30 +296,167 @@ export async function updateTask({ body, cookie, set }) {
         }
     }
 
-    const previousState = existingTask.state;
+    const reviewerUserId = normalizeOptionalUserId(body.reviewer_user_id);
+    let reviewerUser = null;
+    if (reviewerUserId != null) {
+        reviewerUser = await getUserById({ id: reviewerUserId });
+        if (!reviewerUser) {
+            set.status = 400;
+            return { error: "Reviewer not found" };
+        }
+    }
+
+    const previousState = existingTask.state || TASK_STATES.BACKLOG;
     const previousAssigneeUserId = existingTask.assignee_user_id
         ? Number(existingTask.assignee_user_id)
         : null;
+    const previousReviewerUserId = existingTask.reviewer_user_id
+        ? Number(existingTask.reviewer_user_id)
+        : null;
     const assigneeChanging = assigneeUserId !== previousAssigneeUserId;
+    const reviewerChanging = reviewerUserId !== previousReviewerUserId;
     const stateChanging = state !== previousState;
 
+    let transition = {
+        assigneeUserId,
+        reviewerUserId,
+        requireComment: false,
+        notifyReviewer: false,
+    };
+
+    if (stateChanging) {
+        transition = resolveTaskStateTransition({
+            task: { ...existingTask, assignee_user_id: assigneeUserId ?? existingTask.assignee_user_id },
+            nextState: state,
+            currentUser,
+            assignee_user_id: assigneeUserId,
+            reviewer_user_id: reviewerUserId,
+            comment: body.comment,
+        });
+        if (transition.error) {
+            set.status = transitionHttpStatus(transition.code);
+            return { error: transition.error, code: transition.code };
+        }
+    } else {
+        if (!canUserMoveTask({ task: existingTask, currentUser })) {
+            set.status = 403;
+            return {
+                error: "Only the assignee, reviewer, or an admin can update this task",
+                code: "move_forbidden",
+            };
+        }
+        if (
+            state === TASK_STATES.ANALYZING ||
+            state === TASK_STATES.IN_PROGRESS ||
+            state === TASK_STATES.UNDER_REVIEW
+        ) {
+            if (!(assigneeUserId >= 1)) {
+                set.status = 400;
+                return { error: "Assignee is required for this state", code: "assignee_required" };
+            }
+            if (state === TASK_STATES.UNDER_REVIEW && !(reviewerUserId >= 1)) {
+                set.status = 400;
+                return { error: "Reviewer is required for under review", code: "reviewer_required" };
+            }
+        }
+    }
+
+    const nextAssigneeUserId =
+        transition.assigneeUserId !== undefined ? transition.assigneeUserId : assigneeUserId;
+    const nextReviewerUserId =
+        transition.reviewerUserId !== undefined ? transition.reviewerUserId : reviewerUserId;
+
+    if (nextAssigneeUserId != null) {
+        assigneeUser = await getUserById({ id: nextAssigneeUserId });
+        if (!assigneeUser) {
+            set.status = 400;
+            return { error: "Assignee not found" };
+        }
+    }
+    if (nextReviewerUserId != null) {
+        reviewerUser = await getUserById({ id: nextReviewerUserId });
+        if (!reviewerUser) {
+            set.status = 400;
+            return { error: "Reviewer not found" };
+        }
+    }
+
     const completedOn = completedOnForState(state, existingTask.completed_on);
+
+    const expectedHoursResult = validateTaskHours(body.expected_hours, "Expected hours");
+    if (expectedHoursResult.error) {
+        set.status = 400;
+        return { error: expectedHoursResult.error };
+    }
+    const actualHoursResult = validateTaskHours(body.actual_hours, "Actual hours");
+    if (actualHoursResult.error) {
+        set.status = 400;
+        return { error: actualHoursResult.error };
+    }
+
+    let sprintWeekStart =
+        body.sprint_week_start === undefined
+            ? normalizeSprintWeekStart(existingTask.sprint_week_start)
+            : body.sprint_week_start === null || body.sprint_week_start === ""
+              ? null
+              : normalizeSprintWeekStart(body.sprint_week_start);
+
+    if (
+        body.sprint_week_start !== undefined &&
+        body.sprint_week_start !== null &&
+        body.sprint_week_start !== "" &&
+        sprintWeekStart == null
+    ) {
+        set.status = 400;
+        return { error: "Invalid sprint week" };
+    }
+
+    if (
+        previousState === TASK_STATES.BACKLOG &&
+        (state === TASK_STATES.ANALYZING || state === TASK_STATES.IN_PROGRESS)
+    ) {
+        sprintWeekStart =
+            normalizeSprintWeekStart(body.sprint_week_start) ||
+            sprintWeekStart ||
+            getMondayDate();
+    }
+    if (state === TASK_STATES.BACKLOG) {
+        sprintWeekStart = null;
+    }
+
+    const previousSprintWeek = normalizeSprintWeekStart(existingTask.sprint_week_start);
+    const sprintChanging = previousSprintWeek !== sprintWeekStart;
 
     await updateTaskById({
         id: existingTask.id,
         title,
         description: trimmedOrNull(body.description),
-        expected_hours: normalizeHours(body.expected_hours),
-        actual_hours: normalizeHours(body.actual_hours),
+        expected_hours: expectedHoursResult.hours,
+        actual_hours: actualHoursResult.hours,
         start_at: normalizeDateField(body.start_at),
         end_at: normalizeDateField(body.end_at),
         completed_on: completedOn,
         state,
         priority,
-        blocked_reason: trimmedOrNull(body.blocked_reason),
+        blocked_reason: null,
         project_id: projectId,
-        assignee_user_id: assigneeUserId,
+        assignee_user_id: nextAssigneeUserId,
+        reviewer_user_id: nextReviewerUserId,
+        sprint_week_start: sprintWeekStart,
     });
+
+    if (transition.requireComment && transition.comment) {
+        await createTaskComment({
+            task_id: existingTask.id,
+            user_id: currentUser.id,
+            comment: transition.comment,
+        });
+        await logTaskActivity({
+            task_id: existingTask.id,
+            user_id: currentUser.id,
+            activity: `Reviewer comment: "${String(transition.comment).slice(0, 120)}"`,
+        });
+    }
 
     const activities = [];
     if (stateChanging) {
@@ -271,13 +470,30 @@ export async function updateTask({ body, cookie, set }) {
             `Changed priority from ${priorityLabel(previousPriority)} to ${priorityLabel(priority)}`,
         );
     }
-    if (assigneeChanging) {
-        const updatedTaskPreview = { ...existingTask, assignee_user_id: assigneeUserId };
-        if (assigneeUserId == null) {
+    if (nextAssigneeUserId !== previousAssigneeUserId) {
+        if (nextAssigneeUserId == null) {
             activities.push("Unassigned task");
         } else {
-            activities.push(`Assigned to ${assigneeLabel(updatedTaskPreview)}`);
+            activities.push(
+                `Assigned to ${assigneeUser?.full_name || assigneeUser?.email || `#${nextAssigneeUserId}`}`,
+            );
         }
+    }
+    if (nextReviewerUserId !== previousReviewerUserId) {
+        if (nextReviewerUserId == null) {
+            activities.push("Cleared reviewer");
+        } else {
+            activities.push(
+                `Set reviewer to ${reviewerUser?.full_name || reviewerUser?.email || `#${nextReviewerUserId}`}`,
+            );
+        }
+    }
+    if (sprintChanging) {
+        activities.push(
+            sprintWeekStart
+                ? `Moved to sprint week starting ${sprintWeekStart}`
+                : "Removed from sprint week",
+        );
     }
 
     for (const activity of activities) {
@@ -290,7 +506,11 @@ export async function updateTask({ body, cookie, set }) {
 
     const task = await getTaskById({ id: existingTask.id });
 
-    if (assigneeChanging && assigneeUser && Number(assigneeUser.id) !== Number(currentUser.id)) {
+    if (
+        nextAssigneeUserId !== previousAssigneeUserId &&
+        assigneeUser &&
+        Number(assigneeUser.id) !== Number(currentUser.id)
+    ) {
         notifyTaskAssigned({
             task,
             assigneeUser,
@@ -298,15 +518,26 @@ export async function updateTask({ body, cookie, set }) {
         });
     }
 
-    if (stateChanging || assigneeChanging) {
+    if (transition.notifyReviewer && reviewerUser) {
+        notifyTaskReviewRequested({
+            task,
+            reviewerUser,
+            requestedByUser: currentUser,
+        });
+    }
+
+    if (stateChanging || assigneeChanging || reviewerChanging) {
         const messageParts = [];
         if (stateChanging) {
-            messageParts.push(
-                `State changed to ${stateLabel(state)}`,
-            );
+            messageParts.push(`State changed to ${stateLabel(state)}`);
         }
-        if (assigneeChanging) {
+        if (assigneeChanging || nextAssigneeUserId !== previousAssigneeUserId) {
             messageParts.push(`Assignee: ${assigneeLabel(task)}`);
+        }
+        if (reviewerChanging || nextReviewerUserId !== previousReviewerUserId) {
+            messageParts.push(
+                `Reviewer: ${task.reviewer_full_name || task.reviewer_email || "—"}`,
+            );
         }
         await notifyFollowersOfUpdate({
             task,
@@ -339,19 +570,84 @@ export async function updateTaskState({ params, body, cookie, set }) {
         return { error: "Invalid state" };
     }
 
-    const previousState = existingTask.state;
+    const previousState = existingTask.state || TASK_STATES.BACKLOG;
+    const transition = resolveTaskStateTransition({
+        task: existingTask,
+        nextState: state,
+        currentUser,
+        assignee_user_id: body.assignee_user_id,
+        reviewer_user_id: body.reviewer_user_id,
+        comment: body.comment,
+    });
+
+    if (transition.error) {
+        set.status = transitionHttpStatus(transition.code);
+        return { error: transition.error, code: transition.code };
+    }
+
+    if (transition.assigneeUserId != null) {
+        const assigneeUser = await getUserById({ id: transition.assigneeUserId });
+        if (!assigneeUser) {
+            set.status = 400;
+            return { error: "Assignee not found" };
+        }
+    }
+    let reviewerUser = null;
+    if (transition.reviewerUserId != null) {
+        reviewerUser = await getUserById({ id: transition.reviewerUserId });
+        if (!reviewerUser) {
+            set.status = 400;
+            return { error: "Reviewer not found" };
+        }
+    }
+
     const completedOn = completedOnForState(state, existingTask.completed_on);
-    const blockedReason =
-        state === TASK_STATES.BLOCKED
-            ? trimmedOrNull(body.blocked_reason)
-            : null;
+    const previousAssigneeUserId = existingTask.assignee_user_id
+        ? Number(existingTask.assignee_user_id)
+        : null;
+
+    let sprintWeekStart = normalizeSprintWeekStart(existingTask.sprint_week_start);
+    if (state === TASK_STATES.BACKLOG) {
+        sprintWeekStart = null;
+    } else if (
+        previousState === TASK_STATES.BACKLOG &&
+        (state === TASK_STATES.ANALYZING || state === TASK_STATES.IN_PROGRESS)
+    ) {
+        sprintWeekStart =
+            normalizeSprintWeekStart(body.sprint_week_start) || getMondayDate();
+        if (!sprintWeekStart) {
+            set.status = 400;
+            return { error: "Sprint week is required when leaving backlog" };
+        }
+    } else if (body.sprint_week_start !== undefined && body.sprint_week_start !== null) {
+        const requestedWeek = normalizeSprintWeekStart(body.sprint_week_start);
+        if (requestedWeek) {
+            sprintWeekStart = requestedWeek;
+        }
+    }
 
     await updateTaskStateById({
         id: existingTask.id,
         state,
         completed_on: completedOn,
-        blocked_reason: blockedReason,
+        blocked_reason: null,
+        assignee_user_id: transition.assigneeUserId,
+        reviewer_user_id: transition.reviewerUserId,
+        sprint_week_start: sprintWeekStart,
     });
+
+    if (transition.requireComment && transition.comment) {
+        await createTaskComment({
+            task_id: existingTask.id,
+            user_id: currentUser.id,
+            comment: transition.comment,
+        });
+        await logTaskActivity({
+            task_id: existingTask.id,
+            user_id: currentUser.id,
+            activity: `Reviewer comment: "${String(transition.comment).slice(0, 120)}"`,
+        });
+    }
 
     if (state !== previousState) {
         await logTaskActivity({
@@ -359,20 +655,63 @@ export async function updateTaskState({ params, body, cookie, set }) {
             user_id: currentUser.id,
             activity: `Changed state from ${stateLabel(previousState)} to ${stateLabel(state)}`,
         });
+        if (
+            previousState === TASK_STATES.BACKLOG &&
+            sprintWeekStart &&
+            (state === TASK_STATES.ANALYZING || state === TASK_STATES.IN_PROGRESS)
+        ) {
+            await logTaskActivity({
+                task_id: existingTask.id,
+                user_id: currentUser.id,
+                activity: `Pulled into sprint week starting ${sprintWeekStart}`,
+            });
+        }
+    }
 
-        const task = await getTaskById({ id: existingTask.id });
+    if (
+        transition.assigneeUserId != null &&
+        Number(transition.assigneeUserId) !== previousAssigneeUserId
+    ) {
+        const assigneeUser = await getUserById({ id: transition.assigneeUserId });
+        if (assigneeUser && Number(assigneeUser.id) !== Number(currentUser.id)) {
+            const taskForAssign = await getTaskById({ id: existingTask.id });
+            notifyTaskAssigned({
+                task: taskForAssign,
+                assigneeUser,
+                assignedByUser: currentUser,
+            });
+            await logTaskActivity({
+                task_id: existingTask.id,
+                user_id: currentUser.id,
+                activity: `Assigned to ${assigneeUser.full_name || assigneeUser.email}`,
+            });
+        }
+    }
+
+    const task = await getTaskById({ id: existingTask.id });
+
+    if (transition.notifyReviewer && reviewerUser) {
+        notifyTaskReviewRequested({
+            task,
+            reviewerUser,
+            requestedByUser: currentUser,
+        });
+        await logTaskActivity({
+            task_id: existingTask.id,
+            user_id: currentUser.id,
+            activity: `Requested review from ${reviewerUser.full_name || reviewerUser.email}`,
+        });
+    }
+
+    if (state !== previousState) {
         await notifyFollowersOfUpdate({
             task,
             subject: `Task state — ${task.title}`,
             message: `State changed to ${stateLabel(state)}`,
             actorUser: currentUser,
         });
-
-        set.status = 200;
-        return { message: "Task state updated", task };
     }
 
-    const task = await getTaskById({ id: existingTask.id });
     set.status = 200;
     return { message: "Task state updated", task };
 }
@@ -397,14 +736,28 @@ export async function bulkUpdateTaskState({ body, cookie, set }) {
     }
 
     let updatedCount = 0;
+    const failures = [];
     for (const taskId of ids) {
         const existingTask = await getTaskById({ id: taskId });
         if (!existingTask) {
             continue;
         }
 
-        const previousState = existingTask.state;
+        const previousState = existingTask.state || TASK_STATES.BACKLOG;
         if (previousState === state) {
+            continue;
+        }
+
+        const transition = resolveTaskStateTransition({
+            task: existingTask,
+            nextState: state,
+            currentUser,
+            assignee_user_id: body.assignee_user_id,
+            reviewer_user_id: body.reviewer_user_id,
+            comment: body.comment,
+        });
+        if (transition.error) {
+            failures.push({ id: taskId, error: transition.error, code: transition.code });
             continue;
         }
 
@@ -413,9 +766,18 @@ export async function bulkUpdateTaskState({ body, cookie, set }) {
             id: taskId,
             state,
             completed_on: completedOn,
-            blocked_reason:
-                state === TASK_STATES.BLOCKED ? existingTask.blocked_reason : null,
+            blocked_reason: null,
+            assignee_user_id: transition.assigneeUserId,
+            reviewer_user_id: transition.reviewerUserId,
         });
+
+        if (transition.requireComment && transition.comment) {
+            await createTaskComment({
+                task_id: taskId,
+                user_id: currentUser.id,
+                comment: transition.comment,
+            });
+        }
 
         await logTaskActivity({
             task_id: taskId,
@@ -424,6 +786,17 @@ export async function bulkUpdateTaskState({ body, cookie, set }) {
         });
 
         const task = await getTaskById({ id: taskId });
+        if (transition.notifyReviewer && transition.reviewerUserId) {
+            const reviewerUser = await getUserById({ id: transition.reviewerUserId });
+            if (reviewerUser) {
+                notifyTaskReviewRequested({
+                    task,
+                    reviewerUser,
+                    requestedByUser: currentUser,
+                });
+            }
+        }
+
         await notifyFollowersOfUpdate({
             task,
             subject: `Task state — ${task.title}`,
@@ -435,7 +808,11 @@ export async function bulkUpdateTaskState({ body, cookie, set }) {
     }
 
     set.status = 200;
-    return { message: "Tasks updated", updated_count: updatedCount };
+    return {
+        message: "Tasks updated",
+        updated_count: updatedCount,
+        failures,
+    };
 }
 
 export async function duplicateTask({ params, cookie, set }) {
@@ -461,12 +838,14 @@ export async function duplicateTask({ params, cookie, set }) {
         start_at: sourceTask.start_at,
         end_at: sourceTask.end_at,
         completed_on: null,
-        state: TASK_STATES.TODO,
+        state: TASK_STATES.BACKLOG,
         priority: sourceTask.priority || TASK_PRIORITIES.MEDIUM,
         blocked_reason: null,
         project_id: sourceTask.project_id,
         assignee_user_id: sourceTask.assignee_user_id,
+        reviewer_user_id: null,
         created_by_user_id: currentUser.id,
+        sprint_week_start: null,
     });
 
     if (!taskId) {

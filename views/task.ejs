@@ -7,7 +7,9 @@
     const priorityValues = Object.values(TASK_PRIORITIES || {});
     const currentUserId = Number(userId || 0);
     const assigneeUserId = task.assignee_user_id ? Number(task.assignee_user_id) : null;
+    const reviewerUserId = task.reviewer_user_id ? Number(task.reviewer_user_id) : null;
     const projectId = task.project_id ? Number(task.project_id) : null;
+    const canEditTask = !!canMoveTask;
 %>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -47,18 +49,27 @@
             id="task-detail"
             data-id="<%= task.id %>"
             data-current-user-id="<%= currentUserId %>"
+            data-is-task-admin="<%= isTaskAdmin ? '1' : '0' %>"
+            data-can-move="<%= canEditTask ? '1' : '0' %>"
             data-state="<%= task.state || '' %>"
+            data-assignee-id="<%= assigneeUserId || '' %>"
+            data-reviewer-id="<%= reviewerUserId || '' %>"
         >
             <div class="card-body p-4">
-                <form id="task-edit-form" novalidate>
+                <% if (!canEditTask) { %>
+                    <div class="alert alert-secondary" role="status">
+                        View only — only the assignee, reviewer, or an admin can change this task.
+                    </div>
+                <% } %>
+                <form id="task-edit-form" novalidate <%= canEditTask ? '' : 'data-readonly="1"' %>>
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label for="task-quick-state" class="form-label">Quick state</label>
-                            <select class="form-select" id="task-quick-state">
+                            <select class="form-select" id="task-quick-state" <%= canEditTask ? '' : 'disabled' %>>
                                 <% stateValues.forEach(function (state) { %>
                                     <option
                                         value="<%= state %>"
-                                        <%= (task.state || TASK_STATES.TODO) === state ? "selected" : "" %>
+                                        <%= (task.state || TASK_STATES.BACKLOG) === state ? "selected" : "" %>
                                     >
                                         <%= stateLabels[state] || state %>
                                     </option>
@@ -66,6 +77,7 @@
                             </select>
                         </div>
                         <div class="col-md-6 d-flex align-items-end gap-2 flex-wrap">
+                            <% if (canEditTask) { %>
                             <button type="button" class="btn btn-outline-success" id="task-mark-done-btn">
                                 Mark done
                             </button>
@@ -75,6 +87,7 @@
                             <button type="button" class="btn btn-outline-danger" id="task-delete-btn">
                                 Delete
                             </button>
+                            <% } %>
                             <button
                                 type="button"
                                 class="btn <%= isFollowing ? 'btn-warning' : 'btn-outline-primary' %>"
@@ -84,18 +97,6 @@
                                 <%= isFollowing ? "Unfollow" : "Follow" %>
                             </button>
                         </div>
-                    </div>
-
-                    <div id="task-blocked-reason-wrap" class="mb-3 <%= (task.state || '') === TASK_STATES.BLOCKED ? '' : 'd-none' %>">
-                        <label for="task-blocked-reason" class="form-label">Blocked reason</label>
-                        <input
-                            type="text"
-                            class="form-control"
-                            id="task-blocked-reason"
-                            name="blocked_reason"
-                            maxlength="512"
-                            value="<%= task.blocked_reason || '' %>"
-                        />
                     </div>
 
                     <div class="row g-3">
@@ -128,9 +129,11 @@
                                 id="task-edit-expected-hours"
                                 name="expected_hours"
                                 min="0"
+                                max="8"
                                 step="0.25"
                                 value="<%= task.expected_hours != null ? task.expected_hours : '' %>"
                             />
+                            <div class="form-text">Max 8 hours.</div>
                         </div>
                         <div class="col-md-3">
                             <label for="task-edit-actual-hours" class="form-label">Actual hours</label>
@@ -140,9 +143,11 @@
                                 id="task-edit-actual-hours"
                                 name="actual_hours"
                                 min="0"
+                                max="8"
                                 step="0.25"
                                 value="<%= task.actual_hours != null ? task.actual_hours : '' %>"
                             />
+                            <div class="form-text">Max 8 hours.</div>
                         </div>
                         <div class="col-md-3">
                             <label for="task-edit-start-at" class="form-label">Start</label>
@@ -176,7 +181,7 @@
                                 <% stateValues.forEach(function (state) { %>
                                     <option
                                         value="<%= state %>"
-                                        <%= (task.state || TASK_STATES.TODO) === state ? "selected" : "" %>
+                                        <%= (task.state || TASK_STATES.BACKLOG) === state ? "selected" : "" %>
                                     >
                                         <%= stateLabels[state] || state %>
                                     </option>
@@ -210,7 +215,21 @@
                                 <% }) %>
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label for="task-edit-reviewer" class="form-label">Reviewer</label>
+                            <select class="form-select" id="task-edit-reviewer" name="reviewer_user_id">
+                                <option value="">No reviewer</option>
+                                <% (users || []).forEach(function (user) { %>
+                                    <option
+                                        value="<%= user.id %>"
+                                        <%= reviewerUserId === Number(user.id) ? "selected" : "" %>
+                                    >
+                                        <%= user.full_name %> (<%= user.email %>)
+                                    </option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <label for="task-edit-project" class="form-label">Project</label>
                             <select class="form-select" id="task-edit-project" name="project_id">
                                 <option value="">No project</option>
@@ -224,7 +243,22 @@
                                 <% }) %>
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label for="task-edit-sprint-week" class="form-label">Sprint week (Monday)</label>
+                            <input
+                                type="text"
+                                class="form-control js-date-input"
+                                id="task-edit-sprint-week"
+                                name="sprint_week_start"
+                                placeholder="dd/mm/yyyy"
+                                autocomplete="off"
+                                inputmode="numeric"
+                                data-date-value="<%= task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : '' %>"
+                                value="<%= task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : '' %>"
+                            />
+                            <div class="form-text">Empty = backlog. Snaps to Monday.</div>
+                        </div>
+                        <div class="col-md-4">
                             <p class="form-label mb-1">Completed on</p>
                             <p class="mb-0">
                                 <% if (task.completed_on) { %>
@@ -238,9 +272,11 @@
                             </p>
                         </div>
                     </div>
+                    <% if (canEditTask) { %>
                     <div class="d-flex gap-2 mt-4">
                         <button type="submit" class="btn btn-primary" id="task-save-btn">Save</button>
                     </div>
+                    <% } %>
                 </form>
             </div>
         </div>

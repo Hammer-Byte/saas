@@ -843,12 +843,14 @@ export async function generateDBTables() {
             start_at DATETIME NULL,
             end_at DATETIME NULL,
             completed_on DATETIME NULL,
-            state VARCHAR(32) NOT NULL DEFAULT 'todo',
+            state VARCHAR(32) NOT NULL DEFAULT 'backlog',
             priority VARCHAR(16) NOT NULL DEFAULT 'medium',
             blocked_reason VARCHAR(512) NULL,
             project_id INT NULL,
             assignee_user_id INT NULL,
+            reviewer_user_id INT NULL,
             created_by_user_id INT NOT NULL,
+            sprint_week_start DATE NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             CONSTRAINT fk_tasks_customer_project
@@ -861,6 +863,11 @@ export async function generateDBTables() {
                 REFERENCES USERS(id)
                 ON DELETE SET NULL
                 ON UPDATE CASCADE,
+            CONSTRAINT fk_tasks_reviewer_user
+                FOREIGN KEY (reviewer_user_id)
+                REFERENCES USERS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE,
             CONSTRAINT fk_tasks_created_by_user
                 FOREIGN KEY (created_by_user_id)
                 REFERENCES USERS(id)
@@ -868,8 +875,10 @@ export async function generateDBTables() {
                 ON UPDATE CASCADE,
             INDEX idx_tasks_state (state),
             INDEX idx_tasks_assignee (assignee_user_id),
+            INDEX idx_tasks_reviewer (reviewer_user_id),
             INDEX idx_tasks_project (project_id),
-            INDEX idx_tasks_end_at (end_at)
+            INDEX idx_tasks_end_at (end_at),
+            INDEX idx_tasks_sprint_week_start (sprint_week_start)
         )`,
         `CREATE TABLE IF NOT EXISTS TASK_COMMENTS (
             id INT AUTO_INCREMENT PRIMARY KEY,

@@ -241,4 +241,45 @@
         const authorities = Array.isArray(window.__AUTHORITIES__) ? window.__AUTHORITIES__ : [];
         return authorities.includes(requiredAuthority);
     };
+
+    function formatLocalDateKey(date) {
+        return [
+            date.getFullYear(),
+            `${date.getMonth() + 1}`.padStart(2, "0"),
+            `${date.getDate()}`.padStart(2, "0"),
+        ].join("-");
+    }
+
+    /** Monday YYYY-MM-DD for the week containing value. Weeks are Mon–Sun. */
+    window.getMondayDate = function getMondayDate(value) {
+        const source = value ?? new Date();
+        const dateKey =
+            typeof source === "string" || typeof source === "number"
+                ? getWritableDate("YYYY-MM-DD", source)
+                : formatLocalDateKey(source instanceof Date ? source : new Date());
+        if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+            return null;
+        }
+        const year = Number(dateKey.slice(0, 4));
+        const month = Number(dateKey.slice(5, 7));
+        const day = Number(dateKey.slice(8, 10));
+        const date = new Date(year, month - 1, day);
+        const weekday = date.getDay();
+        const offset = weekday === 0 ? -6 : 1 - weekday;
+        date.setDate(date.getDate() + offset);
+        return formatLocalDateKey(date);
+    };
+
+    window.getSundayDate = function getSundayDate(mondayValue) {
+        const mondayKey = window.getMondayDate(mondayValue);
+        if (!mondayKey) {
+            return null;
+        }
+        const year = Number(mondayKey.slice(0, 4));
+        const month = Number(mondayKey.slice(5, 7));
+        const day = Number(mondayKey.slice(8, 10));
+        const date = new Date(year, month - 1, day);
+        date.setDate(date.getDate() + 6);
+        return formatLocalDateKey(date);
+    };
 })();
