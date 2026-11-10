@@ -273,14 +273,14 @@
         const allWeeks = !!allWeeksFilter?.checked && !boardMode;
         const itemSprint = (item.dataset.sprintWeekStart || "").slice(0, 10);
         let matchesSprint = true;
+        const isBacklogItem = itemState === "backlog" || !itemSprint;
         if (backlogOnly) {
-            matchesSprint = itemState === "backlog";
+            matchesSprint = isBacklogItem;
         } else if (boardMode) {
-            // Shared backlog stack always stays visible alongside the selected sprint week.
-            matchesSprint = itemState === "backlog" || itemSprint === selectedSprintWeek;
+            // Shared backlog stack (no week) always stays visible alongside the selected sprint week.
+            matchesSprint = isBacklogItem || itemSprint === selectedSprintWeek;
         } else if (!allWeeks) {
-            matchesSprint =
-                itemState === "backlog" || !itemSprint || itemSprint === selectedSprintWeek;
+            matchesSprint = isBacklogItem || itemSprint === selectedSprintWeek;
         }
 
         return (

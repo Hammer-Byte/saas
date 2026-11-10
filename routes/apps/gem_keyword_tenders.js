@@ -34,12 +34,18 @@ export default function (app) {
         })
         .post("/adhoc-scan", startGemAdhocTenderScan, {
             body: t.Object({
-                query: t.String({ minLength: 1, maxLength: 255 }),
+                query: t.Optional(t.String({ minLength: 1, maxLength: 20000 })),
+                queries: t.Optional(
+                    t.Array(t.String({ minLength: 1, maxLength: 255 }), {
+                        minItems: 1,
+                        maxItems: 50,
+                    }),
+                ),
                 exact_search: t.Optional(t.Boolean()),
             }),
             detail: {
                 tags: ["GEM Keyword Tenders"],
-                summary: "Scan GeM for a one-off search query and store matching tenders",
+                summary: "Scan GeM for one or more one-off search queries and store matching tenders",
             },
         })
         .patch("/:id", updateGemKeywordTender, {

@@ -368,7 +368,7 @@ export async function updateTask({ body, cookie, set }) {
         return { error: "Title is required" };
     }
 
-    const state = body.state;
+    let state = body.state;
     const priority = body.priority;
 
     if (!STATE_VALUES.has(state)) {
@@ -524,6 +524,11 @@ export async function updateTask({ body, cookie, set }) {
             getMondayDate();
     }
     if (state === TASK_STATES.BACKLOG) {
+        sprintWeekStart = null;
+    }
+    // No sprint week means the task belongs in backlog.
+    if (!sprintWeekStart) {
+        state = TASK_STATES.BACKLOG;
         sprintWeekStart = null;
     }
 
@@ -711,7 +716,7 @@ export async function updateTaskState({ params, body, cookie, set }) {
         return { error: "Task not found" };
     }
 
-    const state = body.state;
+    let state = body.state;
     if (!STATE_VALUES.has(state)) {
         set.status = 400;
         return { error: "Invalid state" };
@@ -748,7 +753,6 @@ export async function updateTaskState({ params, body, cookie, set }) {
         }
     }
 
-    const completedOn = completedOnForState(state, existingTask.completed_on);
     const previousAssigneeUserId = existingTask.assignee_user_id
         ? Number(existingTask.assignee_user_id)
         : null;
@@ -772,6 +776,14 @@ export async function updateTaskState({ params, body, cookie, set }) {
             sprintWeekStart = requestedWeek;
         }
     }
+
+    // No sprint week means the task belongs in backlog.
+    if (!sprintWeekStart) {
+        state = TASK_STATES.BACKLOG;
+        sprintWeekStart = null;
+    }
+
+    const completedOn = completedOnForState(state, existingTask.completed_on);
 
     await updateTaskStateById({
         id: existingTask.id,

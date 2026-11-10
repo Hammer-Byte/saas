@@ -266,10 +266,25 @@
         addTenderAlert.classList.remove("d-none");
     }
 
+    function parseAddTenderQueries(raw) {
+        const queries = [];
+        const seen = new Set();
+        for (const line of String(raw || "").split(/\r?\n/)) {
+            const query = line.trim();
+            if (!query) continue;
+            const key = query.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            queries.push(query.slice(0, 255));
+            if (queries.length >= 50) break;
+        }
+        return queries;
+    }
+
     addTenderForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const query = String(addTenderQuery?.value || "").trim();
-        if (!query) {
+        const queries = parseAddTenderQueries(addTenderQuery?.value || "");
+        if (!queries.length) {
             addTenderQuery?.focus();
             return;
         }
@@ -281,7 +296,7 @@
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    query,
+                    queries,
                     exact_search: !!addTenderExact?.checked,
                 }),
             });
@@ -696,7 +711,41 @@
         writeFiltersToDom(appliedFilters);
     });
 
+    function formatIsoDate(date) {
+        const year = date.getFullYear();
+        const month = `${date.getMonth() + 1}`.padStart(2, "0");
+        const day = `${date.getDate()}`.padStart(2, "0");
+        return `${year}-${month}-${day}`;
+    }
+
+    function setQuickDateRange(range) {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        let fromDate = now;
+        let toDate = now;
+
+        if (range === "this-month") {
+            fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        } else if (range === "next-15-days") {
+            fromDate = now;
+            toDate = new Date(now);
+            toDate.setDate(toDate.getDate() + 15);
+        } else {
+            return;
+        }
+
+        if (fromInput) fromInput.value = formatIsoDate(fromDate);
+        if (toInput) toInput.value = formatIsoDate(toDate);
+    }
+
     filtersPanel?.addEventListener("click", (event) => {
+        const quickBtn = event.target?.closest?.(".gem-date-quick-btn");
+        if (quickBtn) {
+            setQuickDateRange(quickBtn.dataset.range || "");
+            return;
+        }
+
         const clearBtn = event.target?.closest?.(".gem-filter-clear-btn");
         if (!clearBtn) return;
 

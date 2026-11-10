@@ -900,6 +900,11 @@ export async function generateDBTables() {
         `ALTER TABLE TASKS ADD COLUMN charge DECIMAL(10, 2) NULL`,
         `ALTER TABLE TASKS ADD COLUMN customer_invoice_id INT NULL`,
         `ALTER TABLE TASKS ADD COLUMN invoice_item_id INT NULL`,
+        // Tasks with no sprint week are backlog.
+        `UPDATE TASKS
+            SET state = 'backlog'
+            WHERE sprint_week_start IS NULL
+              AND state <> 'backlog'`,
         `ALTER TABLE TASKS
             ADD CONSTRAINT fk_tasks_customer_invoice
             FOREIGN KEY (customer_invoice_id)

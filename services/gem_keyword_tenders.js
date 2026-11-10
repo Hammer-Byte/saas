@@ -516,20 +516,36 @@ export async function startGemAdhocTenderScan({ body, cookie, set }) {
         return { error: "Missing authority", processing: false };
     }
 
-    const query = asText(body?.query).trim();
-    if (!query) {
-        set.status = 400;
-        return { error: "Search text is required", processing: false };
+    const rawQueries = Array.isArray(body?.queries)
+        ? body.queries
+        : String(body?.query || "")
+              .split(/\r?\n/)
+              .map((line) => line.trim())
+              .filter(Boolean);
+
+    const queries = [];
+    const seen = new Set();
+    for (const raw of rawQueries) {
+        const query = asText(raw).trim();
+        if (!query || seen.has(query.toLowerCase())) continue;
+        seen.add(query.toLowerCase());
+        queries.push(query.slice(0, 255));
+        if (queries.length >= 50) break;
     }
 
+    if (!queries.length) {
+        set.status = 400;
+        return { error: "At least one search text is required", processing: false };
+    }
+
+    const exact_search = !!currentUser.super_admin && !!body?.exact_search;
+
     const started = crawlGemForTenders({
-        keywords: [
-            {
-                id: null,
-                keyword: query,
-                exact_search: !!body?.exact_search,
-            },
-        ],
+        keywords: queries.map((keyword) => ({
+            id: null,
+            keyword,
+            exact_search,
+        })),
     });
     if (!started) {
         set.status = 409;
@@ -537,8 +553,13 @@ export async function startGemAdhocTenderScan({ body, cookie, set }) {
     }
 
     set.status = 202;
+    const label =
+        queries.length === 1
+            ? `“${queries[0]}”`
+            : `${queries.length} search texts`;
     return {
-        message: `Scan started for “${query}”. Matching tenders will be added shortly.`,
+        message: `Scan started for ${label}. Matching tenders will be added shortly.`,
         processing: true,
+        count: queries.length,
     };
 }

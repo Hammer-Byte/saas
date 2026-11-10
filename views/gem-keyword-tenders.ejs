@@ -51,7 +51,7 @@
                     data-bs-toggle="modal"
                     data-bs-target="#gem-add-tender-modal"
                 >
-                    Add tender
+                    Add tenders
                 </button>
                 <a
                     href="/app/gem-keyword-tender-report?from=<%= from %>&to=<%= to %>"
@@ -158,26 +158,46 @@
                     autocomplete="off"
                 >
                     <div class="mb-3">
-                        <label for="gem-tenders-from" class="form-label">Ends from</label>
-                        <input
-                            type="date"
-                            class="form-control form-control-sm"
-                            id="gem-tenders-from"
-                            value="<%= from %>"
-                            data-page-from="<%= from %>"
-                            autocomplete="off"
-                        />
-                    </div>
-                    <div class="mb-3">
-                        <label for="gem-tenders-to" class="form-label">Ends to</label>
-                        <input
-                            type="date"
-                            class="form-control form-control-sm"
-                            id="gem-tenders-to"
-                            value="<%= to %>"
-                            data-page-to="<%= to %>"
-                            autocomplete="off"
-                        />
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label for="gem-tenders-from" class="form-label">Ends from</label>
+                                <input
+                                    type="date"
+                                    class="form-control form-control-sm"
+                                    id="gem-tenders-from"
+                                    value="<%= from %>"
+                                    data-page-from="<%= from %>"
+                                    autocomplete="off"
+                                />
+                            </div>
+                            <div class="col-6">
+                                <label for="gem-tenders-to" class="form-label">Ends to</label>
+                                <input
+                                    type="date"
+                                    class="form-control form-control-sm"
+                                    id="gem-tenders-to"
+                                    value="<%= to %>"
+                                    data-page-to="<%= to %>"
+                                    autocomplete="off"
+                                />
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1 mt-2">
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm gem-date-quick-btn"
+                                data-range="this-month"
+                            >
+                                This month
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm gem-date-quick-btn"
+                                data-range="next-15-days"
+                            >
+                                Next 15 days
+                            </button>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <span class="form-label d-block">Keyword</span>
@@ -817,35 +837,37 @@
         <div class="modal-content">
             <form id="gem-add-tender-form" novalidate>
                 <div class="modal-header">
-                    <h2 class="modal-title h5" id="gem-add-tender-modal-label">Add tender</h2>
+                    <h2 class="modal-title h5" id="gem-add-tender-modal-label">Add tenders</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <p class="text-secondary small">
-                        Enter a GeM search text (same as a keyword search). Matching tenders will be scanned and added. The search text is not saved as a keyword.
+                        Enter one GeM search text or tender number per line. Matching tenders will be scanned and added. These searches are not saved as keywords.
                     </p>
                     <div class="mb-3">
-                        <label for="gem-add-tender-query" class="form-label">Search text</label>
-                        <input
-                            type="text"
+                        <label for="gem-add-tender-query" class="form-label">Search texts</label>
+                        <textarea
                             class="form-control"
                             id="gem-add-tender-query"
-                            maxlength="255"
-                            placeholder="e.g. Desktop Computer or GEM tender number"
+                            rows="6"
+                            placeholder="Desktop Computer&#10;GEM/2024/B/1234567&#10;Laptop"
                             required
                             autocomplete="off"
-                        />
+                        ></textarea>
+                        <div class="form-text">One entry per line. Max 50 lines.</div>
                     </div>
-                    <div class="form-check">
-                        <input
-                            type="checkbox"
-                            class="form-check-input"
-                            id="gem-add-tender-exact-search"
-                        />
-                        <label class="form-check-label" for="gem-add-tender-exact-search">
-                            Exact search
-                        </label>
-                    </div>
+                    <% if (super_admin) { %>
+                        <div class="form-check">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                id="gem-add-tender-exact-search"
+                            />
+                            <label class="form-check-label" for="gem-add-tender-exact-search">
+                                Exact search
+                            </label>
+                        </div>
+                    <% } %>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>

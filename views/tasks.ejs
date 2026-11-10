@@ -274,6 +274,7 @@
                                 <% (tasks || []).forEach(function (task) { %>
                                     <% const overdueClass = taskOverdueClass(task); %>
                                     <% const sprintWeek = task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : ""; %>
+                                    <% const rowState = sprintWeek ? (task.state || TASK_STATES.BACKLOG) : TASK_STATES.BACKLOG; %>
                                     <tr
                                         class="task-item task-row <%= overdueClass %>"
                                         role="link"
@@ -282,7 +283,7 @@
                                         data-id="<%= task.id %>"
                                         data-title="<%= (task.title || '').replace(/"/g, '&quot;') %>"
                                         data-description="<%= encodeURIComponent(task.description || '') %>"
-                                        data-state="<%= task.state || '' %>"
+                                        data-state="<%= rowState %>"
                                         data-priority="<%= task.priority || '' %>"
                                         data-assignee-id="<%= task.assignee_user_id || '' %>"
                                         data-reviewer-id="<%= task.reviewer_user_id || '' %>"
@@ -302,7 +303,7 @@
                                             />
                                         </td>
                                         <td><%= task.title %></td>
-                                        <td><%= stateLabels[task.state] || task.state || "—" %></td>
+                                        <td><%= stateLabels[rowState] || rowState || "—" %></td>
                                         <td><%= priorityLabels[task.priority] || task.priority || "—" %></td>
                                         <td><%= task.assignee_full_name || "Unassigned" %></td>
                                         <td>
@@ -367,7 +368,13 @@
                                 <h2 class="h6 mb-0"><%= stateLabels[state] || state %></h2>
                             </div>
                             <div class="card-body p-2 task-board-column" data-state="<%= state %>">
-                                <% (tasks || []).filter(function (task) { return (task.state || TASK_STATES.BACKLOG) === state; }).forEach(function (task) { %>
+                                <% (tasks || []).filter(function (task) {
+                                    const hasWeek = !!(task.sprint_week_start && String(task.sprint_week_start).slice(0, 10));
+                                    const effectiveState = hasWeek
+                                        ? (task.state || TASK_STATES.BACKLOG)
+                                        : TASK_STATES.BACKLOG;
+                                    return effectiveState === state;
+                                }).forEach(function (task) { %>
                                     <% const overdueClass = taskOverdueClass(task); %>
                                     <% const boardSprintWeek = task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : ""; %>
                                     <%
@@ -378,6 +385,9 @@
                                                 currentUserId === cardAssigneeId ||
                                                 currentUserId === cardReviewerId
                                             ));
+                                        const boardState = boardSprintWeek
+                                            ? (task.state || TASK_STATES.BACKLOG)
+                                            : TASK_STATES.BACKLOG;
                                     %>
                                     <div
                                         class="task-item task-board-card card mb-2 text-body <%= overdueClass %><%= canMoveCard ? '' : ' task-board-card-readonly' %>"
@@ -387,7 +397,7 @@
                                         data-id="<%= task.id %>"
                                         data-title="<%= (task.title || '').replace(/"/g, '&quot;') %>"
                                         data-description="<%= encodeURIComponent(task.description || '') %>"
-                                        data-state="<%= task.state || '' %>"
+                                        data-state="<%= boardState %>"
                                         data-priority="<%= task.priority || '' %>"
                                         data-assignee-id="<%= task.assignee_user_id || '' %>"
                                         data-reviewer-id="<%= task.reviewer_user_id || '' %>"
