@@ -164,35 +164,39 @@ export async function updateInternalDocument({ params, body, cookie, set }) {
             return { error: "Internal document not found" };
         }
 
-        const media = await getMediaById({ id: internalDocument.media_id });
-        if (!media) {
-            logger.error(
-                `updateInternalDocument: media missing | documentId=${params.id} mediaId=${internalDocument.media_id}`,
-            );
-            set.status = 404;
-            return { error: "Media not found" };
-        }
-
-        const uploadedFile = body.file;
-        if (!uploadedFile) {
-            logger.error(`updateInternalDocument: missing file | id=${params.id}`);
-            set.status = 400;
-            return { error: "File is required" };
-        }
-
         const visibility = normalizeVisibility(body.visibility);
         if (!visibility) {
             set.status = 400;
             return { error: "Visibility must be everyone or restricted" };
         }
 
+        const uploadedFile =
+            body.file && typeof body.file === "object" && Number(body.file.size || 0) > 0
+                ? body.file
+                : null;
+
         logger.info(
-            `updateInternalDocument start | id=${params.id} name=${uploadedFile.name} size=${uploadedFile.size}`,
+            `updateInternalDocument start | id=${params.id} replaceFile=${!!uploadedFile}`,
         );
 
-        const { name, file, size } = await storeUploadedFile(uploadedFile);
-        await removeMediaFile(media.file);
-        await updateMediaById({ id: media.id, name, file });
+        if (uploadedFile) {
+            const media = await getMediaById({ id: internalDocument.media_id });
+            if (!media) {
+                logger.error(
+                    `updateInternalDocument: media missing | documentId=${params.id} mediaId=${internalDocument.media_id}`,
+                );
+                set.status = 404;
+                return { error: "Media not found" };
+            }
+
+            const { name, file, size } = await storeUploadedFile(uploadedFile);
+            await removeMediaFile(media.file);
+            await updateMediaById({ id: media.id, name, file });
+            logger.info(
+                `updateInternalDocument file replaced | id=${internalDocument.id} mediaId=${media.id} name=${name} size=${size}`,
+            );
+        }
+
         await updateInternalDocumentById({
             id: internalDocument.id,
             description: body.description?.trim() || null,
@@ -200,9 +204,7 @@ export async function updateInternalDocument({ params, body, cookie, set }) {
         });
 
         const updated = await getInternalDocumentById({ id: internalDocument.id });
-        logger.success(
-            `updateInternalDocument success | id=${internalDocument.id} mediaId=${media.id} name=${name} size=${size}`,
-        );
+        logger.success(`updateInternalDocument success | id=${internalDocument.id}`);
         set.status = 200;
         return { message: "Internal document updated", internalDocument: updated };
     } catch (error) {

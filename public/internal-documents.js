@@ -27,6 +27,7 @@
     const fileInput = form?.elements.namedItem("file");
     const descriptionInput = form?.elements.namedItem("description");
     const visibilityInput = form?.elements.namedItem("visibility");
+    const fileHint = document.getElementById("document-file-hint");
 
     function showAlert(target, message, type) {
         if (!target) return;
@@ -72,6 +73,7 @@
         if (modalLabel) modalLabel.textContent = "Add document";
         if (submitButton) submitButton.textContent = "Upload";
         if (fileInput) fileInput.required = true;
+        fileHint?.classList.add("d-none");
     }
 
     function openEditModal(row) {
@@ -88,8 +90,9 @@
         }
         if (fileInput) {
             fileInput.value = "";
-            fileInput.required = true;
+            fileInput.required = false;
         }
+        fileHint?.classList.remove("d-none");
     }
 
     function visibleRows() {
@@ -329,18 +332,20 @@
         const description = descriptionInput?.value?.trim() || "";
         const visibility =
             visibilityInput?.value === "everyone" ? "everyone" : "restricted";
-        const uploadedFile = fileInput?.files?.[0];
+        const uploadedFile = fileInput?.files?.[0] || null;
         const isEdit = Number.isInteger(documentId) && documentId > 0;
 
-        if (!uploadedFile) {
+        if (!isEdit && !uploadedFile) {
             showAlert(formAlert, "Please select a file.", "danger");
             return;
         }
 
-        const sizeCheck = window.validateUploadFiles?.(uploadedFile);
-        if (sizeCheck && !sizeCheck.ok) {
-            showAlert(formAlert, sizeCheck.error, "danger");
-            return;
+        if (uploadedFile) {
+            const sizeCheck = window.validateUploadFiles?.(uploadedFile);
+            if (sizeCheck && !sizeCheck.ok) {
+                showAlert(formAlert, sizeCheck.error, "danger");
+                return;
+            }
         }
 
         if (submitButton) {
@@ -350,19 +355,41 @@
         if (descriptionInput) descriptionInput.disabled = true;
         if (visibilityInput) visibilityInput.disabled = true;
 
-        setUploadProgress(0, "Uploading…");
+        const replacingFile = !!uploadedFile;
+        if (replacingFile) {
+            setUploadProgress(0, "Uploading…");
+        }
 
         try {
             const body = new FormData();
-            body.append("file", uploadedFile);
+            if (uploadedFile) {
+                body.append("file", uploadedFile);
+            }
             body.append("description", description);
             body.append("visibility", visibility);
 
-            const { ok, status, data } = await uploadWithProgress({
-                url: isEdit ? `/api/internal-documents/${documentId}` : "/api/internal-documents",
-                method: isEdit ? "PATCH" : "POST",
-                body,
-            });
+            let ok;
+            let status;
+            let data;
+
+            if (replacingFile) {
+                ({ ok, status, data } = await uploadWithProgress({
+                    url: isEdit
+                        ? `/api/internal-documents/${documentId}`
+                        : "/api/internal-documents",
+                    method: isEdit ? "PATCH" : "POST",
+                    body,
+                }));
+            } else {
+                const response = await fetch(`/api/internal-documents/${documentId}`, {
+                    method: "PATCH",
+                    credentials: "same-origin",
+                    body,
+                });
+                data = await response.json().catch(() => ({}));
+                ok = response.ok;
+                status = response.status;
+            }
 
             if (!ok) {
                 hideUploadProgress();
@@ -377,7 +404,9 @@
                 return;
             }
 
-            setUploadProgress(100, "Done");
+            if (replacingFile) {
+                setUploadProgress(100, "Done");
+            }
             window.location.reload();
         } catch (error) {
             console.error(error);

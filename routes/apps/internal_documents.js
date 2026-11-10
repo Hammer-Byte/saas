@@ -26,7 +26,7 @@ export default function (app) {
                 id: t.Numeric({ minimum: 1 }),
             }),
             body: t.Object({
-                file: t.File({ error: ERRORS.FILE_REQUIRED }),
+                file: t.Optional(t.File()),
                 description: t.Optional(t.String({ maxLength: 512 })),
                 visibility: t.Optional(
                     t.Union([t.Literal("everyone"), t.Literal("restricted")]),
@@ -34,7 +34,7 @@ export default function (app) {
             }),
             detail: {
                 tags: ["Internal Documents"],
-                summary: "Replace internal document file and update description",
+                summary: "Update description, visibility, and optionally replace the file",
             },
         })
         .delete("/:id", deleteInternalDocument, {
