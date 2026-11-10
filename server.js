@@ -12,8 +12,8 @@ import { SWAGGER } from "./constants.js";
 
 const { HEADERS } = hammerbyteUtils.CONSTANTS.SAAS;
 
-/** Bun default is 128MB — large internal docs need more. Override with MAX_REQUEST_BODY_SIZE (bytes). */
-const maxRequestBodySize = Number(Bun.env.MAX_REQUEST_BODY_SIZE) || 1024 * 1024 * 1024;
+/** Bun default is 128MB — default here is 1.5GB. Override with MAX_REQUEST_BODY_SIZE (bytes). */
+const maxRequestBodySize = Number(Bun.env.MAX_REQUEST_BODY_SIZE) || 1536 * 1024 * 1024;
 const idleTimeout = Number(Bun.env.SERVER_IDLE_TIMEOUT) || 255;
 
 const app = new Elysia().use(
