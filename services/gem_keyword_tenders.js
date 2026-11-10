@@ -212,16 +212,20 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         return { error: "Invalid stage" };
     }
 
-    // Assign to me / new assignee auto-selects Assigned when still in New / Out of scope / Missed.
-    if (
-        assigneeChanging &&
-        nextAssigneeUserId != null &&
-        body.stage === undefined &&
-        (previousStage === GEM_KEYWORD_TENDER_STAGES.NEW ||
-            previousStage === GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE ||
-            previousStage === GEM_KEYWORD_TENDER_STAGES.MISSED)
-    ) {
-        nextStage = GEM_KEYWORD_TENDER_STAGES.ASSIGNED;
+    // Assign to me / admin assign: if stage would stay New, move to Assigned.
+    // Also promote common inbox stages when the client did not pick a stage explicitly.
+    if (assigneeChanging && nextAssigneeUserId != null) {
+        const inboxStages = new Set([
+            GEM_KEYWORD_TENDER_STAGES.NEW,
+            GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE,
+            GEM_KEYWORD_TENDER_STAGES.UNATTENDED,
+            GEM_KEYWORD_TENDER_STAGES.MISSED,
+        ]);
+        if (nextStage === GEM_KEYWORD_TENDER_STAGES.NEW) {
+            nextStage = GEM_KEYWORD_TENDER_STAGES.ASSIGNED;
+        } else if (body.stage === undefined && inboxStages.has(previousStage)) {
+            nextStage = GEM_KEYWORD_TENDER_STAGES.ASSIGNED;
+        }
     }
 
     // Unassign while on Assigned / docs stages → back to New.

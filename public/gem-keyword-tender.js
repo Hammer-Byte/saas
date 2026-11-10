@@ -137,6 +137,9 @@
                 ? String(tender.assignee_user_id)
                 : "";
             detail.dataset.stage = tender.stage || detail.dataset.stage;
+            if (stageSelect && tender.stage) {
+                stageSelect.value = tender.stage;
+            }
             window.location.reload();
         });
         if (!ok) assigneeSelect.value = previous;
@@ -144,7 +147,14 @@
 
     assignMeButton?.addEventListener("click", async () => {
         assignMeButton.disabled = true;
-        const ok = await applyPatch({ assign_to_me: true }, () => {
+        const ok = await applyPatch({ assign_to_me: true }, (tender) => {
+            detail.dataset.assigneeUserId = tender.assignee_user_id
+                ? String(tender.assignee_user_id)
+                : String(currentUserId || "");
+            detail.dataset.stage = tender.stage || detail.dataset.stage;
+            if (stageSelect && tender.stage) {
+                stageSelect.value = tender.stage;
+            }
             window.location.reload();
         });
         if (!ok) syncControls();
