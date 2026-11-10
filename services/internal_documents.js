@@ -14,6 +14,42 @@ import {
     getInternalDocumentById,
     updateInternalDocumentById,
 } from "../db/internal_documents.js";
+import { AUTHORITIES } from "../constants.js";
+import { hasAuthority } from "../libs/app_page.js";
+import { getCurrentUser } from "./authentication.js";
+
+const VISIBILITY_VALUES = new Set(["everyone", "restricted"]);
+
+export function canManageInternalDocuments(currentUser) {
+    if (!currentUser?.id) {
+        return false;
+    }
+    if (currentUser.super_admin) {
+        return true;
+    }
+    return hasAuthority(currentUser.authorities, AUTHORITIES.MANAGE_INTERNAL_DOCUMENTS);
+}
+
+function normalizeVisibility(value) {
+    const visibility = String(value || "restricted").trim().toLowerCase();
+    return VISIBILITY_VALUES.has(visibility) ? visibility : null;
+}
+
+async function requireManager({ cookie, set }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized", currentUser: null };
+    }
+    if (!canManageInternalDocuments(currentUser)) {
+        set.status = 403;
+        return {
+            error: "Only a super admin or users with manage internal documents authority can do this",
+            currentUser,
+        };
+    }
+    return { currentUser };
+}
 
 async function removeMediaFile(fileName) {
     if (!fileName) {
@@ -47,13 +83,24 @@ async function storeUploadedFile(uploadedFile) {
     return { name, file, size, type };
 }
 
-export async function addInternalDocument({ body, set }) {
+export async function addInternalDocument({ body, cookie, set }) {
+    const gate = await requireManager({ cookie, set });
+    if (gate.error) {
+        return { error: gate.error };
+    }
+
     try {
         const uploadedFile = body.file;
         if (!uploadedFile) {
             logger.error("addInternalDocument: missing file in body");
             set.status = 400;
             return { error: "File is required" };
+        }
+
+        const visibility = normalizeVisibility(body.visibility);
+        if (!visibility) {
+            set.status = 400;
+            return { error: "Visibility must be everyone or restricted" };
         }
 
         logger.info(
@@ -74,6 +121,7 @@ export async function addInternalDocument({ body, set }) {
         const id = await createInternalDocument({
             media_id: mediaId,
             description: body.description?.trim() || null,
+            visibility,
         });
 
         if (!id) {
@@ -102,7 +150,12 @@ export async function addInternalDocument({ body, set }) {
     }
 }
 
-export async function updateInternalDocument({ params, body, set }) {
+export async function updateInternalDocument({ params, body, cookie, set }) {
+    const gate = await requireManager({ cookie, set });
+    if (gate.error) {
+        return { error: gate.error };
+    }
+
     try {
         const internalDocument = await getInternalDocumentById({ id: params.id });
         if (!internalDocument) {
@@ -127,6 +180,12 @@ export async function updateInternalDocument({ params, body, set }) {
             return { error: "File is required" };
         }
 
+        const visibility = normalizeVisibility(body.visibility);
+        if (!visibility) {
+            set.status = 400;
+            return { error: "Visibility must be everyone or restricted" };
+        }
+
         logger.info(
             `updateInternalDocument start | id=${params.id} name=${uploadedFile.name} size=${uploadedFile.size}`,
         );
@@ -137,6 +196,7 @@ export async function updateInternalDocument({ params, body, set }) {
         await updateInternalDocumentById({
             id: internalDocument.id,
             description: body.description?.trim() || null,
+            visibility,
         });
 
         const updated = await getInternalDocumentById({ id: internalDocument.id });
@@ -155,7 +215,12 @@ export async function updateInternalDocument({ params, body, set }) {
     }
 }
 
-export async function deleteInternalDocument({ params, set }) {
+export async function deleteInternalDocument({ params, cookie, set }) {
+    const gate = await requireManager({ cookie, set });
+    if (gate.error) {
+        return { error: gate.error };
+    }
+
     try {
         const internalDocument = await getInternalDocumentById({ id: params.id });
         if (!internalDocument) {

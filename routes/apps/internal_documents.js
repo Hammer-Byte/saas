@@ -12,6 +12,9 @@ export default function (app) {
             body: t.Object({
                 file: t.File({ error: ERRORS.FILE_REQUIRED }),
                 description: t.Optional(t.String({ maxLength: 512 })),
+                visibility: t.Optional(
+                    t.Union([t.Literal("everyone"), t.Literal("restricted")]),
+                ),
             }),
             detail: {
                 tags: ["Internal Documents"],
@@ -25,6 +28,9 @@ export default function (app) {
             body: t.Object({
                 file: t.File({ error: ERRORS.FILE_REQUIRED }),
                 description: t.Optional(t.String({ maxLength: 512 })),
+                visibility: t.Optional(
+                    t.Union([t.Literal("everyone"), t.Literal("restricted")]),
+                ),
             }),
             detail: {
                 tags: ["Internal Documents"],

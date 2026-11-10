@@ -61,6 +61,7 @@ export const AUTHORITIES = {
     MANAGE_AUTHORITIES: "MANAGE_AUTHORITIES",
     MANAGE_ROLE_AUTHORITIES: "MANAGE_ROLE_AUTHORITIES",
     MANAGE_USER_ROLES: "MANAGE_USER_ROLES",
+    MANAGE_INTERNAL_DOCUMENTS: "MANAGE_INTERNAL_DOCUMENTS",
 };
 
 export const TASK_STATES = {
@@ -194,4 +195,5 @@ export const AUTHORITY_DESCRIPTIONS = {
     MANAGE_AUTHORITIES: "Create and delete authorities",
     MANAGE_ROLE_AUTHORITIES: "Assign authorities to roles",
     MANAGE_USER_ROLES: "Assign roles to users",
+    MANAGE_INTERNAL_DOCUMENTS: "Add, edit, and delete internal documents",
 };

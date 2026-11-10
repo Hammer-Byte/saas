@@ -64,6 +64,7 @@ import { getAllGemKeywordTenderDocumentsByTenderId } from "../db/gem_keyword_ten
 import { getAllGemTenderScanRuns } from "../db/gem_tender_scan_runs.js";
 import { buildGemKeywordTenderReport } from "../services/gem_keyword_tender_report.js";
 import { canManageTenderDocuments } from "../services/gem_keyword_tender_documents.js";
+import { canManageInternalDocuments } from "../services/internal_documents.js";
 import {
     AUTHORITIES,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
@@ -518,12 +519,23 @@ export const uiRoutes = new Elysia()
                     }),
                 }));
             })
-            .get("/app/internal-documents", async ({ render, session }) =>
-                render("internal-documents", appPage(session, {
-                    title: "Internal Documents — HammerByte",
-                    documents: await getAllInternalDocuments(),
-                })),
-            )
+            .get("/app/internal-documents", async ({ render, session }) => {
+                const canManage = canManageInternalDocuments({
+                    id: session?.id,
+                    super_admin: !!session?.super_admin,
+                    authorities: session?.authorities ?? [],
+                });
+                return render(
+                    "internal-documents",
+                    appPage(session, {
+                        title: "Internal Documents — HammerByte",
+                        canManageInternalDocuments: canManage,
+                        documents: await getAllInternalDocuments(
+                            canManage ? {} : { visibility: "everyone" },
+                        ),
+                    }),
+                );
+            })
             .get("/app/servers", async ({ render, session }) =>
                 render("servers", appPage(session, {
                     title: "Servers — HammerByte",

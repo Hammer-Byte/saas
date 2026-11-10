@@ -398,6 +398,7 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             media_id INT NOT NULL,
             description VARCHAR(512) NULL,
+            visibility VARCHAR(16) NOT NULL DEFAULT 'restricted',
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT fk_internal_documents_media
                 FOREIGN KEY (media_id)
@@ -405,6 +406,8 @@ export async function generateDBTables() {
                 ON DELETE RESTRICT
                 ON UPDATE CASCADE
         )`,
+        `ALTER TABLE INTERNAL_DOCUMENTS
+            ADD COLUMN visibility VARCHAR(16) NOT NULL DEFAULT 'restricted'`,
         `CREATE TABLE IF NOT EXISTS JOB_POSITIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(128) NOT NULL,
