@@ -58,12 +58,29 @@ function normalizeSqlResult(result) {
     return result;
 }
 
+let istTimeZoneReady = false;
+
+/** Ensure MySQL session DATETIME wall-clock is Asia/Kolkata (+05:30). */
+export async function ensureIstTimeZone() {
+    if (istTimeZoneReady) {
+        return;
+    }
+    try {
+        await dbConnection.unsafe("SET time_zone = '+05:30'");
+        istTimeZoneReady = true;
+    } catch (error) {
+        logger.error(`ensureIstTimeZone: ${error}`);
+    }
+}
+
 export async function executeSQLQuery(queryFunction) {
+    await ensureIstTimeZone();
     const result = await queryFunction(dbConnection);
     return normalizeSqlResult(result);
 }
 
 export async function generateDBTables() {
+    await ensureIstTimeZone();
     const requiredTables = [
         `CREATE TABLE IF NOT EXISTS CUSTOMERS (
             id INT AUTO_INCREMENT PRIMARY KEY,

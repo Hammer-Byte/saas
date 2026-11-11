@@ -99,7 +99,10 @@
             filterProjectsByCustomer();
         }
         if (dateInput) {
-            dateInput.value = getReadableDate("YYYY-MM", new Date());
+            dateInput.value = getReadableDate(
+                "YYYY-MM",
+                window.getIstDateTime?.() || new Date(),
+            );
         }
         resetItems();
     });

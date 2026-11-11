@@ -117,6 +117,53 @@
         });
     }
 
+    const IST_TIME_ZONE = "Asia/Kolkata";
+
+    /** Current instant as YYYY-MM-DD HH:mm:ss wall-clock in Asia/Kolkata (IST). */
+    window.getIstDateTime = function getIstDateTime(date = new Date()) {
+        const instant = date instanceof Date ? date : new Date(date);
+        if (Number.isNaN(instant.getTime())) {
+            return null;
+        }
+        const parts = new Intl.DateTimeFormat("en-GB", {
+            timeZone: IST_TIME_ZONE,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hourCycle: "h23",
+        }).formatToParts(instant);
+        const valueByType = Object.fromEntries(
+            parts
+                .filter((part) => part.type !== "literal")
+                .map((part) => [part.type, part.value]),
+        );
+        return `${valueByType.year}-${valueByType.month}-${valueByType.day} ${valueByType.hour}:${valueByType.minute}:${valueByType.second}`;
+    };
+
+    /** Current (or given) instant as YYYY-MM-DD in Asia/Kolkata (IST). */
+    window.getIstDate = function getIstDate(date = new Date()) {
+        return window.getIstDateTime(date)?.slice(0, 10) || null;
+    };
+
+    /** Add calendar days to a YYYY-MM-DD key (IST wall-clock; no timezone shift). */
+    window.addIstCalendarDays = function addIstCalendarDays(dateKey, days) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateKey || ""))) {
+            return null;
+        }
+        const year = Number(dateKey.slice(0, 4));
+        const month = Number(dateKey.slice(5, 7));
+        const day = Number(dateKey.slice(8, 10));
+        const next = new Date(Date.UTC(year, month - 1, day + Number(days || 0)));
+        return [
+            next.getUTCFullYear(),
+            `${next.getUTCMonth() + 1}`.padStart(2, "0"),
+            `${next.getUTCDate()}`.padStart(2, "0"),
+        ].join("-");
+    };
+
     window.getWritableDate = function getWritableDate(format, date) {
         return formatDate(format, date);
     };
@@ -312,7 +359,8 @@
         const dateKey =
             typeof source === "string" || typeof source === "number"
                 ? getWritableDate("YYYY-MM-DD", source)
-                : formatLocalDateKey(source instanceof Date ? source : new Date());
+                : window.getIstDate?.(source instanceof Date ? source : new Date()) ||
+                  formatLocalDateKey(source instanceof Date ? source : new Date());
         if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
             return null;
         }

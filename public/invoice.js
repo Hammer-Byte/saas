@@ -340,7 +340,12 @@
         if (paymentIdField) paymentIdField.value = "";
         if (paymentPaidField) paymentPaidField.value = "0";
         if (paymentNoteField) paymentNoteField.value = "";
-        if (paymentDateField) paymentDateField.value = getReadableDate("DD/MM/YYYY", new Date());
+        if (paymentDateField) {
+            paymentDateField.value = getReadableDate(
+                "DD/MM/YYYY",
+                window.getIstDateTime?.() || new Date(),
+            );
+        }
         updatePaymentSplit();
     });
 
@@ -358,7 +363,10 @@
             if (paymentDateField) {
                 paymentDateField.value =
                     getReadableDate("DD/MM/YYYY", button.dataset.createdOn) ||
-                    getReadableDate("DD/MM/YYYY", new Date());
+                    getReadableDate(
+                        "DD/MM/YYYY",
+                        window.getIstDateTime?.() || new Date(),
+                    );
             }
             updatePaymentSplit();
 

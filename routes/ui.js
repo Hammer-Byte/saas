@@ -123,28 +123,35 @@ import {
 import { processing as gemTendereProcessing } from "../libs/tenderer.js";
 import { processing as linkedinProcessing } from "../libs/linkedin_browser.js";
 import {
+    addIstCalendarDays,
     buildSprintWeekOptions,
-    getIstDateTime,
+    getIstDate,
+    getIstMonthBounds,
     getMondayDate,
-    getReadableDate,
     getSundayDate,
     parseQueryDate,
 } from "../libs/date.js";
 
 function defaultDateRangeDays({ daysAhead = 7 } = {}) {
-    const todayIst = getIstDateTime()?.slice(0, 10);
+    const todayIst = getIstDate();
     if (!todayIst) {
         return { from: null, to: null };
     }
-    const [year, month, day] = todayIst.split("-").map(Number);
-    // Calendar math in UTC so wall-clock IST date parts stay stable.
-    const end = new Date(Date.UTC(year, month - 1, day + daysAhead));
-    const to = [
-        end.getUTCFullYear(),
-        `${end.getUTCMonth() + 1}`.padStart(2, "0"),
-        `${end.getUTCDate()}`.padStart(2, "0"),
-    ].join("-");
-    return { from: todayIst, to };
+    return {
+        from: todayIst,
+        to: addIstCalendarDays(todayIst, daysAhead) || todayIst,
+    };
+}
+
+function defaultDateRangeLookingBack({ daysBack = 30 } = {}) {
+    const todayIst = getIstDate();
+    if (!todayIst) {
+        return { from: null, to: null };
+    }
+    return {
+        from: addIstCalendarDays(todayIst, -Math.abs(daysBack)) || todayIst,
+        to: todayIst,
+    };
 }
 import { formatContractCreatedOn } from "../libs/contractor.js";
 import { isContractSigned } from "../services/contracts.js";
@@ -309,17 +316,17 @@ export const uiRoutes = new Elysia()
                         return redirect("/not-found");
                     }
 
-                    const now = new Date();
+                    const todayIst = getIstDate() || "";
                     const parsedMonth = Number(query.month);
                     const parsedYear = Number(query.year);
                     const month =
                         Number.isInteger(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12
                             ? parsedMonth
-                            : now.getMonth() + 1;
+                            : Number(todayIst.slice(5, 7)) || 1;
                     const year =
                         Number.isInteger(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100
                             ? parsedYear
-                            : now.getFullYear();
+                            : Number(todayIst.slice(0, 4)) || new Date().getFullYear();
 
                     let usage = [];
                     let usageKind = null;
@@ -386,12 +393,9 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
-                const now = new Date();
-                const defaultStart = getReadableDate(
-                    "YYYY-MM-DD",
-                    new Date(now.getFullYear(), now.getMonth(), 1),
-                );
-                const defaultEnd = getReadableDate("YYYY-MM-DD", now);
+                const monthBounds = getIstMonthBounds();
+                const defaultStart = monthBounds.from;
+                const defaultEnd = monthBounds.to || getIstDate();
 
                 const start =
                     parseQueryDate(query.start) || defaultStart;
@@ -441,15 +445,9 @@ export const uiRoutes = new Elysia()
                 })),
             )
             .get("/app/tasks/report", async ({ render, session, query }) => {
-                const now = new Date();
-                const defaultTo = getReadableDate("YYYY-MM-DD", now);
-                const defaultFrom = getReadableDate(
-                    "YYYY-MM-DD",
-                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30),
-                );
-
-                const from = parseQueryDate(query.from) || defaultFrom;
-                const to = parseQueryDate(query.to) || defaultTo;
+                const defaults = defaultDateRangeLookingBack({ daysBack: 30 });
+                const from = parseQueryDate(query.from) || defaults.from;
+                const to = parseQueryDate(query.to) || defaults.to;
 
                 const rangeFrom = from <= to ? from : to;
                 const rangeTo = from <= to ? to : from;
@@ -471,7 +469,7 @@ export const uiRoutes = new Elysia()
             })
             .get("/app/tasks/sprint-report", async ({ render, session, query }) => {
                 const requestedWeek =
-                    parseQueryDate(query.week) || getReadableDate("YYYY-MM-DD", new Date());
+                    parseQueryDate(query.week) || getIstDate();
                 const weekStart = getMondayDate(requestedWeek) || getMondayDate();
                 const weekEnd = getSundayDate(weekStart);
                 const report = await buildSprintBurnReport({ weekStart });
@@ -630,12 +628,9 @@ export const uiRoutes = new Elysia()
                 }));
             })
             .get("/app/expenses", async ({ render, session, query }) => {
-                const now = new Date();
-                const defaultStart = getReadableDate(
-                    "YYYY-MM-DD",
-                    new Date(now.getFullYear(), now.getMonth(), 1),
-                );
-                const defaultEnd = getReadableDate("YYYY-MM-DD", now);
+                const monthBounds = getIstMonthBounds();
+                const defaultStart = monthBounds.from;
+                const defaultEnd = getIstDate();
 
                 const start =
                     parseQueryDate(query.start) || defaultStart;
@@ -670,12 +665,9 @@ export const uiRoutes = new Elysia()
                 }));
             })
             .get("/app/revenue", async ({ render, session, query }) => {
-                const now = new Date();
-                const defaultStart = getReadableDate(
-                    "YYYY-MM-DD",
-                    new Date(now.getFullYear(), now.getMonth(), 1),
-                );
-                const defaultEnd = getReadableDate("YYYY-MM-DD", now);
+                const monthBounds = getIstMonthBounds();
+                const defaultStart = monthBounds.from;
+                const defaultEnd = getIstDate();
 
                 const start =
                     parseQueryDate(query.start) || defaultStart;
@@ -785,15 +777,9 @@ export const uiRoutes = new Elysia()
                 });
             })
             .get("/app/inquiries", async ({ render, session, query }) => {
-                const now = new Date();
-                const defaultTo = getReadableDate("YYYY-MM-DD", now);
-                const defaultFrom = getReadableDate(
-                    "YYYY-MM-DD",
-                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30),
-                );
-
-                const from = parseQueryDate(query.from) || defaultFrom;
-                const to = parseQueryDate(query.to) || defaultTo;
+                const defaults = defaultDateRangeLookingBack({ daysBack: 30 });
+                const from = parseQueryDate(query.from) || defaults.from;
+                const to = parseQueryDate(query.to) || defaults.to;
                 const rangeFrom = from <= to ? from : to;
                 const rangeTo = from <= to ? to : from;
 
@@ -813,15 +799,9 @@ export const uiRoutes = new Elysia()
                 }));
             })
             .get("/app/inquiries-report", async ({ render, session, query }) => {
-                const now = new Date();
-                const defaultTo = getReadableDate("YYYY-MM-DD", now);
-                const defaultFrom = getReadableDate(
-                    "YYYY-MM-DD",
-                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30),
-                );
-
-                const from = parseQueryDate(query.from) || defaultFrom;
-                const to = parseQueryDate(query.to) || defaultTo;
+                const defaults = defaultDateRangeLookingBack({ daysBack: 30 });
+                const from = parseQueryDate(query.from) || defaults.from;
+                const to = parseQueryDate(query.to) || defaults.to;
                 const rangeFrom = from <= to ? from : to;
                 const rangeTo = from <= to ? to : from;
                 const report = await buildInquiryReport({
@@ -1098,15 +1078,9 @@ export const uiRoutes = new Elysia()
             )
 
             .get("/app/content-publish-history", async ({ render, session, query }) => {
-                const now = new Date();
-                const defaultEnd = getReadableDate("YYYY-MM-DD", now);
-                const defaultStart = getReadableDate(
-                    "YYYY-MM-DD",
-                    new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2),
-                );
-
-                const start = parseQueryDate(query.start) || defaultStart;
-                const end = parseQueryDate(query.end) || defaultEnd;
+                const defaults = defaultDateRangeLookingBack({ daysBack: 2 });
+                const start = parseQueryDate(query.start) || defaults.from;
+                const end = parseQueryDate(query.end) || defaults.to;
                 const rangeStart = start <= end ? start : end;
                 const rangeEnd = start <= end ? end : start;
 

@@ -933,77 +933,75 @@
         writeFiltersToDom(appliedFilters);
     });
 
-    function formatIsoDate(date) {
-        const year = date.getFullYear();
-        const month = `${date.getMonth() + 1}`.padStart(2, "0");
-        const day = `${date.getDate()}`.padStart(2, "0");
-        return `${year}-${month}-${day}`;
+    function startOfIndianQuarterKey(dateKey) {
+        const year = Number(dateKey.slice(0, 4));
+        const month = Number(dateKey.slice(5, 7)); // 1-12
+        if (month <= 3) return `${year}-01-01`;
+        if (month <= 6) return `${year}-04-01`;
+        if (month <= 9) return `${year}-07-01`;
+        return `${year}-10-01`;
     }
 
-    function startOfIndianQuarter(date) {
-        const year = date.getFullYear();
-        const month = date.getMonth(); // 0-11
-        // Indian FY quarters: Apr-Jun, Jul-Sep, Oct-Dec, Jan-Mar
-        if (month <= 2) return new Date(year, 0, 1); // Jan-Mar
-        if (month <= 5) return new Date(year, 3, 1); // Apr-Jun
-        if (month <= 8) return new Date(year, 6, 1); // Jul-Sep
-        return new Date(year, 9, 1); // Oct-Dec
-    }
-
-    function endOfIndianQuarter(date) {
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        if (month <= 2) return new Date(year, 2, 31); // Jan-Mar
-        if (month <= 5) return new Date(year, 5, 30); // Apr-Jun
-        if (month <= 8) return new Date(year, 8, 30); // Jul-Sep
-        return new Date(year, 11, 31); // Oct-Dec
-    }
-
-    function startOfWeekMonday(date) {
-        const value = new Date(date);
-        const weekday = value.getDay(); // 0 Sun .. 6 Sat
-        const offset = weekday === 0 ? -6 : 1 - weekday;
-        value.setDate(value.getDate() + offset);
-        return value;
+    function endOfIndianQuarterKey(dateKey) {
+        const year = Number(dateKey.slice(0, 4));
+        const month = Number(dateKey.slice(5, 7));
+        if (month <= 3) return `${year}-03-31`;
+        if (month <= 6) return `${year}-06-30`;
+        if (month <= 9) return `${year}-09-30`;
+        return `${year}-12-31`;
     }
 
     function setQuickDateRange(range) {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        let fromDate = new Date(now);
-        let toDate = new Date(now);
+        const today = window.getIstDate?.() || "";
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) {
+            return;
+        }
+        const addDays = window.addIstCalendarDays;
+        const year = Number(today.slice(0, 4));
+        const month = Number(today.slice(5, 7));
+        let fromKey = today;
+        let toKey = today;
 
         if (range === "today") {
-            fromDate = now;
-            toDate = now;
+            fromKey = today;
+            toKey = today;
         } else if (range === "this-week") {
-            fromDate = startOfWeekMonday(now);
-            toDate = new Date(fromDate);
-            toDate.setDate(toDate.getDate() + 6);
+            fromKey = window.getMondayDate?.(today) || today;
+            toKey = addDays?.(fromKey, 6) || today;
         } else if (range === "next-15-days") {
-            fromDate = now;
-            toDate = new Date(now);
-            toDate.setDate(toDate.getDate() + 15);
+            fromKey = today;
+            toKey = addDays?.(today, 15) || today;
         } else if (range === "this-month") {
-            fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            fromKey = `${year}-${`${month}`.padStart(2, "0")}-01`;
+            toKey = addDays?.(`${year}-${`${month + 1}`.padStart(2, "0")}-01`, -1) || today;
+            if (month === 12) {
+                toKey = `${year}-12-31`;
+            }
         } else if (range === "last-month") {
-            fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            toDate = new Date(now.getFullYear(), now.getMonth(), 0);
+            if (month === 1) {
+                fromKey = `${year - 1}-12-01`;
+                toKey = `${year - 1}-12-31`;
+            } else {
+                fromKey = `${year}-${`${month - 1}`.padStart(2, "0")}-01`;
+                toKey = addDays?.(
+                    `${year}-${`${month}`.padStart(2, "0")}-01`,
+                    -1,
+                ) || today;
+            }
         } else if (range === "this-quarter") {
-            fromDate = startOfIndianQuarter(now);
-            toDate = endOfIndianQuarter(now);
+            fromKey = startOfIndianQuarterKey(today);
+            toKey = endOfIndianQuarterKey(today);
         } else if (range === "last-quarter") {
-            const previous = new Date(startOfIndianQuarter(now));
-            previous.setDate(previous.getDate() - 1);
-            fromDate = startOfIndianQuarter(previous);
-            toDate = endOfIndianQuarter(previous);
+            const previousDay = addDays?.(startOfIndianQuarterKey(today), -1);
+            if (!previousDay) return;
+            fromKey = startOfIndianQuarterKey(previousDay);
+            toKey = endOfIndianQuarterKey(previousDay);
         } else {
             return;
         }
 
-        if (fromInput) fromInput.value = formatIsoDate(fromDate);
-        if (toInput) toInput.value = formatIsoDate(toDate);
+        if (fromInput) fromInput.value = fromKey;
+        if (toInput) toInput.value = toKey;
     }
 
     filtersPanel?.addEventListener("click", (event) => {

@@ -46,7 +46,10 @@
     function openAddModal() {
         resetForm();
         modalLabel.textContent = "Add expense";
-        dateInput.value = getReadableDate("DD/MM/YYYY", new Date());
+        dateInput.value = getReadableDate(
+            "DD/MM/YYYY",
+            window.getIstDateTime?.() || new Date(),
+        );
     }
 
     function openEditModal(row) {

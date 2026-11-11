@@ -152,6 +152,45 @@ export function getIstDateTime(date = new Date()) {
     return `${valueByType.year}-${valueByType.month}-${valueByType.day} ${valueByType.hour}:${valueByType.minute}:${valueByType.second}`;
 }
 
+/** Current (or given) instant as YYYY-MM-DD in Asia/Kolkata (IST). */
+export function getIstDate(date = new Date()) {
+    return getIstDateTime(date)?.slice(0, 10) || null;
+}
+
+/** Add calendar days to a YYYY-MM-DD key (IST wall-clock; no timezone shift). */
+export function addIstCalendarDays(dateKey, days) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateKey || ""))) {
+        return null;
+    }
+    const year = Number(dateKey.slice(0, 4));
+    const month = Number(dateKey.slice(5, 7));
+    const day = Number(dateKey.slice(8, 10));
+    const next = new Date(Date.UTC(year, month - 1, day + Number(days || 0)));
+    return [
+        next.getUTCFullYear(),
+        `${next.getUTCMonth() + 1}`.padStart(2, "0"),
+        `${next.getUTCDate()}`.padStart(2, "0"),
+    ].join("-");
+}
+
+/** First and last day of the IST month containing date (default: now). */
+export function getIstMonthBounds(date = new Date()) {
+    const today = getIstDate(date);
+    if (!today) {
+        return { from: null, to: null };
+    }
+    const year = Number(today.slice(0, 4));
+    const month = Number(today.slice(5, 7));
+    const from = `${year}-${`${month}`.padStart(2, "0")}-01`;
+    const last = new Date(Date.UTC(year, month, 0));
+    const to = [
+        last.getUTCFullYear(),
+        `${last.getUTCMonth() + 1}`.padStart(2, "0"),
+        `${last.getUTCDate()}`.padStart(2, "0"),
+    ].join("-");
+    return { from, to };
+}
+
 /** Normalize any supported input to MySQL DATETIME wall-clock string. */
 export function toDbDateTime(value) {
     if (value == null || value === "") {
@@ -178,7 +217,11 @@ function formatLocalDateKey(date) {
 
 /** Monday (YYYY-MM-DD) of the week containing the given date. Weeks are Mon–Sun. */
 export function getMondayDate(value = new Date()) {
-    const dateKey = toDbDate(value) || getIstDateTime()?.slice(0, 10);
+    // Real Date instants → IST calendar day. Strings → wall-clock parse.
+    const dateKey =
+        value instanceof Date
+            ? getIstDate(value)
+            : toDbDate(value) || getIstDate();
     if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
         return null;
     }

@@ -262,7 +262,10 @@
         invoiceFormAlert?.classList.add("d-none");
         resetItems();
         if (invoiceDateInput) {
-            invoiceDateInput.value = getReadableDate("YYYY-MM", new Date());
+            invoiceDateInput.value = getReadableDate(
+                "YYYY-MM",
+                window.getIstDateTime?.() || new Date(),
+            );
         }
     });
 
