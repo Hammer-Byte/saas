@@ -86,16 +86,20 @@ async function ensureTenderStorage() {
     await mkdir(TENDERS_DIRECTORY, { recursive: true });
 }
 
-async function removeLocalTenderPdf(tenderFile) {
+async function removeLocalTenderPdf(tenderFile, tenderId = null) {
     if (!tenderFile) {
         return;
     }
+    const label = tenderId || tenderFile;
     try {
         await unlink(tenderFile);
+        logger.info(`Deleted local tender PDF after processing: ${label}`);
     } catch (error) {
-        if (error?.code !== "ENOENT") {
-            logger.error(`Failed to delete local tender PDF ${tenderFile}: ${error}`);
+        if (error?.code === "ENOENT") {
+            logger.info(`Local tender PDF already absent after processing: ${label}`);
+            return;
         }
+        logger.error(`Failed to delete local tender PDF ${label}: ${error}`);
     }
 }
 
@@ -925,7 +929,7 @@ export const processTender = async ({
         return false;
     } finally {
         // Local PDF is only needed for pdftotext; DB keeps the GeM URL.
-        await removeLocalTenderPdf(tenderFile);
+        await removeLocalTenderPdf(tenderFile, tender_id);
     }
 };
 
@@ -991,12 +995,16 @@ export const searchTendersByKeyword = async (
             }
 
             if (isReverseAuctionCard(cardText)) {
+                const bidHint =
+                    cardText.match(/Bid\s*No\.?\s*:\s*(GEM\/\d{4}\/B\/\d+)/i)?.[1] ||
+                    cardText.match(/(GEM\/\d{4}\/B\/\d+)/i)?.[0] ||
+                    null;
                 const raHint =
                     cardText.match(/RA\s*NO\s*:\s*(GEM\/\d{4}\/R\/\d+)/i)?.[1] ||
                     cardText.match(/(GEM\/\d{4}\/R\/\d+)/i)?.[0] ||
                     "unknown";
                 logger.info(
-                    `Skipping reverse auction card (Bid + RA No), not scanning: ${raHint}`,
+                    `Skipping RA card (not scanning/downloading) | keyword=${searchKeyword} page=${pageNumber} card=${cardIndex + 1} bid=${bidHint || "n/a"} ra=${raHint}`,
                 );
                 continue;
             }
