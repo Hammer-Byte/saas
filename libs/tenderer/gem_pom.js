@@ -14,6 +14,8 @@ export class GemPage {
         bidCards: "//div[@id='bidCard']//div[contains(@class,'card')]",
         tenderDownloadLinks:
             "//div[@id='bidCard']//a[contains(@class,'bid_no_hover') and (contains(@href,'showbidDocument') or contains(@href,'showdirectradocumentPdf') or contains(@href,'showradocumentPdf'))]",
+        cardBidDownloadLinks:
+            ".//a[contains(@class,'bid_no_hover') and (contains(@href,'showbidDocument') or contains(@href,'showdirectradocumentPdf') or contains(@href,'showradocumentPdf'))]",
         tenderNumbers: "//div[@id='bidCard']//a[contains(@class,'bid_no_hover')]",
         paginationContainer: "//div[@id='light-pagination']",
         nextPageButton: "//div[@id='light-pagination']//a[contains(@class,'next')]",
@@ -121,6 +123,10 @@ export class GemPage {
 
     async tenderDownloadLinks() {
         return this.driver.findElements(this.by("tenderDownloadLinks"));
+    }
+
+    async cardBidDownloadLinks(card) {
+        return card.findElements(By.xpath(GemPage.xpath.cardBidDownloadLinks));
     }
 
     async nextPageButton() {

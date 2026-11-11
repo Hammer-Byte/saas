@@ -23,6 +23,9 @@ const TENDER_DETAIL_REGEXES = {
         /Bid Opening[\s\S]{0,40}?Date\/Time\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/i,
     BID_OPENING_DATE_TIME_FALLBACK: /Bid Opening[\s\S]{0,80}?(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/,
     RA_START_DATE_TIME: /RA Start Date\/Time\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/,
+    /** GeM list card with Bid No → RA No — skip whole card. */
+    RA_CARD_NO: /RA\s*NO\s*:/i,
+    BID_CARD_NO: /Bid\s*No\.?\s*:/i,
     HOD_EMAIL: /HOD\s*Email id\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
     BUYER_EMAIL: /Buyer Email id\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
     MINIMUM_AVG_TURNOVER: /Minimum Average Annual Turnover[\s\S]{0,120}?(\d+\s*Lakh\s*\(s\))/i,
@@ -646,6 +649,19 @@ function extractEmdAmount(text) {
     return collapsed.reduce((sum, amount) => sum + amount, 0);
 }
 
+/** GeM list card that shows Bid No → RA No (reverse auction listing). */
+export function isReverseAuctionCard(cardText) {
+    const text = String(cardText || "");
+    if (TENDER_DETAIL_REGEXES.RA_CARD_NO.test(text)) {
+        return true;
+    }
+    // Bid + RA number on the same card (arrow separator optional).
+    return (
+        TENDER_DETAIL_REGEXES.BID_CARD_NO.test(text) &&
+        /GEM\/\d{4}\/R\//i.test(text)
+    );
+}
+
 const extractTenderDetails = (text, buffer) => {
     const end_date_time =
         text.match(TENDER_DETAIL_REGEXES.BID_END_DATE_TIME)?.[1] ||
@@ -942,36 +958,75 @@ export const searchTendersByKeyword = async (
     for (let pageNumber = 1; pageNumber <= lastPage; pageNumber++) {
         logger.info(`Downloading page ${pageNumber} of ${lastPage} for ${searchKeyword}...`);
 
-        const tenders = await page.tenderDownloadLinks();
+        const cards = await page.bidCards();
 
-        for (let index = 0; index < tenders.length; index++) {
-            const tender = (await page.tenderDownloadLinks())[index];
-            const tenderId = (await tender.getText()).trim();
-
-            if (!tenderId) {
+        for (let cardIndex = 0; cardIndex < cards.length; cardIndex++) {
+            const card = (await page.bidCards())[cardIndex];
+            if (!card) {
                 continue;
             }
 
-            const existingTender = await getGemKeywordTenderByTenderId({ tender_id: tenderId });
-
+            let cardText = "";
             try {
-                const { tenderFile, document, buffer } = await downloadTender(driver, tender);
-                const changed = await processTender({
-                    tenderFile,
-                    keyword_id: resolvedKeywordId,
-                    tender_id: tenderId,
-                    document,
-                    buffer,
-                    existingTender,
-                });
-                if (changed) {
-                    changedCount += 1;
-                }
+                cardText = await card.getText();
             } catch (error) {
-                logger.error(`Failed download ${tenderId}: ${error}`);
+                logger.error(`Failed to read bid card text: ${error}`);
+                continue;
             }
 
-            await sleep(driver, DELAY_SHORT);
+            if (isReverseAuctionCard(cardText)) {
+                const raHint =
+                    cardText.match(/RA\s*NO\s*:\s*(GEM\/\d{4}\/R\/\d+)/i)?.[1] ||
+                    cardText.match(/(GEM\/\d{4}\/R\/\d+)/i)?.[0] ||
+                    "unknown";
+                logger.info(
+                    `Skipping reverse auction card (Bid + RA No), not scanning: ${raHint}`,
+                );
+                continue;
+            }
+
+            const tenders = await page.cardBidDownloadLinks(card);
+            for (let index = 0; index < tenders.length; index++) {
+                // Re-resolve links each pass; DOM can go stale after downloads.
+                const freshLinks = await page.cardBidDownloadLinks(
+                    (await page.bidCards())[cardIndex],
+                );
+                const tender = freshLinks[index];
+                if (!tender) {
+                    continue;
+                }
+
+                const tenderId = (await tender.getText()).trim();
+                if (!tenderId) {
+                    continue;
+                }
+
+                const existingTender = await getGemKeywordTenderByTenderId({
+                    tender_id: tenderId,
+                });
+
+                try {
+                    const { tenderFile, document, buffer } = await downloadTender(
+                        driver,
+                        tender,
+                    );
+                    const changed = await processTender({
+                        tenderFile,
+                        keyword_id: resolvedKeywordId,
+                        tender_id: tenderId,
+                        document,
+                        buffer,
+                        existingTender,
+                    });
+                    if (changed) {
+                        changedCount += 1;
+                    }
+                } catch (error) {
+                    logger.error(`Failed download ${tenderId}: ${error}`);
+                }
+
+                await sleep(driver, DELAY_SHORT);
+            }
         }
 
         if (pageNumber < lastPage) {
