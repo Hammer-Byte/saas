@@ -8,7 +8,6 @@
     const multiFilters = [groupFilter, stageFilter, assigneeFilter].filter(Boolean);
     const showAllFilter = document.getElementById("gem-filter-show-all");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
-    const quoteFilter = document.getElementById("gem-filter-quote");
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
     const applyFiltersBtn = document.getElementById("gem-filters-apply-btn");
     const refreshBtn = document.getElementById("gem-tenders-refresh-btn");
@@ -54,7 +53,6 @@
             search: "",
             showAll: false,
             quantityUpto: "",
-            quote: "",
             columns: {},
         };
     }
@@ -162,7 +160,6 @@
             if (!column) continue;
             columns[column] = String(select.value || "").trim();
         }
-        const quote = String(quoteFilter?.value || "").trim();
         return {
             from: normalizeDateInput(fromInput?.value || "", pageFrom),
             to: normalizeDateInput(toInput?.value || "", pageTo),
@@ -172,7 +169,6 @@
             search: String(searchInput?.value || "").trim(),
             showAll: !!showAllFilter?.checked,
             quantityUpto: String(quantityUptoFilter?.value || "").trim(),
-            quote: quote === "given" || quote === "missing" ? quote : "",
             columns,
         };
     }
@@ -190,12 +186,6 @@
             const qty = Number(filters.quantityUpto);
             quantityUptoFilter.value =
                 Number.isFinite(qty) && qty > 0 ? String(qty) : "";
-        }
-        if (quoteFilter) {
-            quoteFilter.value =
-                filters.quote === "given" || filters.quote === "missing"
-                    ? filters.quote
-                    : "";
         }
         const columns =
             filters.columns && typeof filters.columns === "object" ? filters.columns : {};
@@ -441,8 +431,6 @@
         const html = list
             .map((tender) => {
                 const stage = String(tender.stage || "new");
-                const quoteText = String(tender.quote || "").trim();
-                const hasQuote = !!quoteText;
                 const emdAmount = Number(tender.emd_amount || 0);
                 const buyerParts = [
                     tender.ministry,
@@ -479,7 +467,6 @@
                     data-category-group-id="${escapeHtml(categoryGroupId)}"
                     data-assignee-user-id="${escapeHtml(assigneeUserId)}"
                     data-stage="${escapeHtml(stage)}"
-                    data-has-quote="${hasQuote ? "1" : "0"}"
                     data-past-experience="${escapeHtml(pastExperience)}"
                     data-mse-exp="${escapeHtml(mseExp)}"
                     data-mse-turnover="${escapeHtml(mseTurnover)}"
@@ -782,7 +769,6 @@
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
         const hasQuantityUpto =
             quantityUpto != null && Number.isFinite(quantityUpto) && quantityUpto > 0;
-        const quoteFilterValue = String(appliedFilters.quote || "").trim();
         const columns =
             appliedFilters.columns && typeof appliedFilters.columns === "object"
                 ? appliedFilters.columns
@@ -846,11 +832,6 @@
             const matchesQuantity =
                 !hasQuantityUpto || (rowQuantity > 0 && rowQuantity <= quantityUpto);
 
-            const hasQuote = row.dataset.hasQuote === "1";
-            const matchesQuote =
-                !quoteFilterValue ||
-                (quoteFilterValue === "given" ? hasQuote : !hasQuote);
-
             const visible =
                 matchesHiddenStages &&
                 matchesGroup &&
@@ -858,8 +839,7 @@
                 matchesAssignee &&
                 matchesSearch &&
                 matchesColumns &&
-                matchesQuantity &&
-                matchesQuote;
+                matchesQuantity;
             row.classList.toggle("d-none", !visible);
             if (!visible) {
                 const checkbox = row.querySelector(".gem-tender-select");
@@ -920,10 +900,6 @@
             showAll: !!filters.showAll,
             quantityUpto:
                 Number.isFinite(quantity) && quantity > 0 ? String(quantity) : "",
-            quote:
-                filters.quote === "given" || filters.quote === "missing"
-                    ? filters.quote
-                    : "",
             columns,
         };
     }

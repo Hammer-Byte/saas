@@ -476,23 +476,6 @@
                             >×</button>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="gem-filter-quote" class="form-label">Quote</label>
-                        <div class="input-group input-group-sm">
-                            <select class="form-select" id="gem-filter-quote">
-                                <option value="">All</option>
-                                <option value="given">Quote given</option>
-                                <option value="missing">Quote not given</option>
-                            </select>
-                            <button
-                                type="button"
-                                class="btn btn-outline-secondary gem-filter-clear-btn gem-filter-clear-x"
-                                data-clear-select="gem-filter-quote"
-                                title="Clear quote"
-                                aria-label="Clear quote"
-                            >×</button>
-                        </div>
-                    </div>
                     <div class="mb-1">
                         <div class="form-check">
                             <input
@@ -590,8 +573,6 @@
                         <tbody id="gem-tenders-tbody">
                                 <% (tenders || []).forEach(function (tender) { %>
                                     <% const stage = tender.stage || "new"; %>
-                                    <% const quoteText = String(tender.quote || "").trim(); %>
-                                    <% const hasQuote = !!quoteText; %>
                                     <% const emdAmount = Number(tender.emd_amount || 0); %>
                                     <%
                                         const buyerParts = [
@@ -609,7 +590,6 @@
                                         data-category-group-id="<%= tender.category_group_id != null ? tender.category_group_id : '' %>"
                                         data-assignee-user-id="<%= tender.assignee_user_id != null ? tender.assignee_user_id : '' %>"
                                         data-stage="<%= stage %>"
-                                        data-has-quote="<%= hasQuote ? '1' : '0' %>"
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"
                                         data-mse-exp="<%= tender.mse_experience_relaxation || '' %>"
                                         data-mse-turnover="<%= tender.mse_turnover_relaxation || '' %>"
