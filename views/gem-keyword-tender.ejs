@@ -1,16 +1,27 @@
 <%- include('common/header') %>
 
 <%
-    const canAssignOthers = (authorities || []).includes(AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE);
+    const canAssignOthers =
+        !!super_admin ||
+        (authorities || []).includes(AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE);
     const currentUserId = Number(userId || 0);
     const isSuperAdmin = !!super_admin;
     const assigneeUserId = tender.assignee_user_id ? Number(tender.assignee_user_id) : null;
     const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
     const stageValues = Object.keys(stageLabels);
     const currentStage = tender.stage || "new";
-    const isEligibleStage = currentStage === "eligible";
-    const canEditQuote =
-        isEligibleStage && (isSuperAdmin || (assigneeUserId && assigneeUserId === currentUserId));
+    const quoteDisabledStages = new Set([
+        "new",
+        "out_of_scope",
+        "unattended",
+        "missed",
+        "not_eligible",
+    ]);
+    const quoteStageEnabled = !quoteDisabledStages.has(currentStage);
+    const canOperateAssigned =
+        isSuperAdmin || (assigneeUserId && assigneeUserId === currentUserId);
+    const canChangeStage = !assigneeUserId || canOperateAssigned;
+    const canEditQuote = quoteStageEnabled && canOperateAssigned;
     const canManageDocs = !!canManageDocuments;
 
     let specificationLinks = [];
@@ -83,17 +94,25 @@
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
                         <label for="gem-tender-stage" class="form-label">Stage</label>
-                        <select class="form-select" id="gem-tender-stage">
+                        <select
+                            class="form-select"
+                            id="gem-tender-stage"
+                            <%= !canChangeStage ? "disabled" : "" %>
+                        >
                             <% stageValues.forEach(function (stage) { %>
                                 <option
                                     value="<%= stage %>"
                                     <%= currentStage === stage ? 'selected' : '' %>
                                     <%= ['assigned', 'waiting_for_docs', 'preparing_docs'].includes(stage) && !assigneeUserId ? 'disabled' : '' %>
+                                    <%= stage === 'new' && currentStage !== 'new' ? 'disabled' : '' %>
                                 >
                                     <%= stageLabels[stage] %>
                                 </option>
                             <% }) %>
                         </select>
+                        <% if (assigneeUserId && !canChangeStage) { %>
+                            <p class="form-text mb-0">Only the assignee or a super admin can change stage.</p>
+                        <% } %>
                     </div>
                     <div class="col-md-5">
                         <label for="gem-tender-assignee" class="form-label">Assignee</label>
@@ -148,10 +167,10 @@
                         >
                             Save quote
                         </button>
-                        <% if (isEligibleStage && !canEditQuote) { %>
+                        <% if (!quoteStageEnabled) { %>
+                            <p class="form-text mb-0">Quote is not available in this stage.</p>
+                        <% } else if (!canEditQuote) { %>
                             <p class="form-text mb-0">Only the assignee or a super admin can edit the quote.</p>
-                        <% } else if (!isEligibleStage) { %>
-                            <p class="form-text mb-0">Set stage to Eligible to request a quote and enable this field.</p>
                         <% } %>
                     </div>
                 </div>

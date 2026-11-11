@@ -25,6 +25,13 @@
     const tenderId = Number(detail.dataset.id || 0);
     const currentUserId = Number(detail.dataset.currentUserId || 0);
     const isSuperAdmin = detail.dataset.superAdmin === "1";
+    const QUOTE_DISABLED_STAGES = new Set([
+        "new",
+        "out_of_scope",
+        "unattended",
+        "missed",
+        "not_eligible",
+    ]);
 
     function showAlert(message, type) {
         if (!alertElement) return;
@@ -50,27 +57,44 @@
         return String(detail.dataset.assigneeUserId || "").trim();
     }
 
-    function canEditQuote() {
-        const stage = detail.dataset.stage || "new";
-        if (stage !== "eligible") return false;
+    function canOperateAssigned() {
         if (isSuperAdmin) return true;
         const assigneeUserId = Number(currentAssigneeId() || 0);
         return assigneeUserId >= 1 && assigneeUserId === currentUserId;
     }
 
+    function canChangeStage() {
+        const assigneeUserId = Number(currentAssigneeId() || 0);
+        if (!(assigneeUserId >= 1)) return true;
+        return canOperateAssigned();
+    }
+
+    function canEditQuote() {
+        const stage = detail.dataset.stage || "new";
+        if (QUOTE_DISABLED_STAGES.has(stage)) return false;
+        return canOperateAssigned();
+    }
+
     function syncAssignedOption() {
         if (!stageSelect) return;
         const hasAssignee = !!currentAssigneeId();
+        const currentStage = detail.dataset.stage || "new";
         for (const value of ["assigned", "waiting_for_docs", "preparing_docs"]) {
             const option = stageSelect.querySelector(`option[value="${value}"]`);
             if (option) option.disabled = !hasAssignee;
+        }
+        const newOption = stageSelect.querySelector('option[value="new"]');
+        if (newOption) {
+            newOption.disabled = currentStage !== "new";
         }
     }
 
     function syncControls() {
         const assigneeUserId = currentAssigneeId();
         const quoteEnabled = canEditQuote();
+        const stageEnabled = canChangeStage();
 
+        if (stageSelect) stageSelect.disabled = !stageEnabled;
         if (quoteInput) quoteInput.disabled = !quoteEnabled;
         if (quoteSaveButton) quoteSaveButton.disabled = !quoteEnabled;
         if (assignMeWrap) {
@@ -113,6 +137,16 @@
     stageSelect?.addEventListener("change", async () => {
         const previous = detail.dataset.stage || "new";
         const stage = stageSelect.value;
+        if (!canChangeStage()) {
+            showAlert("Only the assignee or a super admin can change stage.", "danger");
+            stageSelect.value = previous;
+            return;
+        }
+        if (stage === "new" && previous !== "new") {
+            showAlert("Stage cannot go back to New once the tender has left New.", "danger");
+            stageSelect.value = previous;
+            return;
+        }
         if (
             ["assigned", "waiting_for_docs", "preparing_docs"].includes(stage) &&
             !currentAssigneeId()

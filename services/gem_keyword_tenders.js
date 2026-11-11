@@ -21,8 +21,33 @@ import { getCurrentUser } from "./authentication.js";
 
 const STAGE_VALUES = new Set(Object.values(GEM_KEYWORD_TENDER_STAGES));
 
+/** Quote stays disabled in these stages (assignee / super_admin can edit otherwise). */
+const QUOTE_DISABLED_STAGES = new Set([
+    GEM_KEYWORD_TENDER_STAGES.NEW,
+    GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE,
+    GEM_KEYWORD_TENDER_STAGES.UNATTENDED,
+    GEM_KEYWORD_TENDER_STAGES.MISSED,
+    GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE,
+]);
+
 function stageLabel(stage) {
     return GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage || "-";
+}
+
+export function isQuoteStageEnabled(stage) {
+    return !QUOTE_DISABLED_STAGES.has(normalizeStage(stage));
+}
+
+/** After a tender has an assignee: stage / quote / docs only for that assignee or super_admin. */
+export function canOperateAssignedTender({ currentUser, assigneeUserId }) {
+    if (!currentUser?.id) {
+        return false;
+    }
+    if (currentUser.super_admin) {
+        return true;
+    }
+    const assigneeId = assigneeUserId ? Number(assigneeUserId) : null;
+    return assigneeId >= 1 && assigneeId === Number(currentUser.id);
 }
 
 function assigneeLabel(user) {
@@ -103,16 +128,11 @@ function flagsForStage(stage) {
     }
 }
 
-function canEditQuote({ currentUser, assigneeUserId, stage }) {
-    if (stage !== GEM_KEYWORD_TENDER_STAGES.ELIGIBLE) {
+export function canEditQuote({ currentUser, assigneeUserId, stage }) {
+    if (!isQuoteStageEnabled(stage)) {
         return false;
     }
-    if (currentUser?.super_admin) {
-        return true;
-    }
-    return (
-        Number(assigneeUserId) >= 1 && Number(assigneeUserId) === Number(currentUser?.id)
-    );
+    return canOperateAssignedTender({ currentUser, assigneeUserId });
 }
 
 export async function logGemKeywordTenderActivity({
@@ -183,15 +203,17 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     if (assigneeChanging) {
         const assigningSelf = nextAssigneeUserId === currentUser.id;
         const currentlyUnassigned = previousAssigneeUserId == null;
-        const canAssignOthers = (currentUser.authorities || []).includes(
-            AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE,
-        );
+        const canAssignOthers =
+            !!currentUser.super_admin ||
+            (currentUser.authorities || []).includes(
+                AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE,
+            );
         if (!canAssignOthers && !(assigningSelf && currentlyUnassigned)) {
             set.status = 403;
             return {
                 error: currentlyUnassigned
                     ? "Missing authority to assign other users"
-                    : "Only users with assign authority can change an existing assignee",
+                    : "Only a super admin or users with assign authority can change an existing assignee",
             };
         }
 
@@ -250,6 +272,36 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         return { error: "Assignee is required for this stage" };
     }
 
+    const stageChanging = nextStage !== previousStage;
+    const unassigning = assigneeChanging && nextAssigneeUserId == null;
+
+    // Once the tender has left New, it cannot return to New (except admin unassign auto-path).
+    if (
+        nextStage === GEM_KEYWORD_TENDER_STAGES.NEW &&
+        previousStage !== GEM_KEYWORD_TENDER_STAGES.NEW &&
+        !unassigning
+    ) {
+        set.status = 400;
+        return {
+            error: "Stage cannot go back to New once the tender has left New",
+        };
+    }
+
+    // When already assigned, only the assignee or a super admin may change stage.
+    if (stageChanging && previousAssigneeUserId >= 1) {
+        if (
+            !canOperateAssignedTender({
+                currentUser,
+                assigneeUserId: previousAssigneeUserId,
+            })
+        ) {
+            set.status = 403;
+            return {
+                error: "Only the assignee or a super admin can change stage on an assigned tender",
+            };
+        }
+    }
+
     const nextQuoteRaw = body.quote !== undefined ? asText(body.quote) : previousQuote;
     let nextQuote = nextQuoteRaw;
 
@@ -257,19 +309,16 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         if (
             !canEditQuote({
                 currentUser,
-                assigneeUserId: nextAssigneeUserId,
+                assigneeUserId: nextAssigneeUserId ?? previousAssigneeUserId,
                 stage: nextStage,
             })
         ) {
             set.status = 403;
             return {
-                error: "Only the assignee or a super admin can edit the quote when Eligible",
+                error:
+                    "Only the assignee or a super admin can edit the quote in this stage",
             };
         }
-    }
-
-    if (nextStage !== GEM_KEYWORD_TENDER_STAGES.ELIGIBLE) {
-        // Keep existing quote text, but editing is only allowed in Eligible.
     }
 
     const flags = flagsForStage(nextStage);
