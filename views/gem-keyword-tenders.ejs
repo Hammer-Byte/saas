@@ -852,6 +852,13 @@
         color: #b91c1c;
         font-weight: 700;
     }
+    #gem-tenders-table tbody tr.gem-tender-ends-soon-filed {
+        animation: gem-tender-ends-soon-filed-blink 1.2s ease-in-out infinite;
+    }
+    #gem-tenders-table tbody tr.gem-tender-ends-soon-filed .gem-tenders-ends-at {
+        color: #166534;
+        font-weight: 700;
+    }
     @keyframes gem-tender-ends-soon-blink {
         0%,
         100% {
@@ -861,6 +868,17 @@
         50% {
             background-color: #ffc9c9;
             box-shadow: inset 0 0 0 1px rgba(220, 53, 69, 0.4);
+        }
+    }
+    @keyframes gem-tender-ends-soon-filed-blink {
+        0%,
+        100% {
+            background-color: #e8f8ee;
+            box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.15);
+        }
+        50% {
+            background-color: #c6f0d4;
+            box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.4);
         }
     }
 </style>

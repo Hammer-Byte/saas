@@ -240,7 +240,9 @@
             const endMs = parseEndAtMs(row.dataset.endAt);
             const endsSoon =
                 endMs != null && endMs >= nowMs && endMs - nowMs <= windowMs;
-            row.classList.toggle("gem-tender-ends-soon", endsSoon);
+            const isFiled = String(row.dataset.stage || "") === "filed";
+            row.classList.toggle("gem-tender-ends-soon", endsSoon && !isFiled);
+            row.classList.toggle("gem-tender-ends-soon-filed", endsSoon && isFiled);
         }
     }
 
