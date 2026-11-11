@@ -7,6 +7,7 @@ import {
 import { createGemKeywordTenderActivity } from "../db/gem_keyword_tender_activities.js";
 import { createGemKeywordTenderComment } from "../db/gem_keyword_tender_comments.js";
 import {
+    claimUnassignedGemKeywordTenderById,
     getGemKeywordTenderById,
     updateGemKeywordTenderById,
 } from "../db/gem_keyword_tenders.js";
@@ -70,6 +71,26 @@ export function canOperateAssignedTender({ currentUser, assigneeUserId, stage = 
 function assigneeLabel(user) {
     if (!user) return "Unassigned";
     return user.full_name || user.email || `User #${user.id}`;
+}
+
+function tenderAssigneeDisplayName(tender) {
+    if (!tender?.assignee_user_id) return "another user";
+    return (
+        tender.assignee_full_name ||
+        tender.assignee_email ||
+        `User #${tender.assignee_user_id}`
+    );
+}
+
+async function alreadyAssignedConflict({ tenderId, set }) {
+    const fresh = (await getGemKeywordTenderById({ id: tenderId })) || null;
+    const name = tenderAssigneeDisplayName(fresh);
+    set.status = 409;
+    return {
+        error: `Failed to assign. Already assigned to ${name}.`,
+        code: "already_assigned",
+        gemKeywordTender: fresh,
+    };
 }
 
 function asText(value) {
@@ -202,6 +223,16 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
             : gemKeywordTender.assignee_user_id;
 
     if (body.assign_to_me === true) {
+        // Fast path: someone else already claimed it before this request.
+        if (
+            previousAssigneeUserId != null &&
+            previousAssigneeUserId !== Number(currentUser.id)
+        ) {
+            return alreadyAssignedConflict({
+                tenderId: gemKeywordTender.id,
+                set,
+            });
+        }
         nextAssigneeUserId = currentUser.id;
     }
 
@@ -216,6 +247,10 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     }
 
     const assigneeChanging = nextAssigneeUserId !== previousAssigneeUserId;
+    const assignToMeClaim =
+        body.assign_to_me === true &&
+        previousAssigneeUserId == null &&
+        nextAssigneeUserId === Number(currentUser.id);
 
     // Unattended / Missed: only a super admin may change anything.
     if (isSystemManagedStage(previousStage) && !currentUser.super_admin) {
@@ -426,15 +461,34 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         }
     }
 
-    await updateGemKeywordTenderById({
-        id: gemKeywordTender.id,
-        hidden: flags.hidden,
-        eligible: flags.eligible,
-        filed: flags.filed,
-        quote: nextQuote,
-        stage: nextStage,
-        assignee_user_id: nextAssigneeUserId,
-    });
+    if (assignToMeClaim) {
+        // Race-safe claim: only succeeds if still unassigned.
+        const claimed = await claimUnassignedGemKeywordTenderById({
+            id: gemKeywordTender.id,
+            hidden: flags.hidden,
+            eligible: flags.eligible,
+            filed: flags.filed,
+            quote: nextQuote,
+            stage: nextStage,
+            assignee_user_id: nextAssigneeUserId,
+        });
+        if (!claimed) {
+            return alreadyAssignedConflict({
+                tenderId: gemKeywordTender.id,
+                set,
+            });
+        }
+    } else {
+        await updateGemKeywordTenderById({
+            id: gemKeywordTender.id,
+            hidden: flags.hidden,
+            eligible: flags.eligible,
+            filed: flags.filed,
+            quote: nextQuote,
+            stage: nextStage,
+            assignee_user_id: nextAssigneeUserId,
+        });
+    }
 
     if (activities.length) {
         await logActivities({

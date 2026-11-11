@@ -328,6 +328,42 @@ export async function updateGemKeywordTenderById({
     });
 }
 
+/**
+ * Atomic claim for "Assign to me": only updates when still unassigned.
+ * @returns {Promise<boolean>} true if this request claimed the tender
+ */
+export async function claimUnassignedGemKeywordTenderById({
+    id,
+    hidden,
+    eligible,
+    filed,
+    quote,
+    stage,
+    assignee_user_id,
+}) {
+    try {
+        const result = await executeSQLQuery(
+            (sql) => sql`
+                UPDATE GEM_KEYWORD_TENDERS
+                SET
+                    hidden = ${!!hidden},
+                    eligible = ${eligible},
+                    filed = ${!!filed},
+                    quote = ${quote},
+                    stage = ${stage},
+                    assignee_user_id = ${assignee_user_id}
+                WHERE id = ${id}
+                  AND assignee_user_id IS NULL
+            `,
+        );
+        const affected = Number(result?.affectedRows ?? result?.changes ?? 0);
+        return Number.isFinite(affected) && affected > 0;
+    } catch (error) {
+        logger.error(`claimUnassignedGemKeywordTenderById: ${error}`);
+        return false;
+    }
+}
+
 export async function getGemKeywordTendersPendingEligibilityReminder({
     older_than_datetime,
 }) {

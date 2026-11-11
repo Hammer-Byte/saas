@@ -137,11 +137,34 @@
         return { response, data };
     }
 
+    function applyTenderDetailsFromApi(tender) {
+        if (!tender || typeof tender !== "object") return;
+        if (tender.assignee_user_id != null) {
+            detail.dataset.assigneeUserId = String(tender.assignee_user_id);
+        } else if ("assignee_user_id" in tender) {
+            detail.dataset.assigneeUserId = "";
+        }
+        if (tender.stage) {
+            detail.dataset.stage = tender.stage;
+            if (stageSelect) stageSelect.value = tender.stage;
+        }
+        if (assigneeSelect && "assignee_user_id" in tender) {
+            assigneeSelect.value =
+                tender.assignee_user_id != null ? String(tender.assignee_user_id) : "";
+        }
+        syncControls();
+    }
+
     async function applyPatch(payload, onSuccess) {
         try {
             const { response, data } = await patchTender(payload);
             if (!response.ok) {
                 showAlert(data.error || "Failed to update tender.", "danger");
+                if (data.gemKeywordTender) {
+                    applyTenderDetailsFromApi(data.gemKeywordTender);
+                    // Reload so SSR fields (assignee name, locks, tabs) match server state.
+                    window.setTimeout(() => window.location.reload(), 900);
+                }
                 return false;
             }
             onSuccess?.(data.gemKeywordTender || {});
