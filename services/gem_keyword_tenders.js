@@ -8,6 +8,7 @@ import { createGemKeywordTenderActivity } from "../db/gem_keyword_tender_activit
 import { createGemKeywordTenderComment } from "../db/gem_keyword_tender_comments.js";
 import {
     claimUnassignedGemKeywordTenderById,
+    getAllGemKeywordTenders,
     getGemKeywordTenderById,
     updateGemKeywordTenderById,
 } from "../db/gem_keyword_tenders.js";
@@ -196,6 +197,26 @@ async function logActivities({ gem_keyword_tender_id, user_id, activities }) {
         if (ok) logged += 1;
     }
     return logged;
+}
+
+export async function listGemKeywordTenders({ query, cookie, set }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+    }
+
+    const from = String(query?.from || "");
+    const to = String(query?.to || "");
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (!datePattern.test(from) || !datePattern.test(to)) {
+        set.status = 400;
+        return { error: "Valid from and to dates are required (YYYY-MM-DD)" };
+    }
+
+    const tenders = await getAllGemKeywordTenders({ from, to });
+    set.status = 200;
+    return { tenders };
 }
 
 export async function updateGemKeywordTender({ params, body, cookie, set }) {

@@ -2,6 +2,7 @@ import { t } from "elysia";
 import { GEM_KEYWORD_TENDER_STAGES } from "../../constants.js";
 import {
     bulkChangeGemKeywordTenderStages,
+    listGemKeywordTenders,
     startGemAdhocTenderScan,
     updateGemKeywordTender,
 } from "../../services/gem_keyword_tenders.js";
@@ -21,6 +22,16 @@ const gemKeywordTenderStageLiteral = t.Union([
 
 export default function (app) {
     return app
+        .get("/", listGemKeywordTenders, {
+            query: t.Object({
+                from: t.String({ minLength: 10, maxLength: 10 }),
+                to: t.String({ minLength: 10, maxLength: 10 }),
+            }),
+            detail: {
+                tags: ["GEM Keyword Tenders"],
+                summary: "List GEM keyword tenders in an end-date range",
+            },
+        })
         .post("/bulk-change-stage", bulkChangeGemKeywordTenderStages, {
             body: t.Object({
                 ids: t.Array(t.Numeric({ minimum: 1 }), { minItems: 1 }),

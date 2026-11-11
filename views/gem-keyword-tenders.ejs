@@ -47,6 +47,31 @@
             <div class="d-flex flex-wrap align-items-center gap-2">
                 <button
                     type="button"
+                    class="btn btn-outline-secondary rounded-circle gem-tenders-refresh-btn"
+                    id="gem-tenders-refresh-btn"
+                    title="Refresh tenders"
+                    aria-label="Refresh tenders"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        fill="currentColor"
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                        class="gem-tenders-refresh-icon"
+                    >
+                        <path
+                            fill-rule="evenodd"
+                            d="M8 3a5 5 0 1 0 4.546 2.5.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"
+                        />
+                        <path
+                            d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.975 2.14a.25.25 0 0 1 0 .384l-2.975 2.14a.25.25 0 0 1-.41-.192"
+                        />
+                    </svg>
+                </button>
+                <button
+                    type="button"
                     class="btn btn-outline-secondary"
                     id="gem-tenders-filters-toggle"
                     data-bs-toggle="offcanvas"
@@ -65,6 +90,7 @@
                     Add tenders
                 </button>
                 <a
+                    id="gem-tenders-report-link"
                     href="/app/gem-keyword-tender-report?from=<%= from %>&to=<%= to %>"
                     class="btn btn-outline-primary"
                     target="_blank"
@@ -513,7 +539,11 @@
                 aria-busy="true"
             >
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0 small" id="gem-tenders-table">
+                    <table
+                        class="table table-hover align-middle mb-0 small"
+                        id="gem-tenders-table"
+                        data-stage-labels="<%= JSON.stringify(stageLabels).replace(/"/g, '&quot;') %>"
+                    >
                         <thead class="table-light">
                             <tr>
                                 <th scope="col" style="width: 2rem;">
@@ -671,6 +701,21 @@
         color: #7a5b00;
         font-weight: 600;
         white-space: nowrap;
+    }
+    .gem-tenders-refresh-btn {
+        width: 2.25rem;
+        height: 2.25rem;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .gem-tenders-refresh-btn.is-loading .gem-tenders-refresh-icon {
+        animation: gem-tenders-refresh-spin 0.8s linear infinite;
+    }
+    @keyframes gem-tenders-refresh-spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
     }
     .gem-tenders-filters-panel {
         width: min(24rem, 100vw);

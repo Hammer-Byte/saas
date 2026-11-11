@@ -11,23 +11,38 @@
     const quoteFilter = document.getElementById("gem-filter-quote");
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
     const applyFiltersBtn = document.getElementById("gem-filters-apply-btn");
+    const refreshBtn = document.getElementById("gem-tenders-refresh-btn");
+    const reportLink = document.getElementById("gem-tenders-report-link");
     const filtersPanel = document.getElementById("gem-tenders-filters-panel");
     const searchInput = document.getElementById("gem-tenders-search");
+    const tableEl = document.getElementById("gem-tenders-table");
     const tableBody = document.getElementById("gem-tenders-tbody");
     const tableWrap = document.getElementById("gem-tenders-table-wrap");
     const emptyState = document.getElementById("gem-tenders-empty");
     const loadingState = document.getElementById("gem-tenders-loading");
     const filterStatus = document.getElementById("gem-tenders-filter-status");
+    const rangeHighlight = document.querySelector(".gem-tenders-range-highlight");
     let listReady = false;
+    let listFetchSeq = 0;
+    let listFetchAbort = null;
+    let listLoading = false;
     const columnFilters = Array.from(document.querySelectorAll(".gem-tender-column-filter"));
-    const pageFrom =
+    let pageFrom =
         fromInput?.dataset.pageFrom ||
         new URL(window.location.href).searchParams.get("from") ||
         "";
-    const pageTo =
+    let pageTo =
         toInput?.dataset.pageTo ||
         new URL(window.location.href).searchParams.get("to") ||
         "";
+    let stageLabels = {};
+    try {
+        stageLabels = JSON.parse(tableEl?.dataset?.stageLabels || "{}") || {};
+    } catch {
+        stageLabels = {};
+    }
+    /** Replaced after table rows are available. */
+    let reloadTendersFromServer = async () => {};
 
     function emptyFilters(from = pageFrom, to = pageTo) {
         return {
@@ -199,7 +214,58 @@
         instance?.hide();
     }
 
-    function commitFilters({ reloadIfDatesChanged = true } = {}) {
+    function syncRangeInUrlAndHeader(from, to) {
+        pageFrom = from;
+        pageTo = to;
+        if (fromInput) {
+            fromInput.dataset.pageFrom = from;
+        }
+        if (toInput) {
+            toInput.dataset.pageTo = to;
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.set("from", from);
+        url.searchParams.set("to", to);
+        window.history.replaceState({}, "", url.toString());
+
+        if (reportLink) {
+            reportLink.href = `/app/gem-keyword-tender-report?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+        }
+
+        const rangeSpans = rangeHighlight?.querySelectorAll("[data-readable-date]");
+        if (rangeSpans?.[0]) {
+            rangeSpans[0].dataset.readableDate = from;
+            rangeSpans[0].textContent =
+                window.getReadableDate?.("DD/MM/YYYY", from) || from;
+        }
+        if (rangeSpans?.[1]) {
+            rangeSpans[1].dataset.readableDate = to;
+            rangeSpans[1].textContent =
+                window.getReadableDate?.("DD/MM/YYYY", to) || to;
+        }
+    }
+
+    function setListLoading(isLoading) {
+        listLoading = !!isLoading;
+        if (refreshBtn) {
+            refreshBtn.disabled = listLoading;
+            refreshBtn.classList.toggle("is-loading", listLoading);
+        }
+        if (applyFiltersBtn) applyFiltersBtn.disabled = listLoading;
+        if (resetFiltersBtn) resetFiltersBtn.disabled = listLoading;
+        if (listLoading) {
+            loadingState?.classList.remove("d-none");
+            tableWrap?.classList.add("d-none");
+            emptyState?.classList.add("d-none");
+        } else if (listReady) {
+            loadingState?.classList.add("d-none");
+            // applyFilters restores table/empty visibility
+        }
+        tableWrap?.setAttribute("aria-busy", listLoading ? "true" : "false");
+    }
+
+    async function commitFilters() {
         const filters = readFiltersFromDom();
         const from = filters.from;
         const to = filters.to;
@@ -210,17 +276,9 @@
 
         appliedFilters = filters;
         writeStoredFilters(appliedFilters);
-
-        if (reloadIfDatesChanged && (from !== pageFrom || to !== pageTo)) {
-            const url = new URL(window.location.href);
-            url.searchParams.set("from", from);
-            url.searchParams.set("to", to);
-            window.location.assign(url.toString());
-            return true;
-        }
-
-        applyFilters();
+        syncRangeInUrlAndHeader(from, to);
         closeFiltersPanel();
+        await reloadTendersFromServer();
         return true;
     }
 
@@ -348,6 +406,190 @@
         document.querySelectorAll("#gem-tenders-table thead th.gem-tenders-sortable"),
     );
     let sortState = { key: null, direction: "asc" };
+
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function hydrateReadableDates(root = tableBody) {
+        root?.querySelectorAll?.("[data-readable-date]").forEach((element) => {
+            const format = element.dataset.dateFormat || "DD/MM/YYYY HH:mm:ss";
+            element.textContent =
+                window.getReadableDate?.(format, element.dataset.readableDate) || "-";
+        });
+    }
+
+    function rebindRows() {
+        rows = Array.from(tableBody.querySelectorAll("tr"));
+        for (const select of columnFilters) {
+            fillColumnFilter(select);
+        }
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+        hydrateReadableDates(tableBody);
+        applySort();
+        markEndsSoonRows();
+        applyFilters();
+    }
+
+    function renderTenderRows(tenders) {
+        const list = Array.isArray(tenders) ? tenders : [];
+        const html = list
+            .map((tender) => {
+                const stage = String(tender.stage || "new");
+                const quoteText = String(tender.quote || "").trim();
+                const hasQuote = !!quoteText;
+                const emdAmount = Number(tender.emd_amount || 0);
+                const buyerParts = [
+                    tender.ministry,
+                    tender.department,
+                    tender.organization,
+                    tender.office,
+                ].filter(Boolean);
+                const buyerText = buyerParts.length ? buyerParts.join(" / ") : "-";
+                const assigneeName = tender.assignee_full_name || "-";
+                const stageLabel = stageLabels[stage] || stage || "New";
+                const quantity = Number(tender.quantity || 0);
+                const quantityDisplay = quantity > 0 ? String(quantity) : "NA";
+                const emdDisplay =
+                    emdAmount > 0
+                        ? emdAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })
+                        : "NA";
+                const keywordId =
+                    tender.keyword_id != null ? String(tender.keyword_id) : "";
+                const assigneeUserId =
+                    tender.assignee_user_id != null
+                        ? String(tender.assignee_user_id)
+                        : "";
+                const pastExperience = tender.required_past_experice_years || "";
+                const mseExp = tender.mse_experience_relaxation || "";
+                const mseTurnover = tender.mse_turnover_relaxation || "";
+                const endAt = tender.end_date_time || "";
+                const tenderId = tender.tender_id || "";
+                const rowId = Number(tender.id || 0);
+
+                return `<tr
+                    data-id="${escapeHtml(rowId)}"
+                    data-keyword-id="${escapeHtml(keywordId)}"
+                    data-assignee-user-id="${escapeHtml(assigneeUserId)}"
+                    data-stage="${escapeHtml(stage)}"
+                    data-has-quote="${hasQuote ? "1" : "0"}"
+                    data-past-experience="${escapeHtml(pastExperience)}"
+                    data-mse-exp="${escapeHtml(mseExp)}"
+                    data-mse-turnover="${escapeHtml(mseTurnover)}"
+                    data-quantity="${escapeHtml(quantity)}"
+                    data-end-at="${escapeHtml(endAt)}"
+                >
+                    <td>
+                        <input
+                            type="checkbox"
+                            class="form-check-input gem-tender-select"
+                            value="${escapeHtml(rowId)}"
+                            aria-label="Select tender ${escapeHtml(tenderId)}"
+                        />
+                    </td>
+                    <td>
+                        <a
+                            href="/app/gem-keyword-tenders/${escapeHtml(rowId)}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >${escapeHtml(tenderId)}</a>
+                    </td>
+                    <td
+                        class="gem-tenders-ends-at"
+                        data-readable-date="${escapeHtml(endAt)}"
+                        data-date-format="DD/MM/YYYY HH:mm:ss"
+                    ></td>
+                    <td>${escapeHtml(tender.keyword || "-")}</td>
+                    <td class="gem-tenders-buyer-col">
+                        <span class="gem-tenders-buyer-text" title="${escapeHtml(buyerText)}">
+                            ${escapeHtml(buyerText)}
+                        </span>
+                    </td>
+                    <td>${escapeHtml(quantityDisplay)}</td>
+                    <td>${escapeHtml(emdDisplay)}</td>
+                    <td>${escapeHtml(pastExperience || "-")}</td>
+                    <td>${escapeHtml(mseExp || "-")}</td>
+                    <td>${escapeHtml(mseTurnover || "-")}</td>
+                    <td>
+                        <span class="gem-tender-tag gem-tender-stage-tag gem-tender-stage-${escapeHtml(stage)}">
+                            ${escapeHtml(stageLabel)}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="gem-tender-tag gem-tender-assignee-tag${assigneeUserId ? "" : " gem-tender-assignee-empty"}">
+                            ${escapeHtml(assigneeName)}
+                        </span>
+                    </td>
+                </tr>`;
+            })
+            .join("");
+        tableBody.innerHTML = html;
+    }
+
+    reloadTendersFromServer = async function reloadTendersFromServerImpl() {
+        const from = appliedFilters.from || pageFrom;
+        const to = appliedFilters.to || pageTo;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+            window.alert("Select valid Ends from and Ends to dates.");
+            return false;
+        }
+
+        if (listFetchAbort) {
+            try {
+                listFetchAbort.abort();
+            } catch {
+                // ignore
+            }
+        }
+        const controller = new AbortController();
+        listFetchAbort = controller;
+        const seq = ++listFetchSeq;
+        setListLoading(true);
+
+        try {
+            const url = new URL("/api/gem-keyword-tenders", window.location.origin);
+            url.searchParams.set("from", from);
+            url.searchParams.set("to", to);
+            const response = await fetch(url.toString(), {
+                method: "GET",
+                credentials: "same-origin",
+                signal: controller.signal,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (seq !== listFetchSeq) return false;
+            if (!response.ok) {
+                window.alert(data.error || "Failed to load tenders.");
+                applyFilters();
+                return false;
+            }
+            renderTenderRows(data.tenders || []);
+            rebindRows();
+            return true;
+        } catch (error) {
+            if (error?.name === "AbortError" || seq !== listFetchSeq) {
+                return false;
+            }
+            console.error(error);
+            window.alert("Failed to load tenders.");
+            applyFilters();
+            return false;
+        } finally {
+            if (seq === listFetchSeq) {
+                setListLoading(false);
+                listFetchAbort = null;
+                if (!listReady) {
+                    finishListLoading();
+                } else {
+                    applyFilters();
+                }
+            }
+        }
+    };
 
     function uniqueColumnValues(column) {
         const values = new Set();
@@ -685,10 +927,8 @@
     }
 
     function resetClientFilters() {
-        if (fromInput) fromInput.value = pageFrom;
-        if (toInput) toInput.value = pageTo;
-        writeFiltersToDom(emptyFilters());
-        commitFilters({ reloadIfDatesChanged: false });
+        writeFiltersToDom(emptyFilters(pageFrom, pageTo));
+        void commitFilters();
     }
 
     for (const select of columnFilters) {
@@ -819,10 +1059,13 @@
     });
 
     applyFiltersBtn?.addEventListener("click", () => {
-        commitFilters();
+        void commitFilters();
     });
     resetFiltersBtn?.addEventListener("click", () => {
         resetClientFilters();
+    });
+    refreshBtn?.addEventListener("click", () => {
+        void reloadTendersFromServer();
     });
 
     tableBody.addEventListener("change", (event) => {
@@ -917,7 +1160,14 @@
             }
 
             if (!payload.failedCount) {
-                window.location.reload();
+                clearSelection();
+                await reloadTendersFromServer();
+                if (bulkStageStatus) {
+                    bulkStageStatus.textContent = "";
+                    bulkStageStatus.classList.add("d-none");
+                }
+                bulkStageBtn.disabled = false;
+                syncBulkBar();
                 return;
             }
 
@@ -928,6 +1178,7 @@
                 bulkStageStatus.classList.remove("text-secondary");
                 bulkStageStatus.classList.add("text-danger");
             }
+            await reloadTendersFromServer();
             bulkStageBtn.disabled = false;
             syncBulkBar();
         } catch (error) {
@@ -1011,17 +1262,26 @@
             }
         }
 
+        clearSelection();
+        await reloadTendersFromServer();
+
         if (failCount === 0) {
-            window.location.reload();
+            if (bulkStatus) {
+                bulkStatus.textContent = "";
+                bulkStatus.classList.add("d-none");
+            }
+            bulkAssignBtn.disabled = false;
+            syncBulkBar();
             return;
         }
 
         if (bulkStatus) {
-            bulkStatus.textContent = `Assigned ${successCount}, failed ${failCount}. Refresh to see updates.`;
-            bulkStatus.classList.remove("text-secondary");
+            bulkStatus.textContent = `Assigned ${successCount}, failed ${failCount}.`;
+            bulkStatus.classList.remove("text-secondary", "d-none");
             bulkStatus.classList.add("text-danger");
         }
         bulkAssignBtn.disabled = false;
+        syncBulkBar();
     });
 
     // Wait until layout/filters settle so users don't see a half-filtered flash.
