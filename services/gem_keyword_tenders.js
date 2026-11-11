@@ -30,21 +30,38 @@ const QUOTE_DISABLED_STAGES = new Set([
     GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE,
 ]);
 
+/** Set only by deadline watchers — not selectable in UI / manual PATCH. */
+export const SYSTEM_MANAGED_STAGES = new Set([
+    GEM_KEYWORD_TENDER_STAGES.UNATTENDED,
+    GEM_KEYWORD_TENDER_STAGES.MISSED,
+]);
+
 function stageLabel(stage) {
     return GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage || "-";
+}
+
+export function isSystemManagedStage(stage) {
+    return SYSTEM_MANAGED_STAGES.has(normalizeStage(stage));
 }
 
 export function isQuoteStageEnabled(stage) {
     return !QUOTE_DISABLED_STAGES.has(normalizeStage(stage));
 }
 
-/** After a tender has an assignee: stage / quote / docs only for that assignee or super_admin. */
-export function canOperateAssignedTender({ currentUser, assigneeUserId }) {
+/**
+ * Stage / quote / docs:
+ * - Unattended / Missed: super_admin only
+ * - Otherwise with assignee: assignee or super_admin
+ */
+export function canOperateAssignedTender({ currentUser, assigneeUserId, stage = null }) {
     if (!currentUser?.id) {
         return false;
     }
     if (currentUser.super_admin) {
         return true;
+    }
+    if (stage != null && isSystemManagedStage(stage)) {
+        return false;
     }
     const assigneeId = assigneeUserId ? Number(assigneeUserId) : null;
     return assigneeId >= 1 && assigneeId === Number(currentUser.id);
@@ -100,7 +117,7 @@ function flagsForStage(stage) {
             };
         case GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE:
             return {
-                hidden: false,
+                hidden: true,
                 filed: false,
                 eligible: GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE,
             };
@@ -132,7 +149,7 @@ export function canEditQuote({ currentUser, assigneeUserId, stage }) {
     if (!isQuoteStageEnabled(stage)) {
         return false;
     }
-    return canOperateAssignedTender({ currentUser, assigneeUserId });
+    return canOperateAssignedTender({ currentUser, assigneeUserId, stage });
 }
 
 export async function logGemKeywordTenderActivity({
@@ -200,6 +217,21 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
 
     const assigneeChanging = nextAssigneeUserId !== previousAssigneeUserId;
 
+    // Unattended / Missed: only a super admin may change anything.
+    if (isSystemManagedStage(previousStage) && !currentUser.super_admin) {
+        const touching =
+            assigneeChanging ||
+            body.assign_to_me === true ||
+            body.stage !== undefined ||
+            body.quote !== undefined;
+        if (touching) {
+            set.status = 403;
+            return {
+                error: "Only a super admin can change Unattended or Missed tenders",
+            };
+        }
+    }
+
     if (assigneeChanging) {
         const assigningSelf = nextAssigneeUserId === currentUser.id;
         const currentlyUnassigned = previousAssigneeUserId == null;
@@ -232,6 +264,18 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     if (!STAGE_VALUES.has(nextStage)) {
         set.status = 400;
         return { error: "Invalid stage" };
+    }
+
+    // Unattended / Missed are set by deadline watchers only (super admin may still set them).
+    if (
+        body.stage !== undefined &&
+        isSystemManagedStage(nextStage) &&
+        !currentUser.super_admin
+    ) {
+        set.status = 400;
+        return {
+            error: "Unattended and Missed are set automatically and cannot be selected manually",
+        };
     }
 
     // Assign to me / admin assign: if stage would stay New, move to Assigned.
@@ -287,17 +331,20 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         };
     }
 
-    // When already assigned, only the assignee or a super admin may change stage.
-    if (stageChanging && previousAssigneeUserId >= 1) {
+    // When already assigned (or system-locked), only the assignee or a super admin may change stage.
+    if (stageChanging && (previousAssigneeUserId >= 1 || isSystemManagedStage(previousStage))) {
         if (
             !canOperateAssignedTender({
                 currentUser,
                 assigneeUserId: previousAssigneeUserId,
+                stage: previousStage,
             })
         ) {
             set.status = 403;
             return {
-                error: "Only the assignee or a super admin can change stage on an assigned tender",
+                error: isSystemManagedStage(previousStage)
+                    ? "Only a super admin can change stage on Unattended or Missed tenders"
+                    : "Only the assignee or a super admin can change stage on an assigned tender",
             };
         }
     }
@@ -434,6 +481,13 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
     }
     const nextStage = body.stage;
 
+    if (isSystemManagedStage(nextStage) && !currentUser.super_admin) {
+        set.status = 400;
+        return {
+            error: "Unattended and Missed are set automatically and cannot be selected manually",
+        };
+    }
+
     const comment = asText(body?.comment).trim();
     if (!comment) {
         set.status = 400;
@@ -470,6 +524,15 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
         const previousStage = normalizeStage(gemKeywordTender.stage);
         if (previousStage === nextStage) {
             skippedCount += 1;
+            continue;
+        }
+
+        if (isSystemManagedStage(previousStage) && !currentUser.super_admin) {
+            failedCount += 1;
+            failures.push({
+                id,
+                error: "Only a super admin can change Unattended or Missed tenders",
+            });
             continue;
         }
 

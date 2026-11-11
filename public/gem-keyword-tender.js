@@ -32,6 +32,7 @@
         "missed",
         "not_eligible",
     ]);
+    const SYSTEM_MANAGED_STAGES = new Set(["unattended", "missed"]);
 
     function showAlert(message, type) {
         if (!alertElement) return;
@@ -57,20 +58,33 @@
         return String(detail.dataset.assigneeUserId || "").trim();
     }
 
+    function currentStage() {
+        return detail.dataset.stage || "new";
+    }
+
+    function isSystemManagedStage() {
+        return (
+            detail.dataset.systemManagedStage === "1" ||
+            SYSTEM_MANAGED_STAGES.has(currentStage())
+        );
+    }
+
     function canOperateAssigned() {
         if (isSuperAdmin) return true;
+        if (isSystemManagedStage()) return false;
         const assigneeUserId = Number(currentAssigneeId() || 0);
         return assigneeUserId >= 1 && assigneeUserId === currentUserId;
     }
 
     function canChangeStage() {
+        if (isSystemManagedStage()) return isSuperAdmin;
         const assigneeUserId = Number(currentAssigneeId() || 0);
         if (!(assigneeUserId >= 1)) return true;
         return canOperateAssigned();
     }
 
     function canEditQuote() {
-        const stage = detail.dataset.stage || "new";
+        const stage = currentStage();
         if (QUOTE_DISABLED_STAGES.has(stage)) return false;
         return canOperateAssigned();
     }
@@ -78,14 +92,18 @@
     function syncAssignedOption() {
         if (!stageSelect) return;
         const hasAssignee = !!currentAssigneeId();
-        const currentStage = detail.dataset.stage || "new";
+        const stage = currentStage();
         for (const value of ["assigned", "waiting_for_docs", "preparing_docs"]) {
             const option = stageSelect.querySelector(`option[value="${value}"]`);
             if (option) option.disabled = !hasAssignee;
         }
         const newOption = stageSelect.querySelector('option[value="new"]');
         if (newOption) {
-            newOption.disabled = currentStage !== "new";
+            newOption.disabled = stage !== "new";
+        }
+        for (const value of SYSTEM_MANAGED_STAGES) {
+            const option = stageSelect.querySelector(`option[value="${value}"]`);
+            if (option) option.disabled = true;
         }
     }
 
@@ -93,15 +111,17 @@
         const assigneeUserId = currentAssigneeId();
         const quoteEnabled = canEditQuote();
         const stageEnabled = canChangeStage();
+        const locked = isSystemManagedStage() && !isSuperAdmin;
 
         if (stageSelect) stageSelect.disabled = !stageEnabled;
+        if (assigneeSelect) assigneeSelect.disabled = locked;
         if (quoteInput) quoteInput.disabled = !quoteEnabled;
         if (quoteSaveButton) quoteSaveButton.disabled = !quoteEnabled;
         if (assignMeWrap) {
-            assignMeWrap.classList.toggle("d-none", !!assigneeUserId);
+            assignMeWrap.classList.toggle("d-none", !!assigneeUserId || isSystemManagedStage());
         }
         if (assignMeButton) {
-            assignMeButton.disabled = !!assigneeUserId;
+            assignMeButton.disabled = !!assigneeUserId || isSystemManagedStage();
         }
         syncAssignedOption();
     }
@@ -144,6 +164,14 @@
         }
         if (stage === "new" && previous !== "new") {
             showAlert("Stage cannot go back to New once the tender has left New.", "danger");
+            stageSelect.value = previous;
+            return;
+        }
+        if (SYSTEM_MANAGED_STAGES.has(stage)) {
+            showAlert(
+                "Unattended and Missed are set automatically and cannot be selected manually.",
+                "danger",
+            );
             stageSelect.value = previous;
             return;
         }

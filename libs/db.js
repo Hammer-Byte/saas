@@ -558,6 +558,7 @@ export async function generateDBTables() {
         `UPDATE GEM_KEYWORD_TENDERS SET stage = 'filed' WHERE hidden = FALSE AND filed = TRUE`,
         `UPDATE GEM_KEYWORD_TENDERS SET stage = 'eligible' WHERE hidden = FALSE AND filed = FALSE AND eligible = 'eligible'`,
         `UPDATE GEM_KEYWORD_TENDERS SET stage = 'not_eligible' WHERE hidden = FALSE AND filed = FALSE AND eligible = 'not_eligible'`,
+        `UPDATE GEM_KEYWORD_TENDERS SET hidden = TRUE WHERE stage IN ('out_of_scope', 'not_eligible')`,
         `UPDATE GEM_KEYWORD_TENDERS
             SET stage = 'assigned'
             WHERE hidden = FALSE
@@ -590,6 +591,19 @@ export async function generateDBTables() {
                 eligible = 'need_to_check'
             WHERE stage = 'new'
               AND assignee_user_id IS NULL
+              AND end_date_time IS NOT NULL
+              AND end_date_time < NOW()`,
+        // Past-end assigned tenders that left New (not already unattended/missed).
+        `UPDATE GEM_KEYWORD_TENDERS
+            SET
+                stage = 'missed',
+                hidden = TRUE,
+                filed = FALSE,
+                eligible = 'need_to_check'
+            WHERE assignee_user_id IS NOT NULL
+              AND stage <> 'new'
+              AND stage <> 'unattended'
+              AND stage <> 'missed'
               AND end_date_time IS NOT NULL
               AND end_date_time < NOW()`,
         `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDER_ACTIVITIES (

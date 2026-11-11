@@ -859,17 +859,17 @@ export const processTender = async ({
 
         if (!existingTender) {
             const tenderRowId = await createGemKeywordTender({
-                keyword_id,
-                tender_id,
-                document,
-                ...gemTenderDetails,
-            });
+            keyword_id,
+            tender_id,
+            document,
+            ...gemTenderDetails,
+        });
 
             if (!tenderRowId) {
                 return false;
             }
 
-            logger.info(`Stored tender details: ${tender_id}`);
+        logger.info(`Stored tender details: ${tender_id}`);
             return true;
         }
 

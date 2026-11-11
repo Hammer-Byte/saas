@@ -63,6 +63,12 @@ export async function addGemKeywordTenderComment({ body, cookie, set }) {
         return { error: "Tender not found" };
     }
 
+    const lockedStage = ["unattended", "missed"].includes(String(gemKeywordTender.stage || ""));
+    if (lockedStage && !currentUser.super_admin) {
+        set.status = 403;
+        return { error: "Only a super admin can comment on Unattended or Missed tenders" };
+    }
+
     const comment = String(body.comment || "").trim();
     if (!comment) {
         set.status = 400;
@@ -139,6 +145,18 @@ export async function updateGemKeywordTenderComment({ params, body, cookie, set 
         return { error: "Comment not found" };
     }
 
+    const tender = await getGemKeywordTenderById({
+        id: existingComment.gem_keyword_tender_id,
+    });
+    if (
+        tender &&
+        ["unattended", "missed"].includes(String(tender.stage || "")) &&
+        !currentUser.super_admin
+    ) {
+        set.status = 403;
+        return { error: "Only a super admin can edit comments on Unattended or Missed tenders" };
+    }
+
     if (Number(existingComment.user_id) !== Number(currentUser.id)) {
         set.status = 403;
         return { error: "Only the author can edit this comment" };
@@ -186,6 +204,18 @@ export async function deleteGemKeywordTenderComment({ params, cookie, set }) {
     if (!existingComment) {
         set.status = 404;
         return { error: "Comment not found" };
+    }
+
+    const tender = await getGemKeywordTenderById({
+        id: existingComment.gem_keyword_tender_id,
+    });
+    if (
+        tender &&
+        ["unattended", "missed"].includes(String(tender.stage || "")) &&
+        !currentUser.super_admin
+    ) {
+        set.status = 403;
+        return { error: "Only a super admin can delete comments on Unattended or Missed tenders" };
     }
 
     if (Number(existingComment.user_id) !== Number(currentUser.id)) {

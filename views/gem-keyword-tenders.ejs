@@ -122,7 +122,9 @@
                             <select class="form-select form-select-sm" id="gem-bulk-stage">
                                 <option value="">Choose stage…</option>
                                 <% stageValues.forEach(function (stage) { %>
-                                    <option value="<%= stage %>"><%= stageLabels[stage] || stage %></option>
+                                    <% if (stage !== "unattended" && stage !== "missed") { %>
+                                        <option value="<%= stage %>"><%= stageLabels[stage] || stage %></option>
+                                    <% } %>
                                 <% }) %>
                             </select>
                         </div>
@@ -473,7 +475,7 @@
                                 id="gem-filter-show-all"
                             />
                             <label class="form-check-label small" for="gem-filter-show-all">
-                                Show out of scope / unattended / missed
+                                Show out of scope / not eligible / unattended / missed
                             </label>
                         </div>
                     </div>

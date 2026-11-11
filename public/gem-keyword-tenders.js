@@ -554,11 +554,13 @@
             const rowStage = String(row.dataset.stage || "new");
             const isHiddenStage =
                 rowStage === "out_of_scope" ||
+                rowStage === "not_eligible" ||
                 rowStage === "unattended" ||
                 rowStage === "missed";
             const matchesHiddenStages =
                 showHiddenStages ||
                 selectedStages.includes("out_of_scope") ||
+                selectedStages.includes("not_eligible") ||
                 selectedStages.includes("unattended") ||
                 selectedStages.includes("missed") ||
                 !isHiddenStage;

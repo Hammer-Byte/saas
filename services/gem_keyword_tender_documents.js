@@ -18,6 +18,10 @@ export function canManageTenderDocuments({ currentUser, tender }) {
     if (currentUser.super_admin) {
         return true;
     }
+    const stage = String(tender.stage || "");
+    if (stage === "unattended" || stage === "missed") {
+        return false;
+    }
     const assigneeUserId = tender.assignee_user_id ? Number(tender.assignee_user_id) : null;
     return assigneeUserId >= 1 && assigneeUserId === Number(currentUser.id);
 }

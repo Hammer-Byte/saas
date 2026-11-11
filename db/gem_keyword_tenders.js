@@ -430,3 +430,52 @@ export async function markPastNewUnassignedGemKeywordTendersUnattended({
 
     return dueIds.length;
 }
+
+/** Assigned (has assignee), not New/Unattended/Missed, past end → Missed + hidden. */
+export async function markPastAssignedGemKeywordTendersMissed({
+    as_of_datetime = null,
+}) {
+    const cutoff = toDbDateTime(as_of_datetime) || getIstDateTime();
+    const dueIds = await executeSQLQuery(
+        (sql) => sql`
+            SELECT id
+            FROM GEM_KEYWORD_TENDERS
+            WHERE assignee_user_id IS NOT NULL
+              AND stage <> ${GEM_KEYWORD_TENDER_STAGES.NEW}
+              AND stage <> ${GEM_KEYWORD_TENDER_STAGES.UNATTENDED}
+              AND stage <> ${GEM_KEYWORD_TENDER_STAGES.MISSED}
+              AND end_date_time IS NOT NULL
+              AND end_date_time < ${cutoff}
+        `,
+    )
+        .then((result) =>
+            Array.from(result ?? [])
+                .map((row) => Number(row.id))
+                .filter((id) => id >= 1),
+        )
+        .catch((error) => {
+            logger.error(`markPastAssignedGemKeywordTendersMissed select: ${error}`);
+            return [];
+        });
+
+    if (!dueIds.length) {
+        return 0;
+    }
+
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE GEM_KEYWORD_TENDERS
+            SET
+                stage = ${GEM_KEYWORD_TENDER_STAGES.MISSED},
+                hidden = TRUE,
+                filed = FALSE,
+                eligible = ${GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK}
+            WHERE id IN ${sql(dueIds)}
+        `,
+    ).catch((error) => {
+        logger.error(`markPastAssignedGemKeywordTendersMissed update: ${error}`);
+        return 0;
+    });
+
+    return dueIds.length;
+}

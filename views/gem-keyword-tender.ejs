@@ -10,6 +10,8 @@
     const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
     const stageValues = Object.keys(stageLabels);
     const currentStage = tender.stage || "new";
+    const systemManagedStages = new Set(["unattended", "missed"]);
+    const isSystemManagedStage = systemManagedStages.has(currentStage);
     const quoteDisabledStages = new Set([
         "new",
         "out_of_scope",
@@ -18,11 +20,18 @@
         "not_eligible",
     ]);
     const quoteStageEnabled = !quoteDisabledStages.has(currentStage);
-    const canOperateAssigned =
-        isSuperAdmin || (assigneeUserId && assigneeUserId === currentUserId);
-    const canChangeStage = !assigneeUserId || canOperateAssigned;
+    const canOperateAssigned = isSystemManagedStage
+        ? isSuperAdmin
+        : isSuperAdmin || (assigneeUserId && assigneeUserId === currentUserId);
+    const canChangeStage = isSystemManagedStage
+        ? isSuperAdmin
+        : !assigneeUserId || canOperateAssigned;
     const canEditQuote = quoteStageEnabled && canOperateAssigned;
     const canManageDocs = !!canManageDocuments;
+    const canUseComments = !isSystemManagedStage || isSuperAdmin;
+    const selectableStageValues = stageValues.filter(function (stage) {
+        return !systemManagedStages.has(stage) || stage === currentStage;
+    });
 
     let specificationLinks = [];
     if (tender.specification_links) {
@@ -89,8 +98,18 @@
             data-super-admin="<%= isSuperAdmin ? '1' : '0' %>"
             data-can-assign-others="<%= canAssignOthers ? '1' : '0' %>"
             data-can-manage-documents="<%= canManageDocs ? '1' : '0' %>"
+            data-system-managed-stage="<%= isSystemManagedStage ? '1' : '0' %>"
         >
             <div class="card-body p-4">
+                <% if (isSystemManagedStage) { %>
+                    <div class="alert alert-secondary py-2" role="status">
+                        This tender is <strong><%= stageLabels[currentStage] || currentStage %></strong>
+                        (set automatically).
+                        <%= isSuperAdmin
+                            ? "Only a super admin can change it."
+                            : "Details are locked; only a super admin can change them." %>
+                    </div>
+                <% } %>
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
                         <label for="gem-tender-stage" class="form-label">Stage</label>
@@ -99,25 +118,32 @@
                             id="gem-tender-stage"
                             <%= !canChangeStage ? "disabled" : "" %>
                         >
-                            <% stageValues.forEach(function (stage) { %>
+                            <% selectableStageValues.forEach(function (stage) { %>
                                 <option
                                     value="<%= stage %>"
                                     <%= currentStage === stage ? 'selected' : '' %>
                                     <%= ['assigned', 'waiting_for_docs', 'preparing_docs'].includes(stage) && !assigneeUserId ? 'disabled' : '' %>
                                     <%= stage === 'new' && currentStage !== 'new' ? 'disabled' : '' %>
+                                    <%= systemManagedStages.has(stage) ? 'disabled' : '' %>
                                 >
                                     <%= stageLabels[stage] %>
                                 </option>
                             <% }) %>
                         </select>
-                        <% if (assigneeUserId && !canChangeStage) { %>
+                        <% if (isSystemManagedStage && !isSuperAdmin) { %>
+                            <p class="form-text mb-0">Only a super admin can change Unattended or Missed tenders.</p>
+                        <% } else if (assigneeUserId && !canChangeStage) { %>
                             <p class="form-text mb-0">Only the assignee or a super admin can change stage.</p>
                         <% } %>
                     </div>
                     <div class="col-md-5">
                         <label for="gem-tender-assignee" class="form-label">Assignee</label>
-                        <% if (canAssignOthers) { %>
-                            <select class="form-select" id="gem-tender-assignee">
+                        <% if (canAssignOthers && (!isSystemManagedStage || isSuperAdmin)) { %>
+                            <select
+                                class="form-select"
+                                id="gem-tender-assignee"
+                                <%= isSystemManagedStage && !isSuperAdmin ? "disabled" : "" %>
+                            >
                                 <option value="">Unassigned</option>
                                 <% (users || []).forEach(function (user) { %>
                                     <option
@@ -137,7 +163,7 @@
                             />
                         <% } %>
                     </div>
-                    <% if (!assigneeUserId) { %>
+                    <% if (!assigneeUserId && !isSystemManagedStage) { %>
                         <div class="col-md-3 d-flex align-items-end" id="gem-tender-assign-me-wrap">
                             <button
                                 type="button"
@@ -281,6 +307,7 @@
                 role="tabpanel"
                 aria-labelledby="gem-tender-comments-tab"
             >
+                <% if (canUseComments) { %>
                 <form id="gem-tender-comment-form" class="mb-4" novalidate>
                     <label for="gem-tender-comment-text" class="form-label">Add comment</label>
                     <textarea
@@ -301,6 +328,11 @@
                         Add comment
                     </button>
                 </form>
+                <% } else { %>
+                    <p class="text-secondary small mb-4">
+                        Comments are locked on Unattended / Missed tenders (super admin only).
+                    </p>
+                <% } %>
 
                 <div
                     id="gem-tender-comments-empty"
@@ -337,7 +369,7 @@
                                     </a>
                                 </p>
                             <% } %>
-                            <% if (Number(comment.user_id) === currentUserId) { %>
+                            <% if (canUseComments && Number(comment.user_id) === currentUserId) { %>
                                 <div class="d-flex gap-2">
                                     <button type="button" class="btn btn-sm btn-outline-primary gem-tender-comment-edit-btn">
                                         Edit
