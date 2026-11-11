@@ -140,7 +140,9 @@
                         <%= tender.tender_id %>
                     <% } %>
                 </h1>
-                <p class="text-secondary mb-0">Keyword: <%= tender.keyword || "-" %></p>
+                <p class="text-secondary mb-0">
+                    Group: <%= tender.category_group_name || "-" %>
+                </p>
             </div>
         </div>
 
@@ -152,6 +154,7 @@
             data-id="<%= tender.id %>"
             data-stage="<%= currentStage %>"
             data-assignee-user-id="<%= assigneeUserId || '' %>"
+            data-category-group-id="<%= tender.category_group_id != null ? tender.category_group_id : '' %>"
             data-quote="<%= encodeURIComponent(tender.quote || '') %>"
             data-current-user-id="<%= currentUserId %>"
             data-super-admin="<%= isSuperAdmin ? '1' : '0' %>"
@@ -229,6 +232,24 @@
 
                 <div class="row g-3 mb-2 align-items-end">
                     <div class="col-md-4">
+                        <label for="gem-tender-category-group" class="form-label">Group</label>
+                        <select
+                            class="form-select"
+                            id="gem-tender-category-group"
+                            <%= !canOperateAssigned ? "disabled" : "" %>
+                        >
+                            <option value="">No group</option>
+                            <% (categoryGroups || []).forEach(function (group) { %>
+                                <option
+                                    value="<%= group.id %>"
+                                    <%= Number(tender.category_group_id) === Number(group.id) ? 'selected' : '' %>
+                                >
+                                    <%= group.name %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
                         <label for="gem-tender-stage" class="form-label">Stage</label>
                         <select
                             class="form-select"
@@ -248,7 +269,7 @@
                             <% }) %>
                         </select>
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-4">
                         <label for="gem-tender-assignee" class="form-label">Assignee</label>
                         <% if (canAssignOthers && (!isTerminalStage || isSuperAdmin)) { %>
                             <select
@@ -276,7 +297,7 @@
                         <% } %>
                     </div>
                     <div
-                        class="col-md-3 <%= (!assigneeUserId && !isTerminalStage) ? '' : 'd-none' %>"
+                        class="col-md-12 <%= (!assigneeUserId && !isTerminalStage) ? '' : 'd-none' %>"
                         id="gem-tender-assign-me-wrap"
                     >
                         <button

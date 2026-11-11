@@ -246,9 +246,9 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <span class="form-label d-block">Keyword</span>
+                        <span class="form-label d-block">Group</span>
                         <div class="d-flex gap-1 align-items-stretch">
-                            <div class="dropdown gem-multi-filter flex-grow-1" id="gem-filter-keyword" data-empty-label="All keywords">
+                            <div class="dropdown gem-multi-filter flex-grow-1" id="gem-filter-group" data-empty-label="All groups">
                                 <button
                                     class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
                                     type="button"
@@ -257,20 +257,20 @@
                                     data-bs-display="static"
                                     aria-expanded="false"
                                 >
-                                    <span class="gem-multi-filter-label">All keywords</span>
+                                    <span class="gem-multi-filter-label">All groups</span>
                                 </button>
                                 <div class="dropdown-menu gem-multi-filter-menu p-2 shadow">
-                                    <% (keywords || []).forEach(function (keyword) { %>
+                                    <% (categoryGroups || []).forEach(function (group) { %>
                                         <div class="form-check">
                                             <input
                                                 class="form-check-input gem-multi-filter-option"
                                                 type="checkbox"
-                                                value="<%= keyword.id %>"
-                                                id="gem-filter-keyword-<%= keyword.id %>"
-                                                data-label="<%= keyword.keyword %>"
+                                                value="<%= group.id %>"
+                                                id="gem-filter-group-<%= group.id %>"
+                                                data-label="<%= group.name %>"
                                             />
-                                            <label class="form-check-label" for="gem-filter-keyword-<%= keyword.id %>">
-                                                <%= keyword.keyword %>
+                                            <label class="form-check-label" for="gem-filter-group-<%= group.id %>">
+                                                <%= group.name %>
                                             </label>
                                         </div>
                                     <% }) %>
@@ -279,9 +279,9 @@
                             <button
                                 type="button"
                                 class="btn btn-outline-secondary btn-sm gem-filter-clear-btn gem-filter-clear-x"
-                                data-clear-multi="gem-filter-keyword"
-                                title="Clear keyword"
-                                aria-label="Clear keyword"
+                                data-clear-multi="gem-filter-group"
+                                title="Clear group"
+                                aria-label="Clear group"
                             >×</button>
                         </div>
                     </div>
@@ -566,7 +566,7 @@
                                 >
                                     Ends at <span class="gem-tenders-sort-indicator" aria-hidden="true"></span>
                                 </th>
-                                <th scope="col">Keyword</th>
+                                <th scope="col">Group</th>
                                 <th scope="col" class="gem-tenders-buyer-col">Buyer</th>
                                 <th
                                     scope="col"
@@ -606,7 +606,7 @@
                                     %>
                                     <tr
                                         data-id="<%= tender.id %>"
-                                        data-keyword-id="<%= tender.keyword_id != null ? tender.keyword_id : '' %>"
+                                        data-category-group-id="<%= tender.category_group_id != null ? tender.category_group_id : '' %>"
                                         data-assignee-user-id="<%= tender.assignee_user_id != null ? tender.assignee_user_id : '' %>"
                                         data-stage="<%= stage %>"
                                         data-has-quote="<%= hasQuote ? '1' : '0' %>"
@@ -638,7 +638,7 @@
                                         data-readable-date="<%= tender.end_date_time || '' %>"
                                         data-date-format="DD/MM/YYYY HH:mm:ss"
                                     ></td>
-                                    <td><%= tender.keyword || "-" %></td>
+                                    <td><%= tender.category_group_name || "-" %></td>
                                     <td class="gem-tenders-buyer-col">
                                         <span class="gem-tenders-buyer-text" title="<%= buyerText %>">
                                             <%= buyerText %>

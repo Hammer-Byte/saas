@@ -4,6 +4,7 @@ import {
     deleteGemCategoryById,
     getAllGemCategories,
     getGemCategoriesByGroupId,
+    getGemCategoriesByIds,
     getGemCategoryByGroupIdAndName,
     getGemCategoryById,
     updateGemCategoryById,
@@ -16,7 +17,12 @@ import {
     getGemCategoryGroupByName,
     updateGemCategoryGroupById,
 } from "../db/gem_category_groups.js";
+import {
+    createGemTenderScanRun,
+    getGemTenderScanRunById,
+} from "../db/gem_tender_scan_runs.js";
 import { hasAuthority } from "../libs/app_page.js";
+import { crawlGemForTenders, processing } from "../libs/tenderer.js";
 import { getCurrentUser } from "./authentication.js";
 
 export function canUseGemCategories(authorities) {
@@ -232,4 +238,66 @@ export async function deleteGemCategory({ params, cookie, set }) {
 
     await deleteGemCategoryById({ id: existing.id });
     set.status = 204;
+}
+
+export async function startGemCategoryScan({ body, cookie, set }) {
+    if (processing) {
+        set.status = 409;
+        return { error: "Scan already in progress", processing: true };
+    }
+
+    const currentUser = await requireGemCategoriesAuthority({ cookie, set });
+    if (!currentUser) {
+        return {
+            error: set.status === 401 ? "Unauthorized" : "Missing authority",
+            processing: false,
+        };
+    }
+
+    const selectedIds = Array.isArray(body?.category_ids)
+        ? [...new Set(body.category_ids.map((id) => Number(id)).filter((id) => id >= 1))]
+        : [];
+    if (!selectedIds.length) {
+        set.status = 400;
+        return { error: "Select at least one category to scan", processing: false };
+    }
+
+    const categories = await getGemCategoriesByIds({ ids: selectedIds });
+    if (!categories.length) {
+        set.status = 400;
+        return { error: "No valid categories selected", processing: false };
+    }
+
+    const keywords = categories.map((category) => ({
+        id: null,
+        keyword: category.name,
+        exact_search: false,
+        category_group_id: Number(category.group_id),
+    }));
+
+    const runId = await createGemTenderScanRun({
+        keyword_count: keywords.length,
+        created_by: currentUser.id,
+    });
+    if (!runId) {
+        set.status = 400;
+        return { error: "Failed to create scan run", processing: false };
+    }
+
+    const started = crawlGemForTenders({
+        keywords,
+        runId,
+    });
+    if (!started) {
+        set.status = 409;
+        return { error: "Scan already in progress", processing: true };
+    }
+
+    set.status = 202;
+    return {
+        message: `Scan started for ${keywords.length} categor${keywords.length === 1 ? "y" : "ies"}`,
+        processing: true,
+        category_count: keywords.length,
+        run: await getGemTenderScanRunById({ id: runId }),
+    };
 }

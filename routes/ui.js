@@ -53,9 +53,11 @@ import { getContractClausesByContractId } from "../db/contract_clauses.js";
 import { getClauseSubclausesByContractId } from "../db/clause_subclauses.js";
 import { getAllContractAttachments } from "../db/contract_attachments.js";
 import { getContractRequiredAttachmentsByContractId } from "../db/contract_required_attachments.js";
-import { getAllGemTenderKeywords } from "../db/gem_tender_keywords.js";
 import { getAllGemCategoryGroups } from "../db/gem_category_groups.js";
-import { getGemCategoriesByGroupId } from "../db/gem_categories.js";
+import {
+    getAllGemCategories,
+    getGemCategoriesByGroupId,
+} from "../db/gem_categories.js";
 import { canUseGemCategories } from "../services/gem_categories.js";
 import {
     getAllGemKeywordTenders,
@@ -905,16 +907,7 @@ export const uiRoutes = new Elysia()
                     title: "GEM Tenders — HammerByte",
                 })),
             )
-            .get("/app/gem-tender-keywords", async ({ render, session, redirect }) => {
-                if (!hasAuthority(session?.authorities, AUTHORITIES.USE_PAGE_GEM_TENDER_KEYWORDS)) {
-                    return redirect("/app/gem-tenders");
-                }
-                return render("gem-tenders", appPage(session, {
-                    title: "Keyword + scan — GEM Tenders — HammerByte",
-                    keywords: await getAllGemTenderKeywords(),
-                    processing: gemTendereProcessing,
-                }));
-            })
+            .get("/app/gem-tender-keywords", ({ redirect }) => redirect("/app/gem-categories"))
             .get("/app/gem-categories", async ({ render, session, redirect, query }) => {
                 if (!canUseGemCategories(session?.authorities)) {
                     return redirect("/app/gem-tenders");
@@ -928,6 +921,7 @@ export const uiRoutes = new Elysia()
                 const categories = selectedGroup
                     ? await getGemCategoriesByGroupId({ group_id: selectedGroup.id })
                     : [];
+                const allCategories = await getAllGemCategories();
                 return render(
                     "gem-categories",
                     appPage(session, {
@@ -935,11 +929,16 @@ export const uiRoutes = new Elysia()
                         groups,
                         selectedGroup,
                         categories,
+                        allCategories,
+                        processing: gemTendereProcessing,
                     }),
                 );
             })
             .get("/app/gem-tender-scan-history", async ({ render, session, redirect }) => {
-                if (!hasAuthority(session?.authorities, AUTHORITIES.USE_PAGE_GEM_TENDER_KEYWORDS)) {
+                if (
+                    !canUseGemCategories(session?.authorities) &&
+                    !hasAuthority(session?.authorities, AUTHORITIES.USE_PAGE_GEM_TENDER_KEYWORDS)
+                ) {
                     return redirect("/app/gem-tenders");
                 }
                 return render("gem-tender-scan-history", appPage(session, {
@@ -968,7 +967,7 @@ export const uiRoutes = new Elysia()
                     from: rangeFrom,
                     to: rangeTo,
                     userId: session?.id,
-                    keywords: await getAllGemTenderKeywords(),
+                    categoryGroups: await getAllGemCategoryGroups(),
                     users: await getAllUsers(),
                     tenders: await getAllGemKeywordTenders({
                         from: rangeFrom,
@@ -1025,6 +1024,7 @@ export const uiRoutes = new Elysia()
                         tender,
                         userId: session?.id,
                         users: await getAllUsers(),
+                        categoryGroups: await getAllGemCategoryGroups(),
                         activities: await getAllGemKeywordTenderActivitiesByTenderId({
                             gem_keyword_tender_id: tender.id,
                         }),

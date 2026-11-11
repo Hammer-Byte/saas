@@ -19,6 +19,10 @@ export function crawlGemForTenders({ keywords = [], runId = null } = {}) {
             id: entry?.id != null && Number(entry.id) >= 1 ? Number(entry.id) : null,
             keyword: String(entry?.keyword || "").trim(),
             exact_search: !!entry?.exact_search,
+            category_group_id:
+                entry?.category_group_id != null && Number(entry.category_group_id) >= 1
+                    ? Number(entry.category_group_id)
+                    : null,
         }))
         .filter((entry) => entry.keyword);
 

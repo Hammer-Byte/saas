@@ -70,6 +70,9 @@ export default function (app) {
                 stage: t.Optional(gemKeywordTenderStageLiteral),
                 assignee_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
                 assign_to_me: t.Optional(t.Boolean()),
+                category_group_id: t.Optional(
+                    t.Union([t.Numeric({ minimum: 1 }), t.Null()]),
+                ),
             }),
             detail: {
                 tags: ["GEM Keyword Tenders"],

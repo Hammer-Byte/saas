@@ -3,6 +3,7 @@ import {
     addGemCategory,
     deleteGemCategory,
     listGemCategories,
+    startGemCategoryScan,
     updateGemCategory,
 } from "../../services/gem_categories.js";
 
@@ -15,6 +16,15 @@ export default function (app) {
             detail: {
                 tags: ["Gem Categories"],
                 summary: "List GEM categories (optional group filter)",
+            },
+        })
+        .post("/scan", startGemCategoryScan, {
+            body: t.Object({
+                category_ids: t.Array(t.Numeric({ minimum: 1 }), { minItems: 1 }),
+            }),
+            detail: {
+                tags: ["Gem Categories"],
+                summary: "Start GeM scan for selected categories",
             },
         })
         .post("/", addGemCategory, {

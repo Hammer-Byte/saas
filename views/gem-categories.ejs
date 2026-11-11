@@ -23,11 +23,85 @@
             </p>
             <h1 class="h3 mb-1">Categories</h1>
             <p class="text-secondary mb-0">
-                Manage category groups and categories. Independent from keywords for now.
+                Manage category groups and categories, then scan GeM for selected categories.
             </p>
         </div>
 
         <div id="gem-categories-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <h2 class="h5 mb-1">Scan GeM</h2>
+                        <p class="text-secondary small mb-0">
+                            Select groups (all categories in the group) or pick individual categories, then start a scan.
+                            Matched tenders are stored under the category group.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="btn btn-success"
+                        id="gem-category-scan-btn"
+                        disabled
+                    >
+                        <%= processing ? 'Scan in progress…' : 'Start scan' %>
+                    </button>
+                </div>
+                <% if (!allCategories || !allCategories.length) { %>
+                    <p class="text-secondary mb-0">Add groups and categories below before scanning.</p>
+                <% } else { %>
+                    <div class="row g-3" id="gem-scan-selection">
+                        <%
+                            const categoriesByGroup = {};
+                            (allCategories || []).forEach(function (category) {
+                                const gid = String(category.group_id);
+                                if (!categoriesByGroup[gid]) categoriesByGroup[gid] = [];
+                                categoriesByGroup[gid].push(category);
+                            });
+                        %>
+                        <% (groups || []).forEach(function (group) { %>
+                            <% const groupCats = categoriesByGroup[String(group.id)] || []; %>
+                            <% if (!groupCats.length) return; %>
+                            <div class="col-12 col-md-6 col-xl-4">
+                                <div class="border rounded p-3 h-100 gem-scan-group" data-group-id="<%= group.id %>">
+                                    <div class="form-check mb-2">
+                                        <input
+                                            class="form-check-input gem-scan-group-check"
+                                            type="checkbox"
+                                            id="gem-scan-group-<%= group.id %>"
+                                            value="<%= group.id %>"
+                                            <%= processing ? 'disabled' : '' %>
+                                        />
+                                        <label class="form-check-label fw-semibold" for="gem-scan-group-<%= group.id %>">
+                                            <%= group.name %>
+                                            <span class="text-secondary fw-normal">(<%= groupCats.length %>)</span>
+                                        </label>
+                                    </div>
+                                    <div class="ps-1" style="max-height: 12rem; overflow-y: auto;">
+                                        <% groupCats.forEach(function (category) { %>
+                                            <div class="form-check">
+                                                <input
+                                                    class="form-check-input gem-scan-category-check"
+                                                    type="checkbox"
+                                                    value="<%= category.id %>"
+                                                    id="gem-scan-category-<%= category.id %>"
+                                                    data-group-id="<%= group.id %>"
+                                                    <%= processing ? 'disabled' : '' %>
+                                                />
+                                                <label class="form-check-label small" for="gem-scan-category-<%= category.id %>">
+                                                    <%= category.name %>
+                                                </label>
+                                            </div>
+                                        <% }) %>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                <% } %>
+            </div>
+        </div>
 
         <div class="row g-4">
             <div class="col-12 col-lg-4">
@@ -205,6 +279,7 @@
 <script>
     window.__GEM_CATEGORIES_PAGE__ = {
         selectedGroupId: <%= selectedGroup ? Number(selectedGroup.id) : 'null' %>,
+        processing: <%= processing ? 'true' : 'false' %>,
     };
 </script>
 <script src="/public/app.js" defer></script>

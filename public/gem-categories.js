@@ -18,6 +18,9 @@
         page.selectedGroupId != null && Number(page.selectedGroupId) >= 1
             ? Number(page.selectedGroupId)
             : null;
+    const scanWasProcessing = !!page.processing;
+    const scanButton = document.getElementById("gem-category-scan-btn");
+    const scanSelection = document.getElementById("gem-scan-selection");
 
     function showAlert(message, type = "danger") {
         if (!alertElement) return;
@@ -175,6 +178,114 @@
     });
 
     categoryCancelBtn?.addEventListener("click", () => resetCategoryForm());
+
+    function categoryScanCheckboxes() {
+        return Array.from(
+            scanSelection?.querySelectorAll(".gem-scan-category-check") || [],
+        );
+    }
+
+    function selectedScanCategoryIds() {
+        return categoryScanCheckboxes()
+            .filter((input) => input.checked)
+            .map((input) => Number(input.value || 0))
+            .filter((id) => id >= 1);
+    }
+
+    function syncGroupCheckFromCategories(groupId) {
+        const groupCheck = scanSelection?.querySelector(
+            `.gem-scan-group-check[value="${groupId}"]`,
+        );
+        if (!groupCheck) return;
+        const categoryChecks = Array.from(
+            scanSelection.querySelectorAll(
+                `.gem-scan-category-check[data-group-id="${groupId}"]`,
+            ),
+        );
+        const checkedCount = categoryChecks.filter((input) => input.checked).length;
+        groupCheck.checked =
+            categoryChecks.length > 0 && checkedCount === categoryChecks.length;
+        groupCheck.indeterminate =
+            checkedCount > 0 && checkedCount < categoryChecks.length;
+    }
+
+    function syncScanButton() {
+        if (!scanButton || scanWasProcessing) return;
+        const selectedCount = selectedScanCategoryIds().length;
+        scanButton.disabled = selectedCount === 0;
+        scanButton.textContent =
+            selectedCount > 0 ? `Start scan (${selectedCount})` : "Start scan";
+    }
+
+    function setScanRunning() {
+        if (!scanButton) return;
+        scanButton.disabled = true;
+        scanButton.textContent = "Scan in progress…";
+        for (const input of categoryScanCheckboxes()) {
+            input.disabled = true;
+        }
+        for (const input of scanSelection?.querySelectorAll(".gem-scan-group-check") || []) {
+            input.disabled = true;
+        }
+    }
+
+    scanSelection?.addEventListener("change", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+
+        if (target.classList.contains("gem-scan-group-check")) {
+            const groupId = target.value;
+            const checked = target.checked;
+            for (const input of scanSelection.querySelectorAll(
+                `.gem-scan-category-check[data-group-id="${groupId}"]`,
+            )) {
+                input.checked = checked;
+            }
+            target.indeterminate = false;
+            syncScanButton();
+            return;
+        }
+
+        if (target.classList.contains("gem-scan-category-check")) {
+            syncGroupCheckFromCategories(target.dataset.groupId);
+            syncScanButton();
+        }
+    });
+
+    scanButton?.addEventListener("click", async () => {
+        const category_ids = selectedScanCategoryIds();
+        if (!category_ids.length) {
+            showAlert("Select at least one category to scan.");
+            return;
+        }
+
+        scanButton.disabled = true;
+        try {
+            const response = await fetch("/api/gem-categories/scan", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ category_ids }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showAlert(data.error || "Failed to start scan.");
+                syncScanButton();
+                return;
+            }
+            setScanRunning();
+            showAlert(
+                data.message || `Scan started for ${category_ids.length} categor${category_ids.length === 1 ? "y" : "ies"}.`,
+                "success",
+            );
+        } catch (error) {
+            console.error(error);
+            showAlert("Failed to start scan.");
+            syncScanButton();
+        }
+    });
+
+    syncScanButton();
 
     document.getElementById("gem-categories-tbody")?.addEventListener("click", async (event) => {
         const row = event.target.closest("tr[data-id]");

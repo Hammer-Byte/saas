@@ -7,6 +7,7 @@ import {
 } from "../constants.js";
 import { createGemKeywordTenderActivity } from "../db/gem_keyword_tender_activities.js";
 import { createGemKeywordTenderComment } from "../db/gem_keyword_tender_comments.js";
+import { getGemCategoryGroupById } from "../db/gem_category_groups.js";
 import {
     claimUnassignedGemKeywordTenderById,
     getAllGemKeywordTenders,
@@ -296,18 +297,59 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         previousAssigneeUserId == null &&
         nextAssigneeUserId === Number(currentUser.id);
 
+    const previousCategoryGroupId = gemKeywordTender.category_group_id
+        ? Number(gemKeywordTender.category_group_id)
+        : null;
+    let nextCategoryGroupId = previousCategoryGroupId;
+    let categoryGroupChanging = false;
+    if (body.category_group_id !== undefined) {
+        if (body.category_group_id == null) {
+            nextCategoryGroupId = null;
+        } else {
+            nextCategoryGroupId = Number(body.category_group_id);
+            if (!(nextCategoryGroupId >= 1)) {
+                set.status = 400;
+                return { error: "Invalid category group" };
+            }
+        }
+        categoryGroupChanging = nextCategoryGroupId !== previousCategoryGroupId;
+    }
+
     // Terminal stages: only a super admin may change anything.
     if (isTerminalStage(previousStage) && !currentUser.super_admin) {
         const touching =
             assigneeChanging ||
             body.assign_to_me === true ||
             body.stage !== undefined ||
-            body.quote !== undefined;
+            body.quote !== undefined ||
+            categoryGroupChanging;
         if (touching) {
             set.status = 403;
             return {
                 error: "Only a super admin can change tenders in a one-way stage",
             };
+        }
+    }
+
+    if (categoryGroupChanging) {
+        if (
+            !canOperateAssignedTender({
+                currentUser,
+                assigneeUserId: nextAssigneeUserId ?? previousAssigneeUserId,
+                stage: previousStage,
+            })
+        ) {
+            set.status = 403;
+            return {
+                error: "Only the assignee or a super admin can change the category group",
+            };
+        }
+        if (nextCategoryGroupId != null) {
+            const group = await getGemCategoryGroupById({ id: nextCategoryGroupId });
+            if (!group) {
+                set.status = 400;
+                return { error: "Category group not found" };
+            }
         }
     }
 
@@ -475,6 +517,18 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         }
     }
 
+    if (categoryGroupChanging) {
+        const previousGroup = previousCategoryGroupId
+            ? await getGemCategoryGroupById({ id: previousCategoryGroupId })
+            : null;
+        const nextGroup = nextCategoryGroupId
+            ? await getGemCategoryGroupById({ id: nextCategoryGroupId })
+            : null;
+        activities.push(
+            `Changed category group from ${previousGroup?.name || "None"} to ${nextGroup?.name || "None"}`,
+        );
+    }
+
     let previousAssignee = null;
     let nextAssignee = null;
     if (assigneeChanging) {
@@ -515,6 +569,18 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
                 set,
             });
         }
+        if (categoryGroupChanging) {
+            await updateGemKeywordTenderById({
+                id: gemKeywordTender.id,
+                hidden: flags.hidden,
+                eligible: flags.eligible,
+                filed: flags.filed,
+                quote: nextQuote,
+                stage: nextStage,
+                assignee_user_id: nextAssigneeUserId,
+                category_group_id: nextCategoryGroupId,
+            });
+        }
     } else {
         await updateGemKeywordTenderById({
             id: gemKeywordTender.id,
@@ -524,6 +590,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
             quote: nextQuote,
             stage: nextStage,
             assignee_user_id: nextAssigneeUserId,
+            category_group_id: nextCategoryGroupId,
         });
     }
 
@@ -654,6 +721,9 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
                 quote: gemKeywordTender.quote,
                 stage: nextStage,
                 assignee_user_id: assigneeUserId,
+                category_group_id: gemKeywordTender.category_group_id
+                    ? Number(gemKeywordTender.category_group_id)
+                    : null,
             });
 
             const commentId = await createGemKeywordTenderComment({

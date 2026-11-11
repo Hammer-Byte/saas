@@ -2,10 +2,10 @@
     const FILTERS_STORAGE_KEY = "gem-tenders-filters";
     const fromInput = document.getElementById("gem-tenders-from");
     const toInput = document.getElementById("gem-tenders-to");
-    const keywordFilter = document.getElementById("gem-filter-keyword");
+    const groupFilter = document.getElementById("gem-filter-group");
     const stageFilter = document.getElementById("gem-filter-stage");
     const assigneeFilter = document.getElementById("gem-filter-assignee");
-    const multiFilters = [keywordFilter, stageFilter, assigneeFilter].filter(Boolean);
+    const multiFilters = [groupFilter, stageFilter, assigneeFilter].filter(Boolean);
     const showAllFilter = document.getElementById("gem-filter-show-all");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
     const quoteFilter = document.getElementById("gem-filter-quote");
@@ -48,7 +48,7 @@
         return {
             from: from || "",
             to: to || "",
-            keywords: [],
+            groups: [],
             stages: [],
             assignees: [],
             search: "",
@@ -166,7 +166,7 @@
         return {
             from: normalizeDateInput(fromInput?.value || "", pageFrom),
             to: normalizeDateInput(toInput?.value || "", pageTo),
-            keywords: selectedMultiValues(keywordFilter),
+            groups: selectedMultiValues(groupFilter),
             stages: selectedMultiValues(stageFilter),
             assignees: selectedMultiValues(assigneeFilter),
             search: String(searchInput?.value || "").trim(),
@@ -181,7 +181,7 @@
         if (!filters) return;
         if (fromInput && filters.from) fromInput.value = filters.from;
         if (toInput && filters.to) toInput.value = filters.to;
-        setSelectedMultiValues(keywordFilter, filters.keywords || []);
+        setSelectedMultiValues(groupFilter, filters.groups || []);
         setSelectedMultiValues(stageFilter, filters.stages || []);
         setSelectedMultiValues(assigneeFilter, filters.assignees || []);
         if (searchInput) searchInput.value = filters.search || "";
@@ -459,8 +459,10 @@
                     emdAmount > 0
                         ? emdAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })
                         : "NA";
-                const keywordId =
-                    tender.keyword_id != null ? String(tender.keyword_id) : "";
+                const categoryGroupId =
+                    tender.category_group_id != null
+                        ? String(tender.category_group_id)
+                        : "";
                 const assigneeUserId =
                     tender.assignee_user_id != null
                         ? String(tender.assignee_user_id)
@@ -474,7 +476,7 @@
 
                 return `<tr
                     data-id="${escapeHtml(rowId)}"
-                    data-keyword-id="${escapeHtml(keywordId)}"
+                    data-category-group-id="${escapeHtml(categoryGroupId)}"
                     data-assignee-user-id="${escapeHtml(assigneeUserId)}"
                     data-stage="${escapeHtml(stage)}"
                     data-has-quote="${hasQuote ? "1" : "0"}"
@@ -504,7 +506,7 @@
                         data-readable-date="${escapeHtml(endAt)}"
                         data-date-format="DD/MM/YYYY HH:mm:ss"
                     ></td>
-                    <td>${escapeHtml(tender.keyword || "-")}</td>
+                    <td>${escapeHtml(tender.category_group_name || "-")}</td>
                     <td class="gem-tenders-buyer-col">
                         <span class="gem-tenders-buyer-text" title="${escapeHtml(buyerText)}">
                             ${escapeHtml(buyerText)}
@@ -772,7 +774,7 @@
 
     function applyFilters() {
         const query = String(appliedFilters.search || "").trim().toLowerCase();
-        const selectedKeywords = (appliedFilters.keywords || []).map(String);
+        const selectedGroups = (appliedFilters.groups || []).map(String);
         const selectedStages = (appliedFilters.stages || []).map(String);
         const selectedAssignees = (appliedFilters.assignees || []).map(String);
         const showHiddenStages = !!appliedFilters.showAll;
@@ -809,9 +811,9 @@
                 selectedStages.includes("missed") ||
                 !isHiddenStage;
 
-            const rowKeywordId = String(row.dataset.keywordId || "");
-            const matchesKeyword =
-                !selectedKeywords.length || selectedKeywords.includes(rowKeywordId);
+            const rowGroupId = String(row.dataset.categoryGroupId || "");
+            const matchesGroup =
+                !selectedGroups.length || selectedGroups.includes(rowGroupId);
 
             const matchesStage =
                 !selectedStages.length || selectedStages.includes(rowStage);
@@ -831,7 +833,7 @@
             const matchesSearch =
                 !query ||
                 tenderIdText.includes(query) ||
-                rowKeywordId === query ||
+                rowGroupId === query ||
                 String(row.dataset.id || "") === query;
 
             const matchesColumns = activeColumnFilters.every((filter) => {
@@ -851,7 +853,7 @@
 
             const visible =
                 matchesHiddenStages &&
-                matchesKeyword &&
+                matchesGroup &&
                 matchesStage &&
                 matchesAssignee &&
                 matchesSearch &&
@@ -889,11 +891,13 @@
 
     function normalizeStoredFilters(filters) {
         if (!filters || typeof filters !== "object") return emptyFilters();
-        const keywords = Array.isArray(filters.keywords)
-            ? filters.keywords
-            : filters.keywordId != null && filters.keywordId !== ""
-              ? [filters.keywordId]
-              : [];
+        const groups = Array.isArray(filters.groups)
+            ? filters.groups
+            : Array.isArray(filters.keywords)
+              ? filters.keywords
+              : filters.groupId != null && filters.groupId !== ""
+                ? [filters.groupId]
+                : [];
         const stages = Array.isArray(filters.stages)
             ? filters.stages
             : filters.stage != null && filters.stage !== ""
@@ -911,7 +915,7 @@
         return {
             from: normalizeDateInput(filters.from, pageFrom),
             to: normalizeDateInput(filters.to, pageTo),
-            keywords: keywords.map(String).filter(Boolean),
+            groups: groups.map(String).filter(Boolean),
             stages: stages.map(String).filter(Boolean),
             assignees: assignees.map(String).filter(Boolean),
             search: String(filters.search || "").trim(),

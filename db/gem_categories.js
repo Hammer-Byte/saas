@@ -116,3 +116,34 @@ export async function getAllGemCategories() {
             return [];
         });
 }
+
+export async function getGemCategoriesByIds({ ids }) {
+    const categoryIds = [
+        ...new Set(
+            (Array.isArray(ids) ? ids : [])
+                .map((id) => Number(id))
+                .filter((id) => id >= 1),
+        ),
+    ];
+    if (!categoryIds.length) {
+        return [];
+    }
+
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                GEM_CATEGORIES.*,
+                GEM_CATEGORY_GROUPS.name AS group_name
+            FROM GEM_CATEGORIES
+            INNER JOIN GEM_CATEGORY_GROUPS
+                ON GEM_CATEGORY_GROUPS.id = GEM_CATEGORIES.group_id
+            WHERE GEM_CATEGORIES.id IN ${sql(categoryIds)}
+            ORDER BY GEM_CATEGORY_GROUPS.name ASC, GEM_CATEGORIES.name ASC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getGemCategoriesByIds: ${error}`);
+            return [];
+        });
+}

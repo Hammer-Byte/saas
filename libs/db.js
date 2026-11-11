@@ -529,6 +529,7 @@ export async function generateDBTables() {
         `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             keyword_id INT NULL,
+            category_group_id INT NULL,
             tender_id VARCHAR(128) NOT NULL,
             document VARCHAR(512) NULL,
             start_date_time VARCHAR(64) NULL,
@@ -560,6 +561,11 @@ export async function generateDBTables() {
             CONSTRAINT fk_gem_keyword_tenders_keyword
                 FOREIGN KEY (keyword_id)
                 REFERENCES GEM_TENDER_KEYWORDS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_gem_keyword_tenders_category_group
+                FOREIGN KEY (category_group_id)
+                REFERENCES GEM_CATEGORY_GROUPS(id)
                 ON DELETE SET NULL
                 ON UPDATE CASCADE,
             CONSTRAINT fk_gem_keyword_tenders_assignee

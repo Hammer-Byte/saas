@@ -2,6 +2,7 @@
     const detail = document.getElementById("gem-tender-detail");
     const alertElement = document.getElementById("gem-tender-alert");
     const stageSelect = document.getElementById("gem-tender-stage");
+    const categoryGroupSelect = document.getElementById("gem-tender-category-group");
     const assigneeSelect = document.getElementById("gem-tender-assignee");
     const assignMeButton = document.getElementById("gem-tender-assign-me-btn");
     const assignMeWrap = document.getElementById("gem-tender-assign-me-wrap");
@@ -128,13 +129,19 @@
         }
     }
 
+    function canChangeCategoryGroup() {
+        return canOperateAssigned();
+    }
+
     function syncControls() {
         const assigneeUserId = currentAssigneeId();
         const quoteEnabled = canEditQuote();
         const stageEnabled = canChangeStage();
+        const groupEnabled = canChangeCategoryGroup();
         const locked = isTerminalStage() && !isSuperAdmin;
 
         if (stageSelect) stageSelect.disabled = !stageEnabled;
+        if (categoryGroupSelect) categoryGroupSelect.disabled = !groupEnabled;
         if (assigneeSelect) assigneeSelect.disabled = locked;
         if (quoteInput) quoteInput.disabled = !quoteEnabled;
         if (quoteSaveButton) quoteSaveButton.disabled = !quoteEnabled;
@@ -181,6 +188,16 @@
             assigneeSelect.value =
                 tender.assignee_user_id != null ? String(tender.assignee_user_id) : "";
         }
+        if ("category_group_id" in tender) {
+            detail.dataset.categoryGroupId =
+                tender.category_group_id != null ? String(tender.category_group_id) : "";
+            if (categoryGroupSelect) {
+                categoryGroupSelect.value =
+                    tender.category_group_id != null
+                        ? String(tender.category_group_id)
+                        : "";
+            }
+        }
         syncControls();
     }
 
@@ -205,6 +222,30 @@
             return false;
         }
     }
+
+    categoryGroupSelect?.addEventListener("change", async () => {
+        const previous = detail.dataset.categoryGroupId || "";
+        if (!canChangeCategoryGroup()) {
+            showAlert(
+                isTerminalStage() && !isSuperAdmin
+                    ? "Only a super admin can change a one-way stage tender."
+                    : "Only the assignee or a super admin can change the category group.",
+                "danger",
+            );
+            categoryGroupSelect.value = previous;
+            return;
+        }
+        const rawValue = categoryGroupSelect.value;
+        const category_group_id = rawValue ? Number(rawValue) : null;
+        const ok = await applyPatch({ category_group_id }, (tender) => {
+            detail.dataset.categoryGroupId =
+                tender.category_group_id != null
+                    ? String(tender.category_group_id)
+                    : "";
+            window.location.reload();
+        });
+        if (!ok) categoryGroupSelect.value = previous;
+    });
 
     stageSelect?.addEventListener("change", async () => {
         const previous = detail.dataset.stage || "new";

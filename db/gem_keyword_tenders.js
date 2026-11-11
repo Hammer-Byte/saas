@@ -21,6 +21,7 @@ function serializeSpecificationLinks(specification_links) {
 
 export async function createGemKeywordTender({
     keyword_id,
+    category_group_id = null,
     tender_id,
     document = null,
     start_date_time = null,
@@ -53,6 +54,10 @@ export async function createGemKeywordTender({
             INSERT INTO GEM_KEYWORD_TENDERS ${sql(
                 {
                     keyword_id,
+                    category_group_id:
+                        category_group_id != null && Number(category_group_id) >= 1
+                            ? Number(category_group_id)
+                            : null,
                     tender_id,
                     document,
                     start_date_time: toDbDateTime(start_date_time),
@@ -74,6 +79,7 @@ export async function createGemKeywordTender({
                     emd_amount: safeEmdAmount,
                 },
                 "keyword_id",
+                "category_group_id",
                 "tender_id",
                 "document",
                 "start_date_time",
@@ -259,11 +265,14 @@ export async function getAllGemKeywordTenders({ from, to }) {
             SELECT
                 GEM_KEYWORD_TENDERS.*,
                 GEM_TENDER_KEYWORDS.keyword AS keyword,
+                GEM_CATEGORY_GROUPS.name AS category_group_name,
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email
             FROM GEM_KEYWORD_TENDERS
             LEFT JOIN GEM_TENDER_KEYWORDS
                 ON GEM_TENDER_KEYWORDS.id = GEM_KEYWORD_TENDERS.keyword_id
+            LEFT JOIN GEM_CATEGORY_GROUPS
+                ON GEM_CATEGORY_GROUPS.id = GEM_KEYWORD_TENDERS.category_group_id
             LEFT JOIN USERS
                 ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
             WHERE GEM_KEYWORD_TENDERS.end_date_time IS NOT NULL
@@ -285,11 +294,14 @@ export async function getGemKeywordTenderById({ id }) {
             SELECT
                 GEM_KEYWORD_TENDERS.*,
                 GEM_TENDER_KEYWORDS.keyword AS keyword,
+                GEM_CATEGORY_GROUPS.name AS category_group_name,
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email
             FROM GEM_KEYWORD_TENDERS
             LEFT JOIN GEM_TENDER_KEYWORDS
                 ON GEM_TENDER_KEYWORDS.id = GEM_KEYWORD_TENDERS.keyword_id
+            LEFT JOIN GEM_CATEGORY_GROUPS
+                ON GEM_CATEGORY_GROUPS.id = GEM_KEYWORD_TENDERS.category_group_id
             LEFT JOIN USERS
                 ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
             WHERE GEM_KEYWORD_TENDERS.id = ${id}
@@ -310,7 +322,13 @@ export async function updateGemKeywordTenderById({
     quote,
     stage,
     assignee_user_id = null,
+    category_group_id = null,
 }) {
+    const nextCategoryGroupId =
+        category_group_id != null && Number(category_group_id) >= 1
+            ? Number(category_group_id)
+            : null;
+
     await executeSQLQuery(
         (sql) => sql`
             UPDATE GEM_KEYWORD_TENDERS
@@ -320,12 +338,40 @@ export async function updateGemKeywordTenderById({
                 filed = ${!!filed},
                 quote = ${quote},
                 stage = ${stage},
-                assignee_user_id = ${assignee_user_id}
+                assignee_user_id = ${assignee_user_id},
+                category_group_id = ${nextCategoryGroupId}
             WHERE id = ${id}
         `,
     ).catch((error) => {
         logger.error(`updateGemKeywordTenderById: ${error}`);
     });
+}
+
+/** Set category_group_id only when currently null (used on re-scan). */
+export async function setGemKeywordTenderCategoryGroupIfNull({ id, category_group_id }) {
+    const groupId =
+        category_group_id != null && Number(category_group_id) >= 1
+            ? Number(category_group_id)
+            : null;
+    if (!(id >= 1) || groupId == null) {
+        return false;
+    }
+
+    try {
+        const result = await executeSQLQuery(
+            (sql) => sql`
+                UPDATE GEM_KEYWORD_TENDERS
+                SET category_group_id = ${groupId}
+                WHERE id = ${id}
+                  AND category_group_id IS NULL
+            `,
+        );
+        const affected = Number(result?.affectedRows ?? result?.changes ?? 0);
+        return Number.isFinite(affected) && affected > 0;
+    } catch (error) {
+        logger.error(`setGemKeywordTenderCategoryGroupIfNull: ${error}`);
+        return false;
+    }
 }
 
 /**
