@@ -431,7 +431,10 @@ export async function markPastNewUnassignedGemKeywordTendersUnattended({
     return dueIds.length;
 }
 
-/** Assigned (has assignee), not New/Unattended/Missed, past end → Missed + hidden. */
+/**
+ * Past deadline + assignee + stage in Assigned / Waiting for docs /
+ * Preparing docs / Eligible → Missed + hidden.
+ */
 export async function markPastAssignedGemKeywordTendersMissed({
     as_of_datetime = null,
 }) {
@@ -441,9 +444,12 @@ export async function markPastAssignedGemKeywordTendersMissed({
             SELECT id
             FROM GEM_KEYWORD_TENDERS
             WHERE assignee_user_id IS NOT NULL
-              AND stage <> ${GEM_KEYWORD_TENDER_STAGES.NEW}
-              AND stage <> ${GEM_KEYWORD_TENDER_STAGES.UNATTENDED}
-              AND stage <> ${GEM_KEYWORD_TENDER_STAGES.MISSED}
+              AND (
+                    stage = ${GEM_KEYWORD_TENDER_STAGES.ASSIGNED}
+                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_DOCS}
+                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS}
+                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.ELIGIBLE}
+              )
               AND end_date_time IS NOT NULL
               AND end_date_time < ${cutoff}
         `,

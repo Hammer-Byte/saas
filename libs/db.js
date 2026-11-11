@@ -593,7 +593,7 @@ export async function generateDBTables() {
               AND assignee_user_id IS NULL
               AND end_date_time IS NOT NULL
               AND end_date_time < NOW()`,
-        // Past-end assigned tenders that left New (not already unattended/missed).
+        // Past-end assigned tenders still in active work stages → Missed.
         `UPDATE GEM_KEYWORD_TENDERS
             SET
                 stage = 'missed',
@@ -601,9 +601,7 @@ export async function generateDBTables() {
                 filed = FALSE,
                 eligible = 'need_to_check'
             WHERE assignee_user_id IS NOT NULL
-              AND stage <> 'new'
-              AND stage <> 'unattended'
-              AND stage <> 'missed'
+              AND stage IN ('assigned', 'waiting_for_docs', 'preparing_docs', 'eligible')
               AND end_date_time IS NOT NULL
               AND end_date_time < NOW()`,
         `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDER_ACTIVITIES (
