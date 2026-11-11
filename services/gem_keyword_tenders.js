@@ -331,21 +331,35 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         };
     }
 
-    // When already assigned (or system-locked), only the assignee or a super admin may change stage.
-    if (stageChanging && (previousAssigneeUserId >= 1 || isSystemManagedStage(previousStage))) {
-        if (
-            !canOperateAssignedTender({
-                currentUser,
-                assigneeUserId: previousAssigneeUserId,
-                stage: previousStage,
-            })
-        ) {
-            set.status = 403;
-            return {
-                error: isSystemManagedStage(previousStage)
-                    ? "Only a super admin can change stage on Unattended or Missed tenders"
-                    : "Only the assignee or a super admin can change stage on an assigned tender",
-            };
+    // Explicit stage change from UI/API: require an assignee first, then only
+    // that assignee or a super admin. Auto stage bumps on assign/unassign are OK.
+    // Unattended/Missed remain super-admin-only (even if unassigned).
+    if (stageChanging && body.stage !== undefined) {
+        if (isSystemManagedStage(previousStage)) {
+            if (!currentUser.super_admin) {
+                set.status = 403;
+                return {
+                    error: "Only a super admin can change stage on Unattended or Missed tenders",
+                };
+            }
+        } else {
+            const stageAssigneeId = nextAssigneeUserId ?? previousAssigneeUserId;
+            if (!(stageAssigneeId >= 1)) {
+                set.status = 400;
+                return { error: "Assign someone before changing stage" };
+            }
+            if (
+                !canOperateAssignedTender({
+                    currentUser,
+                    assigneeUserId: stageAssigneeId,
+                    stage: previousStage,
+                })
+            ) {
+                set.status = 403;
+                return {
+                    error: "Only the assignee or a super admin can change stage",
+                };
+            }
         }
     }
 

@@ -79,7 +79,7 @@
     function canChangeStage() {
         if (isSystemManagedStage()) return isSuperAdmin;
         const assigneeUserId = Number(currentAssigneeId() || 0);
-        if (!(assigneeUserId >= 1)) return true;
+        if (!(assigneeUserId >= 1)) return false;
         return canOperateAssigned();
     }
 
@@ -158,7 +158,12 @@
         const previous = detail.dataset.stage || "new";
         const stage = stageSelect.value;
         if (!canChangeStage()) {
-            showAlert("Only the assignee or a super admin can change stage.", "danger");
+            showAlert(
+                currentAssigneeId()
+                    ? "Only the assignee or a super admin can change stage."
+                    : "Assign someone before changing stage.",
+                "danger",
+            );
             stageSelect.value = previous;
             return;
         }

@@ -25,7 +25,7 @@
         : isSuperAdmin || (assigneeUserId && assigneeUserId === currentUserId);
     const canChangeStage = isSystemManagedStage
         ? isSuperAdmin
-        : !assigneeUserId || canOperateAssigned;
+        : !!assigneeUserId && canOperateAssigned;
     const canEditQuote = quoteStageEnabled && canOperateAssigned;
     const canManageDocs = !!canManageDocuments;
     const canUseComments = !isSystemManagedStage || isSuperAdmin;
@@ -132,6 +132,8 @@
                         </select>
                         <% if (isSystemManagedStage && !isSuperAdmin) { %>
                             <p class="form-text mb-0">Only a super admin can change Unattended or Missed tenders.</p>
+                        <% } else if (!assigneeUserId && !isSystemManagedStage) { %>
+                            <p class="form-text mb-0">Assign someone before changing stage.</p>
                         <% } else if (assigneeUserId && !canChangeStage) { %>
                             <p class="form-text mb-0">Only the assignee or a super admin can change stage.</p>
                         <% } %>
