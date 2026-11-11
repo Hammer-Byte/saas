@@ -54,6 +54,9 @@ import { getClauseSubclausesByContractId } from "../db/clause_subclauses.js";
 import { getAllContractAttachments } from "../db/contract_attachments.js";
 import { getContractRequiredAttachmentsByContractId } from "../db/contract_required_attachments.js";
 import { getAllGemTenderKeywords } from "../db/gem_tender_keywords.js";
+import { getAllGemCategoryGroups } from "../db/gem_category_groups.js";
+import { getGemCategoriesByGroupId } from "../db/gem_categories.js";
+import { canUseGemCategories } from "../services/gem_categories.js";
 import {
     getAllGemKeywordTenders,
     getGemKeywordTenderById,
@@ -909,6 +912,29 @@ export const uiRoutes = new Elysia()
                     keywords: await getAllGemTenderKeywords(),
                     processing: gemTendereProcessing,
                 }));
+            })
+            .get("/app/gem-categories", async ({ render, session, redirect, query }) => {
+                if (!canUseGemCategories(session?.authorities)) {
+                    return redirect("/app/gem-tenders");
+                }
+                const groups = await getAllGemCategoryGroups();
+                const requestedGroupId = Number(query?.group_id || 0);
+                const selectedGroup =
+                    groups.find((group) => Number(group.id) === requestedGroupId) ||
+                    groups[0] ||
+                    null;
+                const categories = selectedGroup
+                    ? await getGemCategoriesByGroupId({ group_id: selectedGroup.id })
+                    : [];
+                return render(
+                    "gem-categories",
+                    appPage(session, {
+                        title: "Categories — GEM Tenders — HammerByte",
+                        groups,
+                        selectedGroup,
+                        categories,
+                    }),
+                );
             })
             .get("/app/gem-tender-scan-history", async ({ render, session, redirect }) => {
                 if (!hasAuthority(session?.authorities, AUTHORITIES.USE_PAGE_GEM_TENDER_KEYWORDS)) {

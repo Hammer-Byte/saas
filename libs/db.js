@@ -142,7 +142,6 @@ export async function generateDBTables() {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY unique_user_email (email)
         )`,
-        `ALTER TABLE USERS ADD COLUMN hourly_rate DECIMAL(10, 2) NULL`,
         `CREATE TABLE IF NOT EXISTS USER_AUTHENTICATION_TOKENS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,
@@ -406,8 +405,6 @@ export async function generateDBTables() {
                 ON DELETE RESTRICT
                 ON UPDATE CASCADE
         )`,
-        `ALTER TABLE INTERNAL_DOCUMENTS
-            ADD COLUMN visibility VARCHAR(16) NOT NULL DEFAULT 'restricted'`,
         `CREATE TABLE IF NOT EXISTS JOB_POSITIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(128) NOT NULL,
@@ -511,6 +508,24 @@ export async function generateDBTables() {
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_gem_tender_keyword (keyword)
         )`,
+        `CREATE TABLE IF NOT EXISTS GEM_CATEGORY_GROUPS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_gem_category_group_name (name)
+        )`,
+        `CREATE TABLE IF NOT EXISTS GEM_CATEGORIES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            group_id INT NOT NULL,
+            name VARCHAR(512) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_gem_category_group_name (group_id, name),
+            CONSTRAINT fk_gem_categories_group
+                FOREIGN KEY (group_id)
+                REFERENCES GEM_CATEGORY_GROUPS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
         `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             keyword_id INT NULL,
@@ -553,57 +568,6 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
-        // Migrate legacy GEM tender stages into the stage-centric workflow.
-        `UPDATE GEM_KEYWORD_TENDERS SET stage = 'out_of_scope' WHERE hidden = TRUE`,
-        `UPDATE GEM_KEYWORD_TENDERS SET stage = 'filed' WHERE hidden = FALSE AND filed = TRUE`,
-        `UPDATE GEM_KEYWORD_TENDERS SET stage = 'eligible' WHERE hidden = FALSE AND filed = FALSE AND eligible = 'eligible'`,
-        `UPDATE GEM_KEYWORD_TENDERS SET stage = 'not_eligible' WHERE hidden = FALSE AND filed = FALSE AND eligible = 'not_eligible'`,
-        `UPDATE GEM_KEYWORD_TENDERS SET hidden = TRUE WHERE stage IN ('out_of_scope', 'not_eligible')`,
-        `UPDATE GEM_KEYWORD_TENDERS
-            SET stage = 'assigned'
-            WHERE hidden = FALSE
-              AND filed = FALSE
-              AND eligible = 'need_to_check'
-              AND assignee_user_id IS NOT NULL`,
-        `UPDATE GEM_KEYWORD_TENDERS
-            SET stage = 'new'
-            WHERE hidden = FALSE
-              AND filed = FALSE
-              AND eligible = 'need_to_check'
-              AND assignee_user_id IS NULL
-              AND stage IN (
-                    'new',
-                    'work_in_progress',
-                    'requested_for_quote',
-                    'waiting_for_technical',
-                    'waiting_for_financial'
-              )`,
-        `UPDATE GEM_KEYWORD_TENDERS SET stage = 'assigned' WHERE stage = 'work_in_progress'`,
-        `UPDATE GEM_KEYWORD_TENDERS
-            SET stage = 'eligible'
-            WHERE stage IN ('requested_for_quote', 'waiting_for_technical', 'waiting_for_financial')`,
-        // Past-end New/unassigned tenders that were never claimed.
-        `UPDATE GEM_KEYWORD_TENDERS
-            SET
-                stage = 'unattended',
-                hidden = TRUE,
-                filed = FALSE,
-                eligible = 'need_to_check'
-            WHERE stage = 'new'
-              AND assignee_user_id IS NULL
-              AND end_date_time IS NOT NULL
-              AND end_date_time < NOW()`,
-        // Past-end assigned tenders still in active work stages → Missed.
-        `UPDATE GEM_KEYWORD_TENDERS
-            SET
-                stage = 'missed',
-                hidden = TRUE,
-                filed = FALSE,
-                eligible = 'need_to_check'
-            WHERE assignee_user_id IS NOT NULL
-              AND stage IN ('assigned', 'waiting_for_docs', 'preparing_docs', 'eligible')
-              AND end_date_time IS NOT NULL
-              AND end_date_time < NOW()`,
         `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDER_ACTIVITIES (
             id INT AUTO_INCREMENT PRIMARY KEY,
             gem_keyword_tender_id INT NOT NULL,
@@ -645,8 +609,6 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
-        `ALTER TABLE GEM_KEYWORD_TENDER_COMMENTS
-            ADD COLUMN media_id INT NULL`,
         `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDER_DOCUMENTS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             gem_keyword_tender_id INT NOT NULL,
@@ -697,12 +659,6 @@ export async function generateDBTables() {
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_automation_user_name (name)
         )`,
-        `ALTER TABLE AUTOMATION_USERS
-            ADD COLUMN youtube_channel_id VARCHAR(128) NULL`,
-        `ALTER TABLE AUTOMATION_USERS
-            ADD COLUMN linkedin_company_id VARCHAR(64) NULL`,
-        `ALTER TABLE AUTOMATION_USERS
-            ADD COLUMN instagram_user_id VARCHAR(64) NULL`,
         `CREATE TABLE IF NOT EXISTS CONTENT_PUBLISH_RUNS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             status VARCHAR(32) NOT NULL DEFAULT 'queued',
@@ -737,37 +693,6 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
-        // Existing installs may predate these columns (duplicate ADD is ignored).
-        `ALTER TABLE CONTENT_PUBLISH_RUN_TARGETS
-            ADD COLUMN screenshot_files TEXT NULL`,
-        `ALTER TABLE CONTENT_PUBLISH_RUNS
-            ADD COLUMN media_kind VARCHAR(16) NOT NULL DEFAULT 'image'`,
-        `ALTER TABLE CONTENT_PUBLISH_RUNS
-            ADD COLUMN source VARCHAR(32) NOT NULL DEFAULT 'user'`,
-        `ALTER TABLE CONTENT_PUBLISH_RUNS
-            ADD COLUMN application_id INT NULL`,
-        `ALTER TABLE CONTENT_PUBLISH_RUNS
-            ADD COLUMN application_service_id INT NULL`,
-        `ALTER TABLE CONTENT_PUBLISH_RUNS
-            ADD COLUMN scheduled_by_name VARCHAR(255) NULL`,
-        `ALTER TABLE CONTENT_PUBLISH_RUNS
-            ADD COLUMN run_options TEXT NULL`,
-        `ALTER TABLE CONTENT_PUBLISH_RUNS
-            MODIFY COLUMN automation_user_id INT NULL`,
-        // Backfill legacy single screenshot_file into screenshot_files, then drop unused columns.
-        `UPDATE CONTENT_PUBLISH_RUN_TARGETS
-            SET screenshot_files = CONCAT('["', screenshot_file, '"]')
-            WHERE screenshot_file IS NOT NULL
-              AND screenshot_file != ''
-              AND (screenshot_files IS NULL OR screenshot_files = '')`,
-        `ALTER TABLE CONTENT_PUBLISH_RUN_TARGETS
-            DROP COLUMN screenshot_file`,
-        `ALTER TABLE CONTENT_PUBLISH_RUNS
-            DROP COLUMN instagram_hashtags`,
-        `ALTER TABLE CONTENT_PUBLISH_RUNS
-            DROP COLUMN facebook_caption`,
-        `ALTER TABLE AUTOMATION_USERS
-            DROP COLUMN facebook_cookie`,
         `CREATE TABLE IF NOT EXISTS LINKEDIN_DESIGNATIONS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
@@ -892,6 +817,12 @@ export async function generateDBTables() {
             last_sync_status VARCHAR(16) NULL,
             last_sync_summary VARCHAR(512) NULL,
             alert BOOLEAN NOT NULL DEFAULT FALSE,
+            alert_cpu_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+            alert_cpu_percent INT NOT NULL DEFAULT 80,
+            alert_memory_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+            alert_memory_percent INT NOT NULL DEFAULT 80,
+            alert_ping_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+            alert_ping_seconds INT NOT NULL DEFAULT 180,
             active BOOLEAN NOT NULL DEFAULT TRUE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -902,21 +833,6 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
-        `ALTER TABLE SERVERS ADD COLUMN last_sync_at DATETIME NULL`,
-        `ALTER TABLE SERVERS ADD COLUMN last_sync_status VARCHAR(16) NULL`,
-        `ALTER TABLE SERVERS ADD COLUMN last_sync_summary VARCHAR(512) NULL`,
-        `ALTER TABLE SERVERS ADD COLUMN alert BOOLEAN NOT NULL DEFAULT FALSE`,
-        `ALTER TABLE SERVERS ADD COLUMN alert_cpu_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
-        `ALTER TABLE SERVERS ADD COLUMN alert_cpu_percent INT NOT NULL DEFAULT 80`,
-        `ALTER TABLE SERVERS ADD COLUMN alert_memory_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
-        `ALTER TABLE SERVERS ADD COLUMN alert_memory_percent INT NOT NULL DEFAULT 80`,
-        `ALTER TABLE SERVERS ADD COLUMN alert_ping_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
-        `ALTER TABLE SERVERS ADD COLUMN alert_ping_seconds INT NOT NULL DEFAULT 180`,
-        `UPDATE SERVERS
-            SET alert_memory_enabled = TRUE,
-                alert_memory_percent = 90
-            WHERE alert = TRUE
-              AND alert_memory_enabled = FALSE`,
         `CREATE TABLE IF NOT EXISTS SERVER_METRICS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             server_id INT NOT NULL,
@@ -989,27 +905,6 @@ export async function generateDBTables() {
             INDEX idx_tasks_end_at (end_at),
             INDEX idx_tasks_sprint_week_start (sprint_week_start)
         )`,
-        `ALTER TABLE TASKS ADD COLUMN cost DECIMAL(10, 2) NULL`,
-        `ALTER TABLE TASKS ADD COLUMN charge DECIMAL(10, 2) NULL`,
-        `ALTER TABLE TASKS ADD COLUMN customer_invoice_id INT NULL`,
-        `ALTER TABLE TASKS ADD COLUMN invoice_item_id INT NULL`,
-        // Tasks with no sprint week are backlog.
-        `UPDATE TASKS
-            SET state = 'backlog'
-            WHERE sprint_week_start IS NULL
-              AND state <> 'backlog'`,
-        `ALTER TABLE TASKS
-            ADD CONSTRAINT fk_tasks_customer_invoice
-            FOREIGN KEY (customer_invoice_id)
-            REFERENCES CUSTOMER_INVOICES(id)
-            ON DELETE SET NULL
-            ON UPDATE CASCADE`,
-        `ALTER TABLE TASKS
-            ADD CONSTRAINT fk_tasks_invoice_item
-            FOREIGN KEY (invoice_item_id)
-            REFERENCES INVOICE_ITEMS(id)
-            ON DELETE SET NULL
-            ON UPDATE CASCADE`,
         `CREATE TABLE IF NOT EXISTS TASK_EFFORTS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             task_id INT NOT NULL,
@@ -1160,7 +1055,6 @@ export async function generateDBTables() {
             FROM ROLES
             CROSS JOIN AUTHORITIES
             WHERE ROLES.title = 'ADMIN';`,
-        `UPDATE USERS SET super_admin = TRUE WHERE email = 'support@hammerbyte.co.in';`,
         `INSERT IGNORE INTO USER_ROLES (user_id, role_id)
             SELECT USERS.id, ROLES.id
             FROM USERS
@@ -1173,11 +1067,9 @@ export async function generateDBTables() {
             await dbConnection.unsafe(table);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            // Ignore idempotent migration noise on already-migrated DBs.
+            // Ignore idempotent noise (e.g. duplicate key name on fresh vs existing).
             if (
-                !/duplicate column name|check that column\/key exists|can't drop|unknown column|duplicate (foreign )?key|already exists/i.test(
-                    message,
-                )
+                !/duplicate (foreign )?key|already exists/i.test(message)
             ) {
                 throw error;
             }

@@ -38,6 +38,22 @@
                 </a>
             </div>
             <% } %>
+            <% if (
+                (authorities || []).includes(AUTHORITIES.USE_PAGE_GEM_CATEGORIES) ||
+                (authorities || []).includes(AUTHORITIES.USE_PAGE_GEM_TENDER_KEYWORDS)
+            ) { %>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="/app/gem-categories" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">C</div>
+                            <h2 class="h5 text-dark mb-2">Categories</h2>
+                            <p class="text-secondary small mb-0">Manage category groups and GeM categories independently of keywords.</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <% } %>
             <div class="col-12 col-sm-6 col-lg-3">
                 <a href="/app/gem-keyword-tenders" class="text-decoration-none">
                     <div class="card border-0 shadow-sm h-100 app-section-card">

@@ -1,0 +1,213 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/gem-tenders" class="text-decoration-none">GEM Tenders</a> /
+                Categories
+            </p>
+            <h1 class="h3 mb-1">Categories</h1>
+            <p class="text-secondary mb-0">
+                Manage category groups and categories. Independent from keywords for now.
+            </p>
+        </div>
+
+        <div id="gem-categories-alert" class="alert d-none" role="alert"></div>
+
+        <div class="row g-4">
+            <div class="col-12 col-lg-4">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <h2 class="h5 mb-3">Category groups</h2>
+                        <form id="gem-group-form" class="row g-2 align-items-end" novalidate>
+                            <input type="hidden" id="gem-group-id" value="" />
+                            <div class="col-12">
+                                <label for="gem-group-name" class="form-label">Group name</label>
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    id="gem-group-name"
+                                    maxlength="255"
+                                    placeholder="e.g. Desktops"
+                                    required
+                                />
+                            </div>
+                            <div class="col-12 d-flex gap-2">
+                                <button type="submit" class="btn btn-primary" id="gem-group-submit-btn">
+                                    Add group
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary d-none" id="gem-group-cancel-btn">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="list-group list-group-flush" id="gem-groups-list">
+                        <% if (!groups || !groups.length) { %>
+                            <div class="p-4 text-secondary" id="gem-groups-empty">
+                                No groups yet. Add one above.
+                            </div>
+                        <% } %>
+                        <% (groups || []).forEach(function (group) { %>
+                            <% const isSelected = selectedGroup && Number(selectedGroup.id) === Number(group.id); %>
+                            <div
+                                class="list-group-item list-group-item-action gem-group-item <%= isSelected ? 'active' : '' %>"
+                                data-id="<%= group.id %>"
+                                data-name="<%= group.name %>"
+                            >
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <button
+                                        type="button"
+                                        class="btn btn-link text-decoration-none text-start p-0 flex-grow-1 gem-group-select-btn <%= isSelected ? 'text-white' : '' %>"
+                                    >
+                                        <div class="fw-semibold"><%= group.name %></div>
+                                        <div class="small <%= isSelected ? 'text-white-50' : 'text-secondary' %>">
+                                            <%= Number(group.category_count || 0) %> categories
+                                        </div>
+                                    </button>
+                                    <div class="btn-group btn-group-sm">
+                                        <button
+                                            type="button"
+                                            class="btn <%= isSelected ? 'btn-outline-light' : 'btn-outline-secondary' %> gem-group-edit-btn"
+                                            title="Edit group"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn <%= isSelected ? 'btn-outline-light' : 'btn-outline-danger' %> gem-group-delete-btn"
+                                            title="Delete group"
+                                        >
+                                            Del
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-8">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <h2 class="h5 mb-1">
+                            Categories
+                            <% if (selectedGroup) { %>
+                                <span class="text-secondary fw-normal">in <%= selectedGroup.name %></span>
+                            <% } %>
+                        </h2>
+                        <p class="text-secondary small mb-3">
+                            <% if (selectedGroup) { %>
+                                Add GeM category names under this group.
+                            <% } else { %>
+                                Create a group first, then add categories.
+                            <% } %>
+                        </p>
+                        <form id="gem-category-form" class="row g-2 align-items-end" novalidate>
+                            <input type="hidden" id="gem-category-id" value="" />
+                            <div class="col-md-8">
+                                <label for="gem-category-name" class="form-label">Category name</label>
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    id="gem-category-name"
+                                    maxlength="512"
+                                    placeholder="e.g. High End Desktop Computer"
+                                    <%= selectedGroup ? '' : 'disabled' %>
+                                    required
+                                />
+                            </div>
+                            <div class="col-md-4 d-flex gap-2">
+                                <button
+                                    type="submit"
+                                    class="btn btn-primary flex-grow-1"
+                                    id="gem-category-submit-btn"
+                                    <%= selectedGroup ? '' : 'disabled' %>
+                                >
+                                    Add category
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary d-none" id="gem-category-cancel-btn">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div
+                            id="gem-categories-empty"
+                            class="p-4 p-md-5 text-center text-secondary <%= categories && categories.length ? 'd-none' : '' %>"
+                        >
+                            <% if (!selectedGroup) { %>
+                                Select or create a group to manage categories.
+                            <% } else { %>
+                                No categories in this group yet.
+                            <% } %>
+                        </div>
+                        <div
+                            class="table-responsive <%= !categories || !categories.length ? 'd-none' : '' %>"
+                            id="gem-categories-table-wrap"
+                        >
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th scope="col">ID</th>
+                                        <th scope="col">Category</th>
+                                        <th scope="col">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="gem-categories-tbody">
+                                    <% (categories || []).forEach(function (category) { %>
+                                        <tr data-id="<%= category.id %>" data-name="<%= category.name %>">
+                                            <td><%= category.id %></td>
+                                            <td><%= category.name %></td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-outline-primary gem-category-edit-btn">
+                                                    Edit
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger gem-category-delete-btn">
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    window.__GEM_CATEGORIES_PAGE__ = {
+        selectedGroupId: <%= selectedGroup ? Number(selectedGroup.id) : 'null' %>,
+    };
+</script>
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/gem-categories.js" defer></script>
+<%- include('common/footer') %>
