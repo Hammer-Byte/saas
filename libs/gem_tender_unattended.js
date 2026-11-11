@@ -5,9 +5,9 @@ import {
 } from "../db/gem_keyword_tenders.js";
 import { getIstDateTime } from "./date.js";
 
-// Check often, but only mark at most twice per day (~every 12 hours).
-const CHECK_INTERVAL_MS = 30 * 60 * 1000;
-const RUN_EVERY_MS = 12 * 60 * 60 * 1000;
+// One cycle every hour: mark both Unattended and Missed.
+const CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const RUN_EVERY_MS = 60 * 60 * 1000;
 
 let lastRunAt = 0;
 
