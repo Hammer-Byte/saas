@@ -10,10 +10,10 @@ import {
 } from "../../db/gem_keyword_tenders.js";
 
 const DELAY_SHORT = 1000;
-const DELAY_MEDIUM = 2500;
 
 const GEM_URL = "https://bidplus.gem.gov.in";
 const TENDERS_DIRECTORY = "downloaded_tenders";
+const GEM_BID_OR_RA_NUMBER = /^GEM\/\d{4}\/[BR]\/\d+$/i;
 
 const TENDER_DETAIL_REGEXES = {
     EMAIL: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
@@ -140,7 +140,7 @@ const downloadTender = async (driver, tender) => {
 
 const goToNextPage = async (driver, page) => {
     await page.clickNextPage();
-    await sleep(driver, DELAY_MEDIUM);
+    await page.waitForSearchSettled();
     await page.bidCardContainer();
 };
 
@@ -951,21 +951,36 @@ export const searchTendersByKeyword = async (
 
     await page.open();
 
-    if (exact_search) {
-        logger.info(`Exact search enabled for keyword: ${searchKeyword}`);
-        await page.clickElement(await page.searchTypeDropdown());
-        await page.clickElement(await page.exactSearchOption());
+    if (GEM_BID_OR_RA_NUMBER.test(searchKeyword)) {
+        logger.info(`Advance-search by Bid/RA number: ${searchKeyword}`);
+        await page.setBidNumber(searchKeyword);
     } else {
-        logger.info(`Contains/default search for keyword: ${searchKeyword}`);
+        await page.clearBidNumber();
+        const categoryMatch = await page.selectCategoryByKeyword(
+            searchKeyword,
+            !!exact_search,
+        );
+        if (!categoryMatch?.ok) {
+            logger.info(
+                `No GeM category match for keyword: ${searchKeyword}` +
+                    (exact_search ? " (exact)" : ""),
+            );
+            return 0;
+        }
+
+        logger.info(
+            `Advance-search category selected for keyword "${searchKeyword}": ${categoryMatch.text}`,
+        );
     }
 
-    const searchInput = await page.searchInput();
-    await searchInput.clear();
-    await searchInput.sendKeys(searchKeyword);
-
-    await page.clickElement(await page.searchButton());
-    await sleep(driver, DELAY_MEDIUM);
+    await page.clickSearch();
+    await page.waitForSearchSettled();
     await page.bidCardContainer();
+
+    if (await page.isNoDataFoundVisible()) {
+        logger.info(`No tenders found for keyword: ${searchKeyword}`);
+        return 0;
+    }
 
     if (!(await page.isPaginationVisible())) {
         logger.info(`No tenders found for keyword: ${searchKeyword}`);

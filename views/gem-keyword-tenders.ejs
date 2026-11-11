@@ -893,7 +893,7 @@
                 </div>
                 <div class="modal-body">
                     <p class="text-secondary small">
-                        Enter one GeM search text or tender number per line. Matching tenders will be scanned and added. These searches are not saved as keywords.
+                        Enter one GeM category name or Bid/RA number per line. Matching tenders will be scanned and added. These searches are not saved as keywords.
                     </p>
                     <div class="mb-3">
                         <label for="gem-add-tender-query" class="form-label">Search texts</label>
@@ -901,11 +901,11 @@
                             class="form-control"
                             id="gem-add-tender-query"
                             rows="6"
-                            placeholder="Desktop Computer&#10;GEM/2024/B/1234567&#10;Laptop"
+                            placeholder="Custom Bid for Services&#10;GEM/2024/B/1234567&#10;Desktop Computers"
                             required
                             autocomplete="off"
                         ></textarea>
-                        <div class="form-text">One entry per line. Max 50 lines.</div>
+                        <div class="form-text">One category or Bid/RA number per line. Max 50 lines.</div>
                     </div>
                     <% if (super_admin) { %>
                         <div class="form-check">
@@ -915,7 +915,7 @@
                                 id="gem-add-tender-exact-search"
                             />
                             <label class="form-check-label" for="gem-add-tender-exact-search">
-                                Exact search
+                                Exact category
                             </label>
                         </div>
                     <% } %>
