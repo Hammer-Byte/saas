@@ -137,6 +137,7 @@ export async function generateDBTables() {
             login_method VARCHAR(16) NOT NULL DEFAULT 'otp',
             password_hash VARCHAR(255) NULL,
             hourly_rate DECIMAL(10, 2) NULL,
+            login_active BOOLEAN NOT NULL DEFAULT TRUE,
             super_admin BOOLEAN NOT NULL DEFAULT FALSE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -445,6 +446,10 @@ export async function generateDBTables() {
             signing_code VARCHAR(8) NOT NULL,
             active BOOLEAN NOT NULL DEFAULT TRUE,
             signable_till DATETIME NOT NULL,
+            broken BOOLEAN NOT NULL DEFAULT FALSE,
+            break_date DATETIME NULL,
+            broken_by VARCHAR(16) NULL,
+            broken_at DATETIME NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )`,
@@ -501,13 +506,6 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS GEM_TENDER_KEYWORDS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            keyword VARCHAR(255) NOT NULL,
-            exact_search BOOLEAN NOT NULL DEFAULT FALSE,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_gem_tender_keyword (keyword)
-        )`,
         `CREATE TABLE IF NOT EXISTS GEM_CATEGORY_GROUPS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
@@ -528,7 +526,6 @@ export async function generateDBTables() {
         )`,
         `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            keyword_id INT NULL,
             category_group_id INT NULL,
             tender_id VARCHAR(128) NOT NULL,
             document VARCHAR(512) NULL,
@@ -557,12 +554,7 @@ export async function generateDBTables() {
             stage VARCHAR(64) NOT NULL DEFAULT 'new',
             assignee_user_id INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_gem_keyword_tender (keyword_id, tender_id),
-            CONSTRAINT fk_gem_keyword_tenders_keyword
-                FOREIGN KEY (keyword_id)
-                REFERENCES GEM_TENDER_KEYWORDS(id)
-                ON DELETE SET NULL
-                ON UPDATE CASCADE,
+            UNIQUE KEY unique_gem_keyword_tender (tender_id),
             CONSTRAINT fk_gem_keyword_tenders_category_group
                 FOREIGN KEY (category_group_id)
                 REFERENCES GEM_CATEGORY_GROUPS(id)

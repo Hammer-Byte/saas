@@ -70,6 +70,23 @@ export async function updateContractById({
     });
 }
 
+export async function breakContractById({ id, break_date, broken_by, broken_at }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE CONTRACTS
+            SET
+                broken = TRUE,
+                break_date = ${toDbDateTime(break_date)},
+                broken_by = ${broken_by},
+                broken_at = ${toDbDateTime(broken_at)},
+                active = FALSE
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`breakContractById: ${error}`);
+    });
+}
+
 export async function deleteContractById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM CONTRACTS WHERE id = ${id}`).catch((error) => {
         logger.error(`deleteContractById: ${error}`);

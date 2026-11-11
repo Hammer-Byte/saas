@@ -47,7 +47,7 @@ import {
     getInvoicePaymentsByCreatedOnRange,
     getInvoicePaymentsByCustomerInvoiceId,
 } from "../db/invoice_payments.js";
-import { getAllUsers } from "../db/users.js";
+import { getAllUsers, getUserByEmail } from "../db/users.js";
 import { getAllContracts, getContractById, getContractBySigningCode } from "../db/contracts.js";
 import { getContractClausesByContractId } from "../db/contract_clauses.js";
 import { getClauseSubclausesByContractId } from "../db/clause_subclauses.js";
@@ -73,6 +73,8 @@ import { canManageInternalDocuments } from "../services/internal_documents.js";
 import { getMaxRequestBodySize } from "../libs/upload_limits.js";
 import {
     AUTHORITIES,
+    CONTRACT_BROKEN_BY,
+    CONTRACT_BROKEN_BY_LABELS,
     GEM_KEYWORD_TENDER_PIPELINE_STAGES,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
     GEM_KEYWORD_TENDER_TERMINAL_STAGES,
@@ -122,11 +124,28 @@ import { processing as gemTendereProcessing } from "../libs/tenderer.js";
 import { processing as linkedinProcessing } from "../libs/linkedin_browser.js";
 import {
     buildSprintWeekOptions,
+    getIstDateTime,
     getMondayDate,
     getReadableDate,
     getSundayDate,
     parseQueryDate,
 } from "../libs/date.js";
+
+function defaultDateRangeDays({ daysAhead = 7 } = {}) {
+    const todayIst = getIstDateTime()?.slice(0, 10);
+    if (!todayIst) {
+        return { from: null, to: null };
+    }
+    const [year, month, day] = todayIst.split("-").map(Number);
+    // Calendar math in UTC so wall-clock IST date parts stay stable.
+    const end = new Date(Date.UTC(year, month - 1, day + daysAhead));
+    const to = [
+        end.getUTCFullYear(),
+        `${end.getUTCMonth() + 1}`.padStart(2, "0"),
+        `${end.getUTCDate()}`.padStart(2, "0"),
+    ].join("-");
+    return { from: todayIst, to };
+}
 import { formatContractCreatedOn } from "../libs/contractor.js";
 import { isContractSigned } from "../services/contracts.js";
 
@@ -865,6 +884,10 @@ export const uiRoutes = new Elysia()
                 const requiredAttachments = await getContractRequiredAttachmentsByContractId({
                     contract_id: contract.id,
                 });
+                const contractEmail = String(contract.email || "").trim().toLowerCase();
+                const existingUserForEmail = contractEmail
+                    ? await getUserByEmail({ email: contractEmail })
+                    : null;
 
                 return render("contract", appPage(session, {
                     title: `Contract #${contract.id} — HammerByte`,
@@ -872,6 +895,12 @@ export const uiRoutes = new Elysia()
                     attachments: await getAllContractAttachments(),
                     required_attachments: requiredAttachments,
                     is_signed: isContractSigned(requiredAttachments),
+                    user_exists_for_email: !!existingUserForEmail,
+                    allRoles: await getAllRoles(),
+                    USER_LOGIN_METHODS,
+                    USER_LOGIN_METHOD_LABELS,
+                    CONTRACT_BROKEN_BY,
+                    CONTRACT_BROKEN_BY_LABELS,
                     clauses: clauses.map((clause) => ({
                         ...clause,
                         subclauses: subclauses.filter(
@@ -907,9 +936,12 @@ export const uiRoutes = new Elysia()
                     title: "GEM Tenders — HammerByte",
                 })),
             )
-            .get("/app/gem-tender-keywords", ({ redirect }) => redirect("/app/gem-categories"))
             .get("/app/gem-categories", async ({ render, session, redirect, query }) => {
-                if (!canUseGemCategories(session?.authorities)) {
+                if (
+                    !canUseGemCategories(session?.authorities, {
+                        super_admin: session?.super_admin,
+                    })
+                ) {
                     return redirect("/app/gem-tenders");
                 }
                 const groups = await getAllGemCategoryGroups();
@@ -936,8 +968,9 @@ export const uiRoutes = new Elysia()
             })
             .get("/app/gem-tender-scan-history", async ({ render, session, redirect }) => {
                 if (
-                    !canUseGemCategories(session?.authorities) &&
-                    !hasAuthority(session?.authorities, AUTHORITIES.USE_PAGE_GEM_TENDER_KEYWORDS)
+                    !canUseGemCategories(session?.authorities, {
+                        super_admin: session?.super_admin,
+                    })
                 ) {
                     return redirect("/app/gem-tenders");
                 }
@@ -947,17 +980,11 @@ export const uiRoutes = new Elysia()
                 }));
             })
             .get("/app/gem-keyword-tenders", async ({ render, session, query }) => {
-                const now = new Date();
-                const defaultFrom = getReadableDate("YYYY-MM-DD", now);
-                const defaultTo = getReadableDate(
-                    "YYYY-MM-DD",
-                    new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7),
-                );
-
+                const defaults = defaultDateRangeDays({ daysAhead: 7 });
                 const from =
-                    parseQueryDate(query.from) || defaultFrom;
+                    parseQueryDate(query.from) || defaults.from;
                 const to =
-                    parseQueryDate(query.to) || defaultTo;
+                    parseQueryDate(query.to) || defaults.to;
 
                 const rangeFrom = from <= to ? from : to;
                 const rangeTo = from <= to ? to : from;
@@ -977,17 +1004,11 @@ export const uiRoutes = new Elysia()
                 }));
             })
             .get("/app/gem-keyword-tender-report", async ({ render, session, query }) => {
-                const now = new Date();
-                const defaultFrom = getReadableDate("YYYY-MM-DD", now);
-                const defaultTo = getReadableDate(
-                    "YYYY-MM-DD",
-                    new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7),
-                );
-
+                const defaults = defaultDateRangeDays({ daysAhead: 7 });
                 const from =
-                    parseQueryDate(query.from) || defaultFrom;
+                    parseQueryDate(query.from) || defaults.from;
                 const to =
-                    parseQueryDate(query.to) || defaultTo;
+                    parseQueryDate(query.to) || defaults.to;
 
                 const rangeFrom = from <= to ? from : to;
                 const rangeTo = from <= to ? to : from;

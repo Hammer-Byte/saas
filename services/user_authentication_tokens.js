@@ -1,6 +1,6 @@
 import { filer, logger } from "@hammerbyte/utils";
 import { ERRORS, USER_LOGIN_METHODS } from "../constants.js";
-import { getUserByEmail } from "../db/users.js";
+import { getUserByEmail, getUserById } from "../db/users.js";
 import {
     createUserAuthenticationToken,
     getUserAuthenticationTokenByTokenAndOtp,
@@ -17,6 +17,11 @@ export async function addUserAuthenticationToken({ body, set }) {
     if (!user) {
         set.status = 404;
         return { error: ERRORS.NO_SUCH_USER };
+    }
+
+    if (!user.login_active) {
+        set.status = 403;
+        return { error: ERRORS.LOGIN_BLOCKED };
     }
 
     const loginMethod = user.login_method || USER_LOGIN_METHODS.OTP;
@@ -64,6 +69,12 @@ export async function updateUserAuthenticationToken({ body, cookie, set }) {
     if (!existingUserAuthenticationToken) {
         set.status = 401;
         return { error: ERRORS.INVALID_OTP };
+    }
+
+    const user = await getUserById({ id: existingUserAuthenticationToken.user_id });
+    if (!user || !user.login_active) {
+        set.status = 403;
+        return { error: ERRORS.LOGIN_BLOCKED };
     }
 
     await updateUserAuthenticationTokenActiveById({

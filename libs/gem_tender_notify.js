@@ -4,6 +4,7 @@ import {
     GEM_KEYWORD_TENDER_STAGES,
 } from "../constants.js";
 import { getAllSuperAdminUsers } from "../db/users.js";
+import { getReadableDate } from "./date.js";
 import transporter from "./transporter.js";
 
 function stageLabel(stage) {
@@ -34,9 +35,10 @@ export function notifyGemKeywordTenderAssigned({
             assignee_name: assigneeName,
             assigned_by_name: assignedByName,
             tender_id: tender.tender_id || "—",
-            keyword: tender.keyword || "—",
+            category_group_name: tender.category_group_name || "—",
             stage: stageLabel(tender.stage),
-            end_date_time: tender.end_date_time || "—",
+            end_date_time:
+                getReadableDate("DD/MM/YYYY HH:mm:ss", tender.end_date_time) || "—",
             record_id: tender.id,
             app_name: "HammerByte",
         });
@@ -99,8 +101,10 @@ export async function notifyGemKeywordTenderQuoteRequested({
                 requested_by_name: requestedByName,
                 assignee_name: assigneeName,
                 tender_id: tender.tender_id || "—",
-                keyword: tender.keyword || "—",
-                end_date_time: tender.end_date_time || "—",
+                category_group_name: tender.category_group_name || "—",
+                end_date_time:
+                    getReadableDate("DD/MM/YYYY HH:mm:ss", tender.end_date_time) ||
+                    "—",
                 record_id: tender.id,
                 app_name: "HammerByte",
             });

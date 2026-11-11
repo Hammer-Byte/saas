@@ -25,11 +25,11 @@ import { hasAuthority } from "../libs/app_page.js";
 import { crawlGemForTenders, processing } from "../libs/tenderer.js";
 import { getCurrentUser } from "./authentication.js";
 
-export function canUseGemCategories(authorities) {
-    return (
-        hasAuthority(authorities, AUTHORITIES.USE_PAGE_GEM_CATEGORIES) ||
-        hasAuthority(authorities, AUTHORITIES.USE_PAGE_GEM_TENDER_KEYWORDS)
-    );
+export function canUseGemCategories(authorities, { super_admin = false } = {}) {
+    if (super_admin) {
+        return true;
+    }
+    return hasAuthority(authorities, AUTHORITIES.USE_PAGE_GEM_CATEGORIES);
 }
 
 async function requireGemCategoriesAuthority({ cookie, set }) {
@@ -38,7 +38,11 @@ async function requireGemCategoriesAuthority({ cookie, set }) {
         set.status = 401;
         return null;
     }
-    if (!canUseGemCategories(currentUser.authorities)) {
+    if (
+        !canUseGemCategories(currentUser.authorities, {
+            super_admin: currentUser.super_admin,
+        })
+    ) {
         set.status = 403;
         return null;
     }
@@ -269,7 +273,6 @@ export async function startGemCategoryScan({ body, cookie, set }) {
     }
 
     const keywords = categories.map((category) => ({
-        id: null,
         keyword: category.name,
         exact_search: false,
         category_group_id: Number(category.group_id),

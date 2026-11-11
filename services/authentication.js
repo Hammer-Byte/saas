@@ -75,6 +75,11 @@ export async function getLoginMethod({ body, set }) {
         return { error: ERRORS.NO_SUCH_USER };
     }
 
+    if (!user.login_active) {
+        set.status = 403;
+        return { error: ERRORS.LOGIN_BLOCKED };
+    }
+
     set.status = 200;
     return {
         login_method: user.login_method || USER_LOGIN_METHODS.OTP,
@@ -89,6 +94,11 @@ export async function loginWithPassword({ body, cookie, set }) {
     if (!user) {
         set.status = 401;
         return { error: ERRORS.INVALID_PASSWORD };
+    }
+
+    if (!user.login_active) {
+        set.status = 403;
+        return { error: ERRORS.LOGIN_BLOCKED };
     }
 
     const loginMethod = user.login_method || USER_LOGIN_METHODS.OTP;

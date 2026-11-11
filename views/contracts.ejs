@@ -59,11 +59,15 @@
                                             Number(contract.required_attachments_count) > 0 &&
                                             Number(contract.required_attachments_count) ===
                                                 Number(contract.attached_media_count);
+                                        const isBroken = !!(contract.broken && contract.broken !== 0);
                                     %>
                                     <tr>
                                         <td><%= contract.full_name %></td>
                                         <td><%= contract.company || "-" %></td>
                                         <td>
+                                            <% if (isBroken) { %>
+                                                <span class="badge text-bg-danger">Broken</span>
+                                            <% } %>
                                             <% if (isSigned) { %>
                                                 <span class="badge text-bg-success">Signed</span>
                                             <% } else { %>

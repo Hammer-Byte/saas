@@ -20,7 +20,6 @@ function serializeSpecificationLinks(specification_links) {
 }
 
 export async function createGemKeywordTender({
-    keyword_id,
     category_group_id = null,
     tender_id,
     document = null,
@@ -53,7 +52,6 @@ export async function createGemKeywordTender({
         (sql) => sql`
             INSERT INTO GEM_KEYWORD_TENDERS ${sql(
                 {
-                    keyword_id,
                     category_group_id:
                         category_group_id != null && Number(category_group_id) >= 1
                             ? Number(category_group_id)
@@ -78,7 +76,6 @@ export async function createGemKeywordTender({
                     quantity: safeQuantity,
                     emd_amount: safeEmdAmount,
                 },
-                "keyword_id",
                 "category_group_id",
                 "tender_id",
                 "document",
@@ -181,74 +178,6 @@ export async function getGemKeywordTenderByTenderId({ tender_id }) {
         });
 }
 
-function getMonthRange(month) {
-    const match = String(month || "").match(/^(\d{4})-(\d{2})$/);
-    if (!match) {
-        return null;
-    }
-
-    const year = Number(match[1]);
-    const monthNumber = Number(match[2]);
-    if (monthNumber < 1 || monthNumber > 12) {
-        return null;
-    }
-
-    const lastDay = new Date(year, monthNumber, 0).getDate();
-    return {
-        start: `${match[1]}-${match[2]}-01 00:00:00`,
-        end: `${match[1]}-${match[2]}-${String(lastDay).padStart(2, "0")} 23:59:59`,
-    };
-}
-
-/** Detach tenders from keywords before keyword delete (keeps rows even if FK is CASCADE). */
-export async function clearKeywordIdOnGemKeywordTendersByKeywordIds({ keyword_ids }) {
-    const ids = [
-        ...new Set(
-            (Array.isArray(keyword_ids) ? keyword_ids : [])
-                .map((id) => Number(id))
-                .filter((id) => id >= 1),
-        ),
-    ];
-    if (!ids.length) {
-        return;
-    }
-
-    await executeSQLQuery(
-        (sql) => sql`
-            UPDATE GEM_KEYWORD_TENDERS
-            SET keyword_id = NULL
-            WHERE keyword_id IN ${sql(ids)}
-        `,
-    ).catch((error) => {
-        logger.error(`clearKeywordIdOnGemKeywordTendersByKeywordIds: ${error}`);
-    });
-}
-
-export async function getGemKeywordTendersByKeywordId({ keyword_id, month }) {
-    const range = getMonthRange(month);
-    if (!range) {
-        return [];
-    }
-
-    return await executeSQLQuery(
-        (sql) => sql`
-            SELECT *
-            FROM GEM_KEYWORD_TENDERS
-            WHERE keyword_id = ${keyword_id}
-              AND hidden = FALSE
-              AND end_date_time IS NOT NULL
-              AND end_date_time >= ${range.start}
-              AND end_date_time <= ${range.end}
-            ORDER BY end_date_time ASC, id DESC
-        `,
-    )
-        .then((result) => Array.from(result ?? []))
-        .catch((error) => {
-            logger.error(`getGemKeywordTendersByKeywordId: ${error}`);
-            return [];
-        });
-}
-
 export async function getAllGemKeywordTenders({ from, to }) {
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
     if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {
@@ -264,13 +193,10 @@ export async function getAllGemKeywordTenders({ from, to }) {
         (sql) => sql`
             SELECT
                 GEM_KEYWORD_TENDERS.*,
-                GEM_TENDER_KEYWORDS.keyword AS keyword,
                 GEM_CATEGORY_GROUPS.name AS category_group_name,
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email
             FROM GEM_KEYWORD_TENDERS
-            LEFT JOIN GEM_TENDER_KEYWORDS
-                ON GEM_TENDER_KEYWORDS.id = GEM_KEYWORD_TENDERS.keyword_id
             LEFT JOIN GEM_CATEGORY_GROUPS
                 ON GEM_CATEGORY_GROUPS.id = GEM_KEYWORD_TENDERS.category_group_id
             LEFT JOIN USERS
@@ -293,13 +219,10 @@ export async function getGemKeywordTenderById({ id }) {
         (sql) => sql`
             SELECT
                 GEM_KEYWORD_TENDERS.*,
-                GEM_TENDER_KEYWORDS.keyword AS keyword,
                 GEM_CATEGORY_GROUPS.name AS category_group_name,
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email
             FROM GEM_KEYWORD_TENDERS
-            LEFT JOIN GEM_TENDER_KEYWORDS
-                ON GEM_TENDER_KEYWORDS.id = GEM_KEYWORD_TENDERS.keyword_id
             LEFT JOIN GEM_CATEGORY_GROUPS
                 ON GEM_CATEGORY_GROUPS.id = GEM_KEYWORD_TENDERS.category_group_id
             LEFT JOIN USERS
@@ -345,33 +268,6 @@ export async function updateGemKeywordTenderById({
     ).catch((error) => {
         logger.error(`updateGemKeywordTenderById: ${error}`);
     });
-}
-
-/** Set category_group_id only when currently null (used on re-scan). */
-export async function setGemKeywordTenderCategoryGroupIfNull({ id, category_group_id }) {
-    const groupId =
-        category_group_id != null && Number(category_group_id) >= 1
-            ? Number(category_group_id)
-            : null;
-    if (!(id >= 1) || groupId == null) {
-        return false;
-    }
-
-    try {
-        const result = await executeSQLQuery(
-            (sql) => sql`
-                UPDATE GEM_KEYWORD_TENDERS
-                SET category_group_id = ${groupId}
-                WHERE id = ${id}
-                  AND category_group_id IS NULL
-            `,
-        );
-        const affected = Number(result?.affectedRows ?? result?.changes ?? 0);
-        return Number.isFinite(affected) && affected > 0;
-    } catch (error) {
-        logger.error(`setGemKeywordTenderCategoryGroupIfNull: ${error}`);
-        return false;
-    }
 }
 
 /**
@@ -422,13 +318,13 @@ export async function getGemKeywordTendersPendingEligibilityReminder({
                 GEM_KEYWORD_TENDERS.end_date_time,
                 GEM_KEYWORD_TENDERS.assignee_user_id,
                 GEM_KEYWORD_TENDERS.eligibility_reminder_sent_on,
-                GEM_TENDER_KEYWORDS.keyword AS keyword,
+                GEM_CATEGORY_GROUPS.name AS category_group_name,
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email,
                 USERS.personal_email AS assignee_personal_email
             FROM GEM_KEYWORD_TENDERS
-            LEFT JOIN GEM_TENDER_KEYWORDS
-                ON GEM_TENDER_KEYWORDS.id = GEM_KEYWORD_TENDERS.keyword_id
+            LEFT JOIN GEM_CATEGORY_GROUPS
+                ON GEM_CATEGORY_GROUPS.id = GEM_KEYWORD_TENDERS.category_group_id
             INNER JOIN USERS
                 ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
             WHERE GEM_KEYWORD_TENDERS.assignee_user_id IS NOT NULL

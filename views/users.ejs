@@ -49,19 +49,21 @@
                 <div class="table-responsive <%= !users || !users.length ? 'd-none' : '' %>" id="users-table-wrap">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
-                            <tr>
+                                <tr>
                                 <th scope="col">ID</th>
                                 <th scope="col">Full name</th>
                                 <th scope="col">Email</th>
                                 <th scope="col">Personal email</th>
                                 <th scope="col">Rate / hr</th>
                                 <th scope="col">Login method</th>
+                                <th scope="col">Login</th>
                                 <th scope="col">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="users-tbody">
                             <% (users || []).forEach(function (user) { %>
                                 <% const method = user.login_method || loginMethods.OTP || "otp"; %>
+                                <% const loginActive = user.login_active !== false && user.login_active !== 0; %>
                                 <tr
                                     data-id="<%= user.id %>"
                                     data-full-name="<%= user.full_name %>"
@@ -69,6 +71,7 @@
                                     data-personal-email="<%= user.personal_email || '' %>"
                                     data-hourly-rate="<%= user.hourly_rate != null ? user.hourly_rate : '' %>"
                                     data-login-method="<%= method %>"
+                                    data-login-active="<%= loginActive ? '1' : '0' %>"
                                 >
                                     <td class="user-id"><%= user.id %></td>
                                     <td class="user-full-name"><%= user.full_name %></td>
@@ -78,9 +81,21 @@
                                         <%= user.hourly_rate != null ? Number(user.hourly_rate).toFixed(2) : "—" %>
                                     </td>
                                     <td class="user-login-method"><%= loginMethodLabels[method] || method %></td>
+                                    <td class="user-login-status">
+                                        <% if (loginActive) { %>
+                                            <span class="badge text-bg-success">Active</span>
+                                        <% } else { %>
+                                            <span class="badge text-bg-danger">Blocked</span>
+                                        <% } %>
+                                    </td>
                                     <td>
                                         <div class="d-flex gap-2 flex-wrap">
                                             <button type="button" class="btn btn-sm btn-outline-secondary user-edit-btn">Edit</button>
+                                            <% if (loginActive) { %>
+                                                <button type="button" class="btn btn-sm btn-outline-warning user-block-btn">Block login</button>
+                                            <% } else { %>
+                                                <button type="button" class="btn btn-sm btn-outline-success user-unblock-btn">Unblock login</button>
+                                            <% } %>
                                             <button type="button" class="btn btn-sm btn-outline-danger user-delete-btn">Delete</button>
                                         </div>
                                     </td>

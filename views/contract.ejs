@@ -1,5 +1,13 @@
 <%- include('common/header') %>
 
+<%
+    const loginMethodLabels = USER_LOGIN_METHOD_LABELS || {};
+    const loginMethods = USER_LOGIN_METHODS || {};
+    const brokenByLabels = CONTRACT_BROKEN_BY_LABELS || {};
+    const brokenByValues = CONTRACT_BROKEN_BY || {};
+    const contractBroken = !!(contract.broken && contract.broken !== 0);
+%>
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
         <a class="navbar-brand" href="/app">HammerByte App</a>
@@ -30,7 +38,25 @@
                 <% } else { %>
                     <span class="badge text-bg-secondary">Unsigned</span>
                 <% } %>
+                <% if (contractBroken) { %>
+                    <span class="badge text-bg-danger">Broken</span>
+                <% } %>
             </p>
+            <% if (contractBroken) { %>
+                <p class="text-secondary small mt-2 mb-0">
+                    Broken on
+                    <span
+                        data-readable-date="<%= contract.broken_at || '' %>"
+                        data-date-format="DD/MM/YYYY HH:mm"
+                    ><%= contract.broken_at || "—" %></span>
+                    · effective
+                    <span
+                        data-readable-date="<%= contract.break_date || '' %>"
+                        data-date-format="DD/MM/YYYY HH:mm"
+                    ><%= contract.break_date || "—" %></span>
+                    · by <%= brokenByLabels[contract.broken_by] || contract.broken_by || "—" %>
+                </p>
+            <% } %>
         </div>
 
         <div id="contract-alert" class="alert d-none" role="alert"></div>
@@ -174,6 +200,25 @@
                         <% if (is_signed) { %>
                             <button type="button" id="unsign-contract-btn" class="btn btn-outline-danger">
                                 Unsign
+                            </button>
+                            <button
+                                type="button"
+                                id="transfer-contract-user-btn"
+                                class="btn btn-outline-success"
+                                <% if (user_exists_for_email) { %>disabled title="A user with this email already exists"<% } %>
+                            >
+                                Transfer to user
+                            </button>
+                        <% } %>
+                        <% if (!contractBroken) { %>
+                            <button
+                                type="button"
+                                id="break-contract-btn"
+                                class="btn btn-outline-danger"
+                                data-bs-toggle="modal"
+                                data-bs-target="#break-contract-modal"
+                            >
+                                Break contract
                             </button>
                         <% } %>
                         <a href="/app/contracts" class="btn btn-outline-secondary">Back to list</a>
@@ -350,6 +395,163 @@
         </div>
     </div>
 </main>
+
+<div class="modal fade" id="break-contract-modal" tabindex="-1" aria-labelledby="break-contract-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="break-contract-form" data-contract-id="<%= contract.id %>" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="break-contract-modal-label">Break contract</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="break-contract-form-alert" class="alert d-none" role="alert"></div>
+                    <p class="text-secondary small">
+                        A notification will be sent immediately. Matching user login (if any) will be blocked.
+                    </p>
+                    <div class="mb-3">
+                        <label for="break-contract-date" class="form-label">Break date</label>
+                        <input
+                            type="text"
+                            class="form-control js-datetime-input"
+                            id="break-contract-date"
+                            name="break_date"
+                            placeholder="dd/mm/yyyy hh:mm"
+                            autocomplete="off"
+                            required
+                        />
+                    </div>
+                    <div class="mb-0">
+                        <label for="break-contract-broken-by" class="form-label">Broken by</label>
+                        <select class="form-select" id="break-contract-broken-by" name="broken_by" required>
+                            <% Object.keys(brokenByLabels).forEach(function (value) { %>
+                                <option value="<%= value %>" <%= value === (brokenByValues.HAMMERBYTE || 'hammerbyte') ? 'selected' : '' %>>
+                                    <%= brokenByLabels[value] %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger" id="break-contract-submit-btn">Break contract</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="transfer-user-modal" tabindex="-1" aria-labelledby="transfer-user-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <form id="transfer-user-form" data-contract-id="<%= contract.id %>" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="transfer-user-modal-label">Transfer to user</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="transfer-user-form-alert" class="alert d-none" role="alert"></div>
+                    <div class="mb-3">
+                        <label for="transfer-user-full-name" class="form-label">Full name</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="transfer-user-full-name"
+                            name="full_name"
+                            value="<%= contract.full_name %>"
+                            maxlength="128"
+                            readonly
+                        />
+                    </div>
+                    <div class="mb-3">
+                        <label for="transfer-user-email" class="form-label">Email</label>
+                        <input
+                            type="email"
+                            class="form-control"
+                            id="transfer-user-email"
+                            name="email"
+                            value="<%= contract.email %>"
+                            maxlength="48"
+                            readonly
+                        />
+                    </div>
+                    <div class="mb-3">
+                        <label for="transfer-user-personal-email" class="form-label">Personal email</label>
+                        <input
+                            type="email"
+                            class="form-control"
+                            id="transfer-user-personal-email"
+                            name="personal_email"
+                            maxlength="128"
+                        />
+                        <div class="form-text">Used for GEM tender eligibility reminders. Optional.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="transfer-user-hourly-rate" class="form-label">Rate per hour</label>
+                        <input
+                            type="number"
+                            class="form-control"
+                            id="transfer-user-hourly-rate"
+                            name="hourly_rate"
+                            min="0"
+                            step="0.01"
+                        />
+                    </div>
+                    <div class="mb-3">
+                        <label for="transfer-user-login-method" class="form-label">Login method</label>
+                        <select class="form-select" id="transfer-user-login-method" name="login_method" required>
+                            <% Object.keys(loginMethodLabels).forEach(function (value) { %>
+                                <option value="<%= value %>" <%= value === (loginMethods.OTP || 'otp') ? 'selected' : '' %>>
+                                    <%= loginMethodLabels[value] %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="transfer-user-password-wrap">
+                        <label for="transfer-user-password" class="form-label">Password</label>
+                        <input
+                            type="password"
+                            class="form-control"
+                            id="transfer-user-password"
+                            name="password"
+                            maxlength="128"
+                            autocomplete="new-password"
+                        />
+                        <div class="form-text">Required for password or OTP-or-password login.</div>
+                    </div>
+                    <% if ((authorities || []).includes(AUTHORITIES.MANAGE_USER_ROLES)) { %>
+                    <div id="transfer-user-roles-section">
+                        <label class="form-label">Roles</label>
+                        <div class="d-flex flex-column gap-2 border rounded p-3 bg-light">
+                            <% (allRoles || []).forEach(function (role) { %>
+                                <div class="form-check">
+                                    <input
+                                        type="checkbox"
+                                        class="form-check-input transfer-user-role-checkbox"
+                                        id="transfer-user-role-<%= role.id %>"
+                                        data-role-id="<%= role.id %>"
+                                        value="<%= role.id %>"
+                                    />
+                                    <label class="form-check-label" for="transfer-user-role-<%= role.id %>">
+                                        <%= role.title %><% if (!role.active) { %> <span class="text-secondary">(inactive)</span><% } %>
+                                    </label>
+                                </div>
+                            <% }) %>
+                            <% if (!allRoles || !allRoles.length) { %>
+                                <p class="text-secondary small mb-0">No roles available.</p>
+                            <% } %>
+                        </div>
+                    </div>
+                    <% } %>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="transfer-user-submit-btn">Create user</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="clause-modal" tabindex="-1" aria-labelledby="clause-modal-label" aria-hidden="true">
     <div class="modal-dialog">

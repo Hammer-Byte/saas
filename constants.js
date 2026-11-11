@@ -16,7 +16,21 @@ export const ERRORS = {
     INVALID_OTP: "Invalid OTP",
     INVALID_PASSWORD: "Invalid email or password",
     LOGIN_METHOD_NOT_ALLOWED: "This login method is not allowed for this user",
+    LOGIN_BLOCKED: "Login is blocked for this account",
     PASSWORD_REQUIRED: "Password is required",
+    CONTRACT_ALREADY_BROKEN: "Contract is already broken",
+    CONTRACT_NOT_SIGNED: "Contract must be signed before transferring to a user",
+    CONTRACT_USER_EXISTS: "A user with this contract email already exists",
+};
+
+export const CONTRACT_BROKEN_BY = {
+    HAMMERBYTE: "hammerbyte",
+    CONTRACTOR: "contractor",
+};
+
+export const CONTRACT_BROKEN_BY_LABELS = {
+    [CONTRACT_BROKEN_BY.HAMMERBYTE]: "HammerByte",
+    [CONTRACT_BROKEN_BY.CONTRACTOR]: "Contractor",
 };
 
 export const USER_LOGIN_METHODS = {
@@ -50,7 +64,6 @@ export const AUTHORITIES = {
     USE_PAGE_SERVERS: "USE_PAGE_SERVERS",
     USE_PAGE_TASKS: "USE_PAGE_TASKS",
     USE_PAGE_GEM_TENDERS: "USE_PAGE_GEM_TENDERS",
-    USE_PAGE_GEM_TENDER_KEYWORDS: "USE_PAGE_GEM_TENDER_KEYWORDS",
     USE_PAGE_GEM_CATEGORIES: "USE_PAGE_GEM_CATEGORIES",
     ASSIGN_GEM_TENDER_ASSIGNEE: "ASSIGN_GEM_TENDER_ASSIGNEE",
     MARK_GEM_TENDER_MASS_STAGE_CHANGE: "MARK_GEM_TENDER_MASS_STAGE_CHANGE",
@@ -210,8 +223,7 @@ export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_SERVERS: "View Servers monitor page",
     USE_PAGE_TASKS: "View Tasks page",
     USE_PAGE_GEM_TENDERS: "View GEM Tenders page",
-    USE_PAGE_GEM_TENDER_KEYWORDS: "View GEM Tenders keyword + scan and history pages",
-    USE_PAGE_GEM_CATEGORIES: "View and manage GEM category groups and categories",
+    USE_PAGE_GEM_CATEGORIES: "View and manage GEM category groups, categories, and scan history",
     ASSIGN_GEM_TENDER_ASSIGNEE: "Assign any user as GEM tender assignee",
     MARK_GEM_TENDER_MASS_STAGE_CHANGE: "Bulk change GEM tender stage (comment required)",
     ASSIGN_INQUIRY_ASSIGNEE: "Assign any user as inquiry assignee",

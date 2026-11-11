@@ -3,7 +3,7 @@ import {
     getGemKeywordTendersPendingEligibilityReminder,
     stampGemKeywordTenderEligibilityReminders,
 } from "../db/gem_keyword_tenders.js";
-import { getIstDateTime } from "./date.js";
+import { getIstDateTime, getReadableDate } from "./date.js";
 import transporter from "./transporter.js";
 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
@@ -26,12 +26,16 @@ function buildTendersHtml(tenders) {
     const rows = tenders
         .map((tender, index) => {
             const tenderId = escapeHtml(tender.tender_id || `#${tender.id}`);
-            const keyword = escapeHtml(tender.keyword || "—");
-            const endDate = escapeHtml(tender.end_date_time || "—");
+            const categoryGroupName = escapeHtml(tender.category_group_name || "—");
+            const endDate = escapeHtml(
+                getReadableDate("DD/MM/YYYY HH:mm:ss", tender.end_date_time) ||
+                    tender.end_date_time ||
+                    "—",
+            );
             const detailUrl = `${baseUrl}/app/gem-keyword-tenders/${Number(tender.id)}`;
             return `<div style="padding:8px 0;${index ? "border-top:1px solid #e5e7eb;" : ""}">
         <div><strong>${index + 1}. ${tenderId}</strong></div>
-        <div>Keyword: ${keyword}</div>
+        <div>Group: ${categoryGroupName}</div>
         <div>End: ${endDate}</div>
         <div><a href="${escapeHtml(detailUrl)}" style="color:#2563eb;">Open tender</a></div>
       </div>`;

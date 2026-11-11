@@ -1,10 +1,13 @@
 import { t } from "elysia";
+import { CONTRACT_BROKEN_BY, USER_LOGIN_METHODS } from "../../constants.js";
 import {
     addContract,
+    breakContract,
     createContractInvite,
     deleteContract,
     deleteContractSigned,
     listContractAttachments,
+    transferContractToUser,
     updateContract,
 } from "../../services/contracts.js";
 
@@ -64,6 +67,50 @@ export default function (app) {
             detail: {
                 tags: ["Contracts"],
                 summary: "Send contract signing invite email",
+            },
+        })
+        .post("/:id/break", breakContract, {
+            params: t.Object({
+                id: t.Numeric(),
+            }),
+            body: t.Object({
+                break_date: t.String({
+                    minLength: 1,
+                    error: "Break date is required",
+                }),
+                broken_by: t.Union([
+                    t.Literal(CONTRACT_BROKEN_BY.HAMMERBYTE),
+                    t.Literal(CONTRACT_BROKEN_BY.CONTRACTOR),
+                ]),
+            }),
+            detail: {
+                tags: ["Contracts"],
+                summary: "Mark contract as broken and notify party",
+            },
+        })
+        .post("/:id/transfer-to-user", transferContractToUser, {
+            params: t.Object({
+                id: t.Numeric(),
+            }),
+            body: t.Object({
+                login_method: t.Union([
+                    t.Literal(USER_LOGIN_METHODS.OTP),
+                    t.Literal(USER_LOGIN_METHODS.PASSWORD),
+                    t.Literal(USER_LOGIN_METHODS.BOTH),
+                ]),
+                password: t.Optional(t.String({ maxLength: 128 })),
+                personal_email: t.Optional(
+                    t.Union([
+                        t.String({ maxLength: 128 }),
+                        t.Null(),
+                    ]),
+                ),
+                hourly_rate: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
+                role_ids: t.Optional(t.Array(t.Numeric({ minimum: 1 }))),
+            }),
+            detail: {
+                tags: ["Contracts"],
+                summary: "Create a user from a signed contract",
             },
         })
         .delete("/:id/signed", deleteContractSigned, {

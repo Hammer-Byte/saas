@@ -893,11 +893,9 @@
         if (!filters || typeof filters !== "object") return emptyFilters();
         const groups = Array.isArray(filters.groups)
             ? filters.groups
-            : Array.isArray(filters.keywords)
-              ? filters.keywords
-              : filters.groupId != null && filters.groupId !== ""
-                ? [filters.groupId]
-                : [];
+            : filters.groupId != null && filters.groupId !== ""
+              ? [filters.groupId]
+              : [];
         const stages = Array.isArray(filters.stages)
             ? filters.stages
             : filters.stage != null && filters.stage !== ""

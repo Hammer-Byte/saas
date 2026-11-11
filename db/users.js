@@ -86,6 +86,18 @@ export async function deleteUserById({ id }) {
     });
 }
 
+export async function updateUserLoginActiveById({ id, login_active }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE USERS
+            SET login_active = ${login_active}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateUserLoginActiveById: ${error}`);
+    });
+}
+
 export async function getUserByEmail({ email }) {
     return await executeSQLQuery(
         (sql) => sql`
@@ -126,6 +138,7 @@ export async function getAllUsers() {
                 personal_email,
                 login_method,
                 hourly_rate,
+                login_active,
                 super_admin,
                 created_on,
                 updated_at

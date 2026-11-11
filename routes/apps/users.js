@@ -1,6 +1,6 @@
 import { t } from "elysia";
 import { USER_LOGIN_METHODS } from "../../constants.js";
-import { addUser, deleteUser, updateUser } from "../../services/users.js";
+import { addUser, deleteUser, updateUser, updateUserLoginActive } from "../../services/users.js";
 import { getUserRoles } from "../../services/user_roles.js";
 
 const loginMethodSchema = t.Union([
@@ -75,6 +75,18 @@ export default function (app) {
             detail: {
                 tags: ["Users"],
                 summary: "List roles for a user",
+            },
+        })
+        .patch("/:id/login-active", updateUserLoginActive, {
+            params: t.Object({
+                id: t.Numeric(),
+            }),
+            body: t.Object({
+                login_active: t.Boolean(),
+            }),
+            detail: {
+                tags: ["Users"],
+                summary: "Block or unblock user login",
             },
         })
         .delete("/:id", deleteUser, {

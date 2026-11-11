@@ -90,6 +90,18 @@
             }
         }
 
+        // Date objects from APIs/DB are wall-clock stored in UTC fields (same as server libs/date.js).
+        if (date instanceof Date && !Number.isNaN(date.getTime())) {
+            return formatParts(format, {
+                YYYY: String(date.getUTCFullYear()),
+                MM: `${date.getUTCMonth() + 1}`.padStart(2, "0"),
+                DD: `${date.getUTCDate()}`.padStart(2, "0"),
+                HH: `${date.getUTCHours()}`.padStart(2, "0"),
+                mm: `${date.getUTCMinutes()}`.padStart(2, "0"),
+                ss: `${date.getUTCSeconds()}`.padStart(2, "0"),
+            });
+        }
+
         const parsed = parseToDate(date);
         if (!parsed) {
             return "";

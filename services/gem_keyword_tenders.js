@@ -782,8 +782,8 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
 }
 
 /**
- * One-off GeM search from the tenders list.
- * Does not create/store a keyword row; saved tenders get keyword_id = null.
+ * One-off GeM search from the tenders list (Add tender).
+ * Does not assign a category group; set group later on the tender detail page.
  */
 export async function startGemAdhocTenderScan({ body, cookie, set }) {
     if (processing) {
@@ -828,7 +828,6 @@ export async function startGemAdhocTenderScan({ body, cookie, set }) {
 
     const started = crawlGemForTenders({
         keywords: queries.map((keyword) => ({
-            id: null,
             keyword,
             exact_search,
         })),

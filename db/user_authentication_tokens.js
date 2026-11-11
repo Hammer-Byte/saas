@@ -45,6 +45,19 @@ export async function updateUserAuthenticationTokenActiveById({ id, active }) {
     });
 }
 
+export async function deactivateUserAuthenticationTokensByUserId({ user_id }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE USER_AUTHENTICATION_TOKENS
+            SET active = FALSE
+            WHERE user_id = ${user_id}
+                AND active = TRUE
+        `,
+    ).catch((error) => {
+        logger.error(`deactivateUserAuthenticationTokensByUserId: ${error}`);
+    });
+}
+
 export async function getActiveUserAuthenticationTokenByToken({ token }) {
     return await executeSQLQuery(
         (sql) => sql`
@@ -57,6 +70,7 @@ export async function getActiveUserAuthenticationTokenByToken({ token }) {
             INNER JOIN USERS ON USERS.id = USER_AUTHENTICATION_TOKENS.user_id
             WHERE USER_AUTHENTICATION_TOKENS.token = ${token}
                 AND USER_AUTHENTICATION_TOKENS.active = TRUE
+                AND USERS.login_active = TRUE
         `,
     )
         .then((result) => (result.length ? result[0] : null))

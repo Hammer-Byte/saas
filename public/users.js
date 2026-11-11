@@ -154,6 +154,49 @@
             return;
         }
 
+        if (event.target.closest(".user-block-btn") || event.target.closest(".user-unblock-btn")) {
+            const loginActive = row.dataset.loginActive === "1";
+            const nextLoginActive = !loginActive;
+            const confirmed = await showConfirm({
+                title: nextLoginActive ? "Unblock login?" : "Block login?",
+                description: nextLoginActive
+                    ? "This user will be able to sign in again."
+                    : "This user will be signed out and unable to log in.",
+                choices: [
+                    { label: "Cancel", variant: "secondary", value: false },
+                    {
+                        label: nextLoginActive ? "Unblock" : "Block",
+                        variant: nextLoginActive ? "success" : "warning",
+                        value: true,
+                    },
+                ],
+            });
+            if (!confirmed) {
+                return;
+            }
+
+            hideAlert(pageAlert);
+            try {
+                const response = await fetch(`/api/users/${row.dataset.id}/login-active`, {
+                    method: "PATCH",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ login_active: nextLoginActive }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    showAlert(pageAlert, data.error || "Failed to update login status.", "danger");
+                    return;
+                }
+
+                window.location.reload();
+            } catch (error) {
+                console.error(error);
+                showAlert(pageAlert, "Failed to update login status.", "danger");
+            }
+            return;
+        }
+
         if (event.target.closest(".user-delete-btn")) {
             const confirmed = await showConfirm({
                 title: "Delete user?",

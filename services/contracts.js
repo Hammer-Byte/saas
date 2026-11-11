@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { unlink } from "node:fs/promises";
 import { filer, logger } from "@hammerbyte/utils";
 import transporter from "../libs/transporter.js";
-import { getWritableDate } from "../libs/date.js";
+import { getIstDateTime, getReadableDate, getWritableDate } from "../libs/date.js";
 import { generateSigningCode } from "../libs/utils.js";
 import {
     buildContractClausesHtml,
@@ -13,12 +13,23 @@ import {
     resolveContractTemplateAssets,
 } from "../libs/contractor.js";
 import {
+    CONTRACT_BROKEN_BY,
+    CONTRACT_BROKEN_BY_LABELS,
+    ERRORS,
+} from "../constants.js";
+import {
+    breakContractById,
     createContract,
     deleteContractById,
     getContractById,
     getContractBySigningCode,
     updateContractById,
 } from "../db/contracts.js";
+import { getUserByEmail, updateUserLoginActiveById } from "../db/users.js";
+import { deactivateUserAuthenticationTokensByUserId } from "../db/user_authentication_tokens.js";
+import { createUserRole, getUserRoleByUserAndRole } from "../db/user_roles.js";
+import { getRoleById } from "../db/roles.js";
+import { createUserFromInput } from "./users.js";
 import {
     getAllContractAttachments,
     getContractAttachmentsByIds,
@@ -492,4 +503,134 @@ export async function deleteContract({ params, set }) {
 
     set.status = 200;
     return { message: "Contract deleted" };
+}
+
+const BROKEN_BY_VALUES = new Set(Object.values(CONTRACT_BROKEN_BY));
+
+export async function breakContract({ params, body, set }) {
+    const existingContract = await getContractById({ id: params.id });
+    if (!existingContract) {
+        set.status = 404;
+        return { error: "Contract not found" };
+    }
+
+    if (existingContract.broken) {
+        set.status = 409;
+        return { error: ERRORS.CONTRACT_ALREADY_BROKEN };
+    }
+
+    const break_date = getWritableDate("YYYY-MM-DD HH:mm:ss", body.break_date);
+    if (!break_date) {
+        set.status = 400;
+        return { error: "Break date is required" };
+    }
+
+    const broken_by = String(body.broken_by || "").trim().toLowerCase();
+    if (!BROKEN_BY_VALUES.has(broken_by)) {
+        set.status = 400;
+        return { error: "Broken by must be hammerbyte or contractor" };
+    }
+
+    const broken_at = getIstDateTime();
+
+    await breakContractById({
+        id: existingContract.id,
+        break_date,
+        broken_by,
+        broken_at,
+    });
+
+    const contractEmail = String(existingContract.email || "").trim().toLowerCase();
+    if (contractEmail) {
+        const linkedUser = await getUserByEmail({ email: contractEmail });
+        if (linkedUser) {
+            await updateUserLoginActiveById({
+                id: linkedUser.id,
+                login_active: false,
+            });
+            await deactivateUserAuthenticationTokensByUserId({ user_id: linkedUser.id });
+        }
+    }
+
+    const brokenHtml = filer.prepareTemplated("templates/contract_broken.html", {
+        full_name: existingContract.full_name,
+        break_date: getReadableDate("DD/MM/YYYY HH:mm", break_date) || break_date,
+        broken_by_label: CONTRACT_BROKEN_BY_LABELS[broken_by] || broken_by,
+        support_email: "support@hammerbyte.co.in",
+    });
+
+    if (existingContract.email) {
+        transporter.transport({
+            recipient: existingContract.email,
+            subject: "Contract no longer valid — HammerByte",
+            body: brokenHtml,
+            html_enabled: true,
+        });
+    }
+
+    const contract = await getContractById({ id: existingContract.id });
+    set.status = 200;
+    return { message: "Contract broken", contract };
+}
+
+export async function transferContractToUser({ params, body, set }) {
+    const existingContract = await getContractById({ id: params.id });
+    if (!existingContract) {
+        set.status = 404;
+        return { error: "Contract not found" };
+    }
+
+    const requiredAttachments = await getContractRequiredAttachmentsByContractId({
+        contract_id: existingContract.id,
+    });
+    if (!isContractSigned(requiredAttachments)) {
+        set.status = 400;
+        return { error: ERRORS.CONTRACT_NOT_SIGNED };
+    }
+
+    const email = String(existingContract.email || "").trim().toLowerCase();
+    const existingUser = await getUserByEmail({ email });
+    if (existingUser) {
+        set.status = 409;
+        return { error: ERRORS.CONTRACT_USER_EXISTS };
+    }
+
+    const result = await createUserFromInput({
+        full_name: existingContract.full_name,
+        email,
+        personal_email: body.personal_email,
+        login_method: body.login_method,
+        password: body.password,
+        hourly_rate: body.hourly_rate,
+    });
+
+    if (result.error) {
+        set.status = result.status;
+        return { error: result.error };
+    }
+
+    const roleIds = Array.from(
+        new Set((body.role_ids || []).map(Number).filter((id) => Number.isInteger(id) && id > 0)),
+    );
+
+    for (const roleId of roleIds) {
+        const role = await getRoleById({ id: roleId });
+        if (!role) {
+            continue;
+        }
+        const existingRole = await getUserRoleByUserAndRole({
+            user_id: result.user.id,
+            role_id: role.id,
+        });
+        if (existingRole) {
+            continue;
+        }
+        await createUserRole({
+            user_id: result.user.id,
+            role_id: role.id,
+        });
+    }
+
+    set.status = 201;
+    return { message: "User created from contract", user: result.user };
 }

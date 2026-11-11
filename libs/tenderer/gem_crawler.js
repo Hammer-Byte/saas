@@ -6,7 +6,6 @@ import { GemPage } from "./gem_pom.js";
 import {
     createGemKeywordTender,
     getGemKeywordTenderByTenderId,
-    setGemKeywordTenderCategoryGroupIfNull,
     updateGemKeywordTenderScanDetailsById,
 } from "../../db/gem_keyword_tenders.js";
 
@@ -880,7 +879,6 @@ function scanDetailsDiffer(existingTender, nextDetails) {
 
 export const processTender = async ({
     tenderFile,
-    keyword_id,
     category_group_id = null,
     tender_id,
     document = null,
@@ -896,9 +894,9 @@ export const processTender = async ({
                 ? Number(category_group_id)
                 : null;
 
+        // category_group_id is set only on insert; never overwritten on re-scan.
         if (!existingTender) {
             const tenderRowId = await createGemKeywordTender({
-                keyword_id,
                 category_group_id: resolvedCategoryGroupId,
                 tender_id,
                 document,
@@ -913,22 +911,6 @@ export const processTender = async ({
             return true;
         }
 
-        let changed = false;
-
-        if (
-            resolvedCategoryGroupId != null &&
-            (existingTender.category_group_id == null ||
-                existingTender.category_group_id === "")
-        ) {
-            const groupSet = await setGemKeywordTenderCategoryGroupIfNull({
-                id: existingTender.id,
-                category_group_id: resolvedCategoryGroupId,
-            });
-            if (groupSet) {
-                changed = true;
-            }
-        }
-
         const nextDetails = buildScanDetailsForUpsert({
             document,
             gemTenderDetails,
@@ -936,12 +918,8 @@ export const processTender = async ({
         });
 
         if (!scanDetailsDiffer(existingTender, nextDetails)) {
-            if (!changed) {
-                logger.info(`Tender unchanged, skipping update: ${tender_id}`);
-                return false;
-            }
-            logger.info(`Set category group on existing tender: ${tender_id}`);
-            return true;
+            logger.info(`Tender unchanged, skipping update: ${tender_id}`);
+            return false;
         }
 
         await updateGemKeywordTenderScanDetailsById({
@@ -964,14 +942,11 @@ export const searchTendersByKeyword = async (
     driver,
     {
         keyword,
-        id: keyword_id = null,
         exact_search = false,
         category_group_id = null,
     },
 ) => {
     const searchKeyword = String(keyword || "").trim();
-    const resolvedKeywordId =
-        keyword_id != null && Number(keyword_id) >= 1 ? Number(keyword_id) : null;
     const resolvedCategoryGroupId =
         category_group_id != null && Number(category_group_id) >= 1
             ? Number(category_group_id)
@@ -1087,7 +1062,6 @@ export const searchTendersByKeyword = async (
                     );
                     const changed = await processTender({
                         tenderFile,
-                        keyword_id: resolvedKeywordId,
                         category_group_id: resolvedCategoryGroupId,
                         tender_id: tenderId,
                         document,

@@ -16,7 +16,6 @@ export function crawlGemForTenders({ keywords = [], runId = null } = {}) {
 
     const keywordList = (keywords || [])
         .map((entry) => ({
-            id: entry?.id != null && Number(entry.id) >= 1 ? Number(entry.id) : null,
             keyword: String(entry?.keyword || "").trim(),
             exact_search: !!entry?.exact_search,
             category_group_id:
