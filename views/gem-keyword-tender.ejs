@@ -110,7 +110,7 @@
                             : "Details are locked; only a super admin can change them." %>
                     </div>
                 <% } %>
-                <div class="row g-3 mb-4">
+                <div class="row g-3 mb-2 align-items-end">
                     <div class="col-md-4">
                         <label for="gem-tender-stage" class="form-label">Stage</label>
                         <select
@@ -130,13 +130,6 @@
                                 </option>
                             <% }) %>
                         </select>
-                        <% if (isSystemManagedStage && !isSuperAdmin) { %>
-                            <p class="form-text mb-0">Only a super admin can change Unattended or Missed tenders.</p>
-                        <% } else if (!assigneeUserId && !isSystemManagedStage) { %>
-                            <p class="form-text mb-0">Assign someone before changing stage.</p>
-                        <% } else if (assigneeUserId && !canChangeStage) { %>
-                            <p class="form-text mb-0">Only the assignee or a super admin can change stage.</p>
-                        <% } %>
                     </div>
                     <div class="col-md-5">
                         <label for="gem-tender-assignee" class="form-label">Assignee</label>
@@ -165,43 +158,29 @@
                             />
                         <% } %>
                     </div>
-                    <% if (!assigneeUserId && !isSystemManagedStage) { %>
-                        <div class="col-md-3 d-flex align-items-end" id="gem-tender-assign-me-wrap">
-                            <button
-                                type="button"
-                                class="btn btn-outline-primary w-100"
-                                id="gem-tender-assign-me-btn"
-                            >
-                                Assign to me
-                            </button>
-                        </div>
-                    <% } %>
-                </div>
-
-                <div class="row g-3 mb-4">
-                    <div class="col-md-8 col-lg-6">
-                        <label for="gem-tender-quote" class="form-label">Quote</label>
-                        <textarea
-                            class="form-control"
-                            id="gem-tender-quote"
-                            rows="3"
-                            <%= !canEditQuote ? "disabled" : "" %>
-                        ><%= tender.quote || "" %></textarea>
+                    <div
+                        class="col-md-3 <%= (!assigneeUserId && !isSystemManagedStage) ? '' : 'd-none' %>"
+                        id="gem-tender-assign-me-wrap"
+                    >
                         <button
                             type="button"
-                            class="btn btn-sm btn-primary mt-2"
-                            id="gem-tender-quote-save-btn"
-                            <%= !canEditQuote ? "disabled" : "" %>
+                            class="btn btn-outline-primary w-100"
+                            id="gem-tender-assign-me-btn"
+                            <%= (!assigneeUserId && !isSystemManagedStage) ? '' : 'disabled' %>
                         >
-                            Save quote
+                            Assign to me
                         </button>
-                        <% if (!quoteStageEnabled) { %>
-                            <p class="form-text mb-0">Quote is not available in this stage.</p>
-                        <% } else if (!canEditQuote) { %>
-                            <p class="form-text mb-0">Only the assignee or a super admin can edit the quote.</p>
-                        <% } %>
                     </div>
                 </div>
+                <% if (isSystemManagedStage && !isSuperAdmin) { %>
+                    <p class="form-text mb-3">Only a super admin can change Unattended or Missed tenders.</p>
+                <% } else if (!assigneeUserId && !isSystemManagedStage) { %>
+                    <p class="form-text mb-3">Assign someone before changing stage.</p>
+                <% } else if (assigneeUserId && !canChangeStage) { %>
+                    <p class="form-text mb-3">Only the assignee or a super admin can change stage.</p>
+                <% } else { %>
+                    <div class="mb-3"></div>
+                <% } %>
 
                 <div class="row g-3 small">
                     <div class="col-md-4">
@@ -284,6 +263,20 @@
                     aria-selected="false"
                 >
                     Documents
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link"
+                    id="gem-tender-quote-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#gem-tender-quote-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="gem-tender-quote-pane"
+                    aria-selected="false"
+                >
+                    Quote
                 </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -468,6 +461,36 @@
                             <% }) %>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <div
+                class="tab-pane fade"
+                id="gem-tender-quote-pane"
+                role="tabpanel"
+                aria-labelledby="gem-tender-quote-tab"
+            >
+                <div class="mb-3" style="max-width: 40rem;">
+                    <label for="gem-tender-quote" class="form-label">Quote</label>
+                    <textarea
+                        class="form-control"
+                        id="gem-tender-quote"
+                        rows="6"
+                        <%= !canEditQuote ? "disabled" : "" %>
+                    ><%= tender.quote || "" %></textarea>
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-primary mt-2"
+                        id="gem-tender-quote-save-btn"
+                        <%= !canEditQuote ? "disabled" : "" %>
+                    >
+                        Save quote
+                    </button>
+                    <% if (!quoteStageEnabled) { %>
+                        <p class="form-text mb-0">Quote is not available in this stage.</p>
+                    <% } else if (!canEditQuote) { %>
+                        <p class="form-text mb-0">Only the assignee or a super admin can edit the quote.</p>
+                    <% } %>
                 </div>
             </div>
 
