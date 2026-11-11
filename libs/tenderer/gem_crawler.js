@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { join } from "path";
 import { logger } from "@hammerbyte/utils";
 import { toDbDateTime } from "../date.js";
@@ -84,6 +84,19 @@ const tenderFileName = (tenderId) =>
 
 async function ensureTenderStorage() {
     await mkdir(TENDERS_DIRECTORY, { recursive: true });
+}
+
+async function removeLocalTenderPdf(tenderFile) {
+    if (!tenderFile) {
+        return;
+    }
+    try {
+        await unlink(tenderFile);
+    } catch (error) {
+        if (error?.code !== "ENOENT") {
+            logger.error(`Failed to delete local tender PDF ${tenderFile}: ${error}`);
+        }
+    }
 }
 
 const downloadTender = async (driver, tender) => {
@@ -875,17 +888,17 @@ export const processTender = async ({
 
         if (!existingTender) {
             const tenderRowId = await createGemKeywordTender({
-            keyword_id,
-            tender_id,
-            document,
-            ...gemTenderDetails,
-        });
+                keyword_id,
+                tender_id,
+                document,
+                ...gemTenderDetails,
+            });
 
             if (!tenderRowId) {
                 return false;
             }
 
-        logger.info(`Stored tender details: ${tender_id}`);
+            logger.info(`Stored tender details: ${tender_id}`);
             return true;
         }
 
@@ -910,6 +923,9 @@ export const processTender = async ({
     } catch (error) {
         logger.error(`Failed to process tender ${tender_id}: ${error}`);
         return false;
+    } finally {
+        // Local PDF is only needed for pdftotext; DB keeps the GeM URL.
+        await removeLocalTenderPdf(tenderFile);
     }
 };
 
