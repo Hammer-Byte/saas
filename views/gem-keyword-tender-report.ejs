@@ -253,9 +253,11 @@
                                     <th>Progressed</th>
                                     <th>Progress %</th>
                                     <th>Assigned stage</th>
-                                    <th>Waiting for docs</th>
-                                    <th>Preparing docs</th>
                                     <th>Eligible</th>
+                                    <th>Waiting for docs</th>
+                                    <th>Waiting for GEM</th>
+                                    <th>Waiting for Quote</th>
+                                    <th>Preparing docs</th>
                                     <th>Not eligible</th>
                                     <th>Filed</th>
                                     <th>Activities</th>
@@ -271,9 +273,11 @@
                                         <td><%= row.progressed %></td>
                                         <td><%= row.progress_rate %>%</td>
                                         <td><%= row.stage_assigned %></td>
-                                        <td><%= row.stage_waiting_for_docs || 0 %></td>
-                                        <td><%= row.stage_preparing_docs || 0 %></td>
                                         <td><%= row.stage_eligible %></td>
+                                        <td><%= row.stage_waiting_for_docs || 0 %></td>
+                                        <td><%= row.stage_waiting_for_gem || 0 %></td>
+                                        <td><%= row.stage_waiting_for_quote || 0 %></td>
+                                        <td><%= row.stage_preparing_docs || 0 %></td>
                                         <td><%= row.stage_not_eligible %></td>
                                         <td><%= row.stage_filed %></td>
                                         <td><%= row.activity_count %></td>
@@ -311,9 +315,11 @@
                                 <th>Unattended</th>
                                 <th>Missed</th>
                                 <th>Assigned</th>
-                                <th>Waiting for docs</th>
-                                <th>Preparing docs</th>
                                 <th>Eligible</th>
+                                <th>Waiting for docs</th>
+                                <th>Waiting for GEM</th>
+                                <th>Waiting for Quote</th>
+                                <th>Preparing docs</th>
                                 <th>Not eligible</th>
                                 <th>Filed</th>
                             </tr>
@@ -328,9 +334,11 @@
                                     <td><%= row.stage_unattended || 0 %></td>
                                     <td><%= row.stage_missed || 0 %></td>
                                     <td><%= row.stage_assigned %></td>
-                                    <td><%= row.stage_waiting_for_docs || 0 %></td>
-                                    <td><%= row.stage_preparing_docs || 0 %></td>
                                     <td><%= row.stage_eligible %></td>
+                                    <td><%= row.stage_waiting_for_docs || 0 %></td>
+                                    <td><%= row.stage_waiting_for_gem || 0 %></td>
+                                    <td><%= row.stage_waiting_for_quote || 0 %></td>
+                                    <td><%= row.stage_preparing_docs || 0 %></td>
                                     <td><%= row.stage_not_eligible %></td>
                                     <td><%= row.stage_filed %></td>
                                 </tr>

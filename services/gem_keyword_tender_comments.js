@@ -11,7 +11,10 @@ import {
 import { createMedia, deleteMediaById, getMediaById } from "../db/media.js";
 import { getGemKeywordTenderById } from "../db/gem_keyword_tenders.js";
 import { getCurrentUser } from "./authentication.js";
-import { logGemKeywordTenderActivity } from "./gem_keyword_tenders.js";
+import {
+    isTerminalStage,
+    logGemKeywordTenderActivity,
+} from "./gem_keyword_tenders.js";
 
 function commentPreview(value) {
     const text = String(value || "")
@@ -63,7 +66,7 @@ export async function addGemKeywordTenderComment({ body, cookie, set }) {
         return { error: "Tender not found" };
     }
 
-    const lockedStage = ["unattended", "missed"].includes(String(gemKeywordTender.stage || ""));
+    const lockedStage = isTerminalStage(gemKeywordTender.stage);
     if (lockedStage && !currentUser.super_admin) {
         set.status = 403;
         return { error: "Only a super admin can comment on Unattended or Missed tenders" };
@@ -148,13 +151,11 @@ export async function updateGemKeywordTenderComment({ params, body, cookie, set 
     const tender = await getGemKeywordTenderById({
         id: existingComment.gem_keyword_tender_id,
     });
-    if (
-        tender &&
-        ["unattended", "missed"].includes(String(tender.stage || "")) &&
-        !currentUser.super_admin
-    ) {
+    if (tender && isTerminalStage(tender.stage) && !currentUser.super_admin) {
         set.status = 403;
-        return { error: "Only a super admin can edit comments on Unattended or Missed tenders" };
+        return {
+            error: "Only a super admin can edit comments on a one-way stage tender",
+        };
     }
 
     if (Number(existingComment.user_id) !== Number(currentUser.id)) {
@@ -209,13 +210,11 @@ export async function deleteGemKeywordTenderComment({ params, cookie, set }) {
     const tender = await getGemKeywordTenderById({
         id: existingComment.gem_keyword_tender_id,
     });
-    if (
-        tender &&
-        ["unattended", "missed"].includes(String(tender.stage || "")) &&
-        !currentUser.super_admin
-    ) {
+    if (tender && isTerminalStage(tender.stage) && !currentUser.super_admin) {
         set.status = 403;
-        return { error: "Only a super admin can delete comments on Unattended or Missed tenders" };
+        return {
+            error: "Only a super admin can delete comments on a one-way stage tender",
+        };
     }
 
     if (Number(existingComment.user_id) !== Number(currentUser.id)) {

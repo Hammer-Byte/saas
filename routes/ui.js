@@ -71,7 +71,9 @@ import { canManageInternalDocuments } from "../services/internal_documents.js";
 import { getMaxRequestBodySize } from "../libs/upload_limits.js";
 import {
     AUTHORITIES,
+    GEM_KEYWORD_TENDER_PIPELINE_STAGES,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
+    GEM_KEYWORD_TENDER_TERMINAL_STAGES,
     INQUIRY_FOLLOWUP_DAY_OFFSETS,
     INQUIRY_SOURCE_LABELS,
     INQUIRY_STATE_LABELS,
@@ -1034,6 +1036,8 @@ export const uiRoutes = new Elysia()
                         }),
                         canManageDocuments,
                         GEM_KEYWORD_TENDER_STAGE_LABELS,
+                        GEM_KEYWORD_TENDER_PIPELINE_STAGES,
+                        GEM_KEYWORD_TENDER_TERMINAL_STAGES,
                     }));
                 },
             )

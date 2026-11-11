@@ -1132,6 +1132,18 @@
             .filter((id) => id >= 1);
         if (!ids.length) return;
 
+        if (["filed", "out_of_scope", "not_eligible"].includes(stage)) {
+            const confirmed = await window.showConfirm({
+                title: "Confirm one-way stage",
+                description: `Set ${ids.length} tender(s) to a one-way stage? Only a super admin can change them afterward.`,
+                choices: [
+                    { label: "Cancel", value: false, variant: "outline-secondary" },
+                    { label: "Confirm", value: true, variant: "primary" },
+                ],
+            });
+            if (!confirmed) return;
+        }
+
         bulkStageBtn.disabled = true;
         if (bulkStageStatus) {
             bulkStageStatus.textContent = `Changing stage on ${ids.length} tender(s)…`;

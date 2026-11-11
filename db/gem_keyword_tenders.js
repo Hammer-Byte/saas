@@ -468,8 +468,7 @@ export async function markPastNewUnassignedGemKeywordTendersUnattended({
 }
 
 /**
- * Past deadline + assignee + stage in Assigned / Waiting for docs /
- * Preparing docs / Eligible → Missed + hidden.
+ * Past deadline + assignee + stage in active pipeline work stages → Missed + hidden.
  */
 export async function markPastAssignedGemKeywordTendersMissed({
     as_of_datetime = null,
@@ -482,9 +481,11 @@ export async function markPastAssignedGemKeywordTendersMissed({
             WHERE assignee_user_id IS NOT NULL
               AND (
                     stage = ${GEM_KEYWORD_TENDER_STAGES.ASSIGNED}
-                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_DOCS}
-                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS}
                     OR stage = ${GEM_KEYWORD_TENDER_STAGES.ELIGIBLE}
+                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_DOCS}
+                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_GEM}
+                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_QUOTE}
+                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS}
               )
               AND end_date_time IS NOT NULL
               AND end_date_time < ${cutoff}

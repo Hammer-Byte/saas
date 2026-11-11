@@ -27,12 +27,33 @@
     const isSuperAdmin = detail.dataset.superAdmin === "1";
     const QUOTE_DISABLED_STAGES = new Set([
         "new",
+        "assigned",
         "out_of_scope",
-        "unattended",
         "missed",
+        "unattended",
+        "filed",
         "not_eligible",
     ]);
     const SYSTEM_MANAGED_STAGES = new Set(["unattended", "missed"]);
+    const TERMINAL_STAGES = new Set([
+        "filed",
+        "out_of_scope",
+        "not_eligible",
+        "unattended",
+        "missed",
+    ]);
+    const ASSIGNEE_REQUIRED_STAGES = [
+        "assigned",
+        "waiting_for_docs",
+        "waiting_for_gem",
+        "waiting_for_quote",
+        "preparing_docs",
+    ];
+    const ONE_WAY_CONFIRM_STAGES = new Set([
+        "filed",
+        "out_of_scope",
+        "not_eligible",
+    ]);
 
     function showAlert(message, type) {
         if (!alertElement) return;
@@ -62,22 +83,22 @@
         return detail.dataset.stage || "new";
     }
 
-    function isSystemManagedStage() {
+    function isTerminalStage() {
         return (
-            detail.dataset.systemManagedStage === "1" ||
-            SYSTEM_MANAGED_STAGES.has(currentStage())
+            detail.dataset.terminalStage === "1" ||
+            TERMINAL_STAGES.has(currentStage())
         );
     }
 
     function canOperateAssigned() {
         if (isSuperAdmin) return true;
-        if (isSystemManagedStage()) return false;
+        if (isTerminalStage()) return false;
         const assigneeUserId = Number(currentAssigneeId() || 0);
         return assigneeUserId >= 1 && assigneeUserId === currentUserId;
     }
 
     function canChangeStage() {
-        if (isSystemManagedStage()) return isSuperAdmin;
+        if (isTerminalStage()) return isSuperAdmin;
         const assigneeUserId = Number(currentAssigneeId() || 0);
         if (!(assigneeUserId >= 1)) return false;
         return canOperateAssigned();
@@ -93,7 +114,7 @@
         if (!stageSelect) return;
         const hasAssignee = !!currentAssigneeId();
         const stage = currentStage();
-        for (const value of ["assigned", "waiting_for_docs", "preparing_docs"]) {
+        for (const value of ASSIGNEE_REQUIRED_STAGES) {
             const option = stageSelect.querySelector(`option[value="${value}"]`);
             if (option) option.disabled = !hasAssignee;
         }
@@ -111,17 +132,17 @@
         const assigneeUserId = currentAssigneeId();
         const quoteEnabled = canEditQuote();
         const stageEnabled = canChangeStage();
-        const locked = isSystemManagedStage() && !isSuperAdmin;
+        const locked = isTerminalStage() && !isSuperAdmin;
 
         if (stageSelect) stageSelect.disabled = !stageEnabled;
         if (assigneeSelect) assigneeSelect.disabled = locked;
         if (quoteInput) quoteInput.disabled = !quoteEnabled;
         if (quoteSaveButton) quoteSaveButton.disabled = !quoteEnabled;
         if (assignMeWrap) {
-            assignMeWrap.classList.toggle("d-none", !!assigneeUserId || isSystemManagedStage());
+            assignMeWrap.classList.toggle("d-none", !!assigneeUserId || isTerminalStage());
         }
         if (assignMeButton) {
-            assignMeButton.disabled = !!assigneeUserId || isSystemManagedStage();
+            assignMeButton.disabled = !!assigneeUserId || isTerminalStage();
         }
         syncAssignedOption();
     }
@@ -146,6 +167,14 @@
         }
         if (tender.stage) {
             detail.dataset.stage = tender.stage;
+            detail.dataset.terminalStage = TERMINAL_STAGES.has(tender.stage)
+                ? "1"
+                : "0";
+            detail.dataset.systemManagedStage = SYSTEM_MANAGED_STAGES.has(
+                tender.stage,
+            )
+                ? "1"
+                : "0";
             if (stageSelect) stageSelect.value = tender.stage;
         }
         if (assigneeSelect && "assignee_user_id" in tender) {
@@ -182,9 +211,11 @@
         const stage = stageSelect.value;
         if (!canChangeStage()) {
             showAlert(
-                currentAssigneeId()
-                    ? "Only the assignee or a super admin can change stage."
-                    : "Assign someone before changing stage.",
+                isTerminalStage() && !isSuperAdmin
+                    ? "Only a super admin can change a one-way stage tender."
+                    : currentAssigneeId()
+                      ? "Only the assignee or a super admin can change stage."
+                      : "Assign someone before changing stage.",
                 "danger",
             );
             stageSelect.value = previous;
@@ -203,13 +234,25 @@
             stageSelect.value = previous;
             return;
         }
-        if (
-            ["assigned", "waiting_for_docs", "preparing_docs"].includes(stage) &&
-            !currentAssigneeId()
-        ) {
+        if (ASSIGNEE_REQUIRED_STAGES.includes(stage) && !currentAssigneeId()) {
             showAlert("Assign someone before selecting this stage.", "danger");
             stageSelect.value = previous;
             return;
+        }
+        if (ONE_WAY_CONFIRM_STAGES.has(stage) && stage !== previous) {
+            const confirmed = await window.showConfirm({
+                title: "Confirm one-way stage",
+                description:
+                    "This stage is one-way. After you save it, only a super admin can change the stage again. Continue?",
+                choices: [
+                    { label: "Cancel", value: false, variant: "outline-secondary" },
+                    { label: "Confirm", value: true, variant: "primary" },
+                ],
+            });
+            if (!confirmed) {
+                stageSelect.value = previous;
+                return;
+            }
         }
         const ok = await applyPatch({ stage }, (tender) => {
             detail.dataset.stage = tender.stage || stage;

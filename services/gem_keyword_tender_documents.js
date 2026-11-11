@@ -10,6 +10,7 @@ import {
     getGemKeywordTenderDocumentById,
 } from "../db/gem_keyword_tender_documents.js";
 import { getCurrentUser } from "./authentication.js";
+import { isTerminalStage } from "./gem_keyword_tenders.js";
 
 export function canManageTenderDocuments({ currentUser, tender }) {
     if (!currentUser?.id || !tender) {
@@ -18,8 +19,7 @@ export function canManageTenderDocuments({ currentUser, tender }) {
     if (currentUser.super_admin) {
         return true;
     }
-    const stage = String(tender.stage || "");
-    if (stage === "unattended" || stage === "missed") {
+    if (isTerminalStage(tender.stage)) {
         return false;
     }
     const assigneeUserId = tender.assignee_user_id ? Number(tender.assignee_user_id) : null;
