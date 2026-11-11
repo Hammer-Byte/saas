@@ -2,8 +2,138 @@ import {
     GEM_KEYWORD_TENDER_STAGE_LABELS,
     GEM_KEYWORD_TENDER_STAGES,
 } from "../constants.js";
-import { getGemKeywordTenderActivityCountsByActor } from "../db/gem_keyword_tender_activities.js";
-import { getAllGemKeywordTenders } from "../db/gem_keyword_tenders.js";
+import {
+    getGemKeywordTenderActivityCountsByActor,
+    getGemKeywordTenderStageChangeActivities,
+} from "../db/gem_keyword_tender_activities.js";
+import {
+    getAllGemKeywordTenders,
+    getGemKeywordTenderNewCountsByCreatedDay,
+} from "../db/gem_keyword_tenders.js";
+import { getIstDateTime, getReadableDate } from "../libs/date.js";
+
+const STAGE_ORDER = Object.values(GEM_KEYWORD_TENDER_STAGES);
+
+const STAGE_LABEL_TO_KEY = Object.fromEntries(
+    Object.entries(GEM_KEYWORD_TENDER_STAGE_LABELS).map(([stage, label]) => [label, stage]),
+);
+
+const STAGE_CHANGE_TO_PATTERN = /^Changed stage from .+ to (.+)$/;
+
+function emptyStageCounts() {
+    return Object.fromEntries(STAGE_ORDER.map((stage) => [stage, 0]));
+}
+
+function eachDateKey(from, to) {
+    const rangeStart = from <= to ? from : to;
+    const rangeEnd = from <= to ? to : from;
+    const dates = [];
+    const cursor = new Date(
+        Number(rangeStart.slice(0, 4)),
+        Number(rangeStart.slice(5, 7)) - 1,
+        Number(rangeStart.slice(8, 10)),
+    );
+    const end = new Date(
+        Number(rangeEnd.slice(0, 4)),
+        Number(rangeEnd.slice(5, 7)) - 1,
+        Number(rangeEnd.slice(8, 10)),
+    );
+    while (cursor <= end) {
+        const yyyy = cursor.getFullYear();
+        const mm = `${cursor.getMonth() + 1}`.padStart(2, "0");
+        const dd = `${cursor.getDate()}`.padStart(2, "0");
+        dates.push(`${yyyy}-${mm}-${dd}`);
+        cursor.setDate(cursor.getDate() + 1);
+    }
+    return dates;
+}
+
+function activityDateKey(createdOn) {
+    return getReadableDate("YYYY-MM-DD", createdOn) || "";
+}
+
+function parseStageEntered(activityText) {
+    const match = String(activityText || "").trim().match(STAGE_CHANGE_TO_PATTERN);
+    if (!match) {
+        return null;
+    }
+    const label = match[1].trim();
+    return STAGE_LABEL_TO_KEY[label] || null;
+}
+
+function clampStageEntryRange(from, to) {
+    const today = getIstDateTime()?.slice(0, 10);
+    const rangeStart = from <= to ? from : to;
+    const rangeEnd = from <= to ? to : from;
+    if (!today || !/^\d{4}-\d{2}-\d{2}$/.test(today)) {
+        return { from: rangeStart, to: rangeEnd };
+    }
+    const end = rangeEnd > today ? today : rangeEnd;
+    const start = rangeStart > end ? end : rangeStart;
+    return { from: start, to: end };
+}
+
+function buildStageEntriesByDay({ from, to, stageChangeActivities, newCountsByDay }) {
+    const dates = eachDateKey(from, to);
+    const byDate = new Map(dates.map((date) => [date, emptyStageCounts()]));
+
+    for (const row of newCountsByDay) {
+        const dateKey = activityDateKey(row.entry_date);
+        if (!byDate.has(dateKey)) {
+            continue;
+        }
+        byDate.get(dateKey)[GEM_KEYWORD_TENDER_STAGES.NEW] += Number(row.entry_count || 0);
+    }
+
+    for (const activity of stageChangeActivities) {
+        const stage = parseStageEntered(activity.activity);
+        if (!stage || !STAGE_ORDER.includes(stage)) {
+            continue;
+        }
+        // New is counted from tender created_on, not stage-change text.
+        if (stage === GEM_KEYWORD_TENDER_STAGES.NEW) {
+            continue;
+        }
+        const dateKey = activityDateKey(activity.created_on);
+        if (!byDate.has(dateKey)) {
+            continue;
+        }
+        byDate.get(dateKey)[stage] += 1;
+    }
+
+    const columns = STAGE_ORDER.map((stage) => ({
+        stage,
+        label: GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage,
+    }));
+
+    const rows = dates.map((date) => {
+        const counts = byDate.get(date) || emptyStageCounts();
+        const total = STAGE_ORDER.reduce((sum, stage) => sum + Number(counts[stage] || 0), 0);
+        return {
+            date,
+            counts,
+            total,
+        };
+    });
+
+    const columnTotals = emptyStageCounts();
+    for (const row of rows) {
+        for (const stage of STAGE_ORDER) {
+            columnTotals[stage] += Number(row.counts[stage] || 0);
+        }
+    }
+    const grandTotal = STAGE_ORDER.reduce(
+        (sum, stage) => sum + Number(columnTotals[stage] || 0),
+        0,
+    );
+
+    return {
+        columns,
+        rows,
+        columnTotals,
+        grandTotal,
+    };
+}
 
 function emptyAssigneeBucket(key, label) {
     return {
@@ -45,6 +175,17 @@ function normalizeStage(value) {
 export async function buildGemKeywordTenderReport({ from, to }) {
     const tenders = await getAllGemKeywordTenders({ from, to });
     const activityRows = await getGemKeywordTenderActivityCountsByActor({ from, to });
+    const stageEntryRange = clampStageEntryRange(from, to);
+    const [stageChangeActivities, newCountsByDay] = await Promise.all([
+        getGemKeywordTenderStageChangeActivities(stageEntryRange),
+        getGemKeywordTenderNewCountsByCreatedDay(stageEntryRange),
+    ]);
+    const stageEntriesByDay = buildStageEntriesByDay({
+        from: stageEntryRange.from,
+        to: stageEntryRange.to,
+        stageChangeActivities,
+        newCountsByDay,
+    });
 
     const assigneeBuckets = new Map();
     const stageTotals = {};
@@ -217,6 +358,7 @@ export async function buildGemKeywordTenderReport({ from, to }) {
             untouched_assigned: untouchedAssignedCount,
             actors_with_activity: activityRows.length,
         },
+        stageEntriesByDay,
         stageTotals: stageTotalsList,
         personWiseAssigned,
         assigneeSummary,

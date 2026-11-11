@@ -214,6 +214,37 @@ export async function getAllGemKeywordTenders({ from, to }) {
         });
 }
 
+/** New tenders created per calendar day (by created_on wall-clock date). */
+export async function getGemKeywordTenderNewCountsByCreatedDay({ from, to }) {
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {
+        return [];
+    }
+
+    const rangeStart = from <= to ? from : to;
+    const rangeEnd = from <= to ? to : from;
+    const startDateTime = `${rangeStart} 00:00:00`;
+    const endDateTime = `${rangeEnd} 23:59:59`;
+
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                DATE(GEM_KEYWORD_TENDERS.created_on) AS entry_date,
+                COUNT(GEM_KEYWORD_TENDERS.id) AS entry_count
+            FROM GEM_KEYWORD_TENDERS
+            WHERE GEM_KEYWORD_TENDERS.created_on >= ${startDateTime}
+              AND GEM_KEYWORD_TENDERS.created_on <= ${endDateTime}
+            GROUP BY DATE(GEM_KEYWORD_TENDERS.created_on)
+            ORDER BY entry_date ASC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getGemKeywordTenderNewCountsByCreatedDay: ${error}`);
+            return [];
+        });
+}
+
 export async function getGemKeywordTenderById({ id }) {
     return await executeSQLQuery(
         (sql) => sql`
