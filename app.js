@@ -17,7 +17,7 @@ logger.init({
 try {
     await transporter.init();
     logger.success("Email Transporter Ready");
-    await bucketizer.init();
+    //await bucketizer.init();
     logger.success("Bucketizer Ready");
     filer.prepareDirectories([Bun.env.DIRECTORY_MEDIA]);
     logger.success("Required Directories Ready");
