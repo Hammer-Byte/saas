@@ -10,11 +10,14 @@ import {
 } from "../libs/linkedin_browser.js";
 import { LinkedinSearchPage } from "../libs/linkedin_connects/linkedin_search_pom.js";
 
-const cookie = String(Bun.env.LI_AT || "").trim();
+const cookieFile = String(Bun.env.LI_AT_FILE || "").trim();
+const cookie = String(
+    Bun.env.LI_AT || (cookieFile ? await Bun.file(cookieFile).text() : ""),
+).trim();
 const keyword = String(Bun.argv[2] || "ceo").trim();
 
 if (!cookie) {
-    console.error("Set LI_AT env var");
+    console.error("Set LI_AT or LI_AT_FILE");
     process.exit(1);
 }
 

@@ -3,6 +3,10 @@ import {
     linkedinSleep,
     openLinkedinUrl,
 } from "../linkedin_browser.js";
+import {
+    connectViaProfileMoreMenu,
+    waitForInviteDialog,
+} from "./linkedin_invite.js";
 
 const SEARCH_HELPERS = `
 function ariaText(entry) {
@@ -24,6 +28,10 @@ function moreActions(root) {
     const aria = ariaText(entry);
     return aria === "more" || aria.includes("more actions");
   });
+}
+
+function isPendingControl(entry) {
+  return ariaText(entry).includes("pending");
 }
 
 function profileUrlFromCard(card) {
@@ -52,6 +60,7 @@ function parseInviteLink(link) {
     name: nameFromInvite(link),
     profileUrl: profileUrlFromInvite(link),
     canConnect: true,
+    connectPath: "invite",
     actionLabels: [ariaText(link)],
   };
 }
@@ -77,31 +86,60 @@ function resultCards() {
   return cards;
 }
 
-function readPeople() {
-  const invites = inviteConnectLinks().map(parseInviteLink).filter((person) => person.profileUrl);
-  if (invites.length) return invites;
+function parseResultCard(card) {
+  const profileUrl = profileUrlFromCard(card);
+  const nameNode =
+    card.querySelector('a[href*="/in/"] span[aria-hidden="true"]') ||
+    card.querySelector('a[href*="/in/"]');
+  const name = ((nameNode && nameNode.innerText) || "")
+    .trim()
+    .split("\\n")[0]
+    .replace(/\\s*[•·]\\s*(1st|2nd|3rd)\\+?.*$/i, "")
+    .trim();
+  const invites = inviteConnectLinks(card);
+  const mores = moreActions(card);
+  const pending = [...card.querySelectorAll("a, button, [role='button']")].some(isPendingControl);
+  const follow = [...card.querySelectorAll("a, button")].some((entry) => {
+    const aria = ariaText(entry);
+    return aria === "follow" || aria.startsWith("follow ");
+  });
+  let connectPath = "none";
+  if (invites.length) connectPath = "invite";
+  else if (mores.length) connectPath = "more";
+  else if (follow) connectPath = "profile"; // Follow-only → open profile → More → Connect
 
-  return resultCards().map((card) => {
-    const profileUrl = profileUrlFromCard(card);
-    const nameNode =
-      card.querySelector('a[href*="/in/"] span[aria-hidden="true"]') ||
-      card.querySelector('a[href*="/in/"]');
-    const name = ((nameNode && nameNode.innerText) || "")
-      .trim()
-      .split("\\n")[0]
-      .replace(/\\s*[•·]\\s*(1st|2nd|3rd)\\+?.*$/i, "")
-      .trim();
-    const canConnect = inviteConnectLinks(card).length > 0 || moreActions(card).length > 0;
-    return {
-      name,
-      profileUrl,
-      canConnect,
-      actionLabels: [
-        ...inviteConnectLinks(card).map(ariaText),
-        ...moreActions(card).map(ariaText),
-      ],
-    };
-  }).filter((person) => person.profileUrl);
+  const canConnect = !pending && connectPath !== "none";
+  return {
+    name,
+    profileUrl,
+    canConnect,
+    connectPath,
+    actionLabels: [
+      ...invites.map(ariaText),
+      ...mores.map(ariaText),
+      ...[...card.querySelectorAll("button, a[aria-label]")].map(ariaText).filter((label) =>
+        /follow|message|pending|connect/.test(label)
+      ),
+    ],
+  };
+}
+
+function readPeople() {
+  // Always enumerate result cards so Follow-only people are included even when
+  // other rows expose Invite links.
+  const byUrl = new Map();
+  for (const card of resultCards()) {
+    const person = parseResultCard(card);
+    if (!person.profileUrl) continue;
+    byUrl.set(person.profileUrl.replace(/\\/$/, ""), person);
+  }
+  for (const link of inviteConnectLinks()) {
+    const person = parseInviteLink(link);
+    if (!person.profileUrl) continue;
+    const key = person.profileUrl.replace(/\\/$/, "");
+    byUrl.set(key, { ...(byUrl.get(key) || {}), ...person, canConnect: true, connectPath: "invite" });
+  }
+  return [...byUrl.values()];
 }
 
 function findInviteForProfile(profileUrl) {
@@ -182,8 +220,9 @@ export class LinkedinSearchPage {
     }
 
     static async sendConnect(driver, profileUrl, name) {
-        // Live search Connect controls are <a href="/preload/search-custom-invite/...">.
-        // In-page click does not open the invite dialog; navigating the preload URL does.
+        const searchUrl = await driver.getCurrentUrl();
+
+        // 1) Direct search Invite control → preload/search-custom-invite
         const inviteHref = await driver.executeScript(
             `
                 ${SEARCH_HELPERS}
@@ -201,43 +240,23 @@ export class LinkedinSearchPage {
             profileUrl,
         );
 
-        if (!inviteHref) {
-            return "skipped";
-        }
-
-        const searchUrl = await driver.getCurrentUrl();
-        await openLinkedinUrl(driver, inviteHref);
-        const dialogReady = await LinkedinSearchPage.waitForInviteDialog(driver);
-        if (!dialogReady) {
+        if (inviteHref) {
+            await openLinkedinUrl(driver, inviteHref);
+            const dialogReady = await waitForInviteDialog(driver);
+            if (dialogReady) {
+                const result = await finishLinkedinInvite(driver, name);
+                await openLinkedinUrl(driver, searchUrl);
+                await LinkedinSearchPage.hydrateInviteLinks(driver);
+                return result;
+            }
             await openLinkedinUrl(driver, searchUrl);
             await LinkedinSearchPage.hydrateInviteLinks(driver);
-            return "skipped";
         }
 
-        const result = await finishLinkedinInvite(driver, name);
-        await openLinkedinUrl(driver, searchUrl);
+        // 2) No Connect on the card → open profile → More → Connect → send without note
+        const result = await connectViaProfileMoreMenu(driver, profileUrl, name, searchUrl);
         await LinkedinSearchPage.hydrateInviteLinks(driver);
         return result;
-    }
-
-    static async waitForInviteDialog(driver) {
-        const deadline = Date.now() + 6_000;
-        while (Date.now() < deadline) {
-            const ready = await driver.executeScript(`
-                const dialog = document.querySelector('div[role="dialog"]');
-                if (!dialog) return false;
-                const text = ((dialog.innerText || "") + " " + [...dialog.querySelectorAll("button, [role='button'], a")].map((button) =>
-                    ((button.getAttribute("aria-label") || "") + " " + (button.innerText || "")).trim()
-                ).join(" ")).toLowerCase();
-                if (text.includes("this is a modal window") && text.length < 40) return false;
-                return /send without a note|send invitation|send now|add a note|email to connect|invitation limit|\\bsend\\b/i.test(text);
-            `);
-            if (ready) {
-                return true;
-            }
-            await linkedinSleep(250);
-        }
-        return false;
     }
 
     static async goToNextPage(driver, currentPage) {

@@ -3,6 +3,7 @@ import {
     linkedinSleep,
     openLinkedinUrl,
 } from "../linkedin_browser.js";
+import { connectViaProfileMoreMenu } from "./linkedin_invite.js";
 
 const GROW_URL = "https://www.linkedin.com/mynetwork/grow/";
 
@@ -45,7 +46,13 @@ function cardForButton(button) {
   return card;
 }
 
-function getCards() {
+function profileUrlOf(card) {
+  const link = card.querySelector('a[href*="/in/"]');
+  if (!link || !link.href) return "";
+  return link.href.split("?")[0];
+}
+
+function discoverCards() {
   const cards = [];
   const seen = new Set();
   for (const button of inviteButtons()) {
@@ -54,13 +61,26 @@ function getCards() {
     seen.add(card);
     cards.push(card);
   }
+  // Also pick up Follow/More-only cards that have no Invite button.
+  const selectors = [
+    "li.discover-person-card-list__card",
+    "div.discover-entity-card",
+    "div[role='listitem']",
+    "ul.artdeco-list > li",
+  ];
+  for (const selector of selectors) {
+    for (const card of document.querySelectorAll(selector)) {
+      if (seen.has(card)) continue;
+      if (!card.querySelector('a[href*="/in/"]')) continue;
+      seen.add(card);
+      cards.push(card);
+    }
+  }
   return cards;
 }
 
-function profileUrlOf(card) {
-  const link = card.querySelector('a[href*="/in/"]');
-  if (!link || !link.href) return "";
-  return link.href.split("?")[0];
+function getCards() {
+  return discoverCards();
 }
 
 function parseCard(card) {
@@ -89,11 +109,19 @@ function parseCard(card) {
     designation = lines[0] || "";
   }
   const buttons = [...card.querySelectorAll("button")];
+  const pending = buttons.some((button) => buttonText(button).includes("pending"));
+  const hasDirect = buttons.some(isDirectConnect);
+  const hasMore = buttons.some(isMore);
+  const hasFollow = buttons.some((button) => {
+    const text = buttonText(button);
+    return text === "follow" || text.startsWith("follow ");
+  });
   return {
     name,
     designation,
     profileUrl,
-    canConnect: buttons.some((button) => isDirectConnect(button) || isMore(button)),
+    // Direct Connect, card More, or Follow-only (profile → More → Connect).
+    canConnect: !pending && (hasDirect || hasMore || hasFollow),
   };
 }
 
@@ -117,9 +145,11 @@ export class LinkedinGrowPage {
         const deadline = Date.now() + 20_000;
         while (Date.now() < deadline) {
             const count = await driver.executeScript(`
-                return [...document.querySelectorAll("button")].filter((button) =>
+                ${PAGE_HELPERS}
+                const invites = [...document.querySelectorAll("button")].filter((button) =>
                     /^invite .+ to connect$/i.test((button.getAttribute("aria-label") || "").trim())
                 ).length;
+                return Math.max(invites, getCards().length);
             `);
             if (count > 0) {
                 return;
@@ -172,6 +202,7 @@ export class LinkedinGrowPage {
     }
 
     static async sendConnect(driver, profileUrl, name) {
+        const growUrl = await driver.getCurrentUrl();
         const click = await driver.executeScript(
             `
                 ${PAGE_HELPERS}
@@ -194,26 +225,30 @@ export class LinkedinGrowPage {
             profileUrl,
         );
 
-        if (click === "missing" || click === "none") {
-            return "skipped";
-        }
+        if (click === "connect" || click === "more") {
+            if (click === "more") {
+                await linkedinSleep(600);
+                const opened = await driver.executeScript(`
+                    const items = [...document.querySelectorAll('[role="menuitem"], [role="menu"] button, [role="menu"] [role="button"], .artdeco-dropdown__content button, .artdeco-dropdown__content li, .artdeco-dropdown__content span')];
+                    const item = items.find((entry) => (entry.innerText || "").trim().toLowerCase() === "connect");
+                    if (!item) return false;
+                    (item.closest("button, [role='menuitem']") || item).click();
+                    return true;
+                `);
+                if (!opened) {
+                    return connectViaProfileMoreMenu(driver, profileUrl, name, growUrl);
+                }
+            }
 
-        if (click === "more") {
-            await linkedinSleep(600);
-            const opened = await driver.executeScript(`
-                const items = [...document.querySelectorAll('[role="menuitem"], [role="menu"] button, [role="menu"] [role="button"], .artdeco-dropdown__content button, .artdeco-dropdown__content li, .artdeco-dropdown__content span')];
-                const item = items.find((entry) => (entry.innerText || "").trim().toLowerCase() === "connect");
-                if (!item) return false;
-                (item.closest("button, [role='menuitem']") || item).click();
-                return true;
-            `);
-            if (!opened) {
-                return "skipped";
+            await linkedinSleep(800);
+            const result = await finishLinkedinInvite(driver, name);
+            if (result !== "skipped") {
+                return result;
             }
         }
 
-        await linkedinSleep(800);
-        return finishLinkedinInvite(driver, name);
+        // No Connect on card (or dialog did not open) → profile → More → Connect
+        return connectViaProfileMoreMenu(driver, profileUrl, name, growUrl);
     }
 
     static sleep(ms) {

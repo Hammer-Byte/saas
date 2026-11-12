@@ -1,4 +1,4 @@
-import { Builder, Browser } from "selenium-webdriver";
+import { Builder, Browser, By } from "selenium-webdriver";
 import firefox from "selenium-webdriver/firefox.js";
 
 const FIREFOX_BINARY = "/usr/bin/firefox";
@@ -71,42 +71,97 @@ async function waitForLinkedinLogin(driver) {
     );
 }
 
-export async function finishLinkedinInvite(driver, name) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-        const outcome = await driver.executeScript(`
-            const bodyText = document.body.innerText || "";
-            if (/weekly invitation limit|invitation limit/i.test(bodyText)) return "limit";
-            if (/invitation sent|invite sent/i.test(bodyText)) return "sent";
-            const dialog = document.querySelector('div[role="dialog"]');
-            if (!dialog) return "none";
-            const text = dialog.innerText || "";
-            if (/enter their email to connect/i.test(text)) return "email";
-            const buttons = [...dialog.querySelectorAll("button, [role='button'], a")];
-            const labelOf = (button) => ((button.getAttribute("aria-label") || "") + " " + (button.innerText || "")).replace(/\\s+/g, " ").trim();
+function inviteDialogHelpers() {
+    return `
+        const labelOf = (el) => ((el.getAttribute("aria-label") || "") + " " + (el.innerText || ""))
+            .replace(/\\s+/g, " ").trim();
+        const isDecoyDialog = (dialog) => {
+            const text = (dialog.innerText || "").trim();
+            return /this is a modal window/i.test(text) && text.length < 40;
+        };
+        const findInviteDialog = () => {
+            // LinkedIn invite UI uses a native <dialog>, not only div[role=dialog].
+            const dialogs = [...document.querySelectorAll('dialog, div[role="dialog"], [role="alertdialog"]')];
+            return dialogs.find((dialog) => {
+                if (isDecoyDialog(dialog)) return false;
+                const text = ((dialog.innerText || "") + " " + [...dialog.querySelectorAll("button, a, [role='button']")].map(labelOf).join(" ")).toLowerCase();
+                return /send without a note|send invitation|send now|add a note|email to connect|invitation limit|\\bsend\\b/i.test(text);
+            }) || null;
+        };
+        const findSendButton = (dialog) => {
+            // Exact path from live LinkedIn invite modal (Send without a note).
+            const byPath = document.evaluate(
+                "/html/body/div/dialog/div/div/div/div/div/div[2]/div/button",
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null,
+            ).singleNodeValue;
+            if (byPath) return byPath;
+
+            const scope = dialog || document;
+            const buttons = [...scope.querySelectorAll("button, [role='button'], a")];
             const sendWithout = buttons.find((button) => /send without a note/i.test(labelOf(button)));
-            const send = buttons.find((button) => {
+            if (sendWithout) return sendWithout;
+            return buttons.find((button) => {
                 const label = labelOf(button).toLowerCase();
                 if (/send without a note/.test(label)) return false;
                 return /^(send|send now|send invitation)$/i.test(label) ||
                     label === "send" ||
                     label.includes("send invitation") ||
                     label.includes("send now");
-            });
-            const target = sendWithout || send;
-            if (!target) return "none";
-            target.click();
-            return "sent";
+            }) || null;
+        };
+    `;
+}
+
+export async function finishLinkedinInvite(driver, name) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const outcome = await driver.executeScript(`
+            ${inviteDialogHelpers()}
+            const bodyText = document.body.innerText || "";
+            if (/weekly invitation limit|invitation limit/i.test(bodyText)) return { status: "limit" };
+            if (/invitation sent|invite sent/i.test(bodyText)) return { status: "sent" };
+
+            const dialog = findInviteDialog();
+            if (!dialog) return { status: "none" };
+
+            const text = dialog.innerText || "";
+            if (/enter their email to connect/i.test(text)) return { status: "email" };
+
+            document.querySelectorAll("[data-li-send-invite]").forEach((el) => el.removeAttribute("data-li-send-invite"));
+            const target = findSendButton(dialog);
+            if (!target) return { status: "none", dialogText: text.slice(0, 200) };
+            target.setAttribute("data-li-send-invite", "1");
+            return { status: "ready", label: labelOf(target) };
         `);
 
-        if (outcome === "limit") {
+        if (outcome?.status === "limit") {
             return "limit";
         }
-        if (outcome === "email") {
+        if (outcome?.status === "email") {
             await dismissLinkedinDialog(driver);
             return "skipped";
         }
-        if (outcome === "sent") {
+        if (outcome?.status === "sent") {
             return "sent";
+        }
+
+        if (outcome?.status === "ready") {
+            const clicked = await clickMarkedInviteSend(driver);
+            if (clicked) {
+                await linkedinSleep(700);
+                const confirmed = await driver.executeScript(`
+                    ${inviteDialogHelpers()}
+                    if (/invitation sent|invite sent/i.test(document.body.innerText || "")) return true;
+                    // Dialog gone after send counts as success.
+                    return !findInviteDialog();
+                `);
+                if (confirmed || await invitationIsPending(driver, name)) {
+                    return "sent";
+                }
+                // Button click may need a moment / retry.
+            }
         }
 
         if (await invitationIsPending(driver, name)) {
@@ -118,6 +173,39 @@ export async function finishLinkedinInvite(driver, name) {
 
     await dismissLinkedinDialog(driver);
     return "skipped";
+}
+
+async function clickMarkedInviteSend(driver) {
+    try {
+        const el = await driver.findElement(By.css('[data-li-send-invite="1"]'));
+        await driver.executeScript(
+            "arguments[0].scrollIntoView({ block: 'center', inline: 'nearest' });",
+            el,
+        );
+        await linkedinSleep(150);
+        try {
+            await driver.actions({ async: true }).move({ origin: el }).pause(60).click().perform();
+            return true;
+        } catch {
+            try {
+                await el.click();
+                return true;
+            } catch {
+                await driver.executeScript("arguments[0].click()", el);
+                return true;
+            }
+        }
+    } catch {
+        // Fallback: JS click inside the real invite dialog
+        return await driver.executeScript(`
+            ${inviteDialogHelpers()}
+            const dialog = findInviteDialog();
+            const target = document.querySelector('[data-li-send-invite="1"]') || findSendButton(dialog);
+            if (!target) return false;
+            target.click();
+            return true;
+        `);
+    }
 }
 
 async function invitationIsPending(driver, name) {
@@ -135,12 +223,22 @@ async function invitationIsPending(driver, name) {
 
 export async function dismissLinkedinDialog(driver) {
     await driver.executeScript(`
-        const dialog = document.querySelector('div[role="dialog"]');
-        if (!dialog) return;
-        const close = [...dialog.querySelectorAll("button")].find((button) => {
-            const label = ((button.getAttribute("aria-label") || "") + " " + (button.innerText || "")).toLowerCase();
+        const labelOf = (el) => ((el.getAttribute("aria-label") || "") + " " + (el.innerText || ""))
+            .replace(/\\s+/g, " ").trim().toLowerCase();
+        const dialogs = [...document.querySelectorAll('dialog, div[role="dialog"], [role="alertdialog"]')];
+        const invite = dialogs.find((dialog) => {
+            const text = (dialog.innerText || "").toLowerCase();
+            return /send without a note|add a note|send invitation|invitation/i.test(text);
+        }) || dialogs.find((dialog) => {
+            const text = (dialog.innerText || "").trim();
+            return !( /this is a modal window/i.test(text) && text.length < 40 );
+        });
+        if (!invite) return;
+        const close = [...invite.querySelectorAll("button")].find((button) => {
+            const label = labelOf(button);
             return label.includes("dismiss") || label.includes("close");
         });
         if (close) close.click();
+        else if (typeof invite.close === "function") invite.close();
     `);
 }
