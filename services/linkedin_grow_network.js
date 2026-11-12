@@ -11,13 +11,12 @@ import {
     getLinkedinGrowRunById,
     getLinkedinGrowRunDesignationsByRunId,
 } from "../db/linkedin_grow_runs.js";
-import { processing } from "../libs/linkedin_browser.js";
 import { enqueueSeleniumJob } from "../libs/selenium/index.js";
 import { getCurrentUser } from "./authentication.js";
 
 export async function getLinkedinGrowNetworkStatus({ set }) {
     set.status = 200;
-    return { processing };
+    return { processing: false };
 }
 
 export async function startLinkedinGrowNetwork({ body, set, cookie }) {
@@ -107,7 +106,7 @@ export async function startLinkedinGrowNetwork({ body, set, cookie }) {
     set.status = 202;
     return {
         message: "GrowNetwork queued",
-        processing: true,
+        processing: false,
         job_id: job.id,
         run: await getLinkedinGrowRunById({ id: runId }),
     };
@@ -139,7 +138,7 @@ export async function getLinkedinGrowNetworkRuns({ set }) {
     }));
 
     set.status = 200;
-    return { linkedinGrowRuns, processing };
+    return { linkedinGrowRuns, processing: false };
 }
 
 export async function getLinkedinGrowNetworkRun({ params, set }) {
@@ -158,6 +157,6 @@ export async function getLinkedinGrowNetworkRun({ params, set }) {
                 run_id: linkedinGrowRun.id,
             }),
         },
-        processing,
+        processing: false,
     };
 }

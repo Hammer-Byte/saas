@@ -12,13 +12,12 @@ import {
     getLinkedinMessageRunById,
     getLinkedinMessageRunDesignationsByRunId,
 } from "../db/linkedin_message_runs.js";
-import { processing } from "../libs/linkedin_browser.js";
 import { enqueueSeleniumJob } from "../libs/selenium/index.js";
 import { getCurrentUser } from "./authentication.js";
 
 export async function getLinkedinMessageNetworkStatus({ set }) {
     set.status = 200;
-    return { processing };
+    return { processing: false };
 }
 
 export async function startLinkedinMessageNetwork({ body, set, cookie }) {
@@ -134,7 +133,7 @@ export async function startLinkedinMessageNetwork({ body, set, cookie }) {
     set.status = 202;
     return {
         message: "MessageNetwork queued",
-        processing: true,
+        processing: false,
         job_id: job.id,
         run: await getLinkedinMessageRunById({ id: runId }),
     };
@@ -166,7 +165,7 @@ export async function getLinkedinMessageNetworkRuns({ set }) {
     }));
 
     set.status = 200;
-    return { linkedinMessageRuns, processing };
+    return { linkedinMessageRuns, processing: false };
 }
 
 export async function getLinkedinMessageNetworkRun({ params, set }) {
@@ -187,6 +186,6 @@ export async function getLinkedinMessageNetworkRun({ params, set }) {
                 run_id: linkedinMessageRun.id,
             }),
         },
-        processing,
+        processing: false,
     };
 }

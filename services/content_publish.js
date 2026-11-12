@@ -12,7 +12,6 @@ import {
     getContentPublishRunStatusCounts,
     getContentPublishRunTargetsByRunId,
 } from "../db/content_publish_runs.js";
-import { processing } from "../libs/content_publish_browser.js";
 import { resolveContentPublishPublicMediaFile } from "../libs/content_publish_public_media.js";
 import { resolveContentPublishScreenshotPath } from "../libs/content_publish_screenshot.js";
 import { enqueueSeleniumJob } from "../libs/selenium/index.js";
@@ -305,7 +304,7 @@ function validatePublishFields({
 export async function getContentPublishStatus({ set }) {
     const counts = await getContentPublishRunStatusCounts();
     set.status = 200;
-    return { processing, queue: counts };
+    return { processing: false, queue: counts };
 }
 
 export async function startContentPublishRun({ body, set, cookie }) {
@@ -486,7 +485,7 @@ export async function startContentPublishRun({ body, set, cookie }) {
     set.status = 202;
     return {
         message: "Content publish queued",
-        processing,
+        processing: false,
         run_id: runId,
         job_id: job.id,
         instagram_destinations: platforms.includes("instagram") ? instagram_destinations : null,
@@ -727,7 +726,7 @@ export async function retryContentPublishRun({ params, body, set, cookie }) {
     set.status = 202;
     return {
         message: `Retry queued for ${platforms.join(", ")}`,
-        processing,
+        processing: false,
         run_id: runId,
         job_id: job.id,
         retried_from_run_id: original.id,
@@ -983,7 +982,7 @@ export async function getContentPublishRuns({ set }) {
             ...decorateContentPublishRun(run),
             targets: targetsByRunId.get(run.id) || [],
         })),
-        processing,
+        processing: false,
         queue: counts,
     };
 }
@@ -1001,7 +1000,7 @@ export async function getContentPublishRun({ params, set }) {
             ...decorateContentPublishRun(run),
             targets: await getContentPublishRunTargetsByRunId({ run_id: run.id }),
         },
-        processing,
+        processing: false,
     };
 }
 

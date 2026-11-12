@@ -24,10 +24,10 @@
         target.textContent = "";
     }
 
-    function setRunning() {
+    function setQueued() {
         if (!startButton) return;
-        startButton.disabled = true;
-        startButton.textContent = "Running…";
+        startButton.disabled = false;
+        startButton.textContent = "Start MessageNetwork";
     }
 
     function selectedIds(selector) {
@@ -91,25 +91,23 @@
             if (!response.ok) {
                 showAlert(
                     limitFormAlert,
-                    data.error || "Failed to start MessageNetwork.",
+                    data.error || "Failed to queue MessageNetwork.",
                     "danger",
                 );
-                if (!data.processing) {
-                    if (startButton) startButton.disabled = false;
-                } else {
-                    setRunning();
-                    limitModal?.hide();
-                    showAlert(pageAlert, data.error || "MessageNetwork already in progress.", "warning");
-                }
+                if (startButton) startButton.disabled = false;
                 return;
             }
 
             limitModal?.hide();
-            setRunning();
-            showAlert(pageAlert, data.message || "MessageNetwork started.", "success");
+            setQueued();
+            showAlert(
+                pageAlert,
+                data.message || "MessageNetwork queued. Track it under Automation → Selenium.",
+                "success",
+            );
         } catch (error) {
             console.error(error);
-            showAlert(limitFormAlert, "Failed to start MessageNetwork.", "danger");
+            showAlert(limitFormAlert, "Failed to queue MessageNetwork.", "danger");
             if (startButton) startButton.disabled = false;
         } finally {
             if (limitSubmitButton) limitSubmitButton.disabled = false;

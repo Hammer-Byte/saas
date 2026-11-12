@@ -194,3 +194,33 @@ export async function getAllLinkedinSearchRunDesignations() {
             return [];
         });
 }
+
+export async function recoverStaleLinkedinSearchRuns({ finished_on }) {
+    const message = "Interrupted by server restart";
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE LINKEDIN_SEARCH_RUN_ACCOUNTS
+            SET status = 'failed'
+            WHERE status IN ('pending', 'running')
+              AND run_id IN (
+                  SELECT id FROM (
+                      SELECT id FROM LINKEDIN_SEARCH_RUNS WHERE status = 'running'
+                  ) AS running_runs
+              )
+        `,
+    ).catch((error) => {
+        logger.error(`recoverStaleLinkedinSearchRuns accounts: ${error}`);
+    });
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE LINKEDIN_SEARCH_RUNS
+            SET
+                status = 'failed',
+                error_message = ${message},
+                finished_on = ${finished_on}
+            WHERE status = 'running'
+        `,
+    ).catch((error) => {
+        logger.error(`recoverStaleLinkedinSearchRuns runs: ${error}`);
+    });
+}

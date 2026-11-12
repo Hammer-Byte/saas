@@ -11,13 +11,12 @@ import {
     getLinkedinSearchRunById,
     getLinkedinSearchRunDesignationsByRunId,
 } from "../db/linkedin_search_runs.js";
-import { processing } from "../libs/linkedin_browser.js";
 import { enqueueSeleniumJob } from "../libs/selenium/index.js";
 import { getCurrentUser } from "./authentication.js";
 
 export async function getLinkedinSearchNetworkStatus({ set }) {
     set.status = 200;
-    return { processing };
+    return { processing: false };
 }
 
 export async function startLinkedinSearchNetwork({ body, set, cookie }) {
@@ -107,7 +106,7 @@ export async function startLinkedinSearchNetwork({ body, set, cookie }) {
     set.status = 202;
     return {
         message: "SearchNetwork queued",
-        processing: true,
+        processing: false,
         job_id: job.id,
         run: await getLinkedinSearchRunById({ id: runId }),
     };
@@ -139,7 +138,7 @@ export async function getLinkedinSearchNetworkRuns({ set }) {
     }));
 
     set.status = 200;
-    return { linkedinSearchRuns, processing };
+    return { linkedinSearchRuns, processing: false };
 }
 
 export async function getLinkedinSearchNetworkRun({ params, set }) {
@@ -160,6 +159,6 @@ export async function getLinkedinSearchNetworkRun({ params, set }) {
                 run_id: linkedinSearchRun.id,
             }),
         },
-        processing,
+        processing: false,
     };
 }

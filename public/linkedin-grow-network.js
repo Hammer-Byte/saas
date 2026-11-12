@@ -24,10 +24,10 @@
         target.textContent = "";
     }
 
-    function setRunning() {
+    function setQueued() {
         if (!startButton) return;
-        startButton.disabled = true;
-        startButton.textContent = "Running…";
+        startButton.disabled = false;
+        startButton.textContent = "Start GrowNetwork";
     }
 
     function selectedIds(selector) {
@@ -91,25 +91,23 @@
             if (!response.ok) {
                 showAlert(
                     limitFormAlert,
-                    data.error || "Failed to start GrowNetwork.",
+                    data.error || "Failed to queue GrowNetwork.",
                     "danger",
                 );
-                if (!data.processing) {
-                    if (startButton) startButton.disabled = false;
-                } else {
-                    setRunning();
-                    limitModal?.hide();
-                    showAlert(pageAlert, data.error || "GrowNetwork already in progress.", "warning");
-                }
+                if (startButton) startButton.disabled = false;
                 return;
             }
 
             limitModal?.hide();
-            setRunning();
-            showAlert(pageAlert, data.message || "GrowNetwork started.", "success");
+            setQueued();
+            showAlert(
+                pageAlert,
+                data.message || "GrowNetwork queued. Track it under Automation → Selenium.",
+                "success",
+            );
         } catch (error) {
             console.error(error);
-            showAlert(limitFormAlert, "Failed to start GrowNetwork.", "danger");
+            showAlert(limitFormAlert, "Failed to queue GrowNetwork.", "danger");
             if (startButton) startButton.disabled = false;
         } finally {
             if (limitSubmitButton) limitSubmitButton.disabled = false;

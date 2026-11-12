@@ -13,6 +13,10 @@ import {
 import { toDbDateTime } from "../date.js";
 import { createSeleniumJobContext } from "./context.js";
 import { recoverStaleContentPublishRuns } from "../../db/content_publish_runs.js";
+import { recoverStaleGemTenderScanRuns } from "../../db/gem_tender_scan_runs.js";
+import { recoverStaleLinkedinGrowRuns } from "../../db/linkedin_grow_runs.js";
+import { recoverStaleLinkedinMessageRuns } from "../../db/linkedin_message_runs.js";
+import { recoverStaleLinkedinSearchRuns } from "../../db/linkedin_search_runs.js";
 import { getSeleniumSkipHook } from "./hooks.js";
 import { getSeleniumJobHandler } from "./registry.js";
 import "./jobs/register.js";
@@ -25,6 +29,8 @@ let activeWorkers = 0;
 let kicking = false;
 let needsKick = false;
 let bootstrapped = false;
+/** Serialize claims so only one fillWorkers loop claims at a time. */
+let claiming = false;
 
 export function requestSeleniumJobAbort(jobId) {
     const id = Number(jobId);
@@ -137,7 +143,19 @@ async function fillWorkers() {
                 break;
             }
 
-            const job = await claimNextQueuedSeleniumJob();
+            if (claiming) {
+                needsKick = true;
+                break;
+            }
+            claiming = true;
+            let job = null;
+            try {
+                job = await claimNextQueuedSeleniumJob({
+                    started_on: toDbDateTime(new Date()),
+                });
+            } finally {
+                claiming = false;
+            }
             if (!job) {
                 break;
             }
@@ -253,5 +271,9 @@ export async function initSeleniumPipeline() {
     const finishedOn = toDbDateTime(new Date());
     await recoverStaleSeleniumJobs({ finished_on: finishedOn });
     await recoverStaleContentPublishRuns({ finished_on: finishedOn });
+    await recoverStaleGemTenderScanRuns({ finished_on: finishedOn });
+    await recoverStaleLinkedinGrowRuns({ finished_on: finishedOn });
+    await recoverStaleLinkedinSearchRuns({ finished_on: finishedOn });
+    await recoverStaleLinkedinMessageRuns({ finished_on: finishedOn });
     kickSeleniumPipeline();
 }

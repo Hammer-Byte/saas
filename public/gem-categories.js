@@ -2,7 +2,6 @@
     const page = window.__GEM_CATEGORIES_PAGE__ || {};
 
     const state = {
-        processing: !!page.processing,
         groups: page.groups || [],
         categories: page.categories || [],
         scanKeywords: page.scanKeywords || [],
@@ -133,12 +132,8 @@
         const onCategoriesTab = activeScannerTab === "categories";
 
         scannerScanButton.classList.toggle("d-none", onCategoriesTab);
-        scannerScanButton.disabled = state.processing || totalSelected === 0 || onCategoriesTab;
+        scannerScanButton.disabled = totalSelected === 0 || onCategoriesTab;
 
-        if (state.processing) {
-            scannerScanButton.textContent = "Scan in progress…";
-            return;
-        }
         if (!totalSelected) {
             scannerScanButton.textContent = "Scan";
             return;
@@ -716,17 +711,18 @@
                 category_ids: categoryIds,
             });
             if (!ok) {
-                state.processing = !!data.processing || state.processing;
-                showAlert(data.error || "Failed to start scan.");
+                showAlert(data.error || "Failed to queue scan.");
                 renderAll();
                 return;
             }
-            state.processing = true;
-            showAlert(data.message || "Scan started.", "success");
+            showAlert(
+                data.message || "Scan queued. Track it under App → Selenium.",
+                "success",
+            );
             renderAll();
         } catch (error) {
             console.error(error);
-            showAlert("Failed to start scan.");
+            showAlert("Failed to queue scan.");
             renderAll();
         }
     });

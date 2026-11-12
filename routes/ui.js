@@ -102,7 +102,6 @@ import {
     getContentPublishRunsByStartedOnRange,
     getContentPublishRunTargetsByRunIds,
 } from "../db/content_publish_runs.js";
-import { processing as contentPublishProcessing } from "../libs/content_publish_browser.js";
 import { decorateContentPublishRun } from "../services/content_publish.js";
 import { getAllLinkedinDesignations } from "../db/linkedin_designations.js";
 import { getAllLinkedinDesignationMessages } from "../db/linkedin_designation_messages.js";
@@ -121,13 +120,12 @@ import {
     getAllLinkedinMessageRunDesignations,
     getAllLinkedinMessageRuns,
 } from "../db/linkedin_message_runs.js";
-import { processing as gemTendereProcessing } from "../libs/tenderer.js";
-import { processing as linkedinProcessing } from "../libs/linkedin_browser.js";
 import {
     getSeleniumJobStatusCountsByCreatedOnRange,
     getSeleniumJobsByCreatedOnRange,
     getSeleniumPipelineStatus,
 } from "../libs/selenium/index.js";
+import { canUseAutomation } from "../services/selenium.js";
 import {
     addIstCalendarDays,
     buildSprintWeekOptions,
@@ -938,7 +936,6 @@ export const uiRoutes = new Elysia()
                         categories: await getAllGemCategories(),
                         scanKeywords: await getAllGemScanKeywords(),
                         tenderCategories: await getAllGemTenderCategories(),
-                        processing: gemTendereProcessing,
                     }),
                 );
             })
@@ -1045,7 +1042,15 @@ export const uiRoutes = new Elysia()
                     title: "Automation — HammerByte",
                 })),
             )
-            .get("/app/selenium", async ({ render, session, query }) => {
+            .get("/app/selenium", async ({ render, session, query, redirect }) => {
+                if (
+                    !canUseAutomation(session?.authorities, {
+                        super_admin: session?.super_admin,
+                    })
+                ) {
+                    return redirect("/app");
+                }
+
                 const today = getIstDate();
                 const from = parseQueryDate(query.from) || today;
                 const to = parseQueryDate(query.to) || today;
@@ -1151,7 +1156,6 @@ export const uiRoutes = new Elysia()
                     queue,
                     start: rangeStart,
                     end: rangeEnd,
-                    processing: contentPublishProcessing,
                 }));
             })
             .get("/app/linkedin", ({ render, session }) =>
@@ -1166,7 +1170,6 @@ export const uiRoutes = new Elysia()
                     linkedinUsers: (await getAllAutomationUsers()).filter((user) =>
                         String(user.linkedin_cookie || "").trim(),
                     ),
-                    processing: linkedinProcessing,
                 })),
             )
             .get("/app/linkedin-designations", async ({ render, session }) =>
@@ -1212,7 +1215,6 @@ export const uiRoutes = new Elysia()
                     linkedinUsers: (await getAllAutomationUsers()).filter((user) =>
                         String(user.linkedin_cookie || "").trim(),
                     ),
-                    processing: linkedinProcessing,
                 })),
             )
             .get("/app/linkedin-search-network-history", async ({ render, session }) => {
@@ -1267,7 +1269,6 @@ export const uiRoutes = new Elysia()
                         String(user.linkedin_cookie || "").trim(),
                     ),
                     messageCounts,
-                    processing: linkedinProcessing,
                 }));
             })
             .get("/app/linkedin-message-network-history", async ({ render, session }) => {

@@ -120,7 +120,7 @@ export async function updateSeleniumJobById({
     });
 }
 
-export async function claimNextQueuedSeleniumJob() {
+export async function claimNextQueuedSeleniumJob({ started_on = null } = {}) {
     const next = await executeSQLQuery(
         (sql) => sql`
             SELECT id
@@ -140,10 +140,13 @@ export async function claimNextQueuedSeleniumJob() {
         return null;
     }
 
+    // Compare-and-swap: only one claimant wins if multiple workers race.
     await executeSQLQuery(
         (sql) => sql`
             UPDATE SELENIUM_JOBS
-            SET status = 'running'
+            SET
+                status = 'running',
+                started_on = COALESCE(${started_on}, started_on)
             WHERE id = ${next.id} AND status = 'queued'
         `,
     ).catch((error) => {

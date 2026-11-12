@@ -194,3 +194,33 @@ export async function getAllLinkedinMessageRunDesignations() {
             return [];
         });
 }
+
+export async function recoverStaleLinkedinMessageRuns({ finished_on }) {
+    const message = "Interrupted by server restart";
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE LINKEDIN_MESSAGE_RUN_ACCOUNTS
+            SET status = 'failed'
+            WHERE status IN ('pending', 'running')
+              AND run_id IN (
+                  SELECT id FROM (
+                      SELECT id FROM LINKEDIN_MESSAGE_RUNS WHERE status = 'running'
+                  ) AS running_runs
+              )
+        `,
+    ).catch((error) => {
+        logger.error(`recoverStaleLinkedinMessageRuns accounts: ${error}`);
+    });
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE LINKEDIN_MESSAGE_RUNS
+            SET
+                status = 'failed',
+                error_message = ${message},
+                finished_on = ${finished_on}
+            WHERE status = 'running'
+        `,
+    ).catch((error) => {
+        logger.error(`recoverStaleLinkedinMessageRuns runs: ${error}`);
+    });
+}

@@ -41,7 +41,7 @@
                     id="gem-scanner-scan-btn"
                     disabled
                 >
-                    <%= processing ? 'Scan in progress…' : 'Scan' %>
+                    Scan
                 </button>
             </div>
         </div>
@@ -312,7 +312,6 @@
 
 <script>
     window.__GEM_CATEGORIES_PAGE__ = <%- JSON.stringify({
-        processing: !!processing,
         groups: groups || [],
         categories: categories || [],
         scanKeywords: scanKeywords || [],

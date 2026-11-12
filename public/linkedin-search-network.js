@@ -24,10 +24,10 @@
         target.textContent = "";
     }
 
-    function setRunning() {
+    function setQueued() {
         if (!startButton) return;
-        startButton.disabled = true;
-        startButton.textContent = "Running…";
+        startButton.disabled = false;
+        startButton.textContent = "Start SearchNetwork";
     }
 
     function selectedIds(selector) {
@@ -91,29 +91,23 @@
             if (!response.ok) {
                 showAlert(
                     startFormAlert,
-                    data.error || "Failed to start SearchNetwork.",
+                    data.error || "Failed to queue SearchNetwork.",
                     "danger",
                 );
-                if (!data.processing) {
-                    if (startButton) startButton.disabled = false;
-                } else {
-                    setRunning();
-                    startModal?.hide();
-                    showAlert(
-                        pageAlert,
-                        data.error || "LinkedIn automation already in progress.",
-                        "warning",
-                    );
-                }
+                if (startButton) startButton.disabled = false;
                 return;
             }
 
             startModal?.hide();
-            setRunning();
-            showAlert(pageAlert, data.message || "SearchNetwork started.", "success");
+            setQueued();
+            showAlert(
+                pageAlert,
+                data.message || "SearchNetwork queued. Track it under Automation → Selenium.",
+                "success",
+            );
         } catch (error) {
             console.error(error);
-            showAlert(startFormAlert, "Failed to start SearchNetwork.", "danger");
+            showAlert(startFormAlert, "Failed to queue SearchNetwork.", "danger");
             if (startButton) startButton.disabled = false;
         } finally {
             if (startSubmitButton) startSubmitButton.disabled = false;

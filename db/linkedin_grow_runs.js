@@ -194,3 +194,34 @@ export async function getAllLinkedinGrowRunDesignations() {
             return [];
         });
 }
+
+export async function recoverStaleLinkedinGrowRuns({ finished_on }) {
+    const message = "Interrupted by server restart";
+    // Accounts first while parent rows are still marked running.
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE LINKEDIN_GROW_RUN_ACCOUNTS
+            SET status = 'failed'
+            WHERE status IN ('pending', 'running')
+              AND run_id IN (
+                  SELECT id FROM (
+                      SELECT id FROM LINKEDIN_GROW_RUNS WHERE status = 'running'
+                  ) AS running_runs
+              )
+        `,
+    ).catch((error) => {
+        logger.error(`recoverStaleLinkedinGrowRuns accounts: ${error}`);
+    });
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE LINKEDIN_GROW_RUNS
+            SET
+                status = 'failed',
+                error_message = ${message},
+                finished_on = ${finished_on}
+            WHERE status = 'running'
+        `,
+    ).catch((error) => {
+        logger.error(`recoverStaleLinkedinGrowRuns runs: ${error}`);
+    });
+}
