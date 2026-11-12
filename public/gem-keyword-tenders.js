@@ -6,7 +6,7 @@
     const stageFilter = document.getElementById("gem-filter-stage");
     const assigneeFilter = document.getElementById("gem-filter-assignee");
     const multiFilters = [categoryFilter, stageFilter, assigneeFilter].filter(Boolean);
-    const showAllFilter = document.getElementById("gem-filter-show-all");
+    const includeHiddenFilter = document.getElementById("gem-filter-include-hidden");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
     const applyFiltersBtn = document.getElementById("gem-filters-apply-btn");
@@ -51,7 +51,7 @@
             stages: [],
             assignees: [],
             search: "",
-            showAll: false,
+            includeHidden: false,
             quantityUpto: "",
             columns: {},
         };
@@ -167,7 +167,7 @@
             stages: selectedMultiValues(stageFilter),
             assignees: selectedMultiValues(assigneeFilter),
             search: String(searchInput?.value || "").trim(),
-            showAll: !!showAllFilter?.checked,
+            includeHidden: !!includeHiddenFilter?.checked,
             quantityUpto: String(quantityUptoFilter?.value || "").trim(),
             columns,
         };
@@ -181,7 +181,7 @@
         setSelectedMultiValues(stageFilter, filters.stages || []);
         setSelectedMultiValues(assigneeFilter, filters.assignees || []);
         if (searchInput) searchInput.value = filters.search || "";
-        if (showAllFilter) showAllFilter.checked = !!filters.showAll;
+        if (includeHiddenFilter) includeHiddenFilter.checked = !!filters.includeHidden;
         if (quantityUptoFilter) {
             const qty = Number(filters.quantityUpto);
             quantityUptoFilter.value =
@@ -459,6 +459,8 @@
                         : "";
                 const tenderCategoryName = tender.tender_category_name || "";
                 const isLocked = !!Number(tender.locked);
+                const isHidden =
+                    !!Number(tender.hidden) || tender.hidden === true;
                 const lockMessage = tender.lock_message || "";
                 const assigneeUserId =
                     tender.assignee_user_id != null
@@ -476,6 +478,7 @@
                     data-tender-category-id="${escapeHtml(tenderCategoryId)}"
                     data-tender-category-name="${escapeHtml(tenderCategoryName)}"
                     data-locked="${isLocked ? "1" : "0"}"
+                    data-hidden="${isHidden ? "1" : "0"}"
                     data-assignee-user-id="${escapeHtml(assigneeUserId)}"
                     data-stage="${escapeHtml(stage)}"
                     data-past-experience="${escapeHtml(pastExperience)}"
@@ -785,7 +788,7 @@
         const selectedCategories = (appliedFilters.categories || []).map(String);
         const selectedStages = (appliedFilters.stages || []).map(String);
         const selectedAssignees = (appliedFilters.assignees || []).map(String);
-        const showLocked = !!appliedFilters.showAll;
+        const includeHidden = !!appliedFilters.includeHidden;
         const quantityUptoRaw = String(appliedFilters.quantityUpto ?? "").trim();
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
         const hasQuantityUpto =
@@ -805,9 +808,8 @@
 
         for (const row of rows) {
             const rowStage = String(row.dataset.stage || "new");
-            const isLockedRow = row.dataset.locked === "1";
-            // Filed tenders are locked by the backend but stay in the default list.
-            const matchesLocked = showLocked || !isLockedRow || rowStage === "filed";
+            const isHiddenRow = row.dataset.hidden === "1";
+            const matchesHidden = includeHidden || !isHiddenRow;
 
             const rowCategoryId = String(row.dataset.tenderCategoryId || "");
             const rowCategoryName = String(row.dataset.tenderCategoryName || "")
@@ -851,7 +853,7 @@
                 !hasQuantityUpto || (rowQuantity > 0 && rowQuantity <= quantityUpto);
 
             const visible =
-                matchesLocked &&
+                matchesHidden &&
                 matchesCategory &&
                 matchesStage &&
                 matchesAssignee &&
@@ -913,7 +915,7 @@
             stages: stages.map(String).filter(Boolean),
             assignees: assignees.map(String).filter(Boolean),
             search: String(filters.search || "").trim(),
-            showAll: !!filters.showAll,
+            includeHidden: !!filters.includeHidden,
             quantityUpto:
                 Number.isFinite(quantity) && quantity > 0 ? String(quantity) : "",
             columns,

@@ -204,18 +204,18 @@ function lockStateForUpdate({
     nextStage,
     body,
 }) {
-    // Admin unlock: clear lock only.
+    // Admin unlock: clear lock; caller unhides.
     if (body?.locked === false) {
-        return { locked: false, lock_message: null, hiddenOverride: null };
+        return { locked: false, lock_message: null, hide: false };
     }
 
-    // Explicit lock actions (out of scope / not eligible) without stage change.
+    // Explicit lock actions (out of scope / not eligible) — lock + hide.
     const lockAction = String(body?.lock_action || "").trim();
     if (lockAction && LOCK_ACTION_MESSAGES[lockAction]) {
         return {
             locked: true,
             lock_message: LOCK_ACTION_MESSAGES[lockAction],
-            hiddenOverride: true,
+            hide: true,
             eligibleOverride:
                 lockAction === "not_eligible"
                     ? GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE
@@ -223,19 +223,32 @@ function lockStateForUpdate({
         };
     }
 
+    // Filed: lock but keep visible (not hidden).
     if (nextStage === GEM_KEYWORD_TENDER_STAGES.FILED) {
         return {
             locked: true,
             lock_message: GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED,
-            hiddenOverride: null,
+            hide: false,
         };
     }
 
-    return {
-        locked: !!previousLocked,
-        lock_message: previousLocked ? previousLockMessage || null : null,
-        hiddenOverride: null,
-    };
+    if (previousLocked) {
+        return {
+            locked: true,
+            lock_message: previousLockMessage || null,
+            hide: true,
+        };
+    }
+
+    return { locked: false, lock_message: null, hide: false };
+}
+
+/** Apply lock/hide/eligibility on top of stage flags. */
+function applyLockFlags(flags, lockState) {
+    if (lockState.eligibleOverride != null) {
+        flags.eligible = lockState.eligibleOverride;
+    }
+    flags.hidden = !!lockState.hide;
 }
 
 export function canEditQuote({ currentUser, assigneeUserId, stage }) {
@@ -587,23 +600,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         nextStage,
         body,
     });
-    if (lockState.hiddenOverride != null) {
-        flags.hidden = lockState.hiddenOverride;
-    }
-    if (lockState.eligibleOverride != null) {
-        flags.eligible = lockState.eligibleOverride;
-    }
-    // Keep locked tenders hidden in the default list unless unlocked.
-    if (lockState.locked && nextStage !== GEM_KEYWORD_TENDER_STAGES.FILED) {
-        flags.hidden = true;
-    }
-    if (!lockState.locked) {
-        // Unlock restores visibility for non-filed pipeline rows.
-        if (nextStage !== GEM_KEYWORD_TENDER_STAGES.FILED) {
-            flags.hidden = flags.hidden && false;
-            flags.hidden = false;
-        }
-    }
+    applyLockFlags(flags, lockState);
 
     const activities = [];
 
@@ -855,20 +852,22 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
         }
 
         try {
-            const bulkLock =
-                nextStage === GEM_KEYWORD_TENDER_STAGES.FILED
-                    ? {
-                          locked: true,
-                          lock_message: GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED,
-                      }
-                    : {
-                          locked: isTenderLocked(gemKeywordTender),
-                          lock_message: gemKeywordTender.lock_message || null,
-                      };
+            const isFiling = nextStage === GEM_KEYWORD_TENDER_STAGES.FILED;
+            const bulkLock = isFiling
+                ? {
+                      locked: true,
+                      lock_message: GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED,
+                      hidden: false,
+                  }
+                : {
+                      locked: isTenderLocked(gemKeywordTender),
+                      lock_message: gemKeywordTender.lock_message || null,
+                      hidden: flags.hidden,
+                  };
 
             await updateGemKeywordTenderById({
                 id: gemKeywordTender.id,
-                hidden: flags.hidden,
+                hidden: bulkLock.hidden,
                 eligible: flags.eligible,
                 filed: flags.filed,
                 quote: gemKeywordTender.quote,

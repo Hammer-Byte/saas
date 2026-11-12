@@ -155,7 +155,6 @@
             data-id="<%= tender.id %>"
             data-stage="<%= currentStage %>"
             data-assignee-user-id="<%= assigneeUserId || '' %>"
-            data-category-group-id="<%= tender.category_group_id != null ? tender.category_group_id : '' %>"
             data-quote="<%= encodeURIComponent(tender.quote || '') %>"
             data-current-user-id="<%= currentUserId %>"
             data-super-admin="<%= isSuperAdmin ? '1' : '0' %>"

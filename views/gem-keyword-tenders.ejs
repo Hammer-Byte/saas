@@ -499,10 +499,10 @@
                             <input
                                 class="form-check-input"
                                 type="checkbox"
-                                id="gem-filter-show-all"
+                                id="gem-filter-include-hidden"
                             />
-                            <label class="form-check-label small" for="gem-filter-show-all">
-                                Show locked
+                            <label class="form-check-label small" for="gem-filter-include-hidden">
+                                Include hidden
                             </label>
                         </div>
                     </div>
@@ -604,12 +604,14 @@
                                         const assigneeName = tender.assignee_full_name || "-";
                                         const stageLabel = stageLabels[stage] || stage || "New";
                                         const isLocked = !!Number(tender.locked);
+                                        const isHidden = !!Number(tender.hidden) || tender.hidden === true;
                                     %>
                                     <tr
                                         data-id="<%= tender.id %>"
                                         data-tender-category-id="<%= tender.tender_category_id != null ? tender.tender_category_id : '' %>"
                                         data-tender-category-name="<%= tender.tender_category_name || '' %>"
                                         data-locked="<%= isLocked ? '1' : '0' %>"
+                                        data-hidden="<%= isHidden ? '1' : '0' %>"
                                         data-assignee-user-id="<%= tender.assignee_user_id != null ? tender.assignee_user_id : '' %>"
                                         data-stage="<%= stage %>"
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"
