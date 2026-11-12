@@ -93,6 +93,12 @@
     const bulkStageBtn = document.getElementById("gem-bulk-stage-btn");
     const bulkStageClearBtn = document.getElementById("gem-bulk-stage-clear-btn");
     const bulkStageStatus = document.getElementById("gem-bulk-stage-status");
+    const bulkOutOfScopeBtn = document.getElementById("gem-bulk-out-of-scope-btn");
+    const bulkNotEligibleBtn = document.getElementById("gem-bulk-not-eligible-btn");
+    const BULK_LOCK_LABELS = {
+        out_of_scope: "Out of scope",
+        not_eligible: "Not eligible",
+    };
     const stageSelectedCountLabel = document.getElementById("gem-tenders-stage-selected-count");
     const currentUserId = Number(bulkBar?.dataset.currentUserId || 0);
     const canAssignOthers = bulkBar?.dataset.canAssignOthers === "1";
@@ -828,6 +834,8 @@
             const hasComment = !!(bulkStageComment?.value || "").trim();
             bulkStageBtn.disabled = count === 0 || !hasStage || !hasComment;
         }
+        if (bulkOutOfScopeBtn) bulkOutOfScopeBtn.disabled = count === 0;
+        if (bulkNotEligibleBtn) bulkNotEligibleBtn.disabled = count === 0;
         if (selectAllCheckbox) {
             const visibles = visibleRows();
             const visibleChecks = visibles
@@ -1197,6 +1205,110 @@
         syncBulkBar();
     });
 
+    async function runBulkLockAction(lockAction) {
+        if (!canBulkChangeStage) return;
+
+        const label = BULK_LOCK_LABELS[lockAction];
+        if (!label) return;
+
+        const selected = selectedCheckboxes();
+        const ids = selected
+            .map((checkbox) => Number(checkbox.value || 0))
+            .filter((id) => id >= 1);
+        if (!ids.length) return;
+
+        const unassignedCount = selected.filter((checkbox) => {
+            const row = checkbox.closest("tr");
+            const assigneeUserId = Number(row?.dataset?.assigneeUserId || 0);
+            return !(assigneeUserId >= 1);
+        }).length;
+        if (unassignedCount > 0) {
+            if (bulkStageStatus) {
+                bulkStageStatus.textContent =
+                    `Assign someone first: ${unassignedCount} selected tender(s) have no assignee.`;
+                bulkStageStatus.classList.remove("d-none", "text-secondary");
+                bulkStageStatus.classList.add("text-danger");
+            }
+            return;
+        }
+
+        const confirmed = await window.showConfirm({
+            title: `Mark as ${label}?`,
+            description: `This will lock ${ids.length} tender(s) as "${label}" and hide them. Only a super admin can unlock afterward. Stage will not change.`,
+            choices: [
+                { label: "Cancel", value: false, variant: "outline-secondary" },
+                { label: `Mark ${label}`, value: true, variant: "danger" },
+            ],
+        });
+        if (!confirmed) return;
+
+        if (bulkOutOfScopeBtn) bulkOutOfScopeBtn.disabled = true;
+        if (bulkNotEligibleBtn) bulkNotEligibleBtn.disabled = true;
+        if (bulkStageBtn) bulkStageBtn.disabled = true;
+        if (bulkStageStatus) {
+            bulkStageStatus.textContent = `Marking ${ids.length} tender(s) as ${label}…`;
+            bulkStageStatus.classList.remove("d-none", "text-danger");
+            bulkStageStatus.classList.add("text-secondary");
+        }
+
+        try {
+            const response = await fetch("/api/gem-keyword-tenders/bulk-lock", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids, lock_action: lockAction }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (bulkStageStatus) {
+                    bulkStageStatus.textContent =
+                        payload?.error || `Failed to mark as ${label}.`;
+                    bulkStageStatus.classList.remove("text-secondary");
+                    bulkStageStatus.classList.add("text-danger");
+                }
+                syncBulkBar();
+                return;
+            }
+
+            if (!payload.failedCount) {
+                clearSelection();
+                await reloadTendersFromServer();
+                if (bulkStageStatus) {
+                    bulkStageStatus.textContent = "";
+                    bulkStageStatus.classList.add("d-none");
+                }
+                syncBulkBar();
+                return;
+            }
+
+            if (bulkStageStatus) {
+                bulkStageStatus.textContent =
+                    payload.message ||
+                    `Locked ${payload.successCount || 0}, failed ${payload.failedCount || 0}.`;
+                bulkStageStatus.classList.remove("text-secondary");
+                bulkStageStatus.classList.add("text-danger");
+            }
+            await reloadTendersFromServer();
+            syncBulkBar();
+        } catch (error) {
+            console.error(error);
+            if (bulkStageStatus) {
+                bulkStageStatus.textContent = `Failed to mark as ${label}.`;
+                bulkStageStatus.classList.remove("text-secondary");
+                bulkStageStatus.classList.add("text-danger");
+            }
+            syncBulkBar();
+        }
+    }
+
+    bulkOutOfScopeBtn?.addEventListener("click", () => {
+        runBulkLockAction("out_of_scope");
+    });
+
+    bulkNotEligibleBtn?.addEventListener("click", () => {
+        runBulkLockAction("not_eligible");
+    });
+
     bulkStageBtn?.addEventListener("click", async () => {
         if (!canBulkChangeStage) return;
 
@@ -1239,6 +1351,8 @@
         }
 
         bulkStageBtn.disabled = true;
+        if (bulkOutOfScopeBtn) bulkOutOfScopeBtn.disabled = true;
+        if (bulkNotEligibleBtn) bulkNotEligibleBtn.disabled = true;
         if (bulkStageStatus) {
             bulkStageStatus.textContent = `Changing stage on ${ids.length} tender(s)…`;
             bulkStageStatus.classList.remove("d-none", "text-danger");

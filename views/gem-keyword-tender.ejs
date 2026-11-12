@@ -56,7 +56,8 @@
     const canUseComments = !isLocked && (!isTerminalStage || isSuperAdmin);
     const canLockAction =
         !isFrozen &&
-        (isSuperAdmin || !assigneeUserId || assigneeUserId === currentUserId);
+        !!assigneeUserId &&
+        (isSuperAdmin || assigneeUserId === currentUserId);
     const selectableStageValues = pipelineStages.filter(function (stage) {
         return stageLabels[stage];
     });

@@ -2,6 +2,7 @@ import { t } from "elysia";
 import { GEM_KEYWORD_TENDER_STAGES } from "../../constants.js";
 import {
     bulkChangeGemKeywordTenderStages,
+    bulkLockGemKeywordTenders,
     listGemKeywordTenders,
     startGemAdhocTenderScan,
     updateGemKeywordTender,
@@ -39,6 +40,19 @@ export default function (app) {
             detail: {
                 tags: ["GEM Keyword Tenders"],
                 summary: "Change stage for selected GEM keyword tenders (comment required)",
+            },
+        })
+        .post("/bulk-lock", bulkLockGemKeywordTenders, {
+            body: t.Object({
+                ids: t.Array(t.Numeric({ minimum: 1 }), { minItems: 1 }),
+                lock_action: t.Union([
+                    t.Literal("out_of_scope"),
+                    t.Literal("not_eligible"),
+                ]),
+            }),
+            detail: {
+                tags: ["GEM Keyword Tenders"],
+                summary: "Lock selected GEM keyword tenders as out of scope or not eligible",
             },
         })
         .post("/adhoc-scan", startGemAdhocTenderScan, {

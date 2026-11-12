@@ -130,9 +130,10 @@
 
     function canLockAction() {
         if (isFrozen()) return false;
-        if (isSuperAdmin) return true;
         const assigneeUserId = Number(currentAssigneeId() || 0);
-        return !(assigneeUserId >= 1) || assigneeUserId === currentUserId;
+        if (!(assigneeUserId >= 1)) return false;
+        if (isSuperAdmin) return true;
+        return assigneeUserId === currentUserId;
     }
 
     function syncControls() {

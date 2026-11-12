@@ -525,6 +525,15 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         return { error: "Assignee is required for this stage" };
     }
 
+    const lockActionRequested = String(body?.lock_action || "").trim();
+    if (lockActionRequested && LOCK_ACTION_MESSAGES[lockActionRequested]) {
+        const lockAssigneeId = nextAssigneeUserId ?? previousAssigneeUserId;
+        if (!(lockAssigneeId >= 1)) {
+            set.status = 400;
+            return { error: "Assign someone before marking out of scope or not eligible" };
+        }
+    }
+
     const stageChanging = nextStage !== previousStage;
     const unassigning = assigneeChanging && nextAssigneeUserId == null;
 
@@ -939,6 +948,143 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
     return {
         message:
             `Changed stage on ${successCount}` +
+            (skippedCount ? `, skipped ${skippedCount}` : "") +
+            (failedCount ? `, failed ${failedCount}` : ""),
+        successCount,
+        skippedCount,
+        failedCount,
+        failures,
+    };
+}
+
+export async function bulkLockGemKeywordTenders({ body, cookie, set }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+    }
+
+    if (
+        !hasAuthority(
+            currentUser.authorities,
+            AUTHORITIES.MARK_GEM_TENDER_MASS_STAGE_CHANGE,
+        )
+    ) {
+        set.status = 403;
+        return { error: "Missing authority to bulk lock tenders" };
+    }
+
+    const lockAction = String(body?.lock_action || "").trim();
+    if (!LOCK_ACTION_MESSAGES[lockAction]) {
+        set.status = 400;
+        return { error: "Invalid lock action" };
+    }
+
+    const ids = Array.isArray(body?.ids)
+        ? [...new Set(body.ids.map((id) => Number(id)).filter((id) => id >= 1))]
+        : [];
+    if (!ids.length) {
+        set.status = 400;
+        return { error: "Select at least one tender" };
+    }
+
+    const lockMessage = LOCK_ACTION_MESSAGES[lockAction];
+    const eligibleOverride =
+        lockAction === "not_eligible"
+            ? GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE
+            : null;
+
+    let successCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+    const failures = [];
+
+    for (const id of ids) {
+        const gemKeywordTender = await getGemKeywordTenderById({ id });
+        if (!gemKeywordTender) {
+            failedCount += 1;
+            failures.push({ id, error: "Tender not found" });
+            continue;
+        }
+
+        if (isTenderLocked(gemKeywordTender)) {
+            const previousMessage = String(gemKeywordTender.lock_message || "").trim();
+            if (previousMessage === lockMessage) {
+                skippedCount += 1;
+                continue;
+            }
+            failedCount += 1;
+            failures.push({
+                id,
+                error: "Unlock this tender before making changes",
+            });
+            continue;
+        }
+
+        const assigneeUserId = gemKeywordTender.assignee_user_id
+            ? Number(gemKeywordTender.assignee_user_id)
+            : null;
+        if (!(assigneeUserId >= 1)) {
+            failedCount += 1;
+            failures.push({
+                id,
+                error: "Assign someone before marking out of scope or not eligible",
+            });
+            continue;
+        }
+
+        const previousStage = normalizeStage(gemKeywordTender.stage);
+        if (isTerminalStage(previousStage) && !currentUser.super_admin) {
+            failedCount += 1;
+            failures.push({
+                id,
+                error: "Only a super admin can change tenders in a one-way stage",
+            });
+            continue;
+        }
+
+        try {
+            const flags = flagsForStage(previousStage);
+            if (eligibleOverride != null) {
+                flags.eligible = eligibleOverride;
+            }
+            flags.hidden = true;
+
+            await updateGemKeywordTenderById({
+                id: gemKeywordTender.id,
+                hidden: true,
+                eligible: flags.eligible,
+                filed: flags.filed,
+                quote: gemKeywordTender.quote,
+                stage: previousStage,
+                assignee_user_id: assigneeUserId,
+                category_group_id: gemKeywordTender.category_group_id
+                    ? Number(gemKeywordTender.category_group_id)
+                    : null,
+                tender_category_id: gemKeywordTender.tender_category_id
+                    ? Number(gemKeywordTender.tender_category_id)
+                    : null,
+                locked: true,
+                lock_message: lockMessage,
+            });
+
+            await logActivities({
+                gem_keyword_tender_id: gemKeywordTender.id,
+                user_id: currentUser.id,
+                activities: [`Locked tender: ${lockMessage}`],
+            });
+
+            successCount += 1;
+        } catch (error) {
+            failedCount += 1;
+            failures.push({ id, error: "Failed to lock tender" });
+        }
+    }
+
+    set.status = failedCount && !successCount ? 400 : 200;
+    return {
+        message:
+            `Locked ${successCount}` +
             (skippedCount ? `, skipped ${skippedCount}` : "") +
             (failedCount ? `, failed ${failedCount}` : ""),
         successCount,
