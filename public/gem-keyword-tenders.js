@@ -1,5 +1,22 @@
 (() => {
     const FILTERS_STORAGE_KEY = "gem-tenders-filters";
+    const COLUMNS_STORAGE_KEY = "gem-tenders-columns";
+    const ALWAYS_VISIBLE_COLUMNS = new Set(["select", "tenderId"]);
+    const DEFAULT_VISIBLE_COLUMNS = [
+        "select",
+        "tenderId",
+        "endAt",
+        "category",
+        "buyer",
+        "quantity",
+        "emd",
+        "pastExp",
+        "mseExp",
+        "mseTurnover",
+        "stage",
+        "locked",
+        "assignee",
+    ];
     const fromInput = document.getElementById("gem-tenders-from");
     const toInput = document.getElementById("gem-tenders-to");
     const categoryFilter = document.getElementById("gem-filter-category");
@@ -21,6 +38,11 @@
     const loadingState = document.getElementById("gem-tenders-loading");
     const filterStatus = document.getElementById("gem-tenders-filter-status");
     const rangeHighlight = document.querySelector(".gem-tenders-range-highlight");
+    const columnToggleInputs = Array.from(
+        document.querySelectorAll(".gem-column-toggle"),
+    );
+    const showAllColumnsBtn = document.getElementById("gem-columns-show-all-btn");
+    const resetColumnsBtn = document.getElementById("gem-columns-reset-btn");
     let listReady = false;
     let listFetchSeq = 0;
     let listFetchAbort = null;
@@ -414,6 +436,65 @@
         });
     }
 
+    function readStoredColumns() {
+        try {
+            const raw = window.localStorage.getItem(COLUMNS_STORAGE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return null;
+            return parsed.map(String);
+        } catch {
+            return null;
+        }
+    }
+
+    function writeStoredColumns(columns) {
+        try {
+            window.localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(columns));
+        } catch {
+            // ignore
+        }
+    }
+
+    function normalizeVisibleColumns(columns) {
+        const selected = new Set(
+            (Array.isArray(columns) ? columns : DEFAULT_VISIBLE_COLUMNS).map(String),
+        );
+        for (const key of ALWAYS_VISIBLE_COLUMNS) {
+            selected.add(key);
+        }
+        return DEFAULT_VISIBLE_COLUMNS.filter(
+            (key) => ALWAYS_VISIBLE_COLUMNS.has(key) || selected.has(key),
+        );
+    }
+
+    function readColumnsFromDom() {
+        const selected = columnToggleInputs
+            .filter((input) => input.checked || input.disabled)
+            .map((input) => input.value);
+        return normalizeVisibleColumns(selected);
+    }
+
+    function writeColumnsToDom(columns) {
+        const visible = new Set(normalizeVisibleColumns(columns));
+        for (const input of columnToggleInputs) {
+            const always = ALWAYS_VISIBLE_COLUMNS.has(input.value);
+            input.checked = always || visible.has(input.value);
+            if (always) input.disabled = true;
+        }
+    }
+
+    function applyColumnVisibility(columns = readColumnsFromDom()) {
+        const visible = new Set(normalizeVisibleColumns(columns));
+        writeColumnsToDom([...visible]);
+        writeStoredColumns([...visible]);
+        tableEl?.querySelectorAll?.("[data-col]")?.forEach((cell) => {
+            const key = cell.getAttribute("data-col");
+            if (!key) return;
+            cell.classList.toggle("d-none", !visible.has(key));
+        });
+    }
+
     function rebindRows() {
         rows = Array.from(tableBody.querySelectorAll("tr"));
         for (const select of columnFilters) {
@@ -424,6 +505,7 @@
         applySort();
         markEndsSoonRows();
         applyFilters();
+        applyColumnVisibility();
     }
 
     function mseLabel(value) {
@@ -487,7 +569,7 @@
                     data-quantity="${escapeHtml(quantity)}"
                     data-end-at="${escapeHtml(endAt)}"
                 >
-                    <td>
+                    <td data-col="select">
                         <input
                             type="checkbox"
                             class="form-check-input gem-tender-select"
@@ -495,7 +577,7 @@
                             aria-label="Select tender ${escapeHtml(tenderId)}"
                         />
                     </td>
-                    <td>
+                    <td data-col="tenderId">
                         <a
                             href="/app/gem-keyword-tenders/${escapeHtml(rowId)}"
                             target="_blank"
@@ -503,27 +585,28 @@
                         >${escapeHtml(tenderId)}</a>
                     </td>
                     <td
+                        data-col="endAt"
                         class="gem-tenders-ends-at"
                         data-readable-date="${escapeHtml(endAt)}"
                         data-date-format="DD/MM/YYYY HH:mm:ss"
                     ></td>
-                    <td>${escapeHtml(tenderCategoryName || "-")}</td>
-                    <td class="gem-tenders-buyer-col">
+                    <td data-col="category">${escapeHtml(tenderCategoryName || "-")}</td>
+                    <td data-col="buyer" class="gem-tenders-buyer-col">
                         <span class="gem-tenders-buyer-text" title="${escapeHtml(buyerText)}">
                             ${escapeHtml(buyerText)}
                         </span>
                     </td>
-                    <td>${escapeHtml(quantityDisplay)}</td>
-                    <td>${escapeHtml(emdDisplay)}</td>
-                    <td>${escapeHtml(pastExperience || "-")}</td>
-                    <td>${escapeHtml(mseExp)}</td>
-                    <td>${escapeHtml(mseTurnover)}</td>
-                    <td>
+                    <td data-col="quantity">${escapeHtml(quantityDisplay)}</td>
+                    <td data-col="emd">${escapeHtml(emdDisplay)}</td>
+                    <td data-col="pastExp">${escapeHtml(pastExperience || "-")}</td>
+                    <td data-col="mseExp">${escapeHtml(mseExp)}</td>
+                    <td data-col="mseTurnover">${escapeHtml(mseTurnover)}</td>
+                    <td data-col="stage">
                         <span class="gem-tender-tag gem-tender-stage-tag gem-tender-stage-${escapeHtml(stage)}">
                             ${escapeHtml(stageLabel)}
                         </span>
                     </td>
-                    <td class="text-center">
+                    <td data-col="locked" class="text-center">
                         <input
                             type="checkbox"
                             class="form-check-input gem-tender-locked-check"
@@ -533,7 +616,7 @@
                             title="${escapeHtml(isLocked ? lockMessage || "Locked" : "Not locked")}"
                         />
                     </td>
-                    <td>
+                    <td data-col="assignee">
                         <span class="gem-tender-tag gem-tender-assignee-tag${assigneeUserId ? "" : " gem-tender-assignee-empty"}">
                             ${escapeHtml(assigneeName)}
                         </span>
@@ -1021,6 +1104,23 @@
         if (fromInput) fromInput.value = fromKey;
         if (toInput) toInput.value = toKey;
     }
+
+    writeColumnsToDom(readStoredColumns() || DEFAULT_VISIBLE_COLUMNS);
+    applyColumnVisibility();
+
+    for (const input of columnToggleInputs) {
+        input.addEventListener("change", () => {
+            applyColumnVisibility(readColumnsFromDom());
+        });
+    }
+
+    showAllColumnsBtn?.addEventListener("click", () => {
+        applyColumnVisibility(DEFAULT_VISIBLE_COLUMNS);
+    });
+
+    resetColumnsBtn?.addEventListener("click", () => {
+        applyColumnVisibility(DEFAULT_VISIBLE_COLUMNS);
+    });
 
     filtersPanel?.addEventListener("click", (event) => {
         const quickBtn = event.target?.closest?.(".gem-date-quick-btn");

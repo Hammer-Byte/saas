@@ -581,6 +581,7 @@ export async function generateDBTables() {
             hod_email VARCHAR(255) NULL,
             buyer_email VARCHAR(255) NULL,
             buyer_phone VARCHAR(64) NULL,
+            buyer_name VARCHAR(255) NULL,
             required_minimum_average_turnover VARCHAR(128) NULL,
             required_past_experice_years VARCHAR(128) NULL,
             mse_experience_relaxation TINYINT(1) NULL,
@@ -1121,6 +1122,20 @@ export async function generateDBTables() {
                 !/duplicate (foreign )?key|already exists/i.test(message)
             ) {
                 throw error;
+            }
+        }
+    }
+
+    const optionalColumnAlters = [
+        `ALTER TABLE GEM_KEYWORD_TENDERS ADD COLUMN buyer_name VARCHAR(255) NULL AFTER buyer_phone`,
+    ];
+    for (const statement of optionalColumnAlters) {
+        try {
+            await dbConnection.unsafe(statement);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (!/duplicate column|already exists/i.test(message)) {
+                logger.error(`optional column alter: ${message}`);
             }
         }
     }

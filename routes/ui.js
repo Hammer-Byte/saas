@@ -976,7 +976,7 @@ export const uiRoutes = new Elysia()
                 }));
             })
             .get("/app/gem-keyword-tender-report", async ({ render, session, query }) => {
-                const defaults = defaultDateRangeDays({ daysAhead: 7 });
+                const defaults = defaultDateRangeLookingBack({ daysBack: 6 });
                 const from =
                     parseQueryDate(query.from) || defaults.from;
                 const to =

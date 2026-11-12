@@ -750,8 +750,8 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     }
 
     if (
-        previousStage !== GEM_KEYWORD_TENDER_STAGES.ELIGIBLE &&
-        nextStage === GEM_KEYWORD_TENDER_STAGES.ELIGIBLE
+        previousStage !== GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_QUOTE &&
+        nextStage === GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_QUOTE
     ) {
         const quoteAssignee =
             nextAssignee ||
@@ -914,8 +914,8 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
             });
 
             if (
-                previousStage !== GEM_KEYWORD_TENDER_STAGES.ELIGIBLE &&
-                nextStage === GEM_KEYWORD_TENDER_STAGES.ELIGIBLE
+                previousStage !== GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_QUOTE &&
+                nextStage === GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_QUOTE
             ) {
                 const updated = await getGemKeywordTenderById({ id: gemKeywordTender.id });
                 const quoteAssignee = assigneeUserId

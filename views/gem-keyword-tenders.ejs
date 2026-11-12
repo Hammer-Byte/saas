@@ -83,7 +83,7 @@
                     data-bs-target="#gem-tenders-filters-panel"
                     aria-controls="gem-tenders-filters-panel"
                 >
-                    Filters
+                    Filters &amp; Columns
                 </button>
                 <button
                     type="button"
@@ -190,12 +190,49 @@
             aria-labelledby="gem-tenders-filters-panel-label"
         >
             <div class="offcanvas-header border-bottom">
-                <h2 class="offcanvas-title h5 mb-0" id="gem-tenders-filters-panel-label">Filters</h2>
+                <h2 class="offcanvas-title h5 mb-0" id="gem-tenders-filters-panel-label">Filters &amp; Columns</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
             <div class="offcanvas-body d-flex flex-column p-0">
+                <ul class="nav nav-tabs px-3 pt-2 mb-0" id="gem-tenders-sidebar-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button
+                            class="nav-link active"
+                            id="gem-tenders-tab-filters"
+                            data-bs-toggle="tab"
+                            data-bs-target="#gem-tenders-pane-filters"
+                            type="button"
+                            role="tab"
+                            aria-controls="gem-tenders-pane-filters"
+                            aria-selected="true"
+                        >
+                            Filters
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button
+                            class="nav-link"
+                            id="gem-tenders-tab-columns"
+                            data-bs-toggle="tab"
+                            data-bs-target="#gem-tenders-pane-columns"
+                            type="button"
+                            role="tab"
+                            aria-controls="gem-tenders-pane-columns"
+                            aria-selected="false"
+                        >
+                            Columns
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content flex-grow-1 overflow-auto">
                 <div
-                    class="flex-grow-1 overflow-auto p-3 gem-tenders-filters-form"
+                    class="tab-pane fade show active p-3 gem-tenders-filters-form"
+                    id="gem-tenders-pane-filters"
+                    role="tabpanel"
+                    aria-labelledby="gem-tenders-tab-filters"
+                    tabindex="0"
+                >
+                <div
                     id="gem-tenders-filters-form"
                     autocomplete="off"
                 >
@@ -507,6 +544,77 @@
                         </div>
                     </div>
                 </div>
+                </div>
+                <div
+                    class="tab-pane fade p-3"
+                    id="gem-tenders-pane-columns"
+                    role="tabpanel"
+                    aria-labelledby="gem-tenders-tab-columns"
+                    tabindex="0"
+                >
+                    <p class="text-secondary small mb-3">
+                        Choose which table columns to show. Selection is saved for this browser.
+                    </p>
+                    <div class="d-flex flex-wrap gap-1 mb-3">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="gem-columns-show-all-btn">
+                            Show all
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="gem-columns-reset-btn">
+                            Reset columns
+                        </button>
+                    </div>
+                    <div class="d-grid gap-2" id="gem-tenders-column-checks">
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-tenderId" value="tenderId" checked disabled />
+                            <label class="form-check-label" for="gem-col-tenderId">Tender ID</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-endAt" value="endAt" checked />
+                            <label class="form-check-label" for="gem-col-endAt">Ends at</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-category" value="category" checked />
+                            <label class="form-check-label" for="gem-col-category">Category</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-buyer" value="buyer" checked />
+                            <label class="form-check-label" for="gem-col-buyer">Buyer</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-quantity" value="quantity" checked />
+                            <label class="form-check-label" for="gem-col-quantity">Quantity</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-emd" value="emd" checked />
+                            <label class="form-check-label" for="gem-col-emd">EMD</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-pastExp" value="pastExp" checked />
+                            <label class="form-check-label" for="gem-col-pastExp">Past exp.</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-mseExp" value="mseExp" checked />
+                            <label class="form-check-label" for="gem-col-mseExp">Experience Relaxation</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-mseTurnover" value="mseTurnover" checked />
+                            <label class="form-check-label" for="gem-col-mseTurnover">Turnover Relaxation</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-stage" value="stage" checked />
+                            <label class="form-check-label" for="gem-col-stage">Stage</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-locked" value="locked" checked />
+                            <label class="form-check-label" for="gem-col-locked">Locked</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-assignee" value="assignee" checked />
+                            <label class="form-check-label" for="gem-col-assignee">Assignee</label>
+                        </div>
+                    </div>
+                </div>
+                </div>
                 <div class="border-top p-3 d-grid gap-2 gem-tenders-filters-actions">
                     <button type="button" class="btn btn-primary" id="gem-filters-apply-btn">
                         Apply filters
@@ -547,7 +655,7 @@
                     >
                         <thead class="table-light">
                             <tr>
-                                <th scope="col" style="width: 2rem;">
+                                <th scope="col" data-col="select" style="width: 2rem;">
                                     <input
                                         type="checkbox"
                                         class="form-check-input"
@@ -555,9 +663,10 @@
                                         aria-label="Select all visible tenders"
                                     />
                                 </th>
-                                <th scope="col">Tender ID</th>
+                                <th scope="col" data-col="tenderId">Tender ID</th>
                                 <th
                                     scope="col"
+                                    data-col="endAt"
                                     class="gem-tenders-sortable"
                                     data-sort-key="endAt"
                                     aria-sort="none"
@@ -567,10 +676,11 @@
                                 >
                                     Ends at <span class="gem-tenders-sort-indicator" aria-hidden="true"></span>
                                 </th>
-                                <th scope="col">Category</th>
-                                <th scope="col" class="gem-tenders-buyer-col">Buyer</th>
+                                <th scope="col" data-col="category">Category</th>
+                                <th scope="col" data-col="buyer" class="gem-tenders-buyer-col">Buyer</th>
                                 <th
                                     scope="col"
+                                    data-col="quantity"
                                     class="gem-tenders-sortable"
                                     data-sort-key="quantity"
                                     aria-sort="none"
@@ -580,13 +690,13 @@
                                 >
                                     Quantity <span class="gem-tenders-sort-indicator" aria-hidden="true"></span>
                                 </th>
-                                <th scope="col">EMD</th>
-                                <th scope="col">Past exp.</th>
-                                <th scope="col">Experience Relaxation</th>
-                                <th scope="col">Turnover Relaxation</th>
-                                <th scope="col">Stage</th>
-                                <th scope="col" class="text-center" style="width: 4.5rem;">Locked</th>
-                                <th scope="col">Assignee</th>
+                                <th scope="col" data-col="emd">EMD</th>
+                                <th scope="col" data-col="pastExp">Past exp.</th>
+                                <th scope="col" data-col="mseExp">Experience Relaxation</th>
+                                <th scope="col" data-col="mseTurnover">Turnover Relaxation</th>
+                                <th scope="col" data-col="stage">Stage</th>
+                                <th scope="col" data-col="locked" class="text-center" style="width: 4.5rem;">Locked</th>
+                                <th scope="col" data-col="assignee">Assignee</th>
                             </tr>
                         </thead>
                         <tbody id="gem-tenders-tbody">
@@ -620,7 +730,7 @@
                                         data-quantity="<%= Number(tender.quantity || 0) %>"
                                         data-end-at="<%= tender.end_date_time || '' %>"
                                     >
-                                    <td>
+                                    <td data-col="select">
                                         <input
                                             type="checkbox"
                                             class="form-check-input gem-tender-select"
@@ -628,7 +738,7 @@
                                             aria-label="Select tender <%= tender.tender_id %>"
                                         />
                                     </td>
-                                    <td>
+                                    <td data-col="tenderId">
                                         <a
                                             href="/app/gem-keyword-tenders/<%= tender.id %>"
                                             target="_blank"
@@ -638,31 +748,32 @@
                                         </a>
                                     </td>
                                     <td
+                                        data-col="endAt"
                                         class="gem-tenders-ends-at"
                                         data-readable-date="<%= tender.end_date_time || '' %>"
                                         data-date-format="DD/MM/YYYY HH:mm:ss"
                                     ></td>
-                                    <td><%= tender.tender_category_name || "-" %></td>
-                                    <td class="gem-tenders-buyer-col">
+                                    <td data-col="category"><%= tender.tender_category_name || "-" %></td>
+                                    <td data-col="buyer" class="gem-tenders-buyer-col">
                                         <span class="gem-tenders-buyer-text" title="<%= buyerText %>">
                                             <%= buyerText %>
                                         </span>
                                     </td>
-                                    <td><%= Number(tender.quantity || 0) > 0 ? Number(tender.quantity) : "NA" %></td>
-                                    <td>
+                                    <td data-col="quantity"><%= Number(tender.quantity || 0) > 0 ? Number(tender.quantity) : "NA" %></td>
+                                    <td data-col="emd">
                                         <%= emdAmount > 0
                                             ? emdAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })
                                             : "NA" %>
                                     </td>
-                                    <td><%= tender.required_past_experice_years || "-" %></td>
-                                    <td><%= mseDisplay(tender.mse_experience_relaxation) %></td>
-                                    <td><%= mseDisplay(tender.mse_turnover_relaxation) %></td>
-                                    <td>
+                                    <td data-col="pastExp"><%= tender.required_past_experice_years || "-" %></td>
+                                    <td data-col="mseExp"><%= mseDisplay(tender.mse_experience_relaxation) %></td>
+                                    <td data-col="mseTurnover"><%= mseDisplay(tender.mse_turnover_relaxation) %></td>
+                                    <td data-col="stage">
                                         <span class="gem-tender-tag gem-tender-stage-tag gem-tender-stage-<%= stage %>">
                                             <%= stageLabel %>
                                         </span>
                                     </td>
-                                    <td class="text-center">
+                                    <td data-col="locked" class="text-center">
                                         <input
                                             type="checkbox"
                                             class="form-check-input gem-tender-locked-check"
@@ -672,7 +783,7 @@
                                             title="<%= isLocked ? (tender.lock_message || 'Locked') : 'Not locked' %>"
                                         />
                                     </td>
-                                    <td>
+                                    <td data-col="assignee">
                                         <span class="gem-tender-tag gem-tender-assignee-tag<%= tender.assignee_user_id ? '' : ' gem-tender-assignee-empty' %>">
                                             <%= assigneeName %>
                                         </span>

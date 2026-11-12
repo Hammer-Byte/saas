@@ -27,8 +27,24 @@ const TENDER_DETAIL_REGEXES = {
     /** GeM list card with Bid No → RA No — skip whole card. */
     RA_CARD_NO: /RA\s*NO\s*:/i,
     BID_CARD_NO: /Bid\s*No\.?\s*:/i,
-    HOD_EMAIL: /HOD\s*Email id\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
-    BUYER_EMAIL: /Buyer Email id\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+    // Bid docs: "HOD Email id :x@y" / "Buyer Email id: x@y" (colon optional; may wrap).
+    HOD_EMAIL:
+        /HOD\s*Email\s*id\s*:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+    BUYER_EMAIL:
+        /Buyer\s*Email\s*id\s*:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+    // Contract (GEMC) Buyer Details block: Designation / Contact No. / Email ID.
+    BUYER_DETAILS_SECTION:
+        /Buyer\s*Details([\s\S]{0,5000}?)(?:Seller\s*Details|Product\s*Details|$)/i,
+    BUYER_NAME_LABEL:
+        /(?:Buyer\s*Name|Name\s*of\s*(?:the\s*)?Buyer)\s*:?\s*([^\n|;]+)/i,
+    BUYER_DESIGNATION:
+        /(?:^|\||\n)\s*(?:पद\s*\|)?Designation\s*:\s*([^\n|;]+)/i,
+    BUYER_CONTACT_NO:
+        /Contact\s*No\.?\s*:\s*([0-9][0-9\-\s/]{6,24})/i,
+    BUYER_MOBILE_NO:
+        /(?:Mobile|Phone)\s*(?:No\.?|Number)?\s*:?\s*([0-9][0-9\-\s+/]{6,24})/i,
+    BUYER_EMAIL_ID_LABEL:
+        /Email\s*ID\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
     MINIMUM_AVG_TURNOVER: /Minimum Average Annual Turnover[\s\S]{0,120}?(\d+\s*Lakh\s*\(s\))/i,
     PAST_EXPERIENCE_YEARS: /Years of Past Experience Required[\s\S]{0,80}?(\d+\s*Year\s*\(s\))/i,
     // Capture the whole flag ("Yes | Complete", "Yes | All", "Yes | Partial", "Yes", "No", "No | …").
@@ -209,6 +225,51 @@ const extractDocumentsRequired = (text) => {
 
     return cleanValue(match?.[1]);
 };
+
+function normalizePhoneValue(value) {
+    const raw = cleanValue(value);
+    if (!raw) return null;
+    // Keep digits; drop trailing separators from PDF layout (e.g. "09925-582147-").
+    const digits = raw.replace(/[^\d]/g, "");
+    if (digits.length < 10) return null;
+    if (digits.length === 10) return digits;
+    if (digits.length === 11 && digits.startsWith("0")) return digits.slice(1);
+    if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+    if (digits.length > 12) return digits.slice(-10);
+    return digits;
+}
+
+function buyerDetailsBlock(text) {
+    const match = String(text || "").match(TENDER_DETAIL_REGEXES.BUYER_DETAILS_SECTION);
+    return match?.[1] || "";
+}
+
+function extractBuyerContactFields(text) {
+    const source = String(text || "");
+    const buyerBlock = buyerDetailsBlock(source);
+
+    const hod_email =
+        cleanValue(source.match(TENDER_DETAIL_REGEXES.HOD_EMAIL)?.[1]) || null;
+
+    const buyer_email =
+        cleanValue(source.match(TENDER_DETAIL_REGEXES.BUYER_EMAIL)?.[1]) ||
+        cleanValue(buyerBlock.match(TENDER_DETAIL_REGEXES.BUYER_EMAIL_ID_LABEL)?.[1]) ||
+        null;
+
+    // Only read phones from Buyer Details so Seller / consignee numbers are ignored.
+    const buyer_phone =
+        normalizePhoneValue(buyerBlock.match(TENDER_DETAIL_REGEXES.BUYER_CONTACT_NO)?.[1]) ||
+        normalizePhoneValue(buyerBlock.match(TENDER_DETAIL_REGEXES.BUYER_MOBILE_NO)?.[1]) ||
+        null;
+
+    // Prefer explicit buyer name; contract PDFs usually only expose Designation.
+    const buyer_name =
+        cleanValue(source.match(TENDER_DETAIL_REGEXES.BUYER_NAME_LABEL)?.[1]) ||
+        cleanValue(buyerBlock.match(TENDER_DETAIL_REGEXES.BUYER_DESIGNATION)?.[1]) ||
+        null;
+
+    return { hod_email, buyer_email, buyer_phone, buyer_name };
+}
 
 function extractUrisFromPdfBuffer(buffer) {
     const text = Buffer.from(buffer).toString("latin1");
@@ -720,9 +781,7 @@ const extractTenderDetails = (text, buffer) => {
         department: valueAfterLabel(text, "Department Name"),
         organization: valueAfterLabel(text, "Organisation Name"),
         office: valueAfterLabel(text, "Office Name"),
-        hod_email: text.match(TENDER_DETAIL_REGEXES.HOD_EMAIL)?.[1] || null,
-        buyer_email: text.match(TENDER_DETAIL_REGEXES.BUYER_EMAIL)?.[1] || null,
-        buyer_phone: null,
+        ...extractBuyerContactFields(text),
         required_minimum_average_turnover:
             text.match(TENDER_DETAIL_REGEXES.MINIMUM_AVG_TURNOVER)?.[1] || null,
         required_past_experice_years:
@@ -819,6 +878,7 @@ const SCAN_DETAIL_FIELDS = [
     "hod_email",
     "buyer_email",
     "buyer_phone",
+    "buyer_name",
     "required_minimum_average_turnover",
     "required_past_experice_years",
     "mse_experience_relaxation",
@@ -841,6 +901,13 @@ function preferPositiveNumber(nextValue, existingValue) {
     return 0;
 }
 
+function preferScanText(nextValue, existingValue) {
+    const next = normalizeScanText(nextValue);
+    if (next) return next;
+    const existing = normalizeScanText(existingValue);
+    return existing || null;
+}
+
 function buildScanDetailsForUpsert({ document, gemTenderDetails, existingTender = null }) {
     const nextSpecificationLinks = hasSpecificationLinks(gemTenderDetails.specification_links)
         ? gemTenderDetails.specification_links
@@ -856,9 +923,10 @@ function buildScanDetailsForUpsert({ document, gemTenderDetails, existingTender 
         department: gemTenderDetails.department,
         organization: gemTenderDetails.organization,
         office: gemTenderDetails.office,
-        hod_email: gemTenderDetails.hod_email,
-        buyer_email: gemTenderDetails.buyer_email,
-        buyer_phone: gemTenderDetails.buyer_phone,
+        hod_email: preferScanText(gemTenderDetails.hod_email, existingTender?.hod_email),
+        buyer_email: preferScanText(gemTenderDetails.buyer_email, existingTender?.buyer_email),
+        buyer_phone: preferScanText(gemTenderDetails.buyer_phone, existingTender?.buyer_phone),
+        buyer_name: preferScanText(gemTenderDetails.buyer_name, existingTender?.buyer_name),
         required_minimum_average_turnover:
             gemTenderDetails.required_minimum_average_turnover,
         required_past_experice_years: gemTenderDetails.required_past_experice_years,

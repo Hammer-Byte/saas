@@ -1,9 +1,11 @@
 import {
     GEM_KEYWORD_TENDER_STAGE_LABELS,
     GEM_KEYWORD_TENDER_STAGES,
+    GEM_TENDER_LOCK_MESSAGES,
 } from "../constants.js";
 import {
     getGemKeywordTenderActivityCountsByActor,
+    getGemKeywordTenderLockActivities,
     getGemKeywordTenderStageChangeActivities,
 } from "../db/gem_keyword_tender_activities.js";
 import {
@@ -18,10 +20,83 @@ const STAGE_LABEL_TO_KEY = Object.fromEntries(
     Object.entries(GEM_KEYWORD_TENDER_STAGE_LABELS).map(([stage, label]) => [label, stage]),
 );
 
-const STAGE_CHANGE_TO_PATTERN = /^Changed stage from .+ to (.+)$/;
+const LOCK_SERIES = [
+    {
+        key: "lock_missed",
+        label: "Missed",
+        messages: [GEM_TENDER_LOCK_MESSAGES.DEADLINE_MISSED],
+    },
+    {
+        key: "lock_out_of_scope",
+        label: "Out of scope",
+        messages: [GEM_TENDER_LOCK_MESSAGES.OUT_OF_SCOPE],
+    },
+    {
+        key: "lock_not_eligible",
+        label: "Not eligible",
+        messages: [GEM_TENDER_LOCK_MESSAGES.NOT_ELIGIBLE],
+    },
+    {
+        key: "lock_due_date",
+        label: "Due date passed",
+        messages: [GEM_TENDER_LOCK_MESSAGES.DUE_DATE_PASSED],
+    },
+    {
+        key: "lock_filed",
+        label: "Filed (locked)",
+        messages: [GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED],
+    },
+    {
+        key: "lock_other",
+        label: "Other lock",
+        messages: [],
+    },
+];
 
-function emptyStageCounts() {
-    return Object.fromEntries(STAGE_ORDER.map((stage) => [stage, 0]));
+const LOCK_MESSAGE_TO_KEY = new Map();
+for (const series of LOCK_SERIES) {
+    for (const message of series.messages) {
+        LOCK_MESSAGE_TO_KEY.set(String(message).trim().toLowerCase(), series.key);
+    }
+}
+
+const DAILY_SERIES = [
+    ...STAGE_ORDER.map((stage) => ({
+        key: stage,
+        label: GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage,
+        kind: "stage",
+    })),
+    ...LOCK_SERIES.map((series) => ({
+        key: series.key,
+        label: series.label,
+        kind: "lock",
+    })),
+];
+
+const DAILY_SERIES_KEYS = DAILY_SERIES.map((series) => series.key);
+
+const EVENT_SERIES_COLORS = {
+    new: "#0d6efd",
+    assigned: "#6c757d",
+    eligible: "#198754",
+    waiting_for_docs: "#0dcaf0",
+    waiting_for_gem: "#6610f2",
+    waiting_for_quote: "#fd7e14",
+    preparing_docs: "#20c997",
+    filed: "#212529",
+    lock_missed: "#dc3545",
+    lock_out_of_scope: "#b02a37",
+    lock_not_eligible: "#d63384",
+    lock_due_date: "#ffc107",
+    lock_filed: "#495057",
+    lock_other: "#adb5bd",
+};
+
+const STAGE_CHANGE_TO_PATTERN = /^Changed stage from .+ to (.+)$/;
+const LOCK_ACTIVITY_PATTERN = /^Locked tender(?::\s*(.+))?$/i;
+
+function emptySeriesCounts() {
+    return Object.fromEntries(DAILY_SERIES_KEYS.map((key) => [key, 0]));
 }
 
 function eachDateKey(from, to) {
@@ -61,6 +136,34 @@ function parseStageEntered(activityText) {
     return STAGE_LABEL_TO_KEY[label] || null;
 }
 
+function parseLockSeriesKey(activityText) {
+    const match = String(activityText || "").trim().match(LOCK_ACTIVITY_PATTERN);
+    if (!match) {
+        return null;
+    }
+    const message = String(match[1] || "").trim().toLowerCase();
+    if (!message) {
+        return "lock_other";
+    }
+    return LOCK_MESSAGE_TO_KEY.get(message) || "lock_other";
+}
+
+function actorKeyFromRow(row) {
+    const userId = Number(row?.user_id);
+    if (userId >= 1) {
+        return String(userId);
+    }
+    return "unknown";
+}
+
+function actorLabelFromRow(row) {
+    const userId = Number(row?.user_id);
+    if (userId >= 1) {
+        return row.user_full_name || row.user_email || `User #${userId}`;
+    }
+    return "Unknown";
+}
+
 function clampStageEntryRange(from, to) {
     const today = getIstDateTime()?.slice(0, 10);
     const rangeStart = from <= to ? from : to;
@@ -73,66 +176,169 @@ function clampStageEntryRange(from, to) {
     return { from: start, to: end };
 }
 
-function buildStageEntriesByDay({ from, to, stageChangeActivities, newCountsByDay }) {
+function ensureDayBucket(map, date) {
+    if (!map.has(date)) {
+        map.set(date, emptySeriesCounts());
+    }
+    return map.get(date);
+}
+
+function ensurePersonDayBucket(peopleMap, personKey, personLabel, date) {
+    if (!peopleMap.has(personKey)) {
+        peopleMap.set(personKey, {
+            key: personKey,
+            label: personLabel,
+            byDate: new Map(),
+        });
+    }
+    const person = peopleMap.get(personKey);
+    if (!person.byDate.has(date)) {
+        person.byDate.set(date, emptySeriesCounts());
+    }
+    return person.byDate.get(date);
+}
+
+function countsToSeriesArrays(dates, byDate) {
+    const values = {};
+    for (const key of DAILY_SERIES_KEYS) {
+        values[key] = dates.map((date) => Number((byDate.get(date) || emptySeriesCounts())[key] || 0));
+    }
+    return values;
+}
+
+function buildDailyEventCharts({
+    from,
+    to,
+    stageChangeActivities,
+    lockActivities,
+    newCountsByDay,
+}) {
     const dates = eachDateKey(from, to);
-    const byDate = new Map(dates.map((date) => [date, emptyStageCounts()]));
+    const overallByDate = new Map(dates.map((date) => [date, emptySeriesCounts()]));
+    const peopleMap = new Map();
 
     for (const row of newCountsByDay) {
         const dateKey = activityDateKey(row.entry_date);
-        if (!byDate.has(dateKey)) {
-            continue;
-        }
-        byDate.get(dateKey)[GEM_KEYWORD_TENDER_STAGES.NEW] += Number(row.entry_count || 0);
+        if (!overallByDate.has(dateKey)) continue;
+        ensureDayBucket(overallByDate, dateKey)[GEM_KEYWORD_TENDER_STAGES.NEW] += Number(
+            row.entry_count || 0,
+        );
     }
 
     for (const activity of stageChangeActivities) {
         const stage = parseStageEntered(activity.activity);
-        if (!stage || !STAGE_ORDER.includes(stage)) {
-            continue;
-        }
-        // New is counted from tender created_on, not stage-change text.
-        if (stage === GEM_KEYWORD_TENDER_STAGES.NEW) {
-            continue;
-        }
+        if (!stage || !STAGE_ORDER.includes(stage)) continue;
+        if (stage === GEM_KEYWORD_TENDER_STAGES.NEW) continue;
+
         const dateKey = activityDateKey(activity.created_on);
-        if (!byDate.has(dateKey)) {
-            continue;
-        }
-        byDate.get(dateKey)[stage] += 1;
+        if (!overallByDate.has(dateKey)) continue;
+
+        ensureDayBucket(overallByDate, dateKey)[stage] += 1;
+        ensurePersonDayBucket(
+            peopleMap,
+            actorKeyFromRow(activity),
+            actorLabelFromRow(activity),
+            dateKey,
+        )[stage] += 1;
     }
 
-    const columns = STAGE_ORDER.map((stage) => ({
-        stage,
-        label: GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage,
+    for (const activity of lockActivities) {
+        const lockKey = parseLockSeriesKey(activity.activity);
+        if (!lockKey) continue;
+
+        const dateKey = activityDateKey(activity.created_on);
+        if (!overallByDate.has(dateKey)) continue;
+
+        ensureDayBucket(overallByDate, dateKey)[lockKey] += 1;
+        ensurePersonDayBucket(
+            peopleMap,
+            actorKeyFromRow(activity),
+            actorLabelFromRow(activity),
+            dateKey,
+        )[lockKey] += 1;
+    }
+
+    const series = DAILY_SERIES.map((item) => ({
+        key: item.key,
+        label: item.label,
+        kind: item.kind,
+        color: EVENT_SERIES_COLORS[item.key] || "#6c757d",
     }));
 
-    const rows = dates.map((date) => {
-        const counts = byDate.get(date) || emptyStageCounts();
-        const total = STAGE_ORDER.reduce((sum, stage) => sum + Number(counts[stage] || 0), 0);
-        return {
-            date,
-            counts,
-            total,
-        };
-    });
+    const people = Array.from(peopleMap.values())
+        .map((person) => {
+            const values = countsToSeriesArrays(dates, person.byDate);
+            const total = DAILY_SERIES_KEYS.reduce(
+                (sum, key) =>
+                    sum + values[key].reduce((inner, count) => inner + Number(count || 0), 0),
+                0,
+            );
+            return {
+                key: person.key,
+                label: person.label,
+                total,
+                values,
+            };
+        })
+        .filter((person) => person.total > 0)
+        .sort((left, right) => right.total - left.total || left.label.localeCompare(right.label));
 
-    const columnTotals = emptyStageCounts();
-    for (const row of rows) {
+    const overallValues = countsToSeriesArrays(dates, overallByDate);
+    const overallTotal = DAILY_SERIES_KEYS.reduce(
+        (sum, key) =>
+            sum + overallValues[key].reduce((inner, count) => inner + Number(count || 0), 0),
+        0,
+    );
+
+    // Keep legacy table shape for any leftover consumers.
+    const stageEntriesByDay = {
+        columns: STAGE_ORDER.map((stage) => ({
+            stage,
+            label: GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage,
+        })),
+        rows: dates.map((date) => {
+            const counts = emptyStageCountsFromOverall(overallByDate.get(date));
+            const total = STAGE_ORDER.reduce((sum, stage) => sum + Number(counts[stage] || 0), 0);
+            return { date, counts, total };
+        }),
+        columnTotals: emptyStageCounts(),
+        grandTotal: 0,
+    };
+    for (const row of stageEntriesByDay.rows) {
         for (const stage of STAGE_ORDER) {
-            columnTotals[stage] += Number(row.counts[stage] || 0);
+            stageEntriesByDay.columnTotals[stage] += Number(row.counts[stage] || 0);
         }
     }
-    const grandTotal = STAGE_ORDER.reduce(
-        (sum, stage) => sum + Number(columnTotals[stage] || 0),
+    stageEntriesByDay.grandTotal = STAGE_ORDER.reduce(
+        (sum, stage) => sum + Number(stageEntriesByDay.columnTotals[stage] || 0),
         0,
     );
 
     return {
-        columns,
-        rows,
-        columnTotals,
-        grandTotal,
+        stageEntriesByDay,
+        dailyEvents: {
+            series,
+            dates,
+            overall: {
+                total: overallTotal,
+                values: overallValues,
+            },
+            people,
+        },
     };
+}
+
+function emptyStageCounts() {
+    return Object.fromEntries(STAGE_ORDER.map((stage) => [stage, 0]));
+}
+
+function emptyStageCountsFromOverall(counts) {
+    const next = emptyStageCounts();
+    if (!counts) return next;
+    for (const stage of STAGE_ORDER) {
+        next[stage] = Number(counts[stage] || 0);
+    }
+    return next;
 }
 
 function emptyAssigneeBucket(key, label) {
@@ -173,14 +379,16 @@ export async function buildGemKeywordTenderReport({ from, to }) {
     const tenders = await getAllGemKeywordTenders({ from, to });
     const activityRows = await getGemKeywordTenderActivityCountsByActor({ from, to });
     const stageEntryRange = clampStageEntryRange(from, to);
-    const [stageChangeActivities, newCountsByDay] = await Promise.all([
+    const [stageChangeActivities, lockActivities, newCountsByDay] = await Promise.all([
         getGemKeywordTenderStageChangeActivities(stageEntryRange),
+        getGemKeywordTenderLockActivities(stageEntryRange),
         getGemKeywordTenderNewCountsByCreatedDay(stageEntryRange),
     ]);
-    const stageEntriesByDay = buildStageEntriesByDay({
+    const { stageEntriesByDay, dailyEvents } = buildDailyEventCharts({
         from: stageEntryRange.from,
         to: stageEntryRange.to,
         stageChangeActivities,
+        lockActivities,
         newCountsByDay,
     });
 
@@ -361,6 +569,7 @@ export async function buildGemKeywordTenderReport({ from, to }) {
             actors_with_activity: activityRows.length,
         },
         stageEntriesByDay,
+        dailyEvents,
         stageTotals: stageTotalsList,
         lockMessages: lockMessageList,
         tenderCategories: tenderCategoryList,
@@ -373,6 +582,7 @@ export async function buildGemKeywordTenderReport({ from, to }) {
             activity_count: Number(row.activity_count || 0),
         })),
         charts: {
+            dailyEvents,
             tendersByAssignee: {
                 labels: chartAssignees.map((row) => row.label),
                 values: chartAssignees.map((row) => row.assigned_count),

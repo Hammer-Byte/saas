@@ -128,9 +128,14 @@ export async function getGemKeywordTenderStageChangeActivities({ from, to }) {
             SELECT
                 GEM_KEYWORD_TENDER_ACTIVITIES.id,
                 GEM_KEYWORD_TENDER_ACTIVITIES.gem_keyword_tender_id,
+                GEM_KEYWORD_TENDER_ACTIVITIES.user_id,
                 GEM_KEYWORD_TENDER_ACTIVITIES.activity,
-                GEM_KEYWORD_TENDER_ACTIVITIES.created_on
+                GEM_KEYWORD_TENDER_ACTIVITIES.created_on,
+                USERS.full_name AS user_full_name,
+                USERS.email AS user_email
             FROM GEM_KEYWORD_TENDER_ACTIVITIES
+            LEFT JOIN USERS
+                ON USERS.id = GEM_KEYWORD_TENDER_ACTIVITIES.user_id
             WHERE GEM_KEYWORD_TENDER_ACTIVITIES.activity LIKE ${"Changed stage from %"}
               AND GEM_KEYWORD_TENDER_ACTIVITIES.created_on >= ${startDateTime}
               AND GEM_KEYWORD_TENDER_ACTIVITIES.created_on <= ${endDateTime}
@@ -140,6 +145,44 @@ export async function getGemKeywordTenderStageChangeActivities({ from, to }) {
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
             logger.error(`getGemKeywordTenderStageChangeActivities: ${error}`);
+            return [];
+        });
+}
+
+/** Lock activity rows in a calendar date range (by activity created_on). */
+export async function getGemKeywordTenderLockActivities({ from, to }) {
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {
+        return [];
+    }
+
+    const rangeStart = from <= to ? from : to;
+    const rangeEnd = from <= to ? to : from;
+    const startDateTime = `${rangeStart} 00:00:00`;
+    const endDateTime = `${rangeEnd} 23:59:59`;
+
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                GEM_KEYWORD_TENDER_ACTIVITIES.id,
+                GEM_KEYWORD_TENDER_ACTIVITIES.gem_keyword_tender_id,
+                GEM_KEYWORD_TENDER_ACTIVITIES.user_id,
+                GEM_KEYWORD_TENDER_ACTIVITIES.activity,
+                GEM_KEYWORD_TENDER_ACTIVITIES.created_on,
+                USERS.full_name AS user_full_name,
+                USERS.email AS user_email
+            FROM GEM_KEYWORD_TENDER_ACTIVITIES
+            LEFT JOIN USERS
+                ON USERS.id = GEM_KEYWORD_TENDER_ACTIVITIES.user_id
+            WHERE GEM_KEYWORD_TENDER_ACTIVITIES.activity LIKE ${"Locked tender%"}
+              AND GEM_KEYWORD_TENDER_ACTIVITIES.created_on >= ${startDateTime}
+              AND GEM_KEYWORD_TENDER_ACTIVITIES.created_on <= ${endDateTime}
+            ORDER BY GEM_KEYWORD_TENDER_ACTIVITIES.created_on ASC, GEM_KEYWORD_TENDER_ACTIVITIES.id ASC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getGemKeywordTenderLockActivities: ${error}`);
             return [];
         });
 }
