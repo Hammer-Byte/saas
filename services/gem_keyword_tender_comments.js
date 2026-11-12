@@ -67,14 +67,14 @@ export async function addGemKeywordTenderComment({ body, cookie, set }) {
     }
 
     const tenderLocked = !!Number(gemKeywordTender.locked);
-    const lockedStage = isTerminalStage(gemKeywordTender.stage);
-    if ((tenderLocked || lockedStage) && !currentUser.super_admin) {
+    if (tenderLocked) {
         set.status = 403;
-        return {
-            error: tenderLocked
-                ? "Only a super admin can comment on locked tenders"
-                : "Only a super admin can comment on this tender",
-        };
+        return { error: "Unlock this tender before commenting" };
+    }
+    const lockedStage = isTerminalStage(gemKeywordTender.stage);
+    if (lockedStage && !currentUser.super_admin) {
+        set.status = 403;
+        return { error: "Only a super admin can comment on this tender" };
     }
 
     const comment = String(body.comment || "").trim();
@@ -156,6 +156,10 @@ export async function updateGemKeywordTenderComment({ params, body, cookie, set 
     const tender = await getGemKeywordTenderById({
         id: existingComment.gem_keyword_tender_id,
     });
+    if (tender && Number(tender.locked)) {
+        set.status = 403;
+        return { error: "Unlock this tender before editing comments" };
+    }
     if (tender && isTerminalStage(tender.stage) && !currentUser.super_admin) {
         set.status = 403;
         return {
@@ -215,6 +219,10 @@ export async function deleteGemKeywordTenderComment({ params, cookie, set }) {
     const tender = await getGemKeywordTenderById({
         id: existingComment.gem_keyword_tender_id,
     });
+    if (tender && Number(tender.locked)) {
+        set.status = 403;
+        return { error: "Unlock this tender before deleting comments" };
+    }
     if (tender && isTerminalStage(tender.stage) && !currentUser.super_admin) {
         set.status = 403;
         return {

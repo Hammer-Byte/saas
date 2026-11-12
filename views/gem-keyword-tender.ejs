@@ -37,19 +37,23 @@
         "preparing_docs",
     ];
     const isTerminalStage = terminalStages.has(currentStage);
-    // Locked or one-way (filed): only a super admin may change anything.
+    // Locked: no edits for anyone until unlock. Filed (unlocked): super admin only.
     const isFrozen = isLocked || isTerminalStage;
     const quoteDisabledStages = new Set(["new", "assigned", "filed"]);
-    const quoteStageEnabled = !quoteDisabledStages.has(currentStage);
-    const canOperateAssigned = isFrozen
-        ? isSuperAdmin
-        : isSuperAdmin || (assigneeUserId && assigneeUserId === currentUserId);
-    const canChangeStage = isFrozen
-        ? isSuperAdmin
-        : !!assigneeUserId && canOperateAssigned;
+    const quoteStageEnabled = !quoteDisabledStages.has(currentStage) && !isLocked;
+    const canOperateAssigned = isLocked
+        ? false
+        : isTerminalStage
+          ? isSuperAdmin
+          : isSuperAdmin || (assigneeUserId && assigneeUserId === currentUserId);
+    const canChangeStage = isLocked
+        ? false
+        : isTerminalStage
+          ? isSuperAdmin
+          : !!assigneeUserId && canOperateAssigned;
     const canEditQuote = quoteStageEnabled && canOperateAssigned;
-    const canManageDocs = !!canManageDocuments && (!isLocked || isSuperAdmin);
-    const canUseComments = !isFrozen || isSuperAdmin;
+    const canManageDocs = !!canManageDocuments && !isLocked && (!isTerminalStage || isSuperAdmin);
+    const canUseComments = !isLocked && (!isTerminalStage || isSuperAdmin);
     const canLockAction =
         !isFrozen &&
         (isSuperAdmin || !assigneeUserId || assigneeUserId === currentUserId);
@@ -139,9 +143,6 @@
                 </h1>
                 <p class="text-secondary mb-0">
                     Category: <%= tender.tender_category_name || "-" %>
-                    <% if (tender.category_group_name) { %>
-                        · Group: <%= tender.category_group_name %>
-                    <% } %>
                 </p>
             </div>
         </div>
@@ -173,9 +174,7 @@
                     >
                         <span>
                             <strong>Locked</strong><%= lockMessage ? ": " + lockMessage : "" %>.
-                            <%= isSuperAdmin
-                                ? "Only a super admin can change it."
-                                : "Details are locked; only a super admin can change them." %>
+                            Editing is disabled until a super admin unlocks this tender.
                         </span>
                         <% if (isSuperAdmin) { %>
                             <button type="button" class="btn btn-sm btn-outline-danger" id="gem-tender-unlock-btn">
@@ -231,7 +230,7 @@
                 </div>
 
                 <div class="row g-3 mb-2 align-items-end">
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label for="gem-tender-category" class="form-label">Category</label>
                         <select
                             class="form-select"
@@ -249,25 +248,7 @@
                             <% }) %>
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label for="gem-tender-category-group" class="form-label">Group</label>
-                        <select
-                            class="form-select"
-                            id="gem-tender-category-group"
-                            <%= !canOperateAssigned ? "disabled" : "" %>
-                        >
-                            <option value="">No group</option>
-                            <% (categoryGroups || []).forEach(function (group) { %>
-                                <option
-                                    value="<%= group.id %>"
-                                    <%= Number(tender.category_group_id) === Number(group.id) ? 'selected' : '' %>
-                                >
-                                    <%= group.name %>
-                                </option>
-                            <% }) %>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label for="gem-tender-stage" class="form-label">Stage</label>
                         <select
                             class="form-select"
@@ -286,13 +267,13 @@
                             <% }) %>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label for="gem-tender-assignee" class="form-label">Assignee</label>
-                        <% if (canAssignOthers && (!isFrozen || isSuperAdmin)) { %>
+                        <% if (canAssignOthers && !isLocked && (!isTerminalStage || isSuperAdmin)) { %>
                             <select
                                 class="form-select"
                                 id="gem-tender-assignee"
-                                <%= isFrozen && !isSuperAdmin ? "disabled" : "" %>
+                                <%= isTerminalStage && !isSuperAdmin ? "disabled" : "" %>
                             >
                                 <option value="">Unassigned</option>
                                 <% (users || []).forEach(function (user) { %>
@@ -327,9 +308,13 @@
                         </button>
                     </div>
                 </div>
-                <% if (isFrozen && !isSuperAdmin) { %>
+                <% if (isLocked) { %>
                     <p class="form-text mb-3">
-                        Only a super admin can change a <%= isLocked ? "locked" : "one-way stage" %> tender.
+                        Unlock this tender before making any changes.
+                    </p>
+                <% } else if (isTerminalStage && !isSuperAdmin) { %>
+                    <p class="form-text mb-3">
+                        Only a super admin can change a one-way stage tender.
                     </p>
                 <% } else if (!assigneeUserId && !isFrozen) { %>
                     <p class="form-text mb-3">Assign someone before changing stage.</p>
@@ -493,7 +478,7 @@
                 </form>
                 <% } else { %>
                     <p class="text-secondary small mb-4">
-                        Comments are locked on locked / filed tenders (super admin only).
+                        Comments are disabled while this tender is locked. Unlock it to comment.
                     </p>
                 <% } %>
 

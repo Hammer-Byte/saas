@@ -1017,7 +1017,6 @@ export const uiRoutes = new Elysia()
                         tender,
                         userId: session?.id,
                         users: await getAllUsers(),
-                        categoryGroups: await getAllGemCategoryGroups(),
                         tenderCategories: await getAllGemTenderCategories(),
                         activities: await getAllGemKeywordTenderActivitiesByTenderId({
                             gem_keyword_tender_id: tender.id,

@@ -16,10 +16,13 @@ export function canManageTenderDocuments({ currentUser, tender }) {
     if (!currentUser?.id || !tender) {
         return false;
     }
+    if (Number(tender.locked)) {
+        return false;
+    }
     if (currentUser.super_admin) {
         return true;
     }
-    if (Number(tender.locked) || isTerminalStage(tender.stage)) {
+    if (isTerminalStage(tender.stage)) {
         return false;
     }
     const assigneeUserId = tender.assignee_user_id ? Number(tender.assignee_user_id) : null;

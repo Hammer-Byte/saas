@@ -2,7 +2,6 @@
     const detail = document.getElementById("gem-tender-detail");
     const alertElement = document.getElementById("gem-tender-alert");
     const stageSelect = document.getElementById("gem-tender-stage");
-    const categoryGroupSelect = document.getElementById("gem-tender-category-group");
     const tenderCategorySelect = document.getElementById("gem-tender-category");
     const unlockButton = document.getElementById("gem-tender-unlock-btn");
     const lockActionsWrap = document.getElementById("gem-tender-lock-actions");
@@ -83,26 +82,29 @@
         );
     }
 
-    /** Locked or filed: only a super admin may change anything. */
+    /** Locked blocks everyone until unlock. Filed (unlocked) is super-admin only. */
     function isFrozen() {
         return isLocked() || isTerminalStage();
     }
 
     function canOperateAssigned() {
+        if (isLocked()) return false;
+        if (isTerminalStage()) return isSuperAdmin;
         if (isSuperAdmin) return true;
-        if (isFrozen()) return false;
         const assigneeUserId = Number(currentAssigneeId() || 0);
         return assigneeUserId >= 1 && assigneeUserId === currentUserId;
     }
 
     function canChangeStage() {
-        if (isFrozen()) return isSuperAdmin;
+        if (isLocked()) return false;
+        if (isTerminalStage()) return isSuperAdmin;
         const assigneeUserId = Number(currentAssigneeId() || 0);
         if (!(assigneeUserId >= 1)) return false;
         return canOperateAssigned();
     }
 
     function canEditQuote() {
+        if (isLocked()) return false;
         const stage = currentStage();
         if (QUOTE_DISABLED_STAGES.has(stage)) return false;
         return canOperateAssigned();
@@ -122,10 +124,6 @@
         }
     }
 
-    function canChangeCategoryGroup() {
-        return canOperateAssigned();
-    }
-
     function canChangeTenderCategory() {
         return canOperateAssigned();
     }
@@ -141,16 +139,14 @@
         const assigneeUserId = currentAssigneeId();
         const quoteEnabled = canEditQuote();
         const stageEnabled = canChangeStage();
-        const groupEnabled = canChangeCategoryGroup();
-        const locked = isFrozen() && !isSuperAdmin;
+        const editsBlocked = isLocked() || (isTerminalStage() && !isSuperAdmin);
 
         if (stageSelect) stageSelect.disabled = !stageEnabled;
-        if (categoryGroupSelect) categoryGroupSelect.disabled = !groupEnabled;
         if (tenderCategorySelect) {
             tenderCategorySelect.disabled = !canChangeTenderCategory();
         }
         lockActionsWrap?.classList.toggle("d-none", !canLockAction());
-        if (assigneeSelect) assigneeSelect.disabled = locked;
+        if (assigneeSelect) assigneeSelect.disabled = editsBlocked;
         if (quoteInput) quoteInput.disabled = !quoteEnabled;
         if (quoteSaveButton) quoteSaveButton.disabled = !quoteEnabled;
         if (assignMeWrap) {
@@ -158,6 +154,12 @@
         }
         if (assignMeButton) {
             assignMeButton.disabled = !!assigneeUserId || isFrozen();
+        }
+        if (commentText) commentText.disabled = isLocked() || (isTerminalStage() && !isSuperAdmin);
+        if (commentFile) commentFile.disabled = isLocked() || (isTerminalStage() && !isSuperAdmin);
+        if (commentSubmitButton) {
+            commentSubmitButton.disabled =
+                isLocked() || (isTerminalStage() && !isSuperAdmin);
         }
         syncAssignedOption();
     }
@@ -203,16 +205,6 @@
                 tenderCategorySelect.value = detail.dataset.tenderCategoryId;
             }
         }
-        if ("category_group_id" in tender) {
-            detail.dataset.categoryGroupId =
-                tender.category_group_id != null ? String(tender.category_group_id) : "";
-            if (categoryGroupSelect) {
-                categoryGroupSelect.value =
-                    tender.category_group_id != null
-                        ? String(tender.category_group_id)
-                        : "";
-            }
-        }
         syncControls();
     }
 
@@ -238,36 +230,12 @@
         }
     }
 
-    categoryGroupSelect?.addEventListener("change", async () => {
-        const previous = detail.dataset.categoryGroupId || "";
-        if (!canChangeCategoryGroup()) {
-            showAlert(
-                isFrozen() && !isSuperAdmin
-                    ? "Only a super admin can change a locked tender."
-                    : "Only the assignee or a super admin can change the category group.",
-                "danger",
-            );
-            categoryGroupSelect.value = previous;
-            return;
-        }
-        const rawValue = categoryGroupSelect.value;
-        const category_group_id = rawValue ? Number(rawValue) : null;
-        const ok = await applyPatch({ category_group_id }, (tender) => {
-            detail.dataset.categoryGroupId =
-                tender.category_group_id != null
-                    ? String(tender.category_group_id)
-                    : "";
-            window.location.reload();
-        });
-        if (!ok) categoryGroupSelect.value = previous;
-    });
-
     tenderCategorySelect?.addEventListener("change", async () => {
         const previous = detail.dataset.tenderCategoryId || "";
         if (!canChangeTenderCategory()) {
             showAlert(
-                isFrozen() && !isSuperAdmin
-                    ? "Only a super admin can change a locked tender."
+                isLocked()
+                    ? "Unlock this tender before making changes."
                     : "Only the assignee or a super admin can change the category.",
                 "danger",
             );
@@ -338,8 +306,8 @@
         const stage = stageSelect.value;
         if (!canChangeStage()) {
             showAlert(
-                isFrozen() && !isSuperAdmin
-                    ? "Only a super admin can change a locked tender."
+                isLocked()
+                    ? "Unlock this tender before making changes."
                     : currentAssigneeId()
                       ? "Only the assignee or a super admin can change stage."
                       : "Assign someone before changing stage.",

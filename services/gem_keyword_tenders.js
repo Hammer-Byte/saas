@@ -91,7 +91,8 @@ export function isQuoteStageEnabled(stage) {
 
 /**
  * Stage / quote / docs:
- * - Locked or filed: super_admin only
+ * - Locked: nobody (must unlock first)
+ * - Filed (unlocked): super_admin only
  * - Otherwise with assignee: assignee or super_admin
  */
 export function canOperateAssignedTender({
@@ -103,10 +104,13 @@ export function canOperateAssignedTender({
     if (!currentUser?.id) {
         return false;
     }
+    if (locked) {
+        return false;
+    }
     if (currentUser.super_admin) {
         return true;
     }
-    if (locked || (stage != null && isTerminalStage(stage))) {
+    if (stage != null && isTerminalStage(stage)) {
         return false;
     }
     const assigneeId = assigneeUserId ? Number(assigneeUserId) : null;
@@ -385,8 +389,27 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         return { error: "Only a super admin can unlock a tender" };
     }
 
-    // Locked / filed: only a super admin may change anything (except unlock).
-    if ((previousLocked || isTerminalStage(previousStage)) && !currentUser.super_admin) {
+    // Locked: no edits for anyone until unlock (unlock itself is allowed above).
+    if (previousLocked && !unlocking) {
+        const touching =
+            assigneeChanging ||
+            body.assign_to_me === true ||
+            body.stage !== undefined ||
+            body.quote !== undefined ||
+            categoryGroupChanging ||
+            tenderCategoryChanging ||
+            body.lock_action != null ||
+            body.locked === true;
+        if (touching) {
+            set.status = 403;
+            return {
+                error: "Unlock this tender before making changes",
+            };
+        }
+    }
+
+    // Filed (unlocked): only a super admin may change anything.
+    if (!previousLocked && isTerminalStage(previousStage) && !currentUser.super_admin) {
         const touching =
             assigneeChanging ||
             body.assign_to_me === true ||
@@ -398,9 +421,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         if (touching) {
             set.status = 403;
             return {
-                error: previousLocked
-                    ? "Only a super admin can change a locked tender"
-                    : "Only a super admin can change tenders in a one-way stage",
+                error: "Only a super admin can change tenders in a one-way stage",
             };
         }
     }
@@ -803,6 +824,15 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
         const previousStage = normalizeStage(gemKeywordTender.stage);
         if (previousStage === nextStage) {
             skippedCount += 1;
+            continue;
+        }
+
+        if (isTenderLocked(gemKeywordTender)) {
+            failedCount += 1;
+            failures.push({
+                id,
+                error: "Unlock this tender before making changes",
+            });
             continue;
         }
 
