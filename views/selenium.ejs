@@ -1,0 +1,213 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/automation" class="text-decoration-none">Automation</a> /
+                Selenium
+            </p>
+            <h1 class="h3 mb-1">Selenium pipeline</h1>
+            <p class="text-secondary mb-0">
+                Central queue for GeM scans, LinkedIn automations, and content publishing.
+            </p>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4" id="pipeline-bar">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <div class="text-secondary small">Pipeline</div>
+                        <div class="h5 mb-1">
+                            <span id="pipeline-status-label"><%= pipeline && pipeline.paused ? "Paused" : "Running" %></span>
+                            <span class="text-secondary fw-normal fs-6 ms-2">
+                                <span id="pipeline-active"><%= (pipeline && pipeline.active_workers) || 0 %></span>
+                                /
+                                <span id="pipeline-max"><%= (pipeline && pipeline.max_parallel) || 1 %></span>
+                                active
+                            </span>
+                        </div>
+                        <div class="text-secondary small mb-0">
+                            Running jobs in DB:
+                            <strong id="pipeline-running-jobs"><%= (pipeline && pipeline.running_jobs) || 0 %></strong>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <div class="input-group input-group-sm" style="width: 10rem;">
+                            <span class="input-group-text">Max</span>
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="max-parallel-input"
+                                min="1"
+                                max="8"
+                                value="<%= (pipeline && pipeline.max_parallel) || 1 %>"
+                            />
+                            <button type="button" class="btn btn-outline-secondary" id="save-max-parallel">Set</button>
+                        </div>
+                        <button
+                            type="button"
+                            class="btn btn-warning"
+                            id="pause-pipeline-btn"
+                            <%= pipeline && pipeline.paused ? "hidden" : "" %>
+                        >Pause pipeline</button>
+                        <button
+                            type="button"
+                            class="btn btn-success"
+                            id="resume-pipeline-btn"
+                            <%= pipeline && pipeline.paused ? "" : "hidden" %>
+                        >Resume pipeline</button>
+                        <button type="button" class="btn btn-outline-primary" id="refresh-jobs-btn">Refresh</button>
+                    </div>
+                </div>
+                <div id="pipeline-alert" class="alert mt-3 mb-0 d-none" role="alert"></div>
+            </div>
+        </div>
+
+        <form class="card border-0 shadow-sm mb-4" id="date-range-form">
+            <div class="card-body p-4">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label for="from" class="form-label">From</label>
+                        <input
+                            type="text"
+                            class="form-control js-date-input"
+                            id="from"
+                            name="from"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            data-date-value="<%= from %>"
+                            value="<%= from %>"
+                            required
+                        />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="to" class="form-label">To</label>
+                        <input
+                            type="text"
+                            class="form-control js-date-input"
+                            id="to"
+                            name="to"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            data-date-value="<%= to %>"
+                            value="<%= to %>"
+                            required
+                        />
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-outline-primary w-100">Apply range</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="row g-3 mb-4" id="counts-strip">
+            <% const countKeys = ["queued", "running", "completed", "failed", "stopped", "skipped"]; %>
+            <% countKeys.forEach((key) => { %>
+            <div class="col-6 col-md-4 col-lg-2">
+                <button
+                    type="button"
+                    class="card border-0 shadow-sm h-100 w-100 text-start selenium-status-filter <%= statusFilter === key ? "border border-primary" : "" %>"
+                    data-status="<%= key %>"
+                >
+                    <div class="card-body py-3">
+                        <div class="text-secondary small text-capitalize"><%= key %></div>
+                        <div class="h4 mb-0" data-count="<%= key %>"><%= (counts && counts[key]) || 0 %></div>
+                    </div>
+                </button>
+            </div>
+            <% }) %>
+        </div>
+
+        <div class="mb-3 d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-sm <%= statusFilter === "all" ? "btn-primary" : "btn-outline-secondary" %> selenium-status-filter" data-status="all">All</button>
+            <% countKeys.forEach((key) => { %>
+            <button type="button" class="btn btn-sm <%= statusFilter === key ? "btn-primary" : "btn-outline-secondary" %> selenium-status-filter" data-status="<%= key %>"><%= key %></button>
+            <% }) %>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Created</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Title</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Outcome</th>
+                            <th scope="col" class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobs-tbody">
+                        <% if (!(jobs || []).length) { %>
+                        <tr id="jobs-empty-row">
+                            <td colspan="6" class="text-secondary text-center py-4">No jobs in this range.</td>
+                        </tr>
+                        <% } %>
+                        <% (jobs || []).forEach((job) => { %>
+                        <tr data-job-id="<%= job.id %>" data-status="<%= job.status %>">
+                            <td>
+                                <span
+                                    data-readable-date
+                                    data-date-format="DD/MM/YYYY HH:mm"
+                                    data-date-value="<%= job.created_on %>"
+                                ><%= job.created_on %></span>
+                            </td>
+                            <td>
+                                <div class="fw-semibold"><%= job.type %></div>
+                                <div class="text-secondary small"><%= job.source %></div>
+                            </td>
+                            <td><%= job.title %></td>
+                            <td><span class="badge text-bg-secondary text-uppercase"><%= job.status %></span></td>
+                            <td class="small">
+                                <% if (job.result_summary) { %><div><%= job.result_summary %></div><% } %>
+                                <% if (job.error_message) { %><div class="text-danger"><%= job.error_message %></div><% } %>
+                                <% if (!job.result_summary && !job.error_message) { %><span class="text-secondary">—</span><% } %>
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <% if (String(job.status) === "queued") { %>
+                                <button type="button" class="btn btn-sm btn-outline-warning js-skip-job" data-id="<%= job.id %>">Skip</button>
+                                <% } else if (String(job.status) === "running") { %>
+                                <button type="button" class="btn btn-sm btn-outline-danger js-stop-job" data-id="<%= job.id %>">Stop</button>
+                                <% } else { %>
+                                <span class="text-secondary">—</span>
+                                <% } %>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    window.__SELENIUM_PAGE__ = {
+        from: <%- JSON.stringify(from) %>,
+        to: <%- JSON.stringify(to) %>,
+        statusFilter: <%- JSON.stringify(statusFilter || "all") %>,
+    };
+</script>
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/selenium.js" defer></script>
+<%- include('common/footer') %>

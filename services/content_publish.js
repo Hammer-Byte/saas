@@ -13,10 +13,37 @@ import {
     getContentPublishRunTargetsByRunId,
 } from "../db/content_publish_runs.js";
 import { processing } from "../libs/content_publish_browser.js";
-import { enqueueContentPublishRun } from "../libs/content_publish_queue.js";
 import { resolveContentPublishPublicMediaFile } from "../libs/content_publish_public_media.js";
 import { resolveContentPublishScreenshotPath } from "../libs/content_publish_screenshot.js";
+import { enqueueSeleniumJob } from "../libs/selenium/index.js";
+import { storeContentPublishSecrets } from "../libs/selenium/jobs/content_publish.js";
 import { getCurrentUser } from "./authentication.js";
+
+async function enqueueContentPublishSeleniumJob({
+    runId,
+    executePayload,
+    createdBy = null,
+    title = null,
+    userName = null,
+}) {
+    storeContentPublishSecrets(runId, {
+        ...executePayload,
+        runId: Number(runId),
+    });
+    const job = await enqueueSeleniumJob({
+        type: "content_publish",
+        source: "content_publish",
+        title:
+            title
+            || `Content publish${userName ? ` — ${userName}` : ""} (run ${runId})`,
+        payload: {
+            runId: Number(runId),
+        },
+        created_by: createdBy,
+        domain_run_id: Number(runId),
+    });
+    return job;
+}
 
 const PLATFORM_COOKIE = {
     instagram: "instagram_cookie",
@@ -433,25 +460,35 @@ export async function startContentPublishRun({ body, set, cookie }) {
     logger.info(
         `content-publish enqueue run=${runId} source=user user=${automationUser.name} kind=${mediaKind} platforms=${platforms.join(",")} ig_dest=${instagram_destinations.join("+") || "-"} yt_dest=${youtube_destination} media_id=${media.id}`,
     );
-    enqueueContentPublishRun(runId, {
+    const job = await enqueueContentPublishSeleniumJob({
         runId,
-        mediaPath,
-        mediaId: media.id,
-        targets,
-        instagramCaption: instagram_caption,
-        youtubeTitle: youtube_title,
-        youtubeDescription: youtube_description,
-        linkedinCaption: linkedin_caption,
-        mediaKind,
-        instagramDestinations: instagram_destinations,
-        youtubeDestination: youtube_destination,
+        createdBy: currentUser.id,
+        userName: automationUser.name,
+        executePayload: {
+            runId,
+            mediaPath,
+            mediaId: media.id,
+            targets,
+            instagramCaption: instagram_caption,
+            youtubeTitle: youtube_title,
+            youtubeDescription: youtube_description,
+            linkedinCaption: linkedin_caption,
+            mediaKind,
+            instagramDestinations: instagram_destinations,
+            youtubeDestination: youtube_destination,
+        },
     });
+    if (!job) {
+        set.status = 400;
+        return { error: "Failed to enqueue selenium job", processing: false };
+    }
 
     set.status = 202;
     return {
         message: "Content publish queued",
         processing,
         run_id: runId,
+        job_id: job.id,
         instagram_destinations: platforms.includes("instagram") ? instagram_destinations : null,
         youtube_destination: platforms.includes("youtube") ? youtube_destination : null,
         run: decorateContentPublishRun(await getContentPublishRunById({ id: runId })),
@@ -663,25 +700,36 @@ export async function retryContentPublishRun({ params, body, set, cookie }) {
     logger.info(
         `content-publish retry enqueue run=${runId} from=${original.id} user=${automationUser.name} platforms=${platforms.join(",")} media_id=${media.id}`,
     );
-    enqueueContentPublishRun(runId, {
+    const job = await enqueueContentPublishSeleniumJob({
         runId,
-        mediaPath,
-        mediaId: media.id,
-        targets,
-        instagramCaption: instagram_caption,
-        youtubeTitle: youtube_title,
-        youtubeDescription: youtube_description,
-        linkedinCaption: linkedin_caption,
-        mediaKind,
-        instagramDestinations: instagram_destinations,
-        youtubeDestination: youtube_destination,
+        createdBy: currentUser.id,
+        userName: automationUser.name,
+        title: `Content publish retry — ${automationUser.name} (run ${runId})`,
+        executePayload: {
+            runId,
+            mediaPath,
+            mediaId: media.id,
+            targets,
+            instagramCaption: instagram_caption,
+            youtubeTitle: youtube_title,
+            youtubeDescription: youtube_description,
+            linkedinCaption: linkedin_caption,
+            mediaKind,
+            instagramDestinations: instagram_destinations,
+            youtubeDestination: youtube_destination,
+        },
     });
+    if (!job) {
+        set.status = 400;
+        return { error: "Failed to enqueue selenium job", processing: false };
+    }
 
     set.status = 202;
     return {
         message: `Retry queued for ${platforms.join(", ")}`,
         processing,
         run_id: runId,
+        job_id: job.id,
         retried_from_run_id: original.id,
         platforms,
         run: decorateContentPublishRun(await getContentPublishRunById({ id: runId })),
@@ -843,19 +891,28 @@ export async function startContentPublishServiceRun({ body, application, set }) 
     logger.info(
         `content-publish enqueue run=${runId} source=application app=${scheduledByName} kind=${mediaKind} platforms=${platforms.join(",")} ig_dest=${instagram_destinations.join("+")} yt_dest=${youtube_destination}`,
     );
-    enqueueContentPublishRun(runId, {
+    const job = await enqueueContentPublishSeleniumJob({
         runId,
-        mediaPath: join(Bun.env.DIRECTORY_MEDIA, media.file),
-        mediaId: media.id,
-        targets,
-        instagramCaption: instagram_caption,
-        youtubeTitle: youtube_title,
-        youtubeDescription: youtube_description,
-        linkedinCaption: linkedin_caption,
-        mediaKind,
-        instagramDestinations: instagram_destinations,
-        youtubeDestination: youtube_destination,
+        userName: scheduledByName,
+        title: `Content publish app — ${scheduledByName} (run ${runId})`,
+        executePayload: {
+            runId,
+            mediaPath: join(Bun.env.DIRECTORY_MEDIA, media.file),
+            mediaId: media.id,
+            targets,
+            instagramCaption: instagram_caption,
+            youtubeTitle: youtube_title,
+            youtubeDescription: youtube_description,
+            linkedinCaption: linkedin_caption,
+            mediaKind,
+            instagramDestinations: instagram_destinations,
+            youtubeDestination: youtube_destination,
+        },
     });
+    if (!job) {
+        set.status = 400;
+        return { error: "Failed to enqueue selenium job" };
+    }
 
     set.status = 202;
     return {

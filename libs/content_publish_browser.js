@@ -2,21 +2,10 @@ import { Builder, Browser } from "selenium-webdriver";
 import firefox from "selenium-webdriver/firefox.js";
 import { logger } from "@hammerbyte/utils";
 
+/** @deprecated Prefer /app/selenium pipeline status. Always false after central pipeline cutover. */
 export let processing = false;
 
 const FIREFOX_BINARY = "/usr/bin/firefox";
-
-export function acquireContentPublishProcessing() {
-    if (processing) {
-        return false;
-    }
-    processing = true;
-    return true;
-}
-
-export function releaseContentPublishProcessing() {
-    processing = false;
-}
 
 /** Firefox for YouTube / LinkedIn Selenium publish (Instagram uses Graph API). */
 export async function openFirefox() {

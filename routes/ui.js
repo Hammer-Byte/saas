@@ -124,6 +124,11 @@ import {
 import { processing as gemTendereProcessing } from "../libs/tenderer.js";
 import { processing as linkedinProcessing } from "../libs/linkedin_browser.js";
 import {
+    getSeleniumJobStatusCountsByCreatedOnRange,
+    getSeleniumJobsByCreatedOnRange,
+    getSeleniumPipelineStatus,
+} from "../libs/selenium/index.js";
+import {
     addIstCalendarDays,
     buildSprintWeekOptions,
     getIstDate,
@@ -1040,6 +1045,40 @@ export const uiRoutes = new Elysia()
                     title: "Automation — HammerByte",
                 })),
             )
+            .get("/app/selenium", async ({ render, session, query }) => {
+                const today = getIstDate();
+                const from = parseQueryDate(query.from) || today;
+                const to = parseQueryDate(query.to) || today;
+                const rangeFrom = from <= to ? from : to;
+                const rangeTo = from <= to ? to : from;
+                const statusFilter = String(query.status || "all").trim().toLowerCase() || "all";
+
+                const [pipeline, counts, jobs] = await Promise.all([
+                    getSeleniumPipelineStatus(),
+                    getSeleniumJobStatusCountsByCreatedOnRange({
+                        start: rangeFrom,
+                        end: rangeTo,
+                    }),
+                    getSeleniumJobsByCreatedOnRange({
+                        start: rangeFrom,
+                        end: rangeTo,
+                        status: statusFilter !== "all" ? statusFilter : null,
+                    }),
+                ]);
+
+                return render(
+                    "selenium",
+                    appPage(session, {
+                        title: "Selenium — HammerByte",
+                        from: rangeFrom,
+                        to: rangeTo,
+                        statusFilter,
+                        pipeline,
+                        counts,
+                        jobs,
+                    }),
+                );
+            })
             .get("/app/automation-users", async ({ render, session }) =>
                 render("automation-users", appPage(session, {
                     title: "Automation Users — HammerByte",

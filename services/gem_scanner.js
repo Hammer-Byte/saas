@@ -5,7 +5,7 @@ import {
     createGemTenderScanRun,
     getGemTenderScanRunById,
 } from "../db/gem_tender_scan_runs.js";
-import { crawlGemForTenders, processing } from "../libs/tenderer.js";
+import { enqueueGemScanJob } from "../libs/selenium/enqueue_gem.js";
 import { canUseGemCategories } from "./gem_categories.js";
 import { getCurrentUser } from "./authentication.js";
 
@@ -31,11 +31,6 @@ async function requireScannerAuthority({ cookie, set }) {
  * One crawl run processes the full queue in order.
  */
 export async function startGemScannerScan({ body, cookie, set }) {
-    if (processing) {
-        set.status = 409;
-        return { error: "Scan already in progress", processing: true };
-    }
-
     const currentUser = await requireScannerAuthority({ cookie, set });
     if (!currentUser) {
         return {
@@ -129,13 +124,15 @@ export async function startGemScannerScan({ body, cookie, set }) {
         return { error: "Failed to create scan run", processing: false };
     }
 
-    const started = crawlGemForTenders({
-        keywords: crawlEntries,
+    const job = await enqueueGemScanJob({
         runId,
+        keywords: crawlEntries,
+        createdBy: currentUser.id,
+        title: `GeM combined scan (${crawlEntries.length})`,
     });
-    if (!started) {
-        set.status = 409;
-        return { error: "Scan already in progress", processing: true };
+    if (!job) {
+        set.status = 400;
+        return { error: "Failed to enqueue selenium job", processing: false };
     }
 
     const parts = [];
@@ -152,11 +149,12 @@ export async function startGemScannerScan({ body, cookie, set }) {
 
     set.status = 202;
     return {
-        message: `Scan started for ${parts.join(" then ")}`,
+        message: `Scan queued for ${parts.join(" then ")}`,
         processing: true,
         keyword_count: keywordIds.length,
         category_count: categoryIds.length,
         queue_count: crawlEntries.length,
+        job_id: job.id,
         run: await getGemTenderScanRunById({ id: runId }),
     };
 }

@@ -41,6 +41,7 @@ import taskReminders from "./apps/task_reminders.js";
 import automationUsers from "./apps/automation_users.js";
 import contentPublish from "./apps/content_publish.js";
 import { getContentPublishPublicMedia } from "../services/content_publish.js";
+import selenium from "./apps/selenium.js";
 import linkedinDesignations from "./apps/linkedin_designations.js";
 import linkedinGrowNetwork from "./apps/linkedin_grow_network.js";
 import linkedinSearchNetwork from "./apps/linkedin_search_network.js";
@@ -114,6 +115,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/task-reminders", taskReminders)
             .group("/automation-users", automationUsers)
             .group("/content-publish", contentPublish)
+            .group("/selenium", selenium)
             .group("/linkedin-designations", linkedinDesignations)
             .group("/linkedin-grow-network", linkedinGrowNetwork)
             .group("/linkedin-search-network", linkedinSearchNetwork)

@@ -13,7 +13,7 @@ import {
     getLinkedinMessageRunDesignationsByRunId,
 } from "../db/linkedin_message_runs.js";
 import { processing } from "../libs/linkedin_browser.js";
-import { startLinkedinMessageConnects } from "../libs/linkedin_message.js";
+import { enqueueSeleniumJob } from "../libs/selenium/index.js";
 import { getCurrentUser } from "./authentication.js";
 
 export async function getLinkedinMessageNetworkStatus({ set }) {
@@ -22,11 +22,6 @@ export async function getLinkedinMessageNetworkStatus({ set }) {
 }
 
 export async function startLinkedinMessageNetwork({ body, set, cookie }) {
-    if (processing) {
-        set.status = 409;
-        return { error: "LinkedIn automation already in progress", processing: true };
-    }
-
     const currentUser = await getCurrentUser({ cookie });
     if (!currentUser?.id) {
         set.status = 401;
@@ -100,9 +95,9 @@ export async function startLinkedinMessageNetwork({ body, set, cookie }) {
         }
         runAccounts.push({
             runAccountId,
+            automationUserId: linkedinUser.id,
             id: linkedinUser.id,
             name: linkedinUser.name,
-            cookie: String(linkedinUser.linkedin_cookie || "").trim(),
         });
     }
 
@@ -118,22 +113,29 @@ export async function startLinkedinMessageNetwork({ body, set, cookie }) {
         });
     }
 
-    const started = startLinkedinMessageConnects({
-        runId,
-        accounts: runAccounts,
-        designationPools,
-        perAccountLimit: body.per_account_limit,
+    const job = await enqueueSeleniumJob({
+        type: "linkedin_message",
+        source: "linkedin",
+        title: `LinkedIn message (${linkedinUsers.length} account${linkedinUsers.length === 1 ? "" : "s"})`,
+        payload: {
+            runId,
+            accounts: runAccounts,
+            designationPools,
+            perAccountLimit: body.per_account_limit,
+        },
+        created_by: currentUser.id,
+        domain_run_id: runId,
     });
-
-    if (!started) {
-        set.status = 409;
-        return { error: "LinkedIn automation already in progress", processing: true };
+    if (!job) {
+        set.status = 400;
+        return { error: "Failed to enqueue selenium job", processing: false };
     }
 
     set.status = 202;
     return {
-        message: "MessageNetwork started",
+        message: "MessageNetwork queued",
         processing: true,
+        job_id: job.id,
         run: await getLinkedinMessageRunById({ id: runId }),
     };
 }

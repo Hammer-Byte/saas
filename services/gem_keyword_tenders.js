@@ -27,7 +27,7 @@ import {
     notifyGemKeywordTenderAssigned,
     notifyGemKeywordTenderQuoteRequested,
 } from "../libs/gem_tender_notify.js";
-import { crawlGemForTenders, processing } from "../libs/tenderer.js";
+import { enqueueGemScanJob } from "../libs/selenium/enqueue_gem.js";
 import { getCurrentUser } from "./authentication.js";
 
 const STAGE_VALUES = new Set(Object.values(GEM_KEYWORD_TENDER_STAGES));
@@ -953,11 +953,6 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
  * Does not assign a category group; set group later on the tender detail page.
  */
 export async function startGemAdhocTenderScan({ body, cookie, set }) {
-    if (processing) {
-        set.status = 409;
-        return { error: "Scan already in progress", processing: true };
-    }
-
     const currentUser = await getCurrentUser({ cookie });
     if (!currentUser?.id) {
         set.status = 401;
@@ -1009,13 +1004,15 @@ export async function startGemAdhocTenderScan({ body, cookie, set }) {
         return { error: "Failed to create scan run", processing: false };
     }
 
-    const started = crawlGemForTenders({
-        keywords,
+    const job = await enqueueGemScanJob({
         runId,
+        keywords,
+        createdBy: currentUser.id,
+        title: `GeM adhoc scan (${keywords.length})`,
     });
-    if (!started) {
-        set.status = 409;
-        return { error: "Scan already in progress", processing: true };
+    if (!job) {
+        set.status = 400;
+        return { error: "Failed to enqueue selenium job", processing: false };
     }
 
     set.status = 202;
@@ -1024,8 +1021,9 @@ export async function startGemAdhocTenderScan({ body, cookie, set }) {
             ? `“${queries[0]}”`
             : `${queries.length} search texts`;
     return {
-        message: `Scan started for ${label}. Matching tenders will be added shortly.`,
+        message: `Scan queued for ${label}. Matching tenders will be added shortly.`,
         processing: true,
+        job_id: job.id,
         count: queries.length,
         run: await getGemTenderScanRunById({ id: runId }),
     };

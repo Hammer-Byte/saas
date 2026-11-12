@@ -12,7 +12,7 @@ import {
     getLinkedinSearchRunDesignationsByRunId,
 } from "../db/linkedin_search_runs.js";
 import { processing } from "../libs/linkedin_browser.js";
-import { startLinkedinSearchConnects } from "../libs/linkedin_search.js";
+import { enqueueSeleniumJob } from "../libs/selenium/index.js";
 import { getCurrentUser } from "./authentication.js";
 
 export async function getLinkedinSearchNetworkStatus({ set }) {
@@ -21,11 +21,6 @@ export async function getLinkedinSearchNetworkStatus({ set }) {
 }
 
 export async function startLinkedinSearchNetwork({ body, set, cookie }) {
-    if (processing) {
-        set.status = 409;
-        return { error: "LinkedIn automation already in progress", processing: true };
-    }
-
     const currentUser = await getCurrentUser({ cookie });
     if (!currentUser?.id) {
         set.status = 401;
@@ -78,9 +73,9 @@ export async function startLinkedinSearchNetwork({ body, set, cookie }) {
         }
         runAccounts.push({
             runAccountId,
+            automationUserId: linkedinUser.id,
             id: linkedinUser.id,
             name: linkedinUser.name,
-            cookie: String(linkedinUser.linkedin_cookie || "").trim(),
         });
     }
 
@@ -91,22 +86,29 @@ export async function startLinkedinSearchNetwork({ body, set, cookie }) {
         });
     }
 
-    const started = startLinkedinSearchConnects({
-        runId,
-        accounts: runAccounts,
-        designationKeywords: linkedinDesignations.map((designation) => designation.name),
-        pageCount: body.page_count,
+    const job = await enqueueSeleniumJob({
+        type: "linkedin_search",
+        source: "linkedin",
+        title: `LinkedIn search (${linkedinUsers.length} account${linkedinUsers.length === 1 ? "" : "s"})`,
+        payload: {
+            runId,
+            accounts: runAccounts,
+            designationKeywords: linkedinDesignations.map((designation) => designation.name),
+            pageCount: body.page_count,
+        },
+        created_by: currentUser.id,
+        domain_run_id: runId,
     });
-
-    if (!started) {
-        set.status = 409;
-        return { error: "LinkedIn automation already in progress", processing: true };
+    if (!job) {
+        set.status = 400;
+        return { error: "Failed to enqueue selenium job", processing: false };
     }
 
     set.status = 202;
     return {
-        message: "SearchNetwork started",
+        message: "SearchNetwork queued",
         processing: true,
+        job_id: job.id,
         run: await getLinkedinSearchRunById({ id: runId }),
     };
 }

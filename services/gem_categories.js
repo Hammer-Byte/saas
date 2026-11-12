@@ -23,7 +23,7 @@ import {
     getGemTenderScanRunById,
 } from "../db/gem_tender_scan_runs.js";
 import { hasAuthority } from "../libs/app_page.js";
-import { crawlGemForTenders, processing } from "../libs/tenderer.js";
+import { enqueueGemScanJob } from "../libs/selenium/enqueue_gem.js";
 import { getCurrentUser } from "./authentication.js";
 
 export function canUseGemCategories(authorities, { super_admin = false } = {}) {
@@ -287,11 +287,6 @@ export async function deleteGemCategory({ params, cookie, set }) {
 }
 
 export async function startGemCategoryScan({ body, cookie, set }) {
-    if (processing) {
-        set.status = 409;
-        return { error: "Scan already in progress", processing: true };
-    }
-
     const currentUser = await requireGemCategoriesAuthority({ cookie, set });
     if (!currentUser) {
         return {
@@ -343,19 +338,22 @@ export async function startGemCategoryScan({ body, cookie, set }) {
         return { error: "Failed to create scan run", processing: false };
     }
 
-    const started = crawlGemForTenders({
-        keywords,
+    const job = await enqueueGemScanJob({
         runId,
+        keywords,
+        createdBy: currentUser.id,
+        title: `GeM category scan (${keywords.length})`,
     });
-    if (!started) {
-        set.status = 409;
-        return { error: "Scan already in progress", processing: true };
+    if (!job) {
+        set.status = 400;
+        return { error: "Failed to enqueue selenium job", processing: false };
     }
 
     set.status = 202;
     return {
-        message: `Scan started for ${keywords.length} categor${keywords.length === 1 ? "y" : "ies"}`,
+        message: `Scan queued for ${keywords.length} categor${keywords.length === 1 ? "y" : "ies"}`,
         processing: true,
+        job_id: job.id,
         category_count: keywords.length,
         run: await getGemTenderScanRunById({ id: runId }),
     };

@@ -1,6 +1,6 @@
 import { filer, logger } from "@hammerbyte/utils";
 import { generateDBTables } from "./libs/db.js";
-import { initContentPublishQueue } from "./libs/content_publish_queue.js";
+import { initSeleniumPipeline } from "./libs/selenium/index.js";
 import transporter from "./libs/transporter.js";
 import bucketizer from "./libs/bucketizer.js";
 import { allowTraffic } from "./server.js";
@@ -23,8 +23,8 @@ try {
     logger.success("Required Directories Ready");
     await generateDBTables();
     logger.success("Database Ready (Tables Verified)");
-    await initContentPublishQueue();
-    logger.success("Content Publish Queue Ready");
+    await initSeleniumPipeline();
+    logger.success("Selenium Pipeline Ready");
     startServerPingAlertWatcher();
     logger.success("Server Ping Alert Watcher Ready");
     startGemTenderEligibilityReminderWatcher();

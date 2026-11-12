@@ -1,22 +1,19 @@
 import { join } from "node:path";
 import { logger } from "@hammerbyte/utils";
+import { getAutomationUserById } from "../../../db/automation_users.js";
 import {
-    claimNextQueuedContentPublishRun,
+    getContentPublishRunById,
     getContentPublishRunTargetsByRunId,
-    recoverStaleContentPublishRuns,
     updateContentPublishRunById,
-} from "../db/content_publish_runs.js";
-import { getAutomationUserById } from "../db/automation_users.js";
-import { getMediaById } from "../db/media.js";
-import { toDbDateTime } from "./date.js";
-import {
-    acquireContentPublishProcessing,
-    releaseContentPublishProcessing,
-} from "./content_publish_browser.js";
-import { executeContentPublishRun } from "./content_publish.js";
+} from "../../../db/content_publish_runs.js";
+import { getMediaById } from "../../../db/media.js";
+import { executeContentPublishRun } from "../../content_publish.js";
+import { toDbDateTime } from "../../date.js";
+import { registerSeleniumSkipHook } from "../hooks.js";
+import { registerSeleniumJobHandler } from "../registry.js";
 
-/** Ephemeral payloads (creds + captions) keyed by run id — not persisted. */
-const pendingPayloads = new Map();
+/** Ephemeral creds for application-source runs (not persisted). */
+const pendingSecrets = new Map();
 
 const PLATFORM_COOKIE = {
     instagram: "instagram_cookie",
@@ -24,18 +21,14 @@ const PLATFORM_COOKIE = {
     linkedin: "linkedin_cookie",
 };
 
-let draining = false;
-let needsRescan = false;
-let bootstrapped = false;
-
-function storePayload(runId, payload) {
-    pendingPayloads.set(Number(runId), payload);
+export function storeContentPublishSecrets(runId, payload) {
+    pendingSecrets.set(Number(runId), payload);
 }
 
-function takePayload(runId) {
+function takeContentPublishSecrets(runId) {
     const key = Number(runId);
-    const payload = pendingPayloads.get(key) || null;
-    pendingPayloads.delete(key);
+    const payload = pendingSecrets.get(key) || null;
+    pendingSecrets.delete(key);
     return payload;
 }
 
@@ -123,8 +116,8 @@ async function rebuildWebsitePayload(run) {
     };
 }
 
-async function resolvePayload(run) {
-    const cached = takePayload(run.id);
+async function resolveExecutePayload(run) {
+    const cached = takeContentPublishSecrets(run.id);
     if (cached) {
         return cached;
     }
@@ -136,79 +129,77 @@ async function resolvePayload(run) {
     return rebuildWebsitePayload(run);
 }
 
-export function kickContentPublishWorker() {
-    if (draining) {
-        needsRescan = true;
-        return;
-    }
-    if (!acquireContentPublishProcessing()) {
-        needsRescan = true;
-        return;
+async function start(ctx) {
+    const runId = Number(ctx.payload?.runId);
+    if (!(runId >= 1)) {
+        throw new Error("Missing content publish run id");
     }
 
-    draining = true;
-    needsRescan = false;
+    const run = await getContentPublishRunById({ id: runId });
+    if (!run) {
+        throw new Error("Content publish run not found");
+    }
 
-    (async () => {
-        try {
-            while (true) {
-                const run = await claimNextQueuedContentPublishRun();
-                if (!run) {
-                    break;
-                }
-                logger.info(
-                    `content-publish queue claimed run=${run.id} source=${run.source} kind=${run.media_kind}`,
-                );
-                try {
-                    const payload = await resolvePayload(run);
-                    await executeContentPublishRun(payload);
-                } catch (error) {
-                    const message = error instanceof Error ? error.message : String(error);
-                    logger.error(
-                        `content-publish queue run=${run.id} failed before execute: ${message}`,
-                    );
-                    await updateContentPublishRunById({
-                        id: run.id,
-                        status: "failed",
-                        error_message: message,
-                        finished_on: toDbDateTime(new Date()),
-                    });
-                }
-            }
-        } catch (error) {
-            logger.error(`content-publish queue worker crashed: ${error}`);
-        } finally {
-            draining = false;
-            releaseContentPublishProcessing();
-            logger.info("content-publish queue worker idle");
-            if (needsRescan) {
-                needsRescan = false;
-                kickContentPublishWorker();
-            }
-        }
-    })();
-}
-
-/**
- * Enqueue a prepared payload and start the worker if idle.
- * Run row must already exist with status=queued and targets created.
- */
-export function enqueueContentPublishRun(runId, payload) {
-    storePayload(runId, {
-        ...payload,
-        runId: Number(runId),
+    await updateContentPublishRunById({
+        id: runId,
+        status: "running",
     });
-    logger.info(`content-publish queue enqueued run=${runId}`);
-    kickContentPublishWorker();
+
+    ctx._executePayload = await resolveExecutePayload(run);
 }
 
-/** Call once at process boot after DB tables are ready. */
-export async function initContentPublishQueue() {
-    if (bootstrapped) {
+async function perform(ctx) {
+    if (ctx.shouldAbort()) {
+        ctx.aborted = true;
+        throw new Error("Stopped by operator");
+    }
+    await executeContentPublishRun(ctx._executePayload);
+
+    const runId = Number(ctx.payload?.runId);
+    const run = runId >= 1 ? await getContentPublishRunById({ id: runId }) : null;
+    const domainStatus = String(run?.status || "").toLowerCase();
+    if (domainStatus === "failed") {
+        throw new Error(run?.error_message || "Content publish failed");
+    }
+    ctx.setResultSummary(
+        domainStatus === "completed"
+            ? "Content publish completed"
+            : `Content publish finished (${domainStatus || "unknown"})`,
+    );
+}
+
+async function finish(ctx) {
+    const runId = Number(ctx.payload?.runId);
+    if (!(runId >= 1)) {
         return;
     }
-    bootstrapped = true;
-    await recoverStaleContentPublishRuns({ finished_on: toDbDateTime(new Date()) });
-    logger.info("content-publish queue recovered stale runs after restart");
-    kickContentPublishWorker();
+
+    if (ctx.aborted || ctx.shouldAbort() || ctx.errorMessage) {
+        const run = await getContentPublishRunById({ id: runId });
+        if (run && ["queued", "running"].includes(String(run.status || "").toLowerCase())) {
+            await updateContentPublishRunById({
+                id: runId,
+                status: "failed",
+                error_message: ctx.errorMessage || "Stopped by operator",
+                finished_on: toDbDateTime(new Date()),
+            });
+        }
+    }
 }
+
+registerSeleniumJobHandler("content_publish", { start, perform, finish });
+
+registerSeleniumSkipHook("content_publish", async (job) => {
+    const runId = Number(job?.payload?.runId || job?.domain_run_id);
+    if (!(runId >= 1)) {
+        return;
+    }
+    takeContentPublishSecrets(runId);
+    await updateContentPublishRunById({
+        id: runId,
+        status: "failed",
+        error_message: "Skipped by operator",
+        finished_on: toDbDateTime(new Date()),
+    });
+    logger.info(`content_publish skip marked domain run ${runId} failed`);
+});

@@ -1,21 +1,10 @@
 import { Builder, Browser } from "selenium-webdriver";
 import firefox from "selenium-webdriver/firefox.js";
 
+/** @deprecated Prefer /app/selenium pipeline status. Always false after central pipeline cutover. */
 export let processing = false;
 
 const FIREFOX_BINARY = "/usr/bin/firefox";
-
-export function acquireLinkedinProcessing() {
-    if (processing) {
-        return false;
-    }
-    processing = true;
-    return true;
-}
-
-export function releaseLinkedinProcessing() {
-    processing = false;
-}
 
 export async function openFirefox() {
     const options = new firefox.Options()

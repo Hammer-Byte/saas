@@ -7,6 +7,8 @@ import {
     CONTENT_PUBLISHER_SERVICE,
 } from "../constants.js";
 
+const seleniumMaxParallel = Math.max(1, Number(Bun.env.SELENIUM_MAX_PARALLEL) || 1);
+
 export const dbConnection = new SQL({
     adapter: Bun.env.MYSQL_DIALECT,
     hostname: Bun.env.MYSQL_HOST,
@@ -16,7 +18,8 @@ export const dbConnection = new SQL({
     password: Bun.env.MYSQL_PASSWORD,
     tls: false,
     allowPublicKeyRetrieval: true,
-    max: 1,
+    // Headroom for HTTP + selenium workers when SELENIUM_MAX_PARALLEL > 1
+    max: Math.max(1, seleniumMaxParallel + 2),
     onconnect: (client) => {
         logger.success("Connected to MySQL DataBase");
     },
@@ -855,6 +858,32 @@ export async function generateDBTables() {
                 REFERENCES LINKEDIN_MESSAGE_RUNS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS SELENIUM_JOBS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            type VARCHAR(64) NOT NULL,
+            source VARCHAR(64) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            status VARCHAR(32) NOT NULL DEFAULT 'queued',
+            payload TEXT NULL,
+            result_summary TEXT NULL,
+            error_message TEXT NULL,
+            created_by INT NULL,
+            domain_run_id INT NULL,
+            started_on DATETIME NULL,
+            finished_on DATETIME NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_selenium_jobs_created_by
+                FOREIGN KEY (created_by)
+                REFERENCES USERS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS SELENIUM_PIPELINE_STATE (
+            id INT PRIMARY KEY,
+            paused BOOLEAN NOT NULL DEFAULT FALSE,
+            max_parallel INT NOT NULL DEFAULT 1,
+            updated_on DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )`,
         `CREATE TABLE IF NOT EXISTS SERVERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
