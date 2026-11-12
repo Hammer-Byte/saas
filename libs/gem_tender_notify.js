@@ -57,6 +57,60 @@ export function notifyGemKeywordTenderAssigned({
     }
 }
 
+export function notifyGemKeywordTendersBulkAssigned({
+    tenders,
+    assigneeUser,
+    assignedByUser,
+}) {
+    try {
+        const list = Array.isArray(tenders) ? tenders.filter(Boolean) : [];
+        if (!list.length) return;
+
+        const recipient = String(assigneeUser?.email || "").trim();
+        if (!recipient) {
+            logger.error("notifyGemKeywordTendersBulkAssigned: assignee has no email");
+            return;
+        }
+
+        const assigneeName = assigneeUser.full_name || assigneeUser.email || "there";
+        const assignedByName =
+            assignedByUser?.full_name || assignedByUser?.email || "A teammate";
+
+        const rowsHtml = list
+            .map((tender) => {
+                const tenderId = tender.tender_id || `#${tender.id}`;
+                const endAt =
+                    getReadableDate("DD/MM/YYYY HH:mm:ss", tender.end_date_time) || "—";
+                const stage = stageLabel(tender.stage);
+                return `<div style="padding:8px 0;border-bottom:1px solid #eef2f7;">
+      <div><strong>${tenderId}</strong></div>
+      <div style="color:#6b7280;font-size:13px;">Stage: ${stage} · End: ${endAt}</div>
+    </div>`;
+            })
+            .join("");
+
+        const html = filer.prepareTemplated("templates/gem_tender_bulk_assigned.html", {
+            assignee_name: assigneeName,
+            assigned_by_name: assignedByName,
+            tender_count: String(list.length),
+            tenders_html: rowsHtml,
+            app_name: "HammerByte",
+        });
+
+        transporter.transport({
+            recipient,
+            subject: `GEM tenders assigned — ${list.length} tender(s)`,
+            body: html,
+            html_enabled: true,
+        });
+        logger.info(
+            `gem tender bulk assignment email queued for ${recipient} (${list.length} tender(s))`,
+        );
+    } catch (error) {
+        logger.error(`notifyGemKeywordTendersBulkAssigned: ${error}`);
+    }
+}
+
 export async function notifyGemKeywordTenderQuoteRequested({
     tender,
     requestedByUser,

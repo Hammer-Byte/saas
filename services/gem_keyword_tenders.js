@@ -26,6 +26,7 @@ import { hasAuthority } from "../libs/app_page.js";
 import {
     notifyGemKeywordTenderAssigned,
     notifyGemKeywordTenderQuoteRequested,
+    notifyGemKeywordTendersBulkAssigned,
 } from "../libs/gem_tender_notify.js";
 import { enqueueGemScanJob } from "../libs/selenium/enqueue_gem.js";
 import { getCurrentUser } from "./authentication.js";
@@ -980,6 +981,12 @@ export async function bulkLockGemKeywordTenders({ body, cookie, set }) {
         return { error: "Invalid lock action" };
     }
 
+    const comment = asText(body?.comment).trim();
+    if (!comment) {
+        set.status = 400;
+        return { error: "Comment is required" };
+    }
+
     const ids = Array.isArray(body?.ids)
         ? [...new Set(body.ids.map((id) => Number(id)).filter((id) => id >= 1))]
         : [];
@@ -1068,10 +1075,24 @@ export async function bulkLockGemKeywordTenders({ body, cookie, set }) {
                 lock_message: lockMessage,
             });
 
+            const commentId = await createGemKeywordTenderComment({
+                gem_keyword_tender_id: gemKeywordTender.id,
+                user_id: currentUser.id,
+                comment,
+            });
+            if (!commentId) {
+                failedCount += 1;
+                failures.push({ id, error: "Failed to add comment" });
+                continue;
+            }
+
             await logActivities({
                 gem_keyword_tender_id: gemKeywordTender.id,
                 user_id: currentUser.id,
-                activities: [`Locked tender: ${lockMessage}`],
+                activities: [
+                    `Locked tender: ${lockMessage}`,
+                    `Added comment: "${quotePreview(comment)}"`,
+                ],
             });
 
             successCount += 1;
@@ -1085,6 +1106,233 @@ export async function bulkLockGemKeywordTenders({ body, cookie, set }) {
     return {
         message:
             `Locked ${successCount}` +
+            (skippedCount ? `, skipped ${skippedCount}` : "") +
+            (failedCount ? `, failed ${failedCount}` : ""),
+        successCount,
+        skippedCount,
+        failedCount,
+        failures,
+    };
+}
+
+export async function bulkAssignGemKeywordTenders({ body, cookie, set }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+    }
+
+    const assignToMe = body?.assign_to_me === true;
+    let nextAssigneeUserId = assignToMe
+        ? Number(currentUser.id)
+        : body?.assignee_user_id != null
+          ? Number(body.assignee_user_id)
+          : null;
+
+    if (!(nextAssigneeUserId >= 1)) {
+        set.status = 400;
+        return { error: "Assignee is required" };
+    }
+
+    const comment = asText(body?.comment).trim();
+    if (!comment) {
+        set.status = 400;
+        return { error: "Comment is required" };
+    }
+
+    const canAssignOthers =
+        !!currentUser.super_admin ||
+        (currentUser.authorities || []).includes(
+            AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE,
+        );
+    const assigningSelf = nextAssigneeUserId === Number(currentUser.id);
+    if (!canAssignOthers && !assigningSelf) {
+        set.status = 403;
+        return { error: "Missing authority to assign other users" };
+    }
+
+    const assigneeUser = await getUserById({ id: nextAssigneeUserId });
+    if (!assigneeUser) {
+        set.status = 400;
+        return { error: "Assignee not found" };
+    }
+
+    const ids = Array.isArray(body?.ids)
+        ? [...new Set(body.ids.map((id) => Number(id)).filter((id) => id >= 1))]
+        : [];
+    if (!ids.length) {
+        set.status = 400;
+        return { error: "Select at least one tender" };
+    }
+
+    let successCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+    const failures = [];
+    const assignedTenders = [];
+
+    for (const id of ids) {
+        const gemKeywordTender = await getGemKeywordTenderById({ id });
+        if (!gemKeywordTender) {
+            failedCount += 1;
+            failures.push({ id, error: "Tender not found" });
+            continue;
+        }
+
+        if (isTenderLocked(gemKeywordTender)) {
+            failedCount += 1;
+            failures.push({
+                id,
+                error: "Unlock this tender before making changes",
+            });
+            continue;
+        }
+
+        const previousStage = normalizeStage(gemKeywordTender.stage);
+        if (isTerminalStage(previousStage) && !currentUser.super_admin) {
+            failedCount += 1;
+            failures.push({
+                id,
+                error: "Only a super admin can change tenders in a one-way stage",
+            });
+            continue;
+        }
+
+        const previousAssigneeUserId = gemKeywordTender.assignee_user_id
+            ? Number(gemKeywordTender.assignee_user_id)
+            : null;
+
+        if (previousAssigneeUserId === nextAssigneeUserId) {
+            skippedCount += 1;
+            continue;
+        }
+
+        if (!canAssignOthers && previousAssigneeUserId != null) {
+            failedCount += 1;
+            failures.push({
+                id,
+                error: "Selected tenders already have an assignee",
+            });
+            continue;
+        }
+
+        if (
+            assignToMe &&
+            previousAssigneeUserId != null &&
+            previousAssigneeUserId !== Number(currentUser.id)
+        ) {
+            failedCount += 1;
+            failures.push({ id, error: "Already assigned to someone else" });
+            continue;
+        }
+
+        let nextStage = previousStage;
+        if (nextStage === GEM_KEYWORD_TENDER_STAGES.NEW) {
+            nextStage = GEM_KEYWORD_TENDER_STAGES.ASSIGNED;
+        }
+        const flags = flagsForStage(nextStage);
+        const previousAssignee = previousAssigneeUserId
+            ? await getUserById({ id: previousAssigneeUserId })
+            : null;
+
+        try {
+            const claimSelf =
+                assignToMe &&
+                previousAssigneeUserId == null &&
+                nextAssigneeUserId === Number(currentUser.id);
+
+            if (claimSelf) {
+                const claimed = await claimUnassignedGemKeywordTenderById({
+                    id: gemKeywordTender.id,
+                    hidden: flags.hidden,
+                    eligible: flags.eligible,
+                    filed: flags.filed,
+                    quote: gemKeywordTender.quote,
+                    stage: nextStage,
+                    assignee_user_id: nextAssigneeUserId,
+                });
+                if (!claimed) {
+                    failedCount += 1;
+                    failures.push({ id, error: "Already assigned to someone else" });
+                    continue;
+                }
+            } else {
+                await updateGemKeywordTenderById({
+                    id: gemKeywordTender.id,
+                    hidden: flags.hidden,
+                    eligible: flags.eligible,
+                    filed: flags.filed,
+                    quote: gemKeywordTender.quote,
+                    stage: nextStage,
+                    assignee_user_id: nextAssigneeUserId,
+                    category_group_id: gemKeywordTender.category_group_id
+                        ? Number(gemKeywordTender.category_group_id)
+                        : null,
+                    tender_category_id: gemKeywordTender.tender_category_id
+                        ? Number(gemKeywordTender.tender_category_id)
+                        : null,
+                    locked: isTenderLocked(gemKeywordTender),
+                    lock_message: gemKeywordTender.lock_message || null,
+                });
+            }
+
+            const commentId = await createGemKeywordTenderComment({
+                gem_keyword_tender_id: gemKeywordTender.id,
+                user_id: currentUser.id,
+                comment,
+            });
+            if (!commentId) {
+                failedCount += 1;
+                failures.push({ id, error: "Failed to add comment" });
+                continue;
+            }
+
+            const activities = [];
+            if (assignToMe && nextAssigneeUserId === Number(currentUser.id)) {
+                activities.push(
+                    previousAssigneeUserId
+                        ? `Assigned tender to self (was ${assigneeLabel(previousAssignee)})`
+                        : "Assigned tender to self",
+                );
+            } else {
+                activities.push(
+                    `Changed assignee from ${assigneeLabel(previousAssignee)} to ${assigneeLabel(assigneeUser)}`,
+                );
+            }
+            if (nextStage !== previousStage) {
+                activities.push(
+                    `Changed stage from ${stageLabel(previousStage)} to ${stageLabel(nextStage)}`,
+                );
+            }
+            activities.push(`Added comment: "${quotePreview(comment)}"`);
+
+            await logActivities({
+                gem_keyword_tender_id: gemKeywordTender.id,
+                user_id: currentUser.id,
+                activities,
+            });
+
+            const updated = await getGemKeywordTenderById({ id: gemKeywordTender.id });
+            assignedTenders.push(updated || gemKeywordTender);
+            successCount += 1;
+        } catch (error) {
+            failedCount += 1;
+            failures.push({ id, error: "Failed to assign tender" });
+        }
+    }
+
+    if (assignedTenders.length) {
+        notifyGemKeywordTendersBulkAssigned({
+            tenders: assignedTenders,
+            assigneeUser,
+            assignedByUser: currentUser,
+        });
+    }
+
+    set.status = failedCount && !successCount ? 400 : 200;
+    return {
+        message:
+            `Assigned ${successCount}` +
             (skippedCount ? `, skipped ${skippedCount}` : "") +
             (failedCount ? `, failed ${failedCount}` : ""),
         successCount,

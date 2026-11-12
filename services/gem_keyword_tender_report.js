@@ -42,11 +42,6 @@ const LOCK_SERIES = [
         messages: [GEM_TENDER_LOCK_MESSAGES.DUE_DATE_PASSED],
     },
     {
-        key: "lock_filed",
-        label: "Filed (locked)",
-        messages: [GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED],
-    },
-    {
         key: "lock_other",
         label: "Other lock",
         messages: [],
@@ -88,7 +83,6 @@ const EVENT_SERIES_COLORS = {
     lock_out_of_scope: "#b02a37",
     lock_not_eligible: "#d63384",
     lock_due_date: "#ffc107",
-    lock_filed: "#495057",
     lock_other: "#adb5bd",
 };
 
@@ -144,6 +138,10 @@ function parseLockSeriesKey(activityText) {
     const message = String(match[1] || "").trim().toLowerCase();
     if (!message) {
         return "lock_other";
+    }
+    // Filing already counted via stage "Filed"; skip the paired lock activity.
+    if (message === String(GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED).trim().toLowerCase()) {
+        return null;
     }
     return LOCK_MESSAGE_TO_KEY.get(message) || "lock_other";
 }

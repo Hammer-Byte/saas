@@ -110,97 +110,169 @@
         <div id="gem-add-tender-alert" class="alert d-none" role="alert"></div>
 
         <div
-            id="gem-tenders-bulk-assign-bar"
+            id="gem-tenders-bulk-bar"
             class="card border-0 shadow-sm mb-3 d-none"
             data-current-user-id="<%= currentUserId %>"
             data-can-assign-others="<%= canAssignOthers ? '1' : '0' %>"
             data-can-bulk-change-stage="<%= canBulkChangeStage ? '1' : '0' %>"
         >
-            <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-2">
-                <span class="small text-secondary" id="gem-tenders-selected-count">0 selected</span>
-                <select class="form-select form-select-sm" id="gem-bulk-assignee" style="max-width: 280px;">
-                    <option value="">Choose assignee…</option>
-                    <% if (currentUserId) { %>
-                        <option value="<%= currentUserId %>">Assign to me</option>
-                    <% } %>
-                    <% if (canAssignOthers) { %>
-                        <% (users || []).forEach(function (user) { %>
-                            <% if (Number(user.id) !== currentUserId) { %>
-                                <option value="<%= user.id %>"><%= user.full_name %> (<%= user.email %>)</option>
-                            <% } %>
-                        <% }) %>
-                    <% } %>
-                </select>
-                <button type="button" class="btn btn-sm btn-primary" id="gem-bulk-assign-btn" disabled>
-                    Assign
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="gem-bulk-clear-btn">
-                    Clear selection
-                </button>
-                <span class="small text-danger d-none" id="gem-bulk-assign-status" role="status"></span>
-            </div>
-        </div>
+            <div class="card-body py-2 px-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                    <span class="small text-secondary" id="gem-tenders-selected-count">0 selected</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="gem-bulk-clear-btn">
+                        Clear selection
+                    </button>
+                </div>
 
-        <% if (canBulkChangeStage) { %>
-            <div id="gem-tenders-bulk-stage-bar" class="card border-0 shadow-sm mb-3 d-none">
-                <div class="card-body py-2 px-3">
-                    <div class="d-flex flex-wrap align-items-start gap-2">
-                        <span class="small text-secondary pt-1" id="gem-tenders-stage-selected-count">0 selected</span>
-                        <div style="min-width: 180px; max-width: 240px;">
-                            <label for="gem-bulk-stage" class="form-label small mb-1">
-                                Stage <span class="text-danger">*</span>
-                            </label>
-                            <select class="form-select form-select-sm" id="gem-bulk-stage">
-                                <option value="">Choose stage…</option>
-                                <% stageValues.forEach(function (stage) { %>
-                                    <option value="<%= stage %>"><%= stageLabels[stage] || stage %></option>
-                                <% }) %>
-                            </select>
-                        </div>
-                        <div class="flex-grow-1" style="min-width: 220px; max-width: 520px;">
-                            <label for="gem-bulk-stage-comment" class="form-label small mb-1">
-                                Comment <span class="text-danger">*</span>
-                            </label>
-                            <textarea
-                                class="form-control form-control-sm"
-                                id="gem-bulk-stage-comment"
-                                rows="2"
-                                placeholder="Required comment for selected tenders…"
-                                maxlength="2000"
-                            ></textarea>
-                        </div>
-                        <div class="d-flex flex-wrap align-items-center gap-2 pt-4">
-                            <button type="button" class="btn btn-sm btn-primary" id="gem-bulk-stage-btn" disabled>
+                <ul class="nav nav-tabs mb-3" id="gem-bulk-action-tabs" role="tablist">
+                    <% if (canBulkChangeStage) { %>
+                        <li class="nav-item" role="presentation">
+                            <button
+                                class="nav-link active"
+                                id="gem-bulk-tab-stage"
+                                data-bs-toggle="tab"
+                                data-bs-target="#gem-bulk-pane-stage"
+                                type="button"
+                                role="tab"
+                                aria-controls="gem-bulk-pane-stage"
+                                aria-selected="true"
+                            >
                                 Change stage
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="gem-bulk-stage-clear-btn">
-                                Clear selection
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button
+                                class="nav-link"
+                                id="gem-bulk-tab-lock"
+                                data-bs-toggle="tab"
+                                data-bs-target="#gem-bulk-pane-lock"
+                                type="button"
+                                role="tab"
+                                aria-controls="gem-bulk-pane-lock"
+                                aria-selected="false"
+                            >
+                                Out of scope / Not eligible
+                            </button>
+                        </li>
+                    <% } %>
+                    <li class="nav-item" role="presentation">
+                        <button
+                            class="nav-link<%= canBulkChangeStage ? '' : ' active' %>"
+                            id="gem-bulk-tab-assign"
+                            data-bs-toggle="tab"
+                            data-bs-target="#gem-bulk-pane-assign"
+                            type="button"
+                            role="tab"
+                            aria-controls="gem-bulk-pane-assign"
+                            aria-selected="<%= canBulkChangeStage ? 'false' : 'true' %>"
+                        >
+                            Assign
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="mb-3">
+                    <label for="gem-bulk-comment" class="form-label small mb-1">
+                        Comment <span class="text-danger">*</span>
+                    </label>
+                    <textarea
+                        class="form-control form-control-sm"
+                        id="gem-bulk-comment"
+                        rows="2"
+                        placeholder="Required comment for this mass action…"
+                        maxlength="2000"
+                    ></textarea>
+                </div>
+
+                <div class="tab-content">
+                    <% if (canBulkChangeStage) { %>
+                        <div
+                            class="tab-pane fade show active"
+                            id="gem-bulk-pane-stage"
+                            role="tabpanel"
+                            aria-labelledby="gem-bulk-tab-stage"
+                            tabindex="0"
+                        >
+                            <div class="d-flex flex-wrap align-items-end gap-2">
+                                <div style="min-width: 180px; max-width: 240px;">
+                                    <label for="gem-bulk-stage" class="form-label small mb-1">
+                                        Stage <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select form-select-sm" id="gem-bulk-stage">
+                                        <option value="">Choose stage…</option>
+                                        <% stageValues.forEach(function (stage) { %>
+                                            <option value="<%= stage %>"><%= stageLabels[stage] || stage %></option>
+                                        <% }) %>
+                                    </select>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" id="gem-bulk-stage-btn" disabled>
+                                    Change stage
+                                </button>
+                            </div>
+                        </div>
+                        <div
+                            class="tab-pane fade"
+                            id="gem-bulk-pane-lock"
+                            role="tabpanel"
+                            aria-labelledby="gem-bulk-tab-lock"
+                            tabindex="0"
+                        >
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    id="gem-bulk-out-of-scope-btn"
+                                    disabled
+                                >
+                                    Mark out of scope
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    id="gem-bulk-not-eligible-btn"
+                                    disabled
+                                >
+                                    Mark not eligible
+                                </button>
+                            </div>
+                        </div>
+                    <% } %>
+                    <div
+                        class="tab-pane fade<%= canBulkChangeStage ? '' : ' show active' %>"
+                        id="gem-bulk-pane-assign"
+                        role="tabpanel"
+                        aria-labelledby="gem-bulk-tab-assign"
+                        tabindex="0"
+                    >
+                        <div class="d-flex flex-wrap align-items-end gap-2">
+                            <div style="min-width: 220px; max-width: 320px;">
+                                <label for="gem-bulk-assignee" class="form-label small mb-1">
+                                    Assignee <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-select form-select-sm" id="gem-bulk-assignee">
+                                    <option value="">Choose assignee…</option>
+                                    <% if (currentUserId) { %>
+                                        <option value="<%= currentUserId %>">Assign to me</option>
+                                    <% } %>
+                                    <% if (canAssignOthers) { %>
+                                        <% (users || []).forEach(function (user) { %>
+                                            <% if (Number(user.id) !== currentUserId) { %>
+                                                <option value="<%= user.id %>"><%= user.full_name %> (<%= user.email %>)</option>
+                                            <% } %>
+                                        <% }) %>
+                                    <% } %>
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-primary" id="gem-bulk-assign-btn" disabled>
+                                Assign
                             </button>
                         </div>
                     </div>
-                    <div class="d-flex flex-wrap align-items-center gap-2 mt-2 pt-2 border-top">
-                        <span class="small text-secondary me-1">Lock selected:</span>
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-outline-danger"
-                            id="gem-bulk-out-of-scope-btn"
-                            disabled
-                        >
-                            Mark out of scope
-                        </button>
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-outline-danger"
-                            id="gem-bulk-not-eligible-btn"
-                            disabled
-                        >
-                            Mark not eligible
-                        </button>
-                    </div>
-                    <span class="small text-danger d-none mt-1 d-inline-block" id="gem-bulk-stage-status" role="status"></span>
                 </div>
+
+                <span class="small text-danger d-none mt-2 d-inline-block" id="gem-bulk-status" role="status"></span>
             </div>
-        <% } %>
+        </div>
 
         <div
             class="offcanvas offcanvas-end gem-tenders-filters-panel"
@@ -832,8 +904,7 @@
     }
     .gem-tenders-page-header,
     #gem-tenders-filter-status,
-    #gem-tenders-bulk-assign-bar,
-    #gem-tenders-bulk-stage-bar {
+    #gem-tenders-bulk-bar {
         flex: 0 0 auto;
     }
     .gem-tenders-range-highlight {
@@ -884,8 +955,7 @@
     .input-group .gem-filter-clear-x {
         width: 2rem;
     }
-    #gem-tenders-bulk-assign-bar,
-    #gem-tenders-bulk-stage-bar {
+    #gem-tenders-bulk-bar {
         position: sticky;
         top: 0;
         z-index: 2;
