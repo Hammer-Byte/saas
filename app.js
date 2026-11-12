@@ -15,16 +15,26 @@ logger.init({
 });
 
 try {
+    logger.info("Starting: email transporter");
     await transporter.init();
     logger.success("Email Transporter Ready");
+
+    logger.info("Starting: bucketizer");
     await bucketizer.init();
     logger.success("Bucketizer Ready");
+
+    logger.info("Starting: required directories");
     filer.prepareDirectories([Bun.env.DIRECTORY_MEDIA]);
     logger.success("Required Directories Ready");
+
+    logger.info("Starting: database tables");
     await generateDBTables();
     logger.success("Database Ready (Tables Verified)");
+
+    logger.info("Starting: selenium pipeline");
     await initSeleniumPipeline();
     logger.success("Selenium Pipeline Ready");
+
     startServerPingAlertWatcher();
     logger.success("Server Ping Alert Watcher Ready");
     startGemTenderEligibilityReminderWatcher();
@@ -37,7 +47,11 @@ try {
     logger.success("Inquiry Follow-up Reminder Watcher Ready");
     allowTraffic();
 } catch (error) {
-    logger.error(`Application Exited - ${error.message}`);
+    const message = error?.message || String(error);
+    logger.error(`Application Exited - ${message}`);
+    if (error?.stack) {
+        logger.error(error.stack);
+    }
 }
 
 process.on("uncaughtException", (error) => logger.error(error));

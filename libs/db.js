@@ -1155,8 +1155,9 @@ export async function generateDBTables() {
         }
     }
 
+    // Additive columns for existing DBs (CREATE IF NOT EXISTS won't alter old tables).
     const optionalColumnAlters = [
-        `ALTER TABLE GEM_KEYWORD_TENDERS ADD COLUMN buyer_name VARCHAR(255) NULL AFTER buyer_phone`,
+        `ALTER TABLE GEM_KEYWORD_TENDERS ADD COLUMN buyer_name VARCHAR(255) NULL`,
     ];
     for (const statement of optionalColumnAlters) {
         try {
