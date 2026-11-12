@@ -23,6 +23,7 @@ export default function (app) {
                 from: t.Optional(t.String()),
                 to: t.Optional(t.String()),
                 status: t.Optional(t.String()),
+                source: t.Optional(t.String()),
             }),
             detail: {
                 tags: ["Selenium"],

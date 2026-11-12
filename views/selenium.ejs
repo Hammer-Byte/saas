@@ -23,8 +23,23 @@
             </p>
             <h1 class="h3 mb-1">Selenium pipeline</h1>
             <p class="text-secondary mb-0">
-                Central queue for GeM scans, LinkedIn automations, and content publishing.
+                Central queue and history for GeM, LinkedIn, and content publishing.
+                <% if (sourceFilter && sourceFilter !== "all") { %>
+                    Showing source <strong><%= sourceFilter %></strong>.
+                <% } %>
             </p>
+        </div>
+
+        <div class="mb-3 d-flex flex-wrap gap-2" id="source-filters">
+            <% const sourceKeys = ["all", "gem", "linkedin", "content_publish"]; %>
+            <% const sourceLabels = { all: "All sources", gem: "GeM", linkedin: "LinkedIn", content_publish: "Content publish" }; %>
+            <% sourceKeys.forEach((key) => { %>
+            <button
+                type="button"
+                class="btn btn-sm <%= (sourceFilter || "all") === key ? "btn-dark" : "btn-outline-dark" %> selenium-source-filter"
+                data-source="<%= key %>"
+            ><%= sourceLabels[key] %></button>
+            <% }) %>
         </div>
 
         <div class="card border-0 shadow-sm mb-4" id="pipeline-bar">
@@ -205,6 +220,7 @@
         from: <%- JSON.stringify(from) %>,
         to: <%- JSON.stringify(to) %>,
         statusFilter: <%- JSON.stringify(statusFilter || "all") %>,
+        sourceFilter: <%- JSON.stringify(sourceFilter || "all") %>,
     };
 </script>
 <script src="/public/app.js" defer></script>

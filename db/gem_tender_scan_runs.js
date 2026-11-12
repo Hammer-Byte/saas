@@ -97,22 +97,3 @@ export async function getGemTenderScanRunById({ id }) {
             return null;
         });
 }
-
-export async function getAllGemTenderScanRuns() {
-    return await executeSQLQuery(
-        (sql) => sql`
-            SELECT
-                GEM_TENDER_SCAN_RUNS.*,
-                USERS.full_name AS created_by_name,
-                USERS.email AS created_by_email
-            FROM GEM_TENDER_SCAN_RUNS
-            LEFT JOIN USERS ON USERS.id = GEM_TENDER_SCAN_RUNS.created_by
-            ORDER BY GEM_TENDER_SCAN_RUNS.id DESC
-        `,
-    )
-        .then((result) => Array.from(result ?? []))
-        .catch((error) => {
-            logger.error(`getAllGemTenderScanRuns: ${error}`);
-            return [];
-        });
-}

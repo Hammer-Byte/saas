@@ -174,27 +174,6 @@ export async function getAllContentPublishRuns() {
         });
 }
 
-export async function getContentPublishRunsByStartedOnRange({ start, end }) {
-    return await executeSQLQuery(
-        (sql) => sql`
-            SELECT
-                r.*,
-                m.name AS media_name,
-                m.file AS media_file
-            FROM CONTENT_PUBLISH_RUNS r
-            LEFT JOIN MEDIA m ON m.id = r.media_id
-            WHERE DATE(r.started_on) >= ${start}
-              AND DATE(r.started_on) <= ${end}
-            ORDER BY r.id DESC
-        `,
-    )
-        .then((result) => Array.from(result ?? []))
-        .catch((error) => {
-            logger.error(`getContentPublishRunsByStartedOnRange: ${error}`);
-            return [];
-        });
-}
-
 export async function getAllContentPublishRunTargets() {
     return await executeSQLQuery(
         (sql) => sql`
@@ -208,63 +187,6 @@ export async function getAllContentPublishRunTargets() {
             logger.error(`getAllContentPublishRunTargets: ${error}`);
             return [];
         });
-}
-
-export async function getContentPublishRunTargetsByRunIds({ run_ids }) {
-    const ids = [...new Set((run_ids || []).map((id) => Number(id)).filter((id) => id > 0))];
-    if (!ids.length) {
-        return [];
-    }
-    return await executeSQLQuery(
-        (sql) => sql`
-            SELECT *
-            FROM CONTENT_PUBLISH_RUN_TARGETS
-            WHERE run_id IN ${sql(ids)}
-            ORDER BY id ASC
-        `,
-    )
-        .then((result) => Array.from(result ?? []))
-        .catch((error) => {
-            logger.error(`getContentPublishRunTargetsByRunIds: ${error}`);
-            return [];
-        });
-}
-
-export async function claimNextQueuedContentPublishRun() {
-    const next = await executeSQLQuery(
-        (sql) => sql`
-            SELECT id
-            FROM CONTENT_PUBLISH_RUNS
-            WHERE status = 'queued'
-            ORDER BY id ASC
-            LIMIT 1
-        `,
-    )
-        .then((result) => (result.length ? result[0] : null))
-        .catch((error) => {
-            logger.error(`claimNextQueuedContentPublishRun select: ${error}`);
-            return null;
-        });
-
-    if (!next?.id) {
-        return null;
-    }
-
-    await executeSQLQuery(
-        (sql) => sql`
-            UPDATE CONTENT_PUBLISH_RUNS
-            SET status = 'running'
-            WHERE id = ${next.id} AND status = 'queued'
-        `,
-    ).catch((error) => {
-        logger.error(`claimNextQueuedContentPublishRun update: ${error}`);
-    });
-
-    const run = await getContentPublishRunById({ id: next.id });
-    if (!run || String(run.status) !== "running") {
-        return null;
-    }
-    return run;
 }
 
 export async function getContentPublishRunStatusCounts() {

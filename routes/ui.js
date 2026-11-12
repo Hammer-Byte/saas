@@ -65,7 +65,6 @@ import {
 import { getAllGemKeywordTenderActivitiesByTenderId } from "../db/gem_keyword_tender_activities.js";
 import { getAllGemKeywordTenderCommentsByTenderId } from "../db/gem_keyword_tender_comments.js";
 import { getAllGemKeywordTenderDocumentsByTenderId } from "../db/gem_keyword_tender_documents.js";
-import { getAllGemTenderScanRuns } from "../db/gem_tender_scan_runs.js";
 import { buildGemKeywordTenderReport } from "../services/gem_keyword_tender_report.js";
 import { canManageTenderDocuments } from "../services/gem_keyword_tender_documents.js";
 import { canManageInternalDocuments } from "../services/internal_documents.js";
@@ -78,7 +77,6 @@ import {
     GEM_KEYWORD_TENDER_STAGE_LABELS,
     GEM_KEYWORD_TENDER_TERMINAL_STAGES,
     GEM_TENDER_LOCK_MESSAGES,
-    GEM_TENDER_SCAN_TYPE_LABELS,
     INQUIRY_FOLLOWUP_DAY_OFFSETS,
     INQUIRY_SOURCE_LABELS,
     INQUIRY_STATE_LABELS,
@@ -98,34 +96,17 @@ import { getAllTaskFollowersByTaskId, getTaskFollowerByTaskIdAndUserId } from ".
 import { getAllTaskRemindersByTaskId } from "../db/task_reminders.js";
 import { buildSprintBurnReport, buildTaskReport } from "../services/task_report.js";
 import { getAllAutomationUsers } from "../db/automation_users.js";
-import {
-    getContentPublishRunsByStartedOnRange,
-    getContentPublishRunTargetsByRunIds,
-} from "../db/content_publish_runs.js";
-import { decorateContentPublishRun } from "../services/content_publish.js";
 import { getAllLinkedinDesignations } from "../db/linkedin_designations.js";
 import { getAllLinkedinDesignationMessages } from "../db/linkedin_designation_messages.js";
-import {
-    getAllLinkedinGrowRunAccounts,
-    getAllLinkedinGrowRunDesignations,
-    getAllLinkedinGrowRuns,
-} from "../db/linkedin_grow_runs.js";
-import {
-    getAllLinkedinSearchRunAccounts,
-    getAllLinkedinSearchRunDesignations,
-    getAllLinkedinSearchRuns,
-} from "../db/linkedin_search_runs.js";
-import {
-    getAllLinkedinMessageRunAccounts,
-    getAllLinkedinMessageRunDesignations,
-    getAllLinkedinMessageRuns,
-} from "../db/linkedin_message_runs.js";
 import {
     getSeleniumJobStatusCountsByCreatedOnRange,
     getSeleniumJobsByCreatedOnRange,
     getSeleniumPipelineStatus,
 } from "../libs/selenium/index.js";
-import { canUseAutomation } from "../services/selenium.js";
+import {
+    canUseAutomation,
+    resolveSourceFilter,
+} from "../services/selenium.js";
 import {
     addIstCalendarDays,
     buildSprintWeekOptions,
@@ -939,20 +920,9 @@ export const uiRoutes = new Elysia()
                     }),
                 );
             })
-            .get("/app/gem-tender-scan-history", async ({ render, session, redirect }) => {
-                if (
-                    !canUseGemCategories(session?.authorities, {
-                        super_admin: session?.super_admin,
-                    })
-                ) {
-                    return redirect("/app/gem-tenders");
-                }
-                return render("gem-tender-scan-history", appPage(session, {
-                    title: "Scan History — GEM Tenders — HammerByte",
-                    runs: await getAllGemTenderScanRuns(),
-                    GEM_TENDER_SCAN_TYPE_LABELS,
-                }));
-            })
+            .get("/app/gem-tender-scan-history", ({ redirect }) =>
+                redirect("/app/selenium?source=gem"),
+            )
             .get("/app/gem-keyword-tenders", async ({ render, session, query }) => {
                 const defaults = defaultDateRangeDays({ daysAhead: 7 });
                 const from =
@@ -1057,17 +1027,20 @@ export const uiRoutes = new Elysia()
                 const rangeFrom = from <= to ? from : to;
                 const rangeTo = from <= to ? to : from;
                 const statusFilter = String(query.status || "all").trim().toLowerCase() || "all";
+                const sourceFilter = resolveSourceFilter(query.source) || "all";
 
                 const [pipeline, counts, jobs] = await Promise.all([
                     getSeleniumPipelineStatus(),
                     getSeleniumJobStatusCountsByCreatedOnRange({
                         start: rangeFrom,
                         end: rangeTo,
+                        source: sourceFilter === "all" ? null : sourceFilter,
                     }),
                     getSeleniumJobsByCreatedOnRange({
                         start: rangeFrom,
                         end: rangeTo,
                         status: statusFilter !== "all" ? statusFilter : null,
+                        source: sourceFilter === "all" ? null : sourceFilter,
                     }),
                 ]);
 
@@ -1078,6 +1051,7 @@ export const uiRoutes = new Elysia()
                         from: rangeFrom,
                         to: rangeTo,
                         statusFilter,
+                        sourceFilter,
                         pipeline,
                         counts,
                         jobs,
@@ -1114,50 +1088,9 @@ export const uiRoutes = new Elysia()
                 redirect("/app/content-publish-image"),
             )
 
-            .get("/app/content-publish-history", async ({ render, session, query }) => {
-                const defaults = defaultDateRangeLookingBack({ daysBack: 2 });
-                const start = parseQueryDate(query.start) || defaults.from;
-                const end = parseQueryDate(query.end) || defaults.to;
-                const rangeStart = start <= end ? start : end;
-                const rangeEnd = start <= end ? end : start;
-
-                const publishRuns = await getContentPublishRunsByStartedOnRange({
-                    start: rangeStart,
-                    end: rangeEnd,
-                });
-                const publishTargets = await getContentPublishRunTargetsByRunIds({
-                    run_ids: publishRuns.map((run) => run.id),
-                });
-                const targetsByRunId = new Map();
-                for (const target of publishTargets) {
-                    const list = targetsByRunId.get(target.run_id) || [];
-                    list.push(target);
-                    targetsByRunId.set(target.run_id, list);
-                }
-                const runs = publishRuns.map((run) => ({
-                    ...decorateContentPublishRun(run),
-                    targets: targetsByRunId.get(run.id) || [],
-                }));
-                const queue = {
-                    queued: 0,
-                    running: 0,
-                    completed: 0,
-                    failed: 0,
-                };
-                for (const run of runs) {
-                    const key = String(run.status || "").toLowerCase();
-                    if (key in queue) {
-                        queue[key] += 1;
-                    }
-                }
-                return render("content-publish-history", appPage(session, {
-                    title: "Publish History — HammerByte",
-                    runs,
-                    queue,
-                    start: rangeStart,
-                    end: rangeEnd,
-                }));
-            })
+            .get("/app/content-publish-history", ({ redirect }) =>
+                redirect("/app/selenium?source=content_publish"),
+            )
             .get("/app/linkedin", ({ render, session }) =>
                 render("linkedin", appPage(session, {
                     title: "LinkedIn — HammerByte",
@@ -1178,36 +1111,9 @@ export const uiRoutes = new Elysia()
                     designations: await getAllLinkedinDesignations(),
                 })),
             )
-            .get("/app/linkedin-grow-network-history", async ({ render, session }) => {
-                const growRuns = await getAllLinkedinGrowRuns();
-                const growRunAccounts = await getAllLinkedinGrowRunAccounts();
-                const growRunDesignations = await getAllLinkedinGrowRunDesignations();
-
-                const accountsByRunId = new Map();
-                for (const growRunAccount of growRunAccounts) {
-                    const list = accountsByRunId.get(growRunAccount.run_id) || [];
-                    list.push(growRunAccount);
-                    accountsByRunId.set(growRunAccount.run_id, list);
-                }
-
-                const designationsByRunId = new Map();
-                for (const growRunDesignation of growRunDesignations) {
-                    const list = designationsByRunId.get(growRunDesignation.run_id) || [];
-                    list.push(growRunDesignation);
-                    designationsByRunId.set(growRunDesignation.run_id, list);
-                }
-
-                const runs = growRuns.map((growRun) => ({
-                    ...growRun,
-                    accounts: accountsByRunId.get(growRun.id) || [],
-                    designations: designationsByRunId.get(growRun.id) || [],
-                }));
-
-                return render("linkedin-grow-network-history", appPage(session, {
-                    title: "GrowNetwork History — HammerByte",
-                    runs,
-                }));
-            })
+            .get("/app/linkedin-grow-network-history", ({ redirect }) =>
+                redirect("/app/selenium?source=linkedin"),
+            )
             .get("/app/linkedin-search-network", async ({ render, session }) =>
                 render("linkedin-search-network", appPage(session, {
                     title: "SearchNetwork — HammerByte",
@@ -1217,36 +1123,9 @@ export const uiRoutes = new Elysia()
                     ),
                 })),
             )
-            .get("/app/linkedin-search-network-history", async ({ render, session }) => {
-                const searchRuns = await getAllLinkedinSearchRuns();
-                const searchRunAccounts = await getAllLinkedinSearchRunAccounts();
-                const searchRunDesignations = await getAllLinkedinSearchRunDesignations();
-
-                const accountsByRunId = new Map();
-                for (const searchRunAccount of searchRunAccounts) {
-                    const list = accountsByRunId.get(searchRunAccount.run_id) || [];
-                    list.push(searchRunAccount);
-                    accountsByRunId.set(searchRunAccount.run_id, list);
-                }
-
-                const designationsByRunId = new Map();
-                for (const searchRunDesignation of searchRunDesignations) {
-                    const list = designationsByRunId.get(searchRunDesignation.run_id) || [];
-                    list.push(searchRunDesignation);
-                    designationsByRunId.set(searchRunDesignation.run_id, list);
-                }
-
-                const runs = searchRuns.map((searchRun) => ({
-                    ...searchRun,
-                    accounts: accountsByRunId.get(searchRun.id) || [],
-                    designations: designationsByRunId.get(searchRun.id) || [],
-                }));
-
-                return render("linkedin-search-network-history", appPage(session, {
-                    title: "SearchNetwork History — HammerByte",
-                    runs,
-                }));
-            })
+            .get("/app/linkedin-search-network-history", ({ redirect }) =>
+                redirect("/app/selenium?source=linkedin"),
+            )
             .get("/app/linkedin-messages", async ({ render, session }) =>
                 render("linkedin-messages", appPage(session, {
                     title: "LinkedIn Messages — HammerByte",
@@ -1271,34 +1150,7 @@ export const uiRoutes = new Elysia()
                     messageCounts,
                 }));
             })
-            .get("/app/linkedin-message-network-history", async ({ render, session }) => {
-                const messageRuns = await getAllLinkedinMessageRuns();
-                const messageRunAccounts = await getAllLinkedinMessageRunAccounts();
-                const messageRunDesignations = await getAllLinkedinMessageRunDesignations();
-
-                const accountsByRunId = new Map();
-                for (const messageRunAccount of messageRunAccounts) {
-                    const list = accountsByRunId.get(messageRunAccount.run_id) || [];
-                    list.push(messageRunAccount);
-                    accountsByRunId.set(messageRunAccount.run_id, list);
-                }
-
-                const designationsByRunId = new Map();
-                for (const messageRunDesignation of messageRunDesignations) {
-                    const list = designationsByRunId.get(messageRunDesignation.run_id) || [];
-                    list.push(messageRunDesignation);
-                    designationsByRunId.set(messageRunDesignation.run_id, list);
-                }
-
-                const runs = messageRuns.map((messageRun) => ({
-                    ...messageRun,
-                    accounts: accountsByRunId.get(messageRun.id) || [],
-                    designations: designationsByRunId.get(messageRun.id) || [],
-                }));
-
-                return render("linkedin-message-network-history", appPage(session, {
-                    title: "MessageNetwork History — HammerByte",
-                    runs,
-                }));
-            }),
+            .get("/app/linkedin-message-network-history", ({ redirect }) =>
+                redirect("/app/selenium?source=linkedin"),
+            ),
     );

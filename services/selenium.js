@@ -37,6 +37,8 @@ async function requireAutomationUser({ cookie, set }) {
     return currentUser;
 }
 
+const SELENIUM_SOURCES = new Set(["gem", "linkedin", "content_publish"]);
+
 function resolveDateRange(query = {}) {
     const today = getIstDate();
     const from = parseQueryDate(query.from) || today;
@@ -45,6 +47,14 @@ function resolveDateRange(query = {}) {
         from: from <= to ? from : to,
         to: from <= to ? to : from,
     };
+}
+
+function resolveSourceFilter(raw) {
+    const source = String(raw || "").trim().toLowerCase();
+    if (!source || source === "all") {
+        return null;
+    }
+    return SELENIUM_SOURCES.has(source) ? source : null;
 }
 
 export async function getSeleniumStatus({ cookie, set }) {
@@ -67,14 +77,17 @@ export async function getSeleniumJobs({ cookie, set, query }) {
 
     const { from, to } = resolveDateRange(query);
     const status = query?.status ? String(query.status).trim().toLowerCase() : null;
+    const source = resolveSourceFilter(query?.source);
     const jobs = await getSeleniumJobsByCreatedOnRange({
         start: from,
         end: to,
         status: status && status !== "all" ? status : null,
+        source,
     });
     const counts = await getSeleniumJobStatusCountsByCreatedOnRange({
         start: from,
         end: to,
+        source,
     });
     const pipeline = await getSeleniumPipelineStatus();
 
@@ -82,6 +95,7 @@ export async function getSeleniumJobs({ cookie, set, query }) {
         from,
         to,
         status: status || "all",
+        source: source || "all",
         counts,
         jobs,
         pipeline,
@@ -168,4 +182,4 @@ export async function skipSeleniumJobHandler({ cookie, set, params }) {
     return result;
 }
 
-export { canUseAutomation, resolveDateRange };
+export { canUseAutomation, resolveDateRange, resolveSourceFilter, SELENIUM_SOURCES };

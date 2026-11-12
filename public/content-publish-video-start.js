@@ -172,7 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
             showAlert(data.message || "Publish queued", "success");
-            window.location.href = "/app/content-publish-history";
+            window.location.href = "/app/selenium?source=content_publish";
         } catch (error) {
             showAlert(error instanceof Error ? error.message : String(error), "danger");
         } finally {

@@ -164,8 +164,10 @@ export async function getSeleniumJobsByCreatedOnRange({
     start,
     end,
     status = null,
+    source = null,
 }) {
     const statusFilter = status ? String(status).trim().toLowerCase() : null;
+    const sourceFilter = source ? String(source).trim().toLowerCase() : null;
 
     return await executeSQLQuery(
         (sql) => sql`
@@ -174,6 +176,7 @@ export async function getSeleniumJobsByCreatedOnRange({
             WHERE DATE(created_on) >= ${start}
               AND DATE(created_on) <= ${end}
               AND (${statusFilter} IS NULL OR status = ${statusFilter})
+              AND (${sourceFilter} IS NULL OR source = ${sourceFilter})
             ORDER BY id DESC
         `,
     )
@@ -184,13 +187,20 @@ export async function getSeleniumJobsByCreatedOnRange({
         });
 }
 
-export async function getSeleniumJobStatusCountsByCreatedOnRange({ start, end }) {
+export async function getSeleniumJobStatusCountsByCreatedOnRange({
+    start,
+    end,
+    source = null,
+}) {
+    const sourceFilter = source ? String(source).trim().toLowerCase() : null;
+
     return await executeSQLQuery(
         (sql) => sql`
             SELECT status, COUNT(*) AS count
             FROM SELENIUM_JOBS
             WHERE DATE(created_on) >= ${start}
               AND DATE(created_on) <= ${end}
+              AND (${sourceFilter} IS NULL OR source = ${sourceFilter})
             GROUP BY status
         `,
     )

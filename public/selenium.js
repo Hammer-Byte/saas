@@ -12,6 +12,14 @@
     const toInput = document.getElementById("to");
 
     let statusFilter = page.statusFilter || "all";
+    let sourceFilter = page.sourceFilter || "all";
+
+    const sourceLabels = {
+        all: "All sources",
+        gem: "GeM",
+        linkedin: "LinkedIn",
+        content_publish: "Content publish",
+    };
 
     function showAlert(message, kind = "danger") {
         if (!pipelineAlert) {
@@ -209,14 +217,41 @@
         });
     }
 
-    async function loadJobs() {
-        hideAlert();
+    function syncUrl() {
         const from = writableDate(fromInput) || page.from;
         const to = writableDate(toInput) || page.to;
         const params = new URLSearchParams({ from, to });
         if (statusFilter && statusFilter !== "all") {
             params.set("status", statusFilter);
         }
+        if (sourceFilter && sourceFilter !== "all") {
+            params.set("source", sourceFilter);
+        }
+        const nextUrl = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState({}, "", nextUrl);
+        return params;
+    }
+
+    function highlightSourceFilters() {
+        document.querySelectorAll(".selenium-source-filter").forEach((button) => {
+            const isActive = button.dataset.source === sourceFilter;
+            button.classList.toggle("btn-dark", isActive);
+            button.classList.toggle("btn-outline-dark", !isActive);
+        });
+        const subtitle = document.querySelector("main .mb-4 .text-secondary.mb-0");
+        if (subtitle) {
+            const base =
+                "Central queue and history for GeM, LinkedIn, and content publishing.";
+            subtitle.innerHTML =
+                sourceFilter && sourceFilter !== "all"
+                    ? `${base} Showing source <strong>${sourceLabels[sourceFilter] || sourceFilter}</strong>.`
+                    : base;
+        }
+    }
+
+    async function loadJobs() {
+        hideAlert();
+        const params = syncUrl();
 
         const response = await fetch(`/api/selenium/jobs?${params.toString()}`, {
             credentials: "same-origin",
@@ -227,10 +262,14 @@
             return;
         }
 
+        if (data.source) {
+            sourceFilter = data.source;
+        }
         updatePipelineUi(data.pipeline);
         updateCounts(data.counts);
         renderJobs(data.jobs || []);
         highlightFilters();
+        highlightSourceFilters();
     }
 
     async function postAction(url, body) {
@@ -312,6 +351,14 @@
         button.addEventListener("click", () => {
             statusFilter = button.dataset.status || "all";
             highlightFilters();
+            loadJobs();
+        });
+    });
+
+    document.querySelectorAll(".selenium-source-filter").forEach((button) => {
+        button.addEventListener("click", () => {
+            sourceFilter = button.dataset.source || "all";
+            highlightSourceFilters();
             loadJobs();
         });
     });
