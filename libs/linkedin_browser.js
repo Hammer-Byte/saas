@@ -33,6 +33,98 @@ export function linkedinSleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function randomBetween(min, max) {
+    const low = Math.min(min, max);
+    const high = Math.max(min, max);
+    return low + Math.floor(Math.random() * (high - low + 1));
+}
+
+/** Random pause between operations (default 2–5s). */
+export async function humanPause(minMs = 2000, maxMs = 5000) {
+    await linkedinSleep(randomBetween(minMs, maxMs));
+}
+
+/**
+ * Light mouse wander so pointer motion looks less robotic before a real click.
+ */
+export async function humanWander(driver, moves = randomBetween(1, 3)) {
+    try {
+        const size = await driver.manage().window().getRect();
+        const width = Math.max(200, size.width || 1440);
+        const height = Math.max(200, size.height || 1000);
+        let actions = driver.actions({ async: true });
+        for (let i = 0; i < moves; i++) {
+            const x = randomBetween(40, width - 40);
+            const y = randomBetween(80, height - 80);
+            actions = actions.move({ x, y, origin: "viewport" }).pause(randomBetween(80, 220));
+        }
+        await actions.perform();
+    } catch {
+        // Non-fatal — click path can continue without wander.
+    }
+}
+
+/**
+ * Human-like click: wander, move to element with small jitter, pause, click.
+ */
+export async function humanClick(driver, el) {
+    await driver.executeScript(
+        `
+        const el = arguments[0];
+        el.scrollIntoView({ block: "center", inline: "nearest" });
+        const rect = el.getBoundingClientRect();
+        const pad = 80;
+        if (rect.top < pad) window.scrollBy(0, rect.top - pad);
+        if (rect.bottom > window.innerHeight - pad) {
+            window.scrollBy(0, rect.bottom - window.innerHeight + pad);
+        }
+        `,
+        el,
+    );
+    await linkedinSleep(randomBetween(120, 320));
+    await humanWander(driver);
+
+    const offsetX = randomBetween(-6, 6);
+    const offsetY = randomBetween(-4, 4);
+    try {
+        await driver
+            .actions({ async: true })
+            .move({ origin: el, x: offsetX, y: offsetY })
+            .pause(randomBetween(90, 280))
+            .click()
+            .perform();
+        return true;
+    } catch {
+        try {
+            await el.click();
+            return true;
+        } catch {
+            await driver.executeScript("arguments[0].click()", el);
+            return true;
+        }
+    }
+}
+
+/** Prefer history.back() over typing a URL when returning to a list page. */
+export async function navigateBack(driver, expectedUrlPart = "", attempts = 3) {
+    for (let i = 0; i < attempts; i++) {
+        try {
+            await driver.navigate().back();
+        } catch {
+            break;
+        }
+        await linkedinSleep(randomBetween(700, 1400));
+        if (!expectedUrlPart) {
+            return true;
+        }
+        const url = await driver.getCurrentUrl();
+        if (url.includes(expectedUrlPart)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 export function isLinkedinLoggedIn(url) {
     return /https:\/\/([a-z]{2,3}\.)?linkedin\.com\/(feed|search|mynetwork|in)\b/.test(url);
 }
@@ -178,23 +270,7 @@ export async function finishLinkedinInvite(driver, name) {
 async function clickMarkedInviteSend(driver) {
     try {
         const el = await driver.findElement(By.css('[data-li-send-invite="1"]'));
-        await driver.executeScript(
-            "arguments[0].scrollIntoView({ block: 'center', inline: 'nearest' });",
-            el,
-        );
-        await linkedinSleep(150);
-        try {
-            await driver.actions({ async: true }).move({ origin: el }).pause(60).click().perform();
-            return true;
-        } catch {
-            try {
-                await el.click();
-                return true;
-            } catch {
-                await driver.executeScript("arguments[0].click()", el);
-                return true;
-            }
-        }
+        return humanClick(driver, el);
     } catch {
         // Fallback: JS click inside the real invite dialog
         return await driver.executeScript(`

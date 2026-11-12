@@ -1,10 +1,9 @@
 import { logger } from "@hammerbyte/utils";
+import { humanPause } from "../linkedin_browser.js";
 import { LinkedinGrowPage, designationMatches } from "./linkedin_pom.js";
 import { updateLinkedinGrowRunAccountById } from "../../db/linkedin_grow_runs.js";
 
 const MAX_SCROLLS = 5;
-const SCROLL_WAIT_MS = 5000;
-const DELAY_MS = 5000;
 
 export async function connectMatchingPeople({
     driver,
@@ -14,7 +13,7 @@ export async function connectMatchingPeople({
 }) {
     await LinkedinGrowPage.open(driver);
     await LinkedinGrowPage.waitForInviteButtons(driver);
-    await LinkedinGrowPage.sleep(1000);
+    await humanPause(2000, 5000);
     await LinkedinGrowPage.ensureGrowPage(driver);
 
     const seen = new Set();
@@ -70,7 +69,7 @@ export async function connectMatchingPeople({
                 sent_count: sent,
                 status: "running",
             });
-            await LinkedinGrowPage.sleep(DELAY_MS);
+            await humanPause(2000, 5000);
         }
 
         if (!foundNewCard && seen.size === 0 && pass === 0) {
@@ -82,11 +81,9 @@ export async function connectMatchingPeople({
             break;
         }
 
-        logger.info(
-            `linkedin scroll ${pass + 1}/${MAX_SCROLLS} — waiting ${SCROLL_WAIT_MS / 1000}s for more people`,
-        );
+        logger.info(`linkedin scroll ${pass + 1}/${MAX_SCROLLS} — waiting for more people`);
         await LinkedinGrowPage.scrollGrowPage(driver);
-        await LinkedinGrowPage.sleep(SCROLL_WAIT_MS);
+        await humanPause(2000, 5000);
     }
 
     await updateLinkedinGrowRunAccountById({

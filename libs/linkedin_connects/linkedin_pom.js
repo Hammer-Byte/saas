@@ -1,5 +1,8 @@
+import { By } from "selenium-webdriver";
 import {
     finishLinkedinInvite,
+    humanClick,
+    humanPause,
     linkedinSleep,
     openLinkedinUrl,
 } from "../linkedin_browser.js";
@@ -203,21 +206,22 @@ export class LinkedinGrowPage {
 
     static async sendConnect(driver, profileUrl, name) {
         const growUrl = await driver.getCurrentUrl();
-        const click = await driver.executeScript(
+        const marked = await driver.executeScript(
             `
                 ${PAGE_HELPERS}
+                document.querySelectorAll("[data-li-grow-action]").forEach((el) => el.removeAttribute("data-li-grow-action"));
                 const card = findCard(arguments[0]);
                 if (!card) return "missing";
                 card.scrollIntoView({ block: "center" });
                 const buttons = [...card.querySelectorAll("button")];
                 const connect = buttons.find(isDirectConnect);
                 if (connect) {
-                    connect.click();
+                    connect.setAttribute("data-li-grow-action", "1");
                     return "connect";
                 }
                 const more = buttons.find(isMore);
                 if (more) {
-                    more.click();
+                    more.setAttribute("data-li-grow-action", "1");
                     return "more";
                 }
                 return "none";
@@ -225,29 +229,40 @@ export class LinkedinGrowPage {
             profileUrl,
         );
 
-        if (click === "connect" || click === "more") {
-            if (click === "more") {
-                await linkedinSleep(600);
-                const opened = await driver.executeScript(`
-                    const items = [...document.querySelectorAll('[role="menuitem"], [role="menu"] button, [role="menu"] [role="button"], .artdeco-dropdown__content button, .artdeco-dropdown__content li, .artdeco-dropdown__content span')];
-                    const item = items.find((entry) => (entry.innerText || "").trim().toLowerCase() === "connect");
-                    if (!item) return false;
-                    (item.closest("button, [role='menuitem']") || item).click();
-                    return true;
-                `);
-                if (!opened) {
-                    return connectViaProfileMoreMenu(driver, profileUrl, name, growUrl);
-                }
-            }
+        if (marked === "connect" || marked === "more") {
+            try {
+                const actionEl = await driver.findElement(By.css('[data-li-grow-action="1"]'));
+                await humanClick(driver, actionEl);
+                await humanPause(1500, 3000);
 
-            await linkedinSleep(800);
-            const result = await finishLinkedinInvite(driver, name);
-            if (result !== "skipped") {
-                return result;
+                if (marked === "more") {
+                    const opened = await driver.executeScript(`
+                        document.querySelectorAll("[data-li-grow-menu-connect]").forEach((el) => el.removeAttribute("data-li-grow-menu-connect"));
+                        const items = [...document.querySelectorAll('[role="menuitem"], [role="menu"] button, [role="menu"] [role="button"], .artdeco-dropdown__content button, .artdeco-dropdown__content li, .artdeco-dropdown__content span')];
+                        const item = items.find((entry) => (entry.innerText || "").trim().toLowerCase() === "connect");
+                        if (!item) return false;
+                        const target = item.closest("button, [role='menuitem']") || item;
+                        target.setAttribute("data-li-grow-menu-connect", "1");
+                        return true;
+                    `);
+                    if (!opened) {
+                        return connectViaProfileMoreMenu(driver, profileUrl, name, growUrl);
+                    }
+                    const menuConnect = await driver.findElement(By.css('[data-li-grow-menu-connect="1"]'));
+                    await humanClick(driver, menuConnect);
+                    await humanPause(1500, 3000);
+                }
+
+                const result = await finishLinkedinInvite(driver, name);
+                if (result !== "skipped") {
+                    return result;
+                }
+            } catch {
+                // Fall through to profile path.
             }
         }
 
-        // No Connect on card (or dialog did not open) → profile → More → Connect
+        // No Connect on card (or dialog did not open) → click profile → Connect / More → Connect
         return connectViaProfileMoreMenu(driver, profileUrl, name, growUrl);
     }
 

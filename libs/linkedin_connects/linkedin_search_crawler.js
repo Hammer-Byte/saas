@@ -1,8 +1,7 @@
 import { logger } from "@hammerbyte/utils";
+import { humanPause } from "../linkedin_browser.js";
 import { LinkedinSearchPage } from "./linkedin_search_pom.js";
 import { updateLinkedinSearchRunAccountById } from "../../db/linkedin_search_runs.js";
-
-const DELAY_MS = 5000;
 
 export async function connectPeopleFromSearch({
     driver,
@@ -87,7 +86,7 @@ export async function connectPeopleFromSearch({
                     sent_count: sent,
                     status: "running",
                 });
-                await LinkedinSearchPage.sleep(DELAY_MS);
+                await humanPause(2000, 5000);
             }
 
             if (pageNumber >= pageCount) {

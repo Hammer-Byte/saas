@@ -1,8 +1,12 @@
 import { By } from "selenium-webdriver";
 import {
     finishLinkedinInvite,
+    humanClick,
+    humanPause,
     linkedinSleep,
+    navigateBack,
     openLinkedinUrl,
+    randomBetween,
 } from "../linkedin_browser.js";
 
 // Captured from the live LinkedIn profile overflow UI.
@@ -59,49 +63,7 @@ async function dismissBlockingOverlays(driver) {
     `);
 }
 
-async function scrollIntoView(driver, el) {
-    await driver.executeScript(
-        `
-        const el = arguments[0];
-        el.scrollIntoView({ block: "center", inline: "nearest" });
-        const rect = el.getBoundingClientRect();
-        const pad = 80;
-        if (rect.top < pad) window.scrollBy(0, rect.top - pad);
-        if (rect.bottom > window.innerHeight - pad) {
-            window.scrollBy(0, rect.bottom - window.innerHeight + pad);
-        }
-        `,
-        el,
-    );
-    await linkedinSleep(150);
-}
-
-async function clickElement(driver, el, { preferJs = false } = {}) {
-    await scrollIntoView(driver, el);
-    const attempts = preferJs
-        ? [
-              () => driver.executeScript("arguments[0].click()", el),
-              () => el.click(),
-              () => driver.actions({ async: true }).move({ origin: el }).pause(60).click().perform(),
-          ]
-        : [
-              () => driver.actions({ async: true }).move({ origin: el }).pause(60).click().perform(),
-              () => el.click(),
-              () => driver.executeScript("arguments[0].click()", el),
-          ];
-
-    for (const attempt of attempts) {
-        try {
-            await attempt();
-            return true;
-        } catch {
-            // try next strategy
-        }
-    }
-    return false;
-}
-
-async function clickByXPath(driver, xpath, { preferJs = false, requireLabel = null } = {}) {
+async function clickByXPath(driver, xpath, { requireLabel = null } = {}) {
     const els = await driver.findElements(By.xpath(xpath));
     if (!els.length) {
         return false;
@@ -120,15 +82,15 @@ async function clickByXPath(driver, xpath, { preferJs = false, requireLabel = nu
             return false;
         }
     }
-    return clickElement(driver, el, { preferJs });
+    return humanClick(driver, el);
 }
 
-async function clickCss(driver, css, { preferJs = false } = {}) {
+async function clickCss(driver, css) {
     const els = await driver.findElements(By.css(css));
     if (!els.length) {
         return false;
     }
-    return clickElement(driver, els[0], { preferJs });
+    return humanClick(driver, els[0]);
 }
 
 async function markProfileMoreButton(driver) {
@@ -158,7 +120,6 @@ async function markProfileMoreButton(driver) {
                 }
                 const message = buttons.find((button) => labelOf(button).includes("message"))
                     || [...node.querySelectorAll("a")].find((anchor) => labelOf(anchor).includes("message"));
-                // Prefer Follow+Message+More, but Follow+More alone is valid on some profiles.
                 groups.push({ more, depth, score: message ? 0 : 1 });
                 break;
             }
@@ -166,7 +127,6 @@ async function markProfileMoreButton(driver) {
 
         groups.sort((a, b) => a.score - b.score || a.depth - b.depth);
         if (!groups.length) {
-            // Last resort: first More in main that is not in aside/nav.
             const more = [...main.querySelectorAll("button")].find((button) => {
                 if (button.closest("aside, nav, footer")) return false;
                 const text = labelOf(button);
@@ -235,23 +195,68 @@ async function inviteDialogStillOpen(driver) {
     `);
 }
 
-/**
- * Fallback when a result/grow card has no Connect button:
- * open profile → More → Connect → Send without a note.
- */
-export async function connectViaProfileMoreMenu(driver, profileUrl, name, returnUrl) {
-    if (!profileUrl) {
-        return "skipped";
+/** Click a profile link on the current list page (search/grow) — no typed URL. */
+export async function openProfileByClick(driver, profileUrl) {
+    const normalized = String(profileUrl || "").replace(/\/$/, "");
+    if (!normalized) {
+        return false;
     }
 
-    const backTo = returnUrl || (await driver.getCurrentUrl());
-    await openLinkedinUrl(driver, profileUrl);
-    await linkedinSleep(2200);
-    await dismissBlockingOverlays(driver);
-    await linkedinSleep(300);
+    const marked = await driver.executeScript(
+        `
+        const target = (arguments[0] || "").replace(/\\/$/, "");
+        document.querySelectorAll("[data-li-open-profile]").forEach((el) => el.removeAttribute("data-li-open-profile"));
+        const links = [...document.querySelectorAll('a[href*="/in/"]')];
+        const match = links.find((link) => {
+            const href = (link.href || "").split("?")[0].replace(/\\/$/, "");
+            return href === target || href.endsWith(target.replace("https://www.linkedin.com", ""));
+        });
+        if (!match) return false;
+        match.setAttribute("data-li-open-profile", "1");
+        return true;
+        `,
+        normalized,
+    );
+    if (!marked) {
+        return false;
+    }
 
-    // Some profiles show Connect on the action bar (Follow / Connect / More).
-    // Others hide it under More. Prefer the direct control first.
+    const el = await driver.findElement(By.css('[data-li-open-profile="1"]'));
+    await humanClick(driver, el);
+    await humanPause(2000, 4000);
+    const url = await driver.getCurrentUrl();
+    return url.includes("/in/");
+}
+
+async function returnToList(driver, returnUrl) {
+    if (!returnUrl) {
+        return;
+    }
+    const hint = returnUrl.includes("/search/")
+        ? "/search/"
+        : returnUrl.includes("/mynetwork/grow")
+          ? "/mynetwork/grow"
+          : "";
+    const backed = await navigateBack(driver, hint, 4);
+    if (backed) {
+        await humanPause(1500, 3000);
+        return;
+    }
+    // Recovery only — list page restore if back-stack was lost.
+    await openLinkedinUrl(driver, returnUrl);
+    await humanPause(1500, 3000);
+}
+
+/**
+ * Assumes we are already on the profile page.
+ * 1) Connect on action bar if present
+ * 2) else More → Connect
+ * 3) Send without a note
+ */
+export async function connectOnCurrentProfile(driver, name) {
+    await dismissBlockingOverlays(driver);
+    await linkedinSleep(randomBetween(250, 600));
+
     const directConnect = await driver.executeScript(`
         ${labelOfScript()}
         document.querySelectorAll("[data-li-profile-connect]").forEach((el) => el.removeAttribute("data-li-profile-connect"));
@@ -270,28 +275,25 @@ export async function connectViaProfileMoreMenu(driver, profileUrl, name, return
     let connectClicked = false;
     if (directConnect) {
         connectClicked = await clickCss(driver, '[data-li-profile-connect="1"]');
+        await humanPause(1500, 3000);
     }
 
     if (!connectClicked) {
-        // More → Connect (overflow portal)
         let moreClicked = await clickByXPath(driver, PROFILE_MORE_XPATH, {
-            preferJs: true,
             requireLabel: /more/,
         });
         if (!moreClicked) {
             const more = await markProfileMoreButton(driver);
             if (!more?.ok) {
-                await openLinkedinUrl(driver, backTo);
                 return "skipped";
             }
-            moreClicked = await clickCss(driver, '[data-li-profile-more="1"]', { preferJs: true });
+            moreClicked = await clickCss(driver, '[data-li-profile-more="1"]');
         }
         if (!moreClicked) {
-            await openLinkedinUrl(driver, backTo);
             return "skipped";
         }
 
-        await linkedinSleep(900);
+        await humanPause(1500, 3000);
 
         connectClicked = await clickByXPath(driver, PROFILE_CONNECT_XPATH, {
             requireLabel: /connect/,
@@ -299,33 +301,47 @@ export async function connectViaProfileMoreMenu(driver, profileUrl, name, return
         if (!connectClicked) {
             const connect = await markConnectMenuItem(driver);
             if (!connect?.ok) {
-                await openLinkedinUrl(driver, backTo);
                 return "skipped";
             }
             connectClicked = await clickCss(driver, '[data-li-profile-connect="1"]');
         }
+        if (!connectClicked) {
+            return "skipped";
+        }
+        await humanPause(1500, 3000);
     }
 
-    if (!connectClicked) {
-        await openLinkedinUrl(driver, backTo);
-        return "skipped";
-    }
-
-    // 3) Send without a note
     if (!(await waitForInviteDialog(driver, 10_000))) {
-        await openLinkedinUrl(driver, backTo);
         return "skipped";
     }
 
     if (await clickByXPath(driver, SEND_WITHOUT_NOTE_XPATH)) {
-        await linkedinSleep(900);
+        await humanPause(1500, 3000);
         if (!(await inviteDialogStillOpen(driver))) {
-            await openLinkedinUrl(driver, backTo);
             return "sent";
         }
     }
 
-    const result = await finishLinkedinInvite(driver, name);
-    await openLinkedinUrl(driver, backTo);
+    return finishLinkedinInvite(driver, name);
+}
+
+/**
+ * Click into profile from the list (no typed profile URL), then connect.
+ */
+export async function connectViaProfileMoreMenu(driver, profileUrl, name, returnUrl) {
+    if (!profileUrl) {
+        return "skipped";
+    }
+
+    const backTo = returnUrl || (await driver.getCurrentUrl());
+    const opened = await openProfileByClick(driver, profileUrl);
+    if (!opened) {
+        // Last resort if the card link was virtualized away.
+        await openLinkedinUrl(driver, profileUrl);
+        await humanPause(2000, 4000);
+    }
+
+    const result = await connectOnCurrentProfile(driver, name);
+    await returnToList(driver, backTo);
     return result;
 }

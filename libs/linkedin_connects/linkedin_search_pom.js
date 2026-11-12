@@ -1,6 +1,10 @@
+import { By } from "selenium-webdriver";
 import {
     finishLinkedinInvite,
+    humanClick,
+    humanPause,
     linkedinSleep,
+    navigateBack,
     openLinkedinUrl,
 } from "../linkedin_browser.js";
 import {
@@ -222,38 +226,47 @@ export class LinkedinSearchPage {
     static async sendConnect(driver, profileUrl, name) {
         const searchUrl = await driver.getCurrentUrl();
 
-        // 1) Direct search Invite control → preload/search-custom-invite
-        const inviteHref = await driver.executeScript(
+        // 1) Click Connect/Invite on the card (no typed preload URL).
+        const markedInvite = await driver.executeScript(
             `
                 ${SEARCH_HELPERS}
-                const profileUrl = arguments[0];
-                const link = findInviteForProfile(profileUrl);
-                if (!link) return "";
-                const href = link.getAttribute("href") || "";
-                if (!href) return "";
-                try {
-                  return new URL(href, location.origin).toString();
-                } catch (error) {
-                  return href;
-                }
+                document.querySelectorAll("[data-li-card-invite]").forEach((el) => el.removeAttribute("data-li-card-invite"));
+                const link = findInviteForProfile(arguments[0]);
+                if (!link) return false;
+                link.setAttribute("data-li-card-invite", "1");
+                return true;
             `,
             profileUrl,
         );
 
-        if (inviteHref) {
-            await openLinkedinUrl(driver, inviteHref);
-            const dialogReady = await waitForInviteDialog(driver);
-            if (dialogReady) {
-                const result = await finishLinkedinInvite(driver, name);
-                await openLinkedinUrl(driver, searchUrl);
-                await LinkedinSearchPage.hydrateInviteLinks(driver);
-                return result;
+        if (markedInvite) {
+            try {
+                const inviteEl = await driver.findElement(By.css('[data-li-card-invite="1"]'));
+                await humanClick(driver, inviteEl);
+                await humanPause(1500, 3000);
+                const dialogReady = await waitForInviteDialog(driver);
+                if (dialogReady) {
+                    const result = await finishLinkedinInvite(driver, name);
+                    const backed = await navigateBack(driver, "/search/", 4);
+                    if (!backed) {
+                        await openLinkedinUrl(driver, searchUrl);
+                    }
+                    await humanPause(1500, 3000);
+                    await LinkedinSearchPage.hydrateInviteLinks(driver);
+                    return result;
+                }
+            } catch {
+                // Fall through to profile path.
             }
-            await openLinkedinUrl(driver, searchUrl);
+            const backed = await navigateBack(driver, "/search/", 3);
+            if (!backed) {
+                await openLinkedinUrl(driver, searchUrl);
+            }
             await LinkedinSearchPage.hydrateInviteLinks(driver);
+            await humanPause(1500, 3000);
         }
 
-        // 2) No Connect on the card → open profile → More → Connect → send without note
+        // 2–3) Click into profile → Connect on profile, else More → Connect → Send without a note
         const result = await connectViaProfileMoreMenu(driver, profileUrl, name, searchUrl);
         await LinkedinSearchPage.hydrateInviteLinks(driver);
         return result;
