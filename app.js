@@ -20,7 +20,7 @@ try {
     logger.success("Email Transporter Ready");
 
     logger.info("Starting: bucketizer");
-    await bucketizer.init();
+    //await bucketizer.init();
     logger.success("Bucketizer Ready");
 
     logger.info("Starting: required directories");
