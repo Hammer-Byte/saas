@@ -451,6 +451,7 @@
                     tender.category_group_id != null
                         ? String(tender.category_group_id)
                         : "";
+                const categoryGroupName = tender.category_group_name || "";
                 const assigneeUserId =
                     tender.assignee_user_id != null
                         ? String(tender.assignee_user_id)
@@ -465,6 +466,7 @@
                 return `<tr
                     data-id="${escapeHtml(rowId)}"
                     data-category-group-id="${escapeHtml(categoryGroupId)}"
+                    data-category-group-name="${escapeHtml(categoryGroupName)}"
                     data-assignee-user-id="${escapeHtml(assigneeUserId)}"
                     data-stage="${escapeHtml(stage)}"
                     data-past-experience="${escapeHtml(pastExperience)}"
@@ -798,8 +800,14 @@
                 !isHiddenStage;
 
             const rowGroupId = String(row.dataset.categoryGroupId || "");
+            const rowGroupName = String(row.dataset.categoryGroupName || "")
+                .trim()
+                .toLowerCase();
             const matchesGroup =
-                !selectedGroups.length || selectedGroups.includes(rowGroupId);
+                !selectedGroups.length ||
+                selectedGroups.some((value) =>
+                    value === "none" ? !rowGroupId : rowGroupId === value,
+                );
 
             const matchesStage =
                 !selectedStages.length || selectedStages.includes(rowStage);
@@ -819,6 +827,7 @@
             const matchesSearch =
                 !query ||
                 tenderIdText.includes(query) ||
+                rowGroupName.includes(query) ||
                 rowGroupId === query ||
                 String(row.dataset.id || "") === query;
 

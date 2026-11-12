@@ -260,6 +260,21 @@
                                     <span class="gem-multi-filter-label">All groups</span>
                                 </button>
                                 <div class="dropdown-menu gem-multi-filter-menu p-2 shadow">
+                                    <div class="form-check">
+                                        <input
+                                            class="form-check-input gem-multi-filter-option"
+                                            type="checkbox"
+                                            value="none"
+                                            id="gem-filter-group-none"
+                                            data-label="No group"
+                                        />
+                                        <label class="form-check-label" for="gem-filter-group-none">
+                                            No group
+                                        </label>
+                                    </div>
+                                    <% if ((categoryGroups || []).length) { %>
+                                        <hr class="dropdown-divider my-2" />
+                                    <% } %>
                                     <% (categoryGroups || []).forEach(function (group) { %>
                                         <div class="form-check">
                                             <input
@@ -588,6 +603,7 @@
                                     <tr
                                         data-id="<%= tender.id %>"
                                         data-category-group-id="<%= tender.category_group_id != null ? tender.category_group_id : '' %>"
+                                        data-category-group-name="<%= tender.category_group_name || '' %>"
                                         data-assignee-user-id="<%= tender.assignee_user_id != null ? tender.assignee_user_id : '' %>"
                                         data-stage="<%= stage %>"
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"
