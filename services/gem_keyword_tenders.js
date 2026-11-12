@@ -4,6 +4,8 @@ import {
     GEM_KEYWORD_TENDER_STAGE_LABELS,
     GEM_KEYWORD_TENDER_STAGES,
     GEM_KEYWORD_TENDER_TERMINAL_STAGES,
+    GEM_TENDER_LOCK_MESSAGES,
+    GEM_TENDER_SCAN_TYPES,
 } from "../constants.js";
 import { createGemKeywordTenderActivity } from "../db/gem_keyword_tender_activities.js";
 import { createGemKeywordTenderComment } from "../db/gem_keyword_tender_comments.js";
@@ -14,6 +16,11 @@ import {
     getGemKeywordTenderById,
     updateGemKeywordTenderById,
 } from "../db/gem_keyword_tenders.js";
+import { getGemTenderCategoryById } from "../db/gem_tender_categories.js";
+import {
+    createGemTenderScanRun,
+    getGemTenderScanRunById,
+} from "../db/gem_tender_scan_runs.js";
 import { getUserById } from "../db/users.js";
 import { hasAuthority } from "../libs/app_page.js";
 import {
@@ -29,21 +36,19 @@ const STAGE_VALUES = new Set(Object.values(GEM_KEYWORD_TENDER_STAGES));
 const QUOTE_DISABLED_STAGES = new Set([
     GEM_KEYWORD_TENDER_STAGES.NEW,
     GEM_KEYWORD_TENDER_STAGES.ASSIGNED,
-    GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE,
-    GEM_KEYWORD_TENDER_STAGES.MISSED,
-    GEM_KEYWORD_TENDER_STAGES.UNATTENDED,
     GEM_KEYWORD_TENDER_STAGES.FILED,
-    GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE,
 ]);
 
-/** Set only by deadline watchers — not selectable in UI / manual PATCH by non-admin. */
-export const SYSTEM_MANAGED_STAGES = new Set([
-    GEM_KEYWORD_TENDER_STAGES.UNATTENDED,
-    GEM_KEYWORD_TENDER_STAGES.MISSED,
-]);
+/** @deprecated locks replaced system-managed stages */
+export const SYSTEM_MANAGED_STAGES = new Set();
 
 /** One-way stages: once set, only super admin may change stage (or other fields). */
 export const TERMINAL_STAGES = new Set(GEM_KEYWORD_TENDER_TERMINAL_STAGES);
+
+const LOCK_ACTION_MESSAGES = {
+    out_of_scope: GEM_TENDER_LOCK_MESSAGES.OUT_OF_SCOPE,
+    not_eligible: GEM_TENDER_LOCK_MESSAGES.NOT_ELIGIBLE,
+};
 
 const ASSIGNEE_REQUIRED_STAGES = new Set([
     GEM_KEYWORD_TENDER_STAGES.ASSIGNED,
@@ -65,12 +70,19 @@ function stageLabel(stage) {
     return GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage || "-";
 }
 
-export function isSystemManagedStage(stage) {
-    return SYSTEM_MANAGED_STAGES.has(normalizeStage(stage));
+export function isSystemManagedStage(_stage) {
+    return false;
 }
 
 export function isTerminalStage(stage) {
     return TERMINAL_STAGES.has(normalizeStage(stage));
+}
+
+export function isTenderLocked(tenderOrLocked) {
+    if (tenderOrLocked && typeof tenderOrLocked === "object") {
+        return !!Number(tenderOrLocked.locked);
+    }
+    return !!Number(tenderOrLocked);
 }
 
 export function isQuoteStageEnabled(stage) {
@@ -79,17 +91,22 @@ export function isQuoteStageEnabled(stage) {
 
 /**
  * Stage / quote / docs:
- * - Terminal stages (filed / out of scope / not eligible / unattended / missed): super_admin only
+ * - Locked or filed: super_admin only
  * - Otherwise with assignee: assignee or super_admin
  */
-export function canOperateAssignedTender({ currentUser, assigneeUserId, stage = null }) {
+export function canOperateAssignedTender({
+    currentUser,
+    assigneeUserId,
+    stage = null,
+    locked = false,
+}) {
     if (!currentUser?.id) {
         return false;
     }
     if (currentUser.super_admin) {
         return true;
     }
-    if (stage != null && isTerminalStage(stage)) {
+    if (locked || (stage != null && isTerminalStage(stage))) {
         return false;
     }
     const assigneeId = assigneeUserId ? Number(assigneeUserId) : null;
@@ -150,20 +167,6 @@ function normalizeStage(value) {
 
 function flagsForStage(stage) {
     switch (stage) {
-        case GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE:
-        case GEM_KEYWORD_TENDER_STAGES.UNATTENDED:
-        case GEM_KEYWORD_TENDER_STAGES.MISSED:
-            return {
-                hidden: true,
-                filed: false,
-                eligible: GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK,
-            };
-        case GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE:
-            return {
-                hidden: true,
-                filed: false,
-                eligible: GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE,
-            };
         case GEM_KEYWORD_TENDER_STAGES.FILED:
             return {
                 hidden: false,
@@ -189,6 +192,46 @@ function flagsForStage(stage) {
                 eligible: GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK,
             };
     }
+}
+
+function lockStateForUpdate({
+    previousLocked,
+    previousLockMessage,
+    nextStage,
+    body,
+}) {
+    // Admin unlock: clear lock only.
+    if (body?.locked === false) {
+        return { locked: false, lock_message: null, hiddenOverride: null };
+    }
+
+    // Explicit lock actions (out of scope / not eligible) without stage change.
+    const lockAction = String(body?.lock_action || "").trim();
+    if (lockAction && LOCK_ACTION_MESSAGES[lockAction]) {
+        return {
+            locked: true,
+            lock_message: LOCK_ACTION_MESSAGES[lockAction],
+            hiddenOverride: true,
+            eligibleOverride:
+                lockAction === "not_eligible"
+                    ? GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE
+                    : null,
+        };
+    }
+
+    if (nextStage === GEM_KEYWORD_TENDER_STAGES.FILED) {
+        return {
+            locked: true,
+            lock_message: GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED,
+            hiddenOverride: null,
+        };
+    }
+
+    return {
+        locked: !!previousLocked,
+        lock_message: previousLocked ? previousLockMessage || null : null,
+        hiddenOverride: null,
+    };
 }
 
 export function canEditQuote({ currentUser, assigneeUserId, stage }) {
@@ -297,6 +340,9 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         previousAssigneeUserId == null &&
         nextAssigneeUserId === Number(currentUser.id);
 
+    const previousLocked = isTenderLocked(gemKeywordTender);
+    const previousLockMessage = gemKeywordTender.lock_message || null;
+
     const previousCategoryGroupId = gemKeywordTender.category_group_id
         ? Number(gemKeywordTender.category_group_id)
         : null;
@@ -315,33 +361,62 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         categoryGroupChanging = nextCategoryGroupId !== previousCategoryGroupId;
     }
 
-    // Terminal stages: only a super admin may change anything.
-    if (isTerminalStage(previousStage) && !currentUser.super_admin) {
+    const previousTenderCategoryId = gemKeywordTender.tender_category_id
+        ? Number(gemKeywordTender.tender_category_id)
+        : null;
+    let nextTenderCategoryId = previousTenderCategoryId;
+    let tenderCategoryChanging = false;
+    if (body.tender_category_id !== undefined) {
+        if (body.tender_category_id == null) {
+            nextTenderCategoryId = null;
+        } else {
+            nextTenderCategoryId = Number(body.tender_category_id);
+            if (!(nextTenderCategoryId >= 1)) {
+                set.status = 400;
+                return { error: "Invalid category" };
+            }
+        }
+        tenderCategoryChanging = nextTenderCategoryId !== previousTenderCategoryId;
+    }
+
+    const unlocking = body.locked === false && previousLocked;
+    if (unlocking && !currentUser.super_admin) {
+        set.status = 403;
+        return { error: "Only a super admin can unlock a tender" };
+    }
+
+    // Locked / filed: only a super admin may change anything (except unlock).
+    if ((previousLocked || isTerminalStage(previousStage)) && !currentUser.super_admin) {
         const touching =
             assigneeChanging ||
             body.assign_to_me === true ||
             body.stage !== undefined ||
             body.quote !== undefined ||
-            categoryGroupChanging;
+            categoryGroupChanging ||
+            tenderCategoryChanging ||
+            body.lock_action != null;
         if (touching) {
             set.status = 403;
             return {
-                error: "Only a super admin can change tenders in a one-way stage",
+                error: previousLocked
+                    ? "Only a super admin can change a locked tender"
+                    : "Only a super admin can change tenders in a one-way stage",
             };
         }
     }
 
-    if (categoryGroupChanging) {
+    if (categoryGroupChanging || tenderCategoryChanging) {
         if (
             !canOperateAssignedTender({
                 currentUser,
                 assigneeUserId: nextAssigneeUserId ?? previousAssigneeUserId,
                 stage: previousStage,
+                locked: previousLocked && !unlocking,
             })
         ) {
             set.status = 403;
             return {
-                error: "Only the assignee or a super admin can change the category group",
+                error: "Only the assignee or a super admin can change the category",
             };
         }
         if (nextCategoryGroupId != null) {
@@ -349,6 +424,13 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
             if (!group) {
                 set.status = 400;
                 return { error: "Category group not found" };
+            }
+        }
+        if (nextTenderCategoryId != null) {
+            const category = await getGemTenderCategoryById({ id: nextTenderCategoryId });
+            if (!category) {
+                set.status = 400;
+                return { error: "Category not found" };
             }
         }
     }
@@ -387,30 +469,9 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         return { error: "Invalid stage" };
     }
 
-    // Unattended / Missed are set by deadline watchers only (super admin may still set them).
-    if (
-        body.stage !== undefined &&
-        isSystemManagedStage(nextStage) &&
-        !currentUser.super_admin
-    ) {
-        set.status = 400;
-        return {
-            error: "Unattended and Missed are set automatically and cannot be selected manually",
-        };
-    }
-
     // Assign to me / admin assign: if stage would stay New, move to Assigned.
-    // Also promote common inbox stages when the client did not pick a stage explicitly.
     if (assigneeChanging && nextAssigneeUserId != null) {
-        const inboxStages = new Set([
-            GEM_KEYWORD_TENDER_STAGES.NEW,
-            GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE,
-            GEM_KEYWORD_TENDER_STAGES.UNATTENDED,
-            GEM_KEYWORD_TENDER_STAGES.MISSED,
-        ]);
         if (nextStage === GEM_KEYWORD_TENDER_STAGES.NEW) {
-            nextStage = GEM_KEYWORD_TENDER_STAGES.ASSIGNED;
-        } else if (body.stage === undefined && inboxStages.has(previousStage)) {
             nextStage = GEM_KEYWORD_TENDER_STAGES.ASSIGNED;
         }
     }
@@ -467,6 +528,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
                     currentUser,
                     assigneeUserId: stageAssigneeId,
                     stage: previousStage,
+                    locked: previousLocked && !unlocking,
                 })
             ) {
                 set.status = 403;
@@ -486,7 +548,8 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
                 currentUser,
                 assigneeUserId: nextAssigneeUserId ?? previousAssigneeUserId,
                 stage: nextStage,
-            })
+            }) ||
+            (previousLocked && !unlocking && !currentUser.super_admin)
         ) {
             set.status = 403;
             return {
@@ -497,12 +560,50 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     }
 
     const flags = flagsForStage(nextStage);
+    const lockState = lockStateForUpdate({
+        previousLocked,
+        previousLockMessage,
+        nextStage,
+        body,
+    });
+    if (lockState.hiddenOverride != null) {
+        flags.hidden = lockState.hiddenOverride;
+    }
+    if (lockState.eligibleOverride != null) {
+        flags.eligible = lockState.eligibleOverride;
+    }
+    // Keep locked tenders hidden in the default list unless unlocked.
+    if (lockState.locked && nextStage !== GEM_KEYWORD_TENDER_STAGES.FILED) {
+        flags.hidden = true;
+    }
+    if (!lockState.locked) {
+        // Unlock restores visibility for non-filed pipeline rows.
+        if (nextStage !== GEM_KEYWORD_TENDER_STAGES.FILED) {
+            flags.hidden = flags.hidden && false;
+            flags.hidden = false;
+        }
+    }
+
     const activities = [];
 
     if (previousStage !== nextStage) {
         activities.push(
             `Changed stage from ${stageLabel(previousStage)} to ${stageLabel(nextStage)}`,
         );
+    }
+
+    if (previousLocked !== lockState.locked) {
+        activities.push(
+            lockState.locked
+                ? `Locked tender${lockState.lock_message ? `: ${lockState.lock_message}` : ""}`
+                : "Unlocked tender",
+        );
+    } else if (
+        lockState.locked &&
+        previousLockMessage !== lockState.lock_message &&
+        lockState.lock_message
+    ) {
+        activities.push(`Lock message set to: ${lockState.lock_message}`);
     }
 
     if (previousQuote !== nextQuote) {
@@ -526,6 +627,18 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
             : null;
         activities.push(
             `Changed category group from ${previousGroup?.name || "None"} to ${nextGroup?.name || "None"}`,
+        );
+    }
+
+    if (tenderCategoryChanging) {
+        const previousCategory = previousTenderCategoryId
+            ? await getGemTenderCategoryById({ id: previousTenderCategoryId })
+            : null;
+        const nextCategory = nextTenderCategoryId
+            ? await getGemTenderCategoryById({ id: nextTenderCategoryId })
+            : null;
+        activities.push(
+            `Changed category from ${previousCategory?.name || "None"} to ${nextCategory?.name || "None"}`,
         );
     }
 
@@ -569,7 +682,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
                 set,
             });
         }
-        if (categoryGroupChanging) {
+        if (categoryGroupChanging || tenderCategoryChanging || unlocking || body.lock_action) {
             await updateGemKeywordTenderById({
                 id: gemKeywordTender.id,
                 hidden: flags.hidden,
@@ -579,6 +692,9 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
                 stage: nextStage,
                 assignee_user_id: nextAssigneeUserId,
                 category_group_id: nextCategoryGroupId,
+                tender_category_id: nextTenderCategoryId,
+                locked: lockState.locked,
+                lock_message: lockState.lock_message,
             });
         }
     } else {
@@ -591,6 +707,9 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
             stage: nextStage,
             assignee_user_id: nextAssigneeUserId,
             category_group_id: nextCategoryGroupId,
+            tender_category_id: nextTenderCategoryId,
+            locked: lockState.locked,
+            lock_message: lockState.lock_message,
         });
     }
 
@@ -653,13 +772,6 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
     }
     const nextStage = body.stage;
 
-    if (isSystemManagedStage(nextStage) && !currentUser.super_admin) {
-        set.status = 400;
-        return {
-            error: "Unattended and Missed are set automatically and cannot be selected manually",
-        };
-    }
-
     const comment = asText(body?.comment).trim();
     if (!comment) {
         set.status = 400;
@@ -713,6 +825,17 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
         }
 
         try {
+            const bulkLock =
+                nextStage === GEM_KEYWORD_TENDER_STAGES.FILED
+                    ? {
+                          locked: true,
+                          lock_message: GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED,
+                      }
+                    : {
+                          locked: isTenderLocked(gemKeywordTender),
+                          lock_message: gemKeywordTender.lock_message || null,
+                      };
+
             await updateGemKeywordTenderById({
                 id: gemKeywordTender.id,
                 hidden: flags.hidden,
@@ -724,6 +847,11 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
                 category_group_id: gemKeywordTender.category_group_id
                     ? Number(gemKeywordTender.category_group_id)
                     : null,
+                tender_category_id: gemKeywordTender.tender_category_id
+                    ? Number(gemKeywordTender.tender_category_id)
+                    : null,
+                locked: bulkLock.locked,
+                lock_message: bulkLock.lock_message,
             });
 
             const commentId = await createGemKeywordTenderComment({
@@ -737,13 +865,23 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
                 continue;
             }
 
+            const activities = [
+                `Changed stage from ${stageLabel(previousStage)} to ${stageLabel(nextStage)}`,
+                `Added comment: "${quotePreview(comment)}"`,
+            ];
+            if (
+                nextStage === GEM_KEYWORD_TENDER_STAGES.FILED &&
+                !isTenderLocked(gemKeywordTender)
+            ) {
+                activities.push(
+                    `Locked tender: ${GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED}`,
+                );
+            }
+
             await logActivities({
                 gem_keyword_tender_id: gemKeywordTender.id,
                 user_id: currentUser.id,
-                activities: [
-                    `Changed stage from ${stageLabel(previousStage)} to ${stageLabel(nextStage)}`,
-                    `Added comment: "${quotePreview(comment)}"`,
-                ],
+                activities,
             });
 
             if (
@@ -826,11 +964,25 @@ export async function startGemAdhocTenderScan({ body, cookie, set }) {
 
     const exact_search = !!currentUser.super_admin && !!body?.exact_search;
 
+    const keywords = queries.map((keyword) => ({
+        keyword,
+        exact_search,
+        search_mode: "advance_search",
+    }));
+
+    const runId = await createGemTenderScanRun({
+        keyword_count: keywords.length,
+        created_by: currentUser.id,
+        scan_type: GEM_TENDER_SCAN_TYPES.ADHOC,
+    });
+    if (!runId) {
+        set.status = 400;
+        return { error: "Failed to create scan run", processing: false };
+    }
+
     const started = crawlGemForTenders({
-        keywords: queries.map((keyword) => ({
-            keyword,
-            exact_search,
-        })),
+        keywords,
+        runId,
     });
     if (!started) {
         set.status = 409;
@@ -846,5 +998,6 @@ export async function startGemAdhocTenderScan({ body, cookie, set }) {
         message: `Scan started for ${label}. Matching tenders will be added shortly.`,
         processing: true,
         count: queries.length,
+        run: await getGemTenderScanRunById({ id: runId }),
     };
 }

@@ -1,12 +1,15 @@
 import { By, until } from "selenium-webdriver";
 
-export class GemPage {
-    static path = "/advance-search";
+export const GEM_SEARCH_MODES = {
+    ADVANCE_SEARCH: "advance_search",
+    ALL_BIDS: "all_bids",
+};
+
+/** Shared card / pagination helpers for GeM bid listing pages. */
+class GemListingPage {
+    static path = "";
 
     static xpath = {
-        categorySelect: "//select[@id='categorybid']",
-        bidNumberInput: "//input[@id='bno']",
-        searchButton: "//a[@id='searchByBid']",
         noDataFound:
             "//div[@id='bidCard']//*[contains(normalize-space(.),'No data found')]",
         bidCardContainer: "//div[@id='bidCard']",
@@ -32,18 +35,11 @@ export class GemPage {
     }
 
     url() {
-        return `${this.baseUrl}${GemPage.path}`;
+        return `${this.baseUrl}${this.constructor.path}`;
     }
 
     by(key) {
-        return By.xpath(GemPage.xpath[key]);
-    }
-
-    async open() {
-        await this.driver.get(this.url());
-        await this.driver.wait(until.elementLocated(this.by("categorySelect")), 20000);
-        await this.driver.wait(until.elementLocated(this.by("searchButton")), 20000);
-        await this.driver.sleep(1000);
+        return By.xpath(this.constructor.xpath[key]);
     }
 
     async clickElement(element) {
@@ -57,76 +53,6 @@ export class GemPage {
         } catch {
             await this.driver.executeScript("arguments[0].click();", element);
         }
-    }
-
-    async clearBidNumber() {
-        await this.driver.executeScript(`
-            const input = document.querySelector("#bno");
-            if (input) {
-                input.value = "";
-                input.dispatchEvent(new Event("input", { bubbles: true }));
-                input.dispatchEvent(new Event("change", { bubbles: true }));
-            }
-        `);
-    }
-
-    async setBidNumber(bidNumber) {
-        const value = String(bidNumber || "").trim();
-        await this.clearBidNumber();
-        const input = await this.driver.findElement(this.by("bidNumberInput"));
-        await input.clear();
-        await input.sendKeys(value);
-    }
-
-    /**
-     * Match a GeM Category Select2 option for the keyword, then select it.
-     * exact_search: option text must equal the keyword (case-insensitive).
-     * otherwise: prefer exact, then starts-with, then contains.
-     * @returns {{ ok: boolean, text?: string, value?: string }}
-     */
-    async selectCategoryByKeyword(keyword, exactSearch = false) {
-        const result = await this.driver.executeScript(
-            `
-            const keyword = String(arguments[0] || "").trim();
-            const exactSearch = !!arguments[1];
-            const select = document.querySelector("#categorybid");
-            if (!select || !keyword) {
-                return { ok: false, reason: "missing_select_or_keyword" };
-            }
-
-            const normalize = (value) => String(value || "").trim().toLowerCase();
-            const needle = normalize(keyword);
-            const options = Array.from(select.options).filter((option) => option.value);
-
-            let match = options.find((option) => normalize(option.textContent) === needle);
-            if (!match && !exactSearch) {
-                match =
-                    options.find((option) => normalize(option.textContent).startsWith(needle)) ||
-                    options.find((option) => normalize(option.textContent).includes(needle));
-            }
-
-            if (!match) {
-                return { ok: false, reason: "no_category_match" };
-            }
-
-            if (window.jQuery) {
-                window.jQuery(select).val(match.value).trigger("change");
-            } else {
-                select.value = match.value;
-                select.dispatchEvent(new Event("change", { bubbles: true }));
-            }
-
-            return {
-                ok: true,
-                text: String(match.textContent || "").trim(),
-                value: match.value,
-            };
-            `,
-            keyword,
-            exactSearch,
-        );
-
-        return result && typeof result === "object" ? result : { ok: false };
     }
 
     async searchButton() {
@@ -217,7 +143,7 @@ export class GemPage {
     }
 
     async cardBidDownloadLinks(card) {
-        return card.findElements(By.xpath(GemPage.xpath.cardBidDownloadLinks));
+        return card.findElements(By.xpath(this.constructor.xpath.cardBidDownloadLinks));
     }
 
     async nextPageButton() {
@@ -234,5 +160,153 @@ export class GemPage {
 
     async recordsSummary() {
         return this.driver.findElement(this.by("recordsSummary"));
+    }
+}
+
+/** GeM /advance-search — category dropdown or Bid number. */
+export class GemPage extends GemListingPage {
+    static path = "/advance-search";
+
+    static xpath = {
+        ...GemListingPage.xpath,
+        categorySelect: "//select[@id='categorybid']",
+        bidNumberInput: "//input[@id='bno']",
+        searchButton: "//a[@id='searchByBid']",
+    };
+
+    mode = GEM_SEARCH_MODES.ADVANCE_SEARCH;
+
+    async open() {
+        await this.driver.get(this.url());
+        await this.driver.wait(until.elementLocated(this.by("categorySelect")), 20000);
+        await this.driver.wait(until.elementLocated(this.by("searchButton")), 20000);
+        await this.driver.sleep(1000);
+    }
+
+    async clearBidNumber() {
+        await this.driver.executeScript(`
+            const input = document.querySelector("#bno");
+            if (input) {
+                input.value = "";
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+        `);
+    }
+
+    async setBidNumber(bidNumber) {
+        const value = String(bidNumber || "").trim();
+        await this.clearBidNumber();
+        const input = await this.driver.findElement(this.by("bidNumberInput"));
+        await input.clear();
+        await input.sendKeys(value);
+    }
+
+    /**
+     * Match a GeM Category Select2 option for the keyword, then select it.
+     * exact_search: option text must equal the keyword (case-insensitive).
+     * otherwise: prefer exact, then starts-with, then contains.
+     * @returns {{ ok: boolean, text?: string, value?: string }}
+     */
+    async selectCategoryByKeyword(keyword, exactSearch = false) {
+        const result = await this.driver.executeScript(
+            `
+            const keyword = String(arguments[0] || "").trim();
+            const exactSearch = !!arguments[1];
+            const select = document.querySelector("#categorybid");
+            if (!select || !keyword) {
+                return { ok: false, reason: "missing_select_or_keyword" };
+            }
+
+            const normalize = (value) => String(value || "").trim().toLowerCase();
+            const needle = normalize(keyword);
+            const options = Array.from(select.options).filter((option) => option.value);
+
+            let match = options.find((option) => normalize(option.textContent) === needle);
+            if (!match && !exactSearch) {
+                match =
+                    options.find((option) => normalize(option.textContent).startsWith(needle)) ||
+                    options.find((option) => normalize(option.textContent).includes(needle));
+            }
+
+            if (!match) {
+                return { ok: false, reason: "no_category_match" };
+            }
+
+            if (window.jQuery) {
+                window.jQuery(select).val(match.value).trigger("change");
+            } else {
+                select.value = match.value;
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+
+            return {
+                ok: true,
+                text: String(match.textContent || "").trim(),
+                value: match.value,
+            };
+            `,
+            keyword,
+            exactSearch,
+        );
+
+        return result && typeof result === "object" ? result : { ok: false };
+    }
+}
+
+/** GeM /all-bids — keyword search (Exact Search / Contains). */
+export class GemAllBidsPage extends GemListingPage {
+    static path = "/all-bids";
+
+    static xpath = {
+        ...GemListingPage.xpath,
+        searchTypeDropdown: "//button[contains(@class,'searchtype')]",
+        exactSearchOption: "//ul[@role='menu']//a[normalize-space()='Exact Search']",
+        containsSearchOption: "//ul[@role='menu']//a[normalize-space()='Contains']",
+        searchInput: "//input[@name='searchBid' and @placeholder='Enter Keyword']",
+        searchButton: "//button[@id='searchBidRA' and contains(@class,'search_btn')]",
+    };
+
+    mode = GEM_SEARCH_MODES.ALL_BIDS;
+
+    async open() {
+        await this.driver.get(this.url());
+        await this.driver.wait(until.elementLocated(this.by("searchTypeDropdown")), 20000);
+        await this.driver.wait(until.elementLocated(this.by("searchInput")), 20000);
+        await this.driver.sleep(1000);
+    }
+
+    async searchTypeDropdown() {
+        return this.driver.findElement(this.by("searchTypeDropdown"));
+    }
+
+    async exactSearchOption() {
+        return this.driver.findElement(this.by("exactSearchOption"));
+    }
+
+    async containsSearchOption() {
+        return this.driver.findElement(this.by("containsSearchOption"));
+    }
+
+    async searchInput() {
+        return this.driver.findElement(this.by("searchInput"));
+    }
+
+    /** Open the search-type dropdown and pick Exact Search or Contains. */
+    async selectSearchType(exactSearch = false) {
+        await this.clickElement(await this.searchTypeDropdown());
+        await this.driver.sleep(300);
+        const option = exactSearch
+            ? await this.exactSearchOption()
+            : await this.containsSearchOption();
+        await this.clickElement(option);
+        await this.driver.sleep(300);
+    }
+
+    async setKeyword(keyword) {
+        const value = String(keyword || "").trim();
+        const input = await this.searchInput();
+        await input.clear();
+        await input.sendKeys(value);
     }
 }

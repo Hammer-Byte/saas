@@ -2,7 +2,7 @@ import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { join } from "path";
 import { logger } from "@hammerbyte/utils";
 import { toDbDateTime } from "../date.js";
-import { GemPage } from "./gem_pom.js";
+import { GEM_SEARCH_MODES, GemAllBidsPage, GemPage } from "./gem_pom.js";
 import {
     createGemKeywordTender,
     getGemKeywordTenderByTenderId,
@@ -13,7 +13,8 @@ const DELAY_SHORT = 1000;
 
 const GEM_URL = "https://bidplus.gem.gov.in";
 const TENDERS_DIRECTORY = "downloaded_tenders";
-const GEM_BID_OR_RA_NUMBER = /^GEM\/\d{4}\/[BR]\/\d+$/i;
+const GEM_BID_NUMBER = /^GEM\/\d{4}\/B\/\d+$/i;
+const GEM_RA_NUMBER = /^GEM\/\d{4}\/R\/\d+$/i;
 
 const TENDER_DETAIL_REGEXES = {
     EMAIL: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
@@ -30,8 +31,14 @@ const TENDER_DETAIL_REGEXES = {
     BUYER_EMAIL: /Buyer Email id\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
     MINIMUM_AVG_TURNOVER: /Minimum Average Annual Turnover[\s\S]{0,120}?(\d+\s*Lakh\s*\(s\))/i,
     PAST_EXPERIENCE_YEARS: /Years of Past Experience Required[\s\S]{0,80}?(\d+\s*Year\s*\(s\))/i,
-    MSE_EXP_RELAXATION: /MSE[\s\S]{0,100}?(Yes|No)\s*\|\s*Complete/gi,
-    MSE_TURNOVER_RELAXATION: /Startup[\s\S]{0,100}?(Yes|No)\s*\|\s*Complete/gi,
+    // Capture the whole flag ("Yes | Complete", "Yes | All", "Yes | Partial", "Yes", "No", "No | …").
+    // Prefixes cover English + Hindi labels; "MSE Purchase …" rows are excluded.
+    MSE_EXP_RELAXATION:
+        /(?:MSE|\u090F\u092E\u090F\u0938\u0908|\u090F\u092E\s*\u090F\u0938\s*\u0908)(?!\s+Purchase)[\s\S]{0,120}?(?<![A-Za-z])((?:Yes|No)(?:\s*\|\s*(?:Complete|All|Partial))?)(?![A-Za-z])/gi,
+    MSE_TURNOVER_RELAXATION:
+        /(?:Startup|Start-up|\u0938\u094D\u091F\u093E\u0930\u094D\u091F\u0905\u092A|\u0938\u094D\u091F\u093E\u0930\u094D\u091F[\s-]*\u0905\u092A)[\s\S]{0,120}?(?<![A-Za-z])((?:Yes|No)(?:\s*\|\s*(?:Complete|All|Partial))?)(?![A-Za-z])/gi,
+    YES_FLAG: /^\s*Yes/i,
+    NO_FLAG: /^\s*No/i,
     DOCUMENT_REQUIRED: /Document required/i,
     ASKED_DOCUMENTS:
         /((?:Experience Criteria|Bidder Turnover|Certificate \(Requested in ATC\)|OEM Authorization Certificate|Additional Doc \d+ \(Requested in ATC\))(?:,\s*(?:Experience Criteria|Bidder Turnover|Certificate \(Requested in ATC\)|OEM Authorization Certificate|Additional Doc \d+ \(Requested in ATC\)))*)/,
@@ -161,6 +168,21 @@ const readTenderText = async (tenderFile) => {
 };
 
 const cleanValue = (value) => value?.replace(/\s+/g, " ").trim() || null;
+
+/** "Yes | Complete" / "Yes | All" / "Yes | Partial" / "Yes" → true; "No…" → false; missing → null. */
+function parseYesNoFlag(value) {
+    const text = cleanValue(value);
+    if (!text) {
+        return null;
+    }
+    if (TENDER_DETAIL_REGEXES.YES_FLAG.test(text)) {
+        return true;
+    }
+    if (TENDER_DETAIL_REGEXES.NO_FLAG.test(text)) {
+        return false;
+    }
+    return null;
+}
 
 const valueAfterLabel = (text, label) => {
     const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -705,11 +727,12 @@ const extractTenderDetails = (text, buffer) => {
             text.match(TENDER_DETAIL_REGEXES.MINIMUM_AVG_TURNOVER)?.[1] || null,
         required_past_experice_years:
             text.match(TENDER_DETAIL_REGEXES.PAST_EXPERIENCE_YEARS)?.[1] || null,
-        mse_experience_relaxation:
-            [...text.matchAll(TENDER_DETAIL_REGEXES.MSE_EXP_RELAXATION)].at(-1)?.[1] || null,
-        mse_turnover_relaxation:
-            [...text.matchAll(TENDER_DETAIL_REGEXES.MSE_TURNOVER_RELAXATION)].at(-1)?.[1] ||
-            null,
+        mse_experience_relaxation: parseYesNoFlag(
+            [...text.matchAll(TENDER_DETAIL_REGEXES.MSE_EXP_RELAXATION)].at(-1)?.[1],
+        ),
+        mse_turnover_relaxation: parseYesNoFlag(
+            [...text.matchAll(TENDER_DETAIL_REGEXES.MSE_TURNOVER_RELAXATION)].at(-1)?.[1],
+        ),
         asked_documents: extractDocumentsRequired(text),
         specification_links: extractSpecificationLinks({ buffer, pdfText: text }),
         quantity: extractQuantity(text),
@@ -730,6 +753,17 @@ function normalizeScanText(value) {
 
 function sameScanText(left, right) {
     return normalizeScanText(left) === normalizeScanText(right);
+}
+
+/** DB stores TINYINT(1); scan produces true/false/null. */
+function normalizeScanFlag(value) {
+    if (value === true || value === 1 || value === "1") return 1;
+    if (value === false || value === 0 || value === "0") return 0;
+    return null;
+}
+
+function sameScanFlag(left, right) {
+    return normalizeScanFlag(left) === normalizeScanFlag(right);
 }
 
 function sameScanNumber(left, right) {
@@ -828,8 +862,8 @@ function buildScanDetailsForUpsert({ document, gemTenderDetails, existingTender 
         required_minimum_average_turnover:
             gemTenderDetails.required_minimum_average_turnover,
         required_past_experice_years: gemTenderDetails.required_past_experice_years,
-        mse_experience_relaxation: gemTenderDetails.mse_experience_relaxation,
-        mse_turnover_relaxation: gemTenderDetails.mse_turnover_relaxation,
+        mse_experience_relaxation: normalizeScanFlag(gemTenderDetails.mse_experience_relaxation),
+        mse_turnover_relaxation: normalizeScanFlag(gemTenderDetails.mse_turnover_relaxation),
         asked_documents: gemTenderDetails.asked_documents,
         specification_links: nextSpecificationLinks,
         quantity: preferPositiveNumber(
@@ -850,6 +884,13 @@ function scanDetailsDiffer(existingTender, nextDetails) {
 
         if (field === "start_date_time" || field === "end_date_time") {
             if (!sameDateTime(existingValue, nextValue)) {
+                return true;
+            }
+            continue;
+        }
+
+        if (field === "mse_experience_relaxation" || field === "mse_turnover_relaxation") {
+            if (!sameScanFlag(existingValue, nextValue)) {
                 return true;
             }
             continue;
@@ -880,6 +921,7 @@ function scanDetailsDiffer(existingTender, nextDetails) {
 export const processTender = async ({
     tenderFile,
     category_group_id = null,
+    tender_category_id = null,
     tender_id,
     document = null,
     buffer = null,
@@ -894,10 +936,16 @@ export const processTender = async ({
                 ? Number(category_group_id)
                 : null;
 
-        // category_group_id is set only on insert; never overwritten on re-scan.
+        const resolvedTenderCategoryId =
+            tender_category_id != null && Number(tender_category_id) >= 1
+                ? Number(tender_category_id)
+                : null;
+
+        // category_group_id / tender_category_id are set only on insert; never overwritten on re-scan.
         if (!existingTender) {
             const tenderRowId = await createGemKeywordTender({
                 category_group_id: resolvedCategoryGroupId,
+                tender_category_id: resolvedTenderCategoryId,
                 tender_id,
                 document,
                 ...gemTenderDetails,
@@ -944,6 +992,8 @@ export const searchTendersByKeyword = async (
         keyword,
         exact_search = false,
         category_group_id = null,
+        tender_category_id = null,
+        search_mode = GEM_SEARCH_MODES.ADVANCE_SEARCH,
     },
 ) => {
     const searchKeyword = String(keyword || "").trim();
@@ -951,21 +1001,40 @@ export const searchTendersByKeyword = async (
         category_group_id != null && Number(category_group_id) >= 1
             ? Number(category_group_id)
             : null;
+    const resolvedTenderCategoryId =
+        tender_category_id != null && Number(tender_category_id) >= 1
+            ? Number(tender_category_id)
+            : null;
     if (!searchKeyword) {
         logger.info("No keyword configured, skipping search.");
         return 0;
     }
 
+    if (GEM_RA_NUMBER.test(searchKeyword)) {
+        logger.info(`Skipping RA number keyword (not scanning/downloading): ${searchKeyword}`);
+        return 0;
+    }
+
     await ensureTenderStorage();
 
-    const page = new GemPage(driver, GEM_URL);
+    let page;
 
-    await page.open();
-
-    if (GEM_BID_OR_RA_NUMBER.test(searchKeyword)) {
-        logger.info(`Advance-search by Bid/RA number: ${searchKeyword}`);
+    if (GEM_BID_NUMBER.test(searchKeyword)) {
+        page = new GemPage(driver, GEM_URL);
+        await page.open();
+        logger.info(`Advance-search by Bid number: ${searchKeyword}`);
         await page.setBidNumber(searchKeyword);
+    } else if (search_mode === GEM_SEARCH_MODES.ALL_BIDS) {
+        page = new GemAllBidsPage(driver, GEM_URL);
+        await page.open();
+        await page.selectSearchType(!!exact_search);
+        await page.setKeyword(searchKeyword);
+        logger.info(
+            `All-bids keyword search: ${searchKeyword} (${exact_search ? "Exact Search" : "Contains"})`,
+        );
     } else {
+        page = new GemPage(driver, GEM_URL);
+        await page.open();
         await page.clearBidNumber();
         const categoryMatch = await page.selectCategoryByKeyword(
             searchKeyword,
@@ -1063,6 +1132,7 @@ export const searchTendersByKeyword = async (
                     const changed = await processTender({
                         tenderFile,
                         category_group_id: resolvedCategoryGroupId,
+                        tender_category_id: resolvedTenderCategoryId,
                         tender_id: tenderId,
                         document,
                         buffer,

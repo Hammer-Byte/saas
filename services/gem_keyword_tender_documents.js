@@ -19,7 +19,7 @@ export function canManageTenderDocuments({ currentUser, tender }) {
     if (currentUser.super_admin) {
         return true;
     }
-    if (isTerminalStage(tender.stage)) {
+    if (Number(tender.locked) || isTerminalStage(tender.stage)) {
         return false;
     }
     const assigneeUserId = tender.assignee_user_id ? Number(tender.assignee_user_id) : null;

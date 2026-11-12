@@ -133,7 +133,8 @@ export async function getGemCategoriesByIds({ ids }) {
         (sql) => sql`
             SELECT
                 GEM_CATEGORIES.*,
-                GEM_CATEGORY_GROUPS.name AS group_name
+                GEM_CATEGORY_GROUPS.name AS group_name,
+                GEM_CATEGORY_GROUPS.tender_category_id AS tender_category_id
             FROM GEM_CATEGORIES
             INNER JOIN GEM_CATEGORY_GROUPS
                 ON GEM_CATEGORY_GROUPS.id = GEM_CATEGORIES.group_id

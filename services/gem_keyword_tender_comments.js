@@ -66,10 +66,15 @@ export async function addGemKeywordTenderComment({ body, cookie, set }) {
         return { error: "Tender not found" };
     }
 
+    const tenderLocked = !!Number(gemKeywordTender.locked);
     const lockedStage = isTerminalStage(gemKeywordTender.stage);
-    if (lockedStage && !currentUser.super_admin) {
+    if ((tenderLocked || lockedStage) && !currentUser.super_admin) {
         set.status = 403;
-        return { error: "Only a super admin can comment on Unattended or Missed tenders" };
+        return {
+            error: tenderLocked
+                ? "Only a super admin can comment on locked tenders"
+                : "Only a super admin can comment on this tender",
+        };
     }
 
     const comment = String(body.comment || "").trim();

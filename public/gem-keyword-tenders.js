@@ -2,10 +2,10 @@
     const FILTERS_STORAGE_KEY = "gem-tenders-filters";
     const fromInput = document.getElementById("gem-tenders-from");
     const toInput = document.getElementById("gem-tenders-to");
-    const groupFilter = document.getElementById("gem-filter-group");
+    const categoryFilter = document.getElementById("gem-filter-category");
     const stageFilter = document.getElementById("gem-filter-stage");
     const assigneeFilter = document.getElementById("gem-filter-assignee");
-    const multiFilters = [groupFilter, stageFilter, assigneeFilter].filter(Boolean);
+    const multiFilters = [categoryFilter, stageFilter, assigneeFilter].filter(Boolean);
     const showAllFilter = document.getElementById("gem-filter-show-all");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
@@ -47,7 +47,7 @@
         return {
             from: from || "",
             to: to || "",
-            groups: [],
+            categories: [],
             stages: [],
             assignees: [],
             search: "",
@@ -163,7 +163,7 @@
         return {
             from: normalizeDateInput(fromInput?.value || "", pageFrom),
             to: normalizeDateInput(toInput?.value || "", pageTo),
-            groups: selectedMultiValues(groupFilter),
+            categories: selectedMultiValues(categoryFilter),
             stages: selectedMultiValues(stageFilter),
             assignees: selectedMultiValues(assigneeFilter),
             search: String(searchInput?.value || "").trim(),
@@ -177,7 +177,7 @@
         if (!filters) return;
         if (fromInput && filters.from) fromInput.value = filters.from;
         if (toInput && filters.to) toInput.value = filters.to;
-        setSelectedMultiValues(groupFilter, filters.groups || []);
+        setSelectedMultiValues(categoryFilter, filters.categories || []);
         setSelectedMultiValues(stageFilter, filters.stages || []);
         setSelectedMultiValues(assigneeFilter, filters.assignees || []);
         if (searchInput) searchInput.value = filters.search || "";
@@ -426,6 +426,12 @@
         applyFilters();
     }
 
+    function mseLabel(value) {
+        if (value === true || value === 1 || value === "1") return "Yes";
+        if (value === false || value === 0 || value === "0") return "No";
+        return "-";
+    }
+
     function renderTenderRows(tenders) {
         const list = Array.isArray(tenders) ? tenders : [];
         const html = list
@@ -447,31 +453,34 @@
                     emdAmount > 0
                         ? emdAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })
                         : "NA";
-                const categoryGroupId =
-                    tender.category_group_id != null
-                        ? String(tender.category_group_id)
+                const tenderCategoryId =
+                    tender.tender_category_id != null
+                        ? String(tender.tender_category_id)
                         : "";
-                const categoryGroupName = tender.category_group_name || "";
+                const tenderCategoryName = tender.tender_category_name || "";
+                const isLocked = !!Number(tender.locked);
+                const lockMessage = tender.lock_message || "";
                 const assigneeUserId =
                     tender.assignee_user_id != null
                         ? String(tender.assignee_user_id)
                         : "";
                 const pastExperience = tender.required_past_experice_years || "";
-                const mseExp = tender.mse_experience_relaxation || "";
-                const mseTurnover = tender.mse_turnover_relaxation || "";
+                const mseExp = mseLabel(tender.mse_experience_relaxation);
+                const mseTurnover = mseLabel(tender.mse_turnover_relaxation);
                 const endAt = tender.end_date_time || "";
                 const tenderId = tender.tender_id || "";
                 const rowId = Number(tender.id || 0);
 
                 return `<tr
                     data-id="${escapeHtml(rowId)}"
-                    data-category-group-id="${escapeHtml(categoryGroupId)}"
-                    data-category-group-name="${escapeHtml(categoryGroupName)}"
+                    data-tender-category-id="${escapeHtml(tenderCategoryId)}"
+                    data-tender-category-name="${escapeHtml(tenderCategoryName)}"
+                    data-locked="${isLocked ? "1" : "0"}"
                     data-assignee-user-id="${escapeHtml(assigneeUserId)}"
                     data-stage="${escapeHtml(stage)}"
                     data-past-experience="${escapeHtml(pastExperience)}"
-                    data-mse-exp="${escapeHtml(mseExp)}"
-                    data-mse-turnover="${escapeHtml(mseTurnover)}"
+                    data-mse-exp="${escapeHtml(mseExp === "-" ? "" : mseExp)}"
+                    data-mse-turnover="${escapeHtml(mseTurnover === "-" ? "" : mseTurnover)}"
                     data-quantity="${escapeHtml(quantity)}"
                     data-end-at="${escapeHtml(endAt)}"
                 >
@@ -495,7 +504,7 @@
                         data-readable-date="${escapeHtml(endAt)}"
                         data-date-format="DD/MM/YYYY HH:mm:ss"
                     ></td>
-                    <td>${escapeHtml(tender.category_group_name || "-")}</td>
+                    <td>${escapeHtml(tenderCategoryName || "-")}</td>
                     <td class="gem-tenders-buyer-col">
                         <span class="gem-tenders-buyer-text" title="${escapeHtml(buyerText)}">
                             ${escapeHtml(buyerText)}
@@ -504,12 +513,17 @@
                     <td>${escapeHtml(quantityDisplay)}</td>
                     <td>${escapeHtml(emdDisplay)}</td>
                     <td>${escapeHtml(pastExperience || "-")}</td>
-                    <td>${escapeHtml(mseExp || "-")}</td>
-                    <td>${escapeHtml(mseTurnover || "-")}</td>
+                    <td>${escapeHtml(mseExp)}</td>
+                    <td>${escapeHtml(mseTurnover)}</td>
                     <td>
                         <span class="gem-tender-tag gem-tender-stage-tag gem-tender-stage-${escapeHtml(stage)}">
                             ${escapeHtml(stageLabel)}
                         </span>
+                        ${
+                            isLocked
+                                ? `<span class="gem-tender-tag gem-tender-lock-tag ms-1" title="${escapeHtml(lockMessage || "Locked")}">Locked${lockMessage ? `: ${escapeHtml(lockMessage)}` : ""}</span>`
+                                : ""
+                        }
                     </td>
                     <td>
                         <span class="gem-tender-tag gem-tender-assignee-tag${assigneeUserId ? "" : " gem-tender-assignee-empty"}">
@@ -763,10 +777,10 @@
 
     function applyFilters() {
         const query = String(appliedFilters.search || "").trim().toLowerCase();
-        const selectedGroups = (appliedFilters.groups || []).map(String);
+        const selectedCategories = (appliedFilters.categories || []).map(String);
         const selectedStages = (appliedFilters.stages || []).map(String);
         const selectedAssignees = (appliedFilters.assignees || []).map(String);
-        const showHiddenStages = !!appliedFilters.showAll;
+        const showLocked = !!appliedFilters.showAll;
         const quantityUptoRaw = String(appliedFilters.quantityUpto ?? "").trim();
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
         const hasQuantityUpto =
@@ -786,27 +800,18 @@
 
         for (const row of rows) {
             const rowStage = String(row.dataset.stage || "new");
-            const isHiddenStage =
-                rowStage === "out_of_scope" ||
-                rowStage === "not_eligible" ||
-                rowStage === "unattended" ||
-                rowStage === "missed";
-            const matchesHiddenStages =
-                showHiddenStages ||
-                selectedStages.includes("out_of_scope") ||
-                selectedStages.includes("not_eligible") ||
-                selectedStages.includes("unattended") ||
-                selectedStages.includes("missed") ||
-                !isHiddenStage;
+            const isLockedRow = row.dataset.locked === "1";
+            // Filed tenders are locked by the backend but stay in the default list.
+            const matchesLocked = showLocked || !isLockedRow || rowStage === "filed";
 
-            const rowGroupId = String(row.dataset.categoryGroupId || "");
-            const rowGroupName = String(row.dataset.categoryGroupName || "")
+            const rowCategoryId = String(row.dataset.tenderCategoryId || "");
+            const rowCategoryName = String(row.dataset.tenderCategoryName || "")
                 .trim()
                 .toLowerCase();
-            const matchesGroup =
-                !selectedGroups.length ||
-                selectedGroups.some((value) =>
-                    value === "none" ? !rowGroupId : rowGroupId === value,
+            const matchesCategory =
+                !selectedCategories.length ||
+                selectedCategories.some((value) =>
+                    value === "none" ? !rowCategoryId : rowCategoryId === value,
                 );
 
             const matchesStage =
@@ -827,8 +832,7 @@
             const matchesSearch =
                 !query ||
                 tenderIdText.includes(query) ||
-                rowGroupName.includes(query) ||
-                rowGroupId === query ||
+                rowCategoryName.includes(query) ||
                 String(row.dataset.id || "") === query;
 
             const matchesColumns = activeColumnFilters.every((filter) => {
@@ -842,8 +846,8 @@
                 !hasQuantityUpto || (rowQuantity > 0 && rowQuantity <= quantityUpto);
 
             const visible =
-                matchesHiddenStages &&
-                matchesGroup &&
+                matchesLocked &&
+                matchesCategory &&
                 matchesStage &&
                 matchesAssignee &&
                 matchesSearch &&
@@ -880,11 +884,9 @@
 
     function normalizeStoredFilters(filters) {
         if (!filters || typeof filters !== "object") return emptyFilters();
-        const groups = Array.isArray(filters.groups)
-            ? filters.groups
-            : filters.groupId != null && filters.groupId !== ""
-              ? [filters.groupId]
-              : [];
+        const categories = Array.isArray(filters.categories)
+            ? filters.categories
+            : [];
         const stages = Array.isArray(filters.stages)
             ? filters.stages
             : filters.stage != null && filters.stage !== ""
@@ -902,7 +904,7 @@
         return {
             from: normalizeDateInput(filters.from, pageFrom),
             to: normalizeDateInput(filters.to, pageTo),
-            groups: groups.map(String).filter(Boolean),
+            categories: categories.map(String).filter(Boolean),
             stages: stages.map(String).filter(Boolean),
             assignees: assignees.map(String).filter(Boolean),
             search: String(filters.search || "").trim(),
@@ -1117,10 +1119,10 @@
             .filter((id) => id >= 1);
         if (!ids.length) return;
 
-        if (["filed", "out_of_scope", "not_eligible"].includes(stage)) {
+        if (stage === "filed") {
             const confirmed = await window.showConfirm({
-                title: "Confirm one-way stage",
-                description: `Set ${ids.length} tender(s) to a one-way stage? Only a super admin can change them afterward.`,
+                title: "Confirm filed stage",
+                description: `Set ${ids.length} tender(s) to Filed? They will be locked and only a super admin can change them afterward.`,
                 choices: [
                     { label: "Cancel", value: false, variant: "outline-secondary" },
                     { label: "Confirm", value: true, variant: "primary" },

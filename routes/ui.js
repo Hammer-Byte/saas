@@ -54,10 +54,9 @@ import { getClauseSubclausesByContractId } from "../db/clause_subclauses.js";
 import { getAllContractAttachments } from "../db/contract_attachments.js";
 import { getContractRequiredAttachmentsByContractId } from "../db/contract_required_attachments.js";
 import { getAllGemCategoryGroups } from "../db/gem_category_groups.js";
-import {
-    getAllGemCategories,
-    getGemCategoriesByGroupId,
-} from "../db/gem_categories.js";
+import { getAllGemCategories } from "../db/gem_categories.js";
+import { getAllGemScanKeywords } from "../db/gem_scan_keywords.js";
+import { getAllGemTenderCategories } from "../db/gem_tender_categories.js";
 import { canUseGemCategories } from "../services/gem_categories.js";
 import {
     getAllGemKeywordTenders,
@@ -78,6 +77,8 @@ import {
     GEM_KEYWORD_TENDER_PIPELINE_STAGES,
     GEM_KEYWORD_TENDER_STAGE_LABELS,
     GEM_KEYWORD_TENDER_TERMINAL_STAGES,
+    GEM_TENDER_LOCK_MESSAGES,
+    GEM_TENDER_SCAN_TYPE_LABELS,
     INQUIRY_FOLLOWUP_DAY_OFFSETS,
     INQUIRY_SOURCE_LABELS,
     INQUIRY_STATE_LABELS,
@@ -916,7 +917,7 @@ export const uiRoutes = new Elysia()
                     title: "GEM Tenders — HammerByte",
                 })),
             )
-            .get("/app/gem-categories", async ({ render, session, redirect, query }) => {
+            .get("/app/gem-categories", async ({ render, session, redirect }) => {
                 if (
                     !canUseGemCategories(session?.authorities, {
                         super_admin: session?.super_admin,
@@ -924,24 +925,14 @@ export const uiRoutes = new Elysia()
                 ) {
                     return redirect("/app/gem-tenders");
                 }
-                const groups = await getAllGemCategoryGroups();
-                const requestedGroupId = Number(query?.group_id || 0);
-                const selectedGroup =
-                    groups.find((group) => Number(group.id) === requestedGroupId) ||
-                    groups[0] ||
-                    null;
-                const categories = selectedGroup
-                    ? await getGemCategoriesByGroupId({ group_id: selectedGroup.id })
-                    : [];
-                const allCategories = await getAllGemCategories();
                 return render(
                     "gem-categories",
                     appPage(session, {
-                        title: "Categories — GEM Tenders — HammerByte",
-                        groups,
-                        selectedGroup,
-                        categories,
-                        allCategories,
+                        title: "Scanner — GEM Tenders — HammerByte",
+                        groups: await getAllGemCategoryGroups(),
+                        categories: await getAllGemCategories(),
+                        scanKeywords: await getAllGemScanKeywords(),
+                        tenderCategories: await getAllGemTenderCategories(),
                         processing: gemTendereProcessing,
                     }),
                 );
@@ -957,6 +948,7 @@ export const uiRoutes = new Elysia()
                 return render("gem-tender-scan-history", appPage(session, {
                     title: "Scan History — GEM Tenders — HammerByte",
                     runs: await getAllGemTenderScanRuns(),
+                    GEM_TENDER_SCAN_TYPE_LABELS,
                 }));
             })
             .get("/app/gem-keyword-tenders", async ({ render, session, query }) => {
@@ -974,7 +966,7 @@ export const uiRoutes = new Elysia()
                     from: rangeFrom,
                     to: rangeTo,
                     userId: session?.id,
-                    categoryGroups: await getAllGemCategoryGroups(),
+                    tenderCategories: await getAllGemTenderCategories(),
                     users: await getAllUsers(),
                     tenders: await getAllGemKeywordTenders({
                         from: rangeFrom,
@@ -1026,6 +1018,7 @@ export const uiRoutes = new Elysia()
                         userId: session?.id,
                         users: await getAllUsers(),
                         categoryGroups: await getAllGemCategoryGroups(),
+                        tenderCategories: await getAllGemTenderCategories(),
                         activities: await getAllGemKeywordTenderActivitiesByTenderId({
                             gem_keyword_tender_id: tender.id,
                         }),
@@ -1039,6 +1032,7 @@ export const uiRoutes = new Elysia()
                         GEM_KEYWORD_TENDER_STAGE_LABELS,
                         GEM_KEYWORD_TENDER_PIPELINE_STAGES,
                         GEM_KEYWORD_TENDER_TERMINAL_STAGES,
+                        GEM_TENDER_LOCK_MESSAGES,
                     }));
                 },
             )

@@ -4,6 +4,7 @@ import { executeSQLQuery } from "../libs/db.js";
 export async function createGemTenderScanRun({
     keyword_count = 0,
     created_by = null,
+    scan_type = "advance_search",
 }) {
     return await executeSQLQuery(
         (sql) => sql`
@@ -11,9 +12,11 @@ export async function createGemTenderScanRun({
                 {
                     keyword_count,
                     created_by,
+                    scan_type: String(scan_type || "advance_search"),
                 },
                 "keyword_count",
                 "created_by",
+                "scan_type",
             )}
         `,
     )

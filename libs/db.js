@@ -523,11 +523,23 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS GEM_CATEGORY_GROUPS (
+        `CREATE TABLE IF NOT EXISTS GEM_TENDER_CATEGORIES (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_gem_category_group_name (name)
+            UNIQUE KEY unique_gem_tender_category_name (name)
+        )`,
+        `CREATE TABLE IF NOT EXISTS GEM_CATEGORY_GROUPS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            tender_category_id INT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_gem_category_group_name (name),
+            CONSTRAINT fk_gem_category_groups_tender_category
+                FOREIGN KEY (tender_category_id)
+                REFERENCES GEM_TENDER_CATEGORIES(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
         )`,
         `CREATE TABLE IF NOT EXISTS GEM_CATEGORIES (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -541,9 +553,23 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
+        `CREATE TABLE IF NOT EXISTS GEM_SCAN_KEYWORDS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            keyword VARCHAR(512) NOT NULL,
+            exact_search TINYINT(1) NOT NULL DEFAULT 0,
+            tender_category_id INT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_gem_scan_keyword (keyword),
+            CONSTRAINT fk_gem_scan_keywords_tender_category
+                FOREIGN KEY (tender_category_id)
+                REFERENCES GEM_TENDER_CATEGORIES(id)
+                ON DELETE RESTRICT
+                ON UPDATE CASCADE
+        )`,
         `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             category_group_id INT NULL,
+            tender_category_id INT NULL,
             tender_id VARCHAR(128) NOT NULL,
             document VARCHAR(512) NULL,
             start_date_time VARCHAR(64) NULL,
@@ -557,8 +583,8 @@ export async function generateDBTables() {
             buyer_phone VARCHAR(64) NULL,
             required_minimum_average_turnover VARCHAR(128) NULL,
             required_past_experice_years VARCHAR(128) NULL,
-            mse_experience_relaxation VARCHAR(32) NULL,
-            mse_turnover_relaxation VARCHAR(32) NULL,
+            mse_experience_relaxation TINYINT(1) NULL,
+            mse_turnover_relaxation TINYINT(1) NULL,
             asked_documents TEXT NULL,
             specification_links TEXT NULL,
             quantity INT NOT NULL DEFAULT 0,
@@ -568,6 +594,8 @@ export async function generateDBTables() {
             filed BOOLEAN NOT NULL DEFAULT FALSE,
             quote TEXT NULL,
             hidden BOOLEAN NOT NULL DEFAULT FALSE,
+            locked TINYINT(1) NOT NULL DEFAULT 0,
+            lock_message VARCHAR(255) NULL,
             stage VARCHAR(64) NOT NULL DEFAULT 'new',
             assignee_user_id INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -575,6 +603,11 @@ export async function generateDBTables() {
             CONSTRAINT fk_gem_keyword_tenders_category_group
                 FOREIGN KEY (category_group_id)
                 REFERENCES GEM_CATEGORY_GROUPS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_gem_keyword_tenders_tender_category
+                FOREIGN KEY (tender_category_id)
+                REFERENCES GEM_TENDER_CATEGORIES(id)
                 ON DELETE SET NULL
                 ON UPDATE CASCADE,
             CONSTRAINT fk_gem_keyword_tenders_assignee
@@ -650,6 +683,7 @@ export async function generateDBTables() {
         `CREATE TABLE IF NOT EXISTS GEM_TENDER_SCAN_RUNS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             status VARCHAR(32) NOT NULL DEFAULT 'running',
+            scan_type VARCHAR(32) NOT NULL DEFAULT 'advance_search',
             keyword_count INT NOT NULL DEFAULT 0,
             tender_count INT NOT NULL DEFAULT 0,
             created_by INT NULL,

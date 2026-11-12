@@ -1,4 +1,5 @@
-import { AUTHORITIES } from "../constants.js";
+import { AUTHORITIES, GEM_TENDER_SCAN_TYPES } from "../constants.js";
+import { getGemTenderCategoryById } from "../db/gem_tender_categories.js";
 import {
     createGemCategory,
     deleteGemCategoryById,
@@ -74,13 +75,30 @@ export async function addGemCategoryGroup({ body, cookie, set }) {
         return { error: "Group name is required" };
     }
 
+    let tenderCategoryId = null;
+    if (body?.tender_category_id != null) {
+        tenderCategoryId = Number(body.tender_category_id);
+        if (!(tenderCategoryId >= 1)) {
+            set.status = 400;
+            return { error: "Invalid HammerByte category" };
+        }
+        const hbCategory = await getGemTenderCategoryById({ id: tenderCategoryId });
+        if (!hbCategory) {
+            set.status = 400;
+            return { error: "HammerByte category not found" };
+        }
+    }
+
     const existing = await getGemCategoryGroupByName({ name });
     if (existing) {
         set.status = 409;
         return { error: "Group already exists" };
     }
 
-    const id = await createGemCategoryGroup({ name });
+    const id = await createGemCategoryGroup({
+        name,
+        tender_category_id: tenderCategoryId,
+    });
     if (!id) {
         set.status = 400;
         return { error: "Failed to create group" };
@@ -108,13 +126,37 @@ export async function updateGemCategoryGroup({ params, body, cookie, set }) {
         return { error: "Group name is required" };
     }
 
+    let tenderCategoryId = existing.tender_category_id
+        ? Number(existing.tender_category_id)
+        : null;
+    if (body?.tender_category_id !== undefined) {
+        if (body.tender_category_id == null) {
+            tenderCategoryId = null;
+        } else {
+            tenderCategoryId = Number(body.tender_category_id);
+            if (!(tenderCategoryId >= 1)) {
+                set.status = 400;
+                return { error: "Invalid HammerByte category" };
+            }
+            const hbCategory = await getGemTenderCategoryById({ id: tenderCategoryId });
+            if (!hbCategory) {
+                set.status = 400;
+                return { error: "HammerByte category not found" };
+            }
+        }
+    }
+
     const duplicate = await getGemCategoryGroupByName({ name });
     if (duplicate && Number(duplicate.id) !== Number(existing.id)) {
         set.status = 409;
         return { error: "Group already exists" };
     }
 
-    await updateGemCategoryGroupById({ id: existing.id, name });
+    await updateGemCategoryGroupById({
+        id: existing.id,
+        name,
+        tender_category_id: tenderCategoryId,
+    });
     const group = await getGemCategoryGroupById({ id: existing.id });
     set.status = 200;
     return { message: "Group updated", group };
@@ -272,15 +314,29 @@ export async function startGemCategoryScan({ body, cookie, set }) {
         return { error: "No valid categories selected", processing: false };
     }
 
+    const missingHb = categories.find(
+        (category) => !(Number(category.tender_category_id) >= 1),
+    );
+    if (missingHb) {
+        set.status = 400;
+        return {
+            error: `Group for “${missingHb.name}” needs a HammerByte category before scanning`,
+            processing: false,
+        };
+    }
+
     const keywords = categories.map((category) => ({
         keyword: category.name,
         exact_search: false,
         category_group_id: Number(category.group_id),
+        tender_category_id: Number(category.tender_category_id),
+        search_mode: "advance_search",
     }));
 
     const runId = await createGemTenderScanRun({
         keyword_count: keywords.length,
         created_by: currentUser.id,
+        scan_type: GEM_TENDER_SCAN_TYPES.ADVANCE_SEARCH,
     });
     if (!runId) {
         set.status = 400;

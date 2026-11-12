@@ -19,254 +19,143 @@
             <p class="text-secondary small mb-1">
                 <a href="/app" class="text-decoration-none">App</a> /
                 <a href="/app/gem-tenders" class="text-decoration-none">GEM Tenders</a> /
-                Categories
+                Scanner
             </p>
-            <h1 class="h3 mb-1">Categories</h1>
+            <h1 class="h3 mb-1">Scanner</h1>
             <p class="text-secondary mb-0">
-                Manage category groups and categories, then scan GeM for selected categories.
+                Scan GeM by keyword (Direct Search) or by category groups (Advance Search), and manage HammerByte categories.
             </p>
         </div>
 
-        <div id="gem-categories-alert" class="alert d-none" role="alert"></div>
+        <div id="gem-scanner-alert" class="alert d-none" role="alert"></div>
 
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-body p-4">
+        <ul class="nav nav-tabs mb-4" id="gem-scanner-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link active"
+                    id="gem-direct-search-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#gem-direct-search-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="gem-direct-search-pane"
+                    aria-selected="true"
+                >
+                    Direct Search
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link"
+                    id="gem-advance-search-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#gem-advance-search-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="gem-advance-search-pane"
+                    aria-selected="false"
+                >
+                    Advance Search
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link"
+                    id="gem-categories-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#gem-categories-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="gem-categories-pane"
+                    aria-selected="false"
+                >
+                    Categories
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <%# Direct Search %>
+            <div class="tab-pane fade show active" id="gem-direct-search-pane" role="tabpanel" aria-labelledby="gem-direct-search-tab" tabindex="0">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+                            <div>
+                                <h2 class="h5 mb-1">Direct Search</h2>
+                                <p class="text-secondary small mb-0">
+                                    Search GeM for each selected keyword. Matched tenders are stored under the keyword's HammerByte category.
+                                </p>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-primary" id="gem-keyword-add-btn">
+                                    + Add keyword
+                                </button>
+                                <button type="button" class="btn btn-success" id="gem-keyword-scan-btn" disabled>
+                                    <%= processing ? 'Scan in progress…' : 'Scan' %>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-check border-bottom pb-2 mb-2" id="gem-keyword-select-all-wrap">
+                            <input class="form-check-input" type="checkbox" id="gem-keyword-select-all" />
+                            <label class="form-check-label fw-semibold" for="gem-keyword-select-all">Select all</label>
+                        </div>
+                        <div id="gem-keywords-list"></div>
+                        <p class="text-secondary mb-0 d-none" id="gem-keywords-empty">
+                            No keywords yet. Add one to start scanning.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <%# Advance Search %>
+            <div class="tab-pane fade" id="gem-advance-search-pane" role="tabpanel" aria-labelledby="gem-advance-search-tab" tabindex="0">
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
                     <div>
-                        <h2 class="h5 mb-1">Scan GeM</h2>
+                        <h2 class="h5 mb-1">Advance Search</h2>
                         <p class="text-secondary small mb-0">
-                            Select groups (all categories in the group) or pick individual categories, then start a scan.
-                            Matched tenders are stored under the category group.
+                            Group GeM categories, pick a HammerByte category for each group, then scan selected categories.
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        class="btn btn-success"
-                        id="gem-category-scan-btn"
-                        disabled
-                    >
-                        <%= processing ? 'Scan in progress…' : 'Start scan' %>
-                    </button>
+                    <button type="button" class="btn btn-outline-primary" id="gem-group-add-btn">+ Add group</button>
                 </div>
-                <% if (!allCategories || !allCategories.length) { %>
-                    <p class="text-secondary mb-0">Add groups and categories below before scanning.</p>
-                <% } else { %>
-                    <div class="row g-3" id="gem-scan-selection">
-                        <%
-                            const categoriesByGroup = {};
-                            (allCategories || []).forEach(function (category) {
-                                const gid = String(category.group_id);
-                                if (!categoriesByGroup[gid]) categoriesByGroup[gid] = [];
-                                categoriesByGroup[gid].push(category);
-                            });
-                        %>
-                        <% (groups || []).forEach(function (group) { %>
-                            <% const groupCats = categoriesByGroup[String(group.id)] || []; %>
-                            <% if (!groupCats.length) return; %>
-                            <div class="col-12 col-md-6 col-xl-4">
-                                <div class="border rounded p-3 h-100 gem-scan-group" data-group-id="<%= group.id %>">
-                                    <div class="form-check mb-2">
-                                        <input
-                                            class="form-check-input gem-scan-group-check"
-                                            type="checkbox"
-                                            id="gem-scan-group-<%= group.id %>"
-                                            value="<%= group.id %>"
-                                            <%= processing ? 'disabled' : '' %>
-                                        />
-                                        <label class="form-check-label fw-semibold" for="gem-scan-group-<%= group.id %>">
-                                            <%= group.name %>
-                                            <span class="text-secondary fw-normal">(<%= groupCats.length %>)</span>
-                                        </label>
-                                    </div>
-                                    <div class="ps-1" style="max-height: 12rem; overflow-y: auto;">
-                                        <% groupCats.forEach(function (category) { %>
-                                            <div class="form-check">
-                                                <input
-                                                    class="form-check-input gem-scan-category-check"
-                                                    type="checkbox"
-                                                    value="<%= category.id %>"
-                                                    id="gem-scan-category-<%= category.id %>"
-                                                    data-group-id="<%= group.id %>"
-                                                    <%= processing ? 'disabled' : '' %>
-                                                />
-                                                <label class="form-check-label small" for="gem-scan-category-<%= category.id %>">
-                                                    <%= category.name %>
-                                                </label>
-                                            </div>
-                                        <% }) %>
-                                    </div>
-                                </div>
-                            </div>
-                        <% }) %>
-                    </div>
-                <% } %>
-            </div>
-        </div>
-
-        <div class="row g-4">
-            <div class="col-12 col-lg-4">
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-body p-4">
-                        <h2 class="h5 mb-3">Category groups</h2>
-                        <form id="gem-group-form" class="row g-2 align-items-end" novalidate>
-                            <input type="hidden" id="gem-group-id" value="" />
-                            <div class="col-12">
-                                <label for="gem-group-name" class="form-label">Group name</label>
-                                <input
-                                    type="text"
-                                    class="form-control"
-                                    id="gem-group-name"
-                                    maxlength="255"
-                                    placeholder="e.g. Desktops"
-                                    required
-                                />
-                            </div>
-                            <div class="col-12 d-flex gap-2">
-                                <button type="submit" class="btn btn-primary" id="gem-group-submit-btn">
-                                    Add group
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary d-none" id="gem-group-cancel-btn">
-                                    Cancel
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <div class="card border-0 shadow-sm">
-                    <div class="list-group list-group-flush" id="gem-groups-list">
-                        <% if (!groups || !groups.length) { %>
-                            <div class="p-4 text-secondary" id="gem-groups-empty">
-                                No groups yet. Add one above.
-                            </div>
-                        <% } %>
-                        <% (groups || []).forEach(function (group) { %>
-                            <% const isSelected = selectedGroup && Number(selectedGroup.id) === Number(group.id); %>
-                            <div
-                                class="list-group-item list-group-item-action gem-group-item <%= isSelected ? 'active' : '' %>"
-                                data-id="<%= group.id %>"
-                                data-name="<%= group.name %>"
-                            >
-                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                    <button
-                                        type="button"
-                                        class="btn btn-link text-decoration-none text-start p-0 flex-grow-1 gem-group-select-btn <%= isSelected ? 'text-white' : '' %>"
-                                    >
-                                        <div class="fw-semibold"><%= group.name %></div>
-                                        <div class="small <%= isSelected ? 'text-white-50' : 'text-secondary' %>">
-                                            <%= Number(group.category_count || 0) %> categories
-                                        </div>
-                                    </button>
-                                    <div class="btn-group btn-group-sm">
-                                        <button
-                                            type="button"
-                                            class="btn <%= isSelected ? 'btn-outline-light' : 'btn-outline-secondary' %> gem-group-edit-btn"
-                                            title="Edit group"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="btn <%= isSelected ? 'btn-outline-light' : 'btn-outline-danger' %> gem-group-delete-btn"
-                                            title="Delete group"
-                                        >
-                                            Del
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        <% }) %>
-                    </div>
+                <div class="row g-3" id="gem-groups-list"></div>
+                <div class="card border-0 shadow-sm d-none" id="gem-groups-empty">
+                    <div class="card-body p-4 text-secondary">No groups yet. Add one to get started.</div>
                 </div>
             </div>
 
-            <div class="col-12 col-lg-8">
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-body p-4">
-                        <h2 class="h5 mb-1">
-                            Categories
-                            <% if (selectedGroup) { %>
-                                <span class="text-secondary fw-normal">in <%= selectedGroup.name %></span>
-                            <% } %>
-                        </h2>
-                        <p class="text-secondary small mb-3">
-                            <% if (selectedGroup) { %>
-                                Add GeM category names under this group.
-                            <% } else { %>
-                                Create a group first, then add categories.
-                            <% } %>
-                        </p>
-                        <form id="gem-category-form" class="row g-2 align-items-end" novalidate>
-                            <input type="hidden" id="gem-category-id" value="" />
-                            <div class="col-md-8">
-                                <label for="gem-category-name" class="form-label">Category name</label>
-                                <input
-                                    type="text"
-                                    class="form-control"
-                                    id="gem-category-name"
-                                    maxlength="512"
-                                    placeholder="e.g. High End Desktop Computer"
-                                    <%= selectedGroup ? '' : 'disabled' %>
-                                    required
-                                />
-                            </div>
-                            <div class="col-md-4 d-flex gap-2">
-                                <button
-                                    type="submit"
-                                    class="btn btn-primary flex-grow-1"
-                                    id="gem-category-submit-btn"
-                                    <%= selectedGroup ? '' : 'disabled' %>
-                                >
-                                    Add category
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary d-none" id="gem-category-cancel-btn">
-                                    Cancel
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
+            <%# Categories %>
+            <div class="tab-pane fade" id="gem-categories-pane" role="tabpanel" aria-labelledby="gem-categories-tab" tabindex="0">
                 <div class="card border-0 shadow-sm">
-                    <div class="card-body p-0">
-                        <div
-                            id="gem-categories-empty"
-                            class="p-4 p-md-5 text-center text-secondary <%= categories && categories.length ? 'd-none' : '' %>"
-                        >
-                            <% if (!selectedGroup) { %>
-                                Select or create a group to manage categories.
-                            <% } else { %>
-                                No categories in this group yet.
-                            <% } %>
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+                            <div>
+                                <h2 class="h5 mb-1">Categories</h2>
+                                <p class="text-secondary small mb-0">
+                                    HammerByte categories used to organise matched tenders from both scan types.
+                                </p>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary" id="gem-tender-category-add-btn">
+                                + Add category
+                            </button>
                         </div>
                         <div
-                            class="table-responsive <%= !categories || !categories.length ? 'd-none' : '' %>"
-                            id="gem-categories-table-wrap"
+                            id="gem-tender-categories-empty"
+                            class="text-secondary d-none"
                         >
+                            No categories yet. Add one to start.
+                        </div>
+                        <div class="table-responsive" id="gem-tender-categories-table-wrap">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
                                         <th scope="col">ID</th>
                                         <th scope="col">Category</th>
-                                        <th scope="col">Actions</th>
+                                        <th scope="col" class="text-end">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody id="gem-categories-tbody">
-                                    <% (categories || []).forEach(function (category) { %>
-                                        <tr data-id="<%= category.id %>" data-name="<%= category.name %>">
-                                            <td><%= category.id %></td>
-                                            <td><%= category.name %></td>
-                                            <td>
-                                                <button type="button" class="btn btn-sm btn-outline-primary gem-category-edit-btn">
-                                                    Edit
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger gem-category-delete-btn">
-                                                    Delete
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    <% }) %>
-                                </tbody>
+                                <tbody id="gem-tender-categories-tbody"></tbody>
                             </table>
                         </div>
                     </div>
@@ -276,11 +165,139 @@
     </div>
 </main>
 
+<div class="modal fade" id="gem-keyword-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" id="gem-keyword-form" novalidate>
+            <div class="modal-header">
+                <h5 class="modal-title" id="gem-keyword-modal-title">Add keyword</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="gem-keyword-form-alert" class="alert alert-danger d-none" role="alert"></div>
+                <input type="hidden" id="gem-keyword-id" value="" />
+                <div class="mb-3">
+                    <label for="gem-keyword-input" class="form-label">Keyword</label>
+                    <input type="text" class="form-control" id="gem-keyword-input" maxlength="512" required />
+                </div>
+                <div class="mb-3">
+                    <label for="gem-keyword-tender-category" class="form-label">HammerByte category</label>
+                    <select class="form-select" id="gem-keyword-tender-category" required></select>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="gem-keyword-exact-search" />
+                    <label class="form-check-label" for="gem-keyword-exact-search">Exact search</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="gem-keyword-submit-btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="gem-group-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" id="gem-group-form" novalidate>
+            <div class="modal-header">
+                <h5 class="modal-title" id="gem-group-modal-title">Add group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="gem-group-form-alert" class="alert alert-danger d-none" role="alert"></div>
+                <input type="hidden" id="gem-group-id" value="" />
+                <div class="mb-3">
+                    <label for="gem-group-name" class="form-label">Group name</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="gem-group-name"
+                        maxlength="255"
+                        placeholder="e.g. Desktops"
+                        required
+                    />
+                </div>
+                <div class="mb-0">
+                    <label for="gem-group-tender-category" class="form-label">HammerByte category</label>
+                    <select class="form-select" id="gem-group-tender-category"></select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="gem-group-submit-btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="gem-category-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" id="gem-category-form" novalidate>
+            <div class="modal-header">
+                <h5 class="modal-title" id="gem-category-modal-title">Add GEM category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="gem-category-form-alert" class="alert alert-danger d-none" role="alert"></div>
+                <input type="hidden" id="gem-category-id" value="" />
+                <input type="hidden" id="gem-category-group-id" value="" />
+                <div class="mb-0">
+                    <label for="gem-category-name" class="form-label">GEM category name</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="gem-category-name"
+                        maxlength="512"
+                        placeholder="e.g. High End Desktop Computer"
+                        required
+                    />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="gem-category-submit-btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="gem-tender-category-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" id="gem-tender-category-form" novalidate>
+            <div class="modal-header">
+                <h5 class="modal-title" id="gem-tender-category-modal-title">Add category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="gem-tender-category-form-alert" class="alert alert-danger d-none" role="alert"></div>
+                <input type="hidden" id="gem-tender-category-id" value="" />
+                <div class="mb-0">
+                    <label for="gem-tender-category-name" class="form-label">Category name</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="gem-tender-category-name"
+                        maxlength="255"
+                        required
+                    />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="gem-tender-category-submit-btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
-    window.__GEM_CATEGORIES_PAGE__ = {
-        selectedGroupId: <%= selectedGroup ? Number(selectedGroup.id) : 'null' %>,
-        processing: <%= processing ? 'true' : 'false' %>,
-    };
+    window.__GEM_CATEGORIES_PAGE__ = <%- JSON.stringify({
+        processing: !!processing,
+        groups: groups || [],
+        categories: categories || [],
+        scanKeywords: scanKeywords || [],
+        tenderCategories: tenderCategories || [],
+    }).replace(/</g, "\\u003c") %>;
 </script>
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>

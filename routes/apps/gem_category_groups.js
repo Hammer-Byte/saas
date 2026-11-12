@@ -21,6 +21,9 @@ export default function (app) {
                     maxLength: 255,
                     error: "Group name is required",
                 }),
+                tender_category_id: t.Optional(
+                    t.Union([t.Numeric({ minimum: 1 }), t.Null()]),
+                ),
             }),
             detail: {
                 tags: ["Gem Category Groups"],
@@ -37,6 +40,9 @@ export default function (app) {
                     maxLength: 255,
                     error: "Group name is required",
                 }),
+                tender_category_id: t.Optional(
+                    t.Union([t.Numeric({ minimum: 1 }), t.Null()]),
+                ),
             }),
             detail: {
                 tags: ["Gem Category Groups"],

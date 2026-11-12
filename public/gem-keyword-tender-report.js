@@ -12,7 +12,20 @@
         return;
     }
 
-    const palette = ["#0d6efd", "#198754", "#ffc107", "#dc3545", "#6f42c1", "#20c997", "#fd7e14"];
+    const palette = [
+        "#0d6efd",
+        "#198754",
+        "#ffc107",
+        "#dc3545",
+        "#6f42c1",
+        "#20c997",
+        "#fd7e14",
+        "#0dcaf0",
+        "#d63384",
+        "#6c757d",
+        "#795548",
+        "#8bc34a",
+    ];
 
     function makeChart(canvasId, type, labels, values, label) {
         const canvas = document.getElementById(canvasId);
@@ -41,7 +54,9 @@
                         data: values || [],
                         backgroundColor:
                             type === "doughnut" || type === "pie"
-                                ? palette
+                                ? (labels || []).map(
+                                      (_, index) => palette[index % palette.length],
+                                  )
                                 : palette[0],
                         borderWidth: 0,
                     },
@@ -93,11 +108,18 @@
         "Activities",
     );
     makeChart(
-        "chart-eligibility",
+        "chart-lock-reasons",
         "doughnut",
-        charts.eligibilityOverall?.labels,
-        charts.eligibilityOverall?.values,
-        "Eligibility",
+        charts.lockReasons?.labels,
+        charts.lockReasons?.values,
+        "Lock reasons",
+    );
+    makeChart(
+        "chart-tender-categories",
+        "doughnut",
+        charts.tenderCategoryMix?.labels,
+        charts.tenderCategoryMix?.values,
+        "Categories",
     );
     makeChart(
         "chart-stages",

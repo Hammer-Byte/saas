@@ -118,10 +118,6 @@ export const GEM_KEYWORD_TENDER_STAGES = {
     WAITING_FOR_QUOTE: "waiting_for_quote",
     PREPARING_DOCS: "preparing_docs",
     FILED: "filed",
-    OUT_OF_SCOPE: "out_of_scope",
-    NOT_ELIGIBLE: "not_eligible",
-    UNATTENDED: "unattended",
-    MISSED: "missed",
 };
 
 export const GEM_KEYWORD_TENDER_STAGE_LABELS = {
@@ -133,10 +129,6 @@ export const GEM_KEYWORD_TENDER_STAGE_LABELS = {
     [GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_QUOTE]: "Waiting for Quote",
     [GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS]: "Preparing Docs",
     [GEM_KEYWORD_TENDER_STAGES.FILED]: "Filed",
-    [GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE]: "Out of scope",
-    [GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE]: "Not eligible",
-    [GEM_KEYWORD_TENDER_STAGES.UNATTENDED]: "Unattended",
-    [GEM_KEYWORD_TENDER_STAGES.MISSED]: "Missed",
 };
 
 /** Happy-path pipeline order for timeline / UI. */
@@ -151,14 +143,28 @@ export const GEM_KEYWORD_TENDER_PIPELINE_STAGES = [
     GEM_KEYWORD_TENDER_STAGES.FILED,
 ];
 
-/** One-way stages: only super admin may change stage after these. */
-export const GEM_KEYWORD_TENDER_TERMINAL_STAGES = [
-    GEM_KEYWORD_TENDER_STAGES.FILED,
-    GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE,
-    GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE,
-    GEM_KEYWORD_TENDER_STAGES.UNATTENDED,
-    GEM_KEYWORD_TENDER_STAGES.MISSED,
-];
+/** Filed is terminal via lock; only super admin may unlock / change after. */
+export const GEM_KEYWORD_TENDER_TERMINAL_STAGES = [GEM_KEYWORD_TENDER_STAGES.FILED];
+
+export const GEM_TENDER_LOCK_MESSAGES = {
+    DUE_DATE_PASSED: "Tender Disabled As Due Date Passed",
+    DEADLINE_MISSED: "Tender's Deadline is Missed",
+    OUT_OF_SCOPE: "Out of scope",
+    NOT_ELIGIBLE: "Not eligible",
+    ALREADY_FILED: "Tender Already Filed",
+};
+
+export const GEM_TENDER_SCAN_TYPES = {
+    DIRECT_SEARCH: "direct_search",
+    ADVANCE_SEARCH: "advance_search",
+    ADHOC: "adhoc",
+};
+
+export const GEM_TENDER_SCAN_TYPE_LABELS = {
+    [GEM_TENDER_SCAN_TYPES.DIRECT_SEARCH]: "Direct Search",
+    [GEM_TENDER_SCAN_TYPES.ADVANCE_SEARCH]: "Advance Search",
+    [GEM_TENDER_SCAN_TYPES.ADHOC]: "Add tender",
+};
 
 export const GEM_KEYWORD_TENDER_ELIGIBILITY = {
     NEED_TO_CHECK: "need_to_check",
@@ -223,7 +229,7 @@ export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_SERVERS: "View Servers monitor page",
     USE_PAGE_TASKS: "View Tasks page",
     USE_PAGE_GEM_TENDERS: "View GEM Tenders page",
-    USE_PAGE_GEM_CATEGORIES: "View and manage GEM category groups, categories, and scan history",
+    USE_PAGE_GEM_CATEGORIES: "View and manage the GEM Scanner (Direct Search, Advance Search, categories) and scan history",
     ASSIGN_GEM_TENDER_ASSIGNEE: "Assign any user as GEM tender assignee",
     MARK_GEM_TENDER_MASS_STAGE_CHANGE: "Bulk change GEM tender stage (comment required)",
     ASSIGN_INQUIRY_ASSIGNEE: "Assign any user as inquiry assignee",

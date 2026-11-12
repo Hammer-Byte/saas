@@ -19,8 +19,15 @@ function serializeSpecificationLinks(specification_links) {
     return JSON.stringify(specification_links);
 }
 
+function asMseFlag(value) {
+    if (value === true || value === 1 || value === "1") return 1;
+    if (value === false || value === 0 || value === "0") return 0;
+    return null;
+}
+
 export async function createGemKeywordTender({
     category_group_id = null,
+    tender_category_id = null,
     tender_id,
     document = null,
     start_date_time = null,
@@ -56,6 +63,10 @@ export async function createGemKeywordTender({
                         category_group_id != null && Number(category_group_id) >= 1
                             ? Number(category_group_id)
                             : null,
+                    tender_category_id:
+                        tender_category_id != null && Number(tender_category_id) >= 1
+                            ? Number(tender_category_id)
+                            : null,
                     tender_id,
                     document,
                     start_date_time: toDbDateTime(start_date_time),
@@ -69,14 +80,15 @@ export async function createGemKeywordTender({
                     buyer_phone,
                     required_minimum_average_turnover,
                     required_past_experice_years,
-                    mse_experience_relaxation,
-                    mse_turnover_relaxation,
+                    mse_experience_relaxation: asMseFlag(mse_experience_relaxation),
+                    mse_turnover_relaxation: asMseFlag(mse_turnover_relaxation),
                     asked_documents,
                     specification_links: serializeSpecificationLinks(specification_links),
                     quantity: safeQuantity,
                     emd_amount: safeEmdAmount,
                 },
                 "category_group_id",
+                "tender_category_id",
                 "tender_id",
                 "document",
                 "start_date_time",
@@ -149,8 +161,8 @@ export async function updateGemKeywordTenderScanDetailsById({
                 buyer_phone = ${buyer_phone},
                 required_minimum_average_turnover = ${required_minimum_average_turnover},
                 required_past_experice_years = ${required_past_experice_years},
-                mse_experience_relaxation = ${mse_experience_relaxation},
-                mse_turnover_relaxation = ${mse_turnover_relaxation},
+                mse_experience_relaxation = ${asMseFlag(mse_experience_relaxation)},
+                mse_turnover_relaxation = ${asMseFlag(mse_turnover_relaxation)},
                 asked_documents = ${asked_documents},
                 specification_links = ${serializeSpecificationLinks(specification_links)},
                 quantity = ${safeQuantity},
@@ -194,11 +206,14 @@ export async function getAllGemKeywordTenders({ from, to }) {
             SELECT
                 GEM_KEYWORD_TENDERS.*,
                 GEM_CATEGORY_GROUPS.name AS category_group_name,
+                GEM_TENDER_CATEGORIES.name AS tender_category_name,
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email
             FROM GEM_KEYWORD_TENDERS
             LEFT JOIN GEM_CATEGORY_GROUPS
                 ON GEM_CATEGORY_GROUPS.id = GEM_KEYWORD_TENDERS.category_group_id
+            LEFT JOIN GEM_TENDER_CATEGORIES
+                ON GEM_TENDER_CATEGORIES.id = GEM_KEYWORD_TENDERS.tender_category_id
             LEFT JOIN USERS
                 ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
             WHERE GEM_KEYWORD_TENDERS.end_date_time IS NOT NULL
@@ -251,11 +266,14 @@ export async function getGemKeywordTenderById({ id }) {
             SELECT
                 GEM_KEYWORD_TENDERS.*,
                 GEM_CATEGORY_GROUPS.name AS category_group_name,
+                GEM_TENDER_CATEGORIES.name AS tender_category_name,
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email
             FROM GEM_KEYWORD_TENDERS
             LEFT JOIN GEM_CATEGORY_GROUPS
                 ON GEM_CATEGORY_GROUPS.id = GEM_KEYWORD_TENDERS.category_group_id
+            LEFT JOIN GEM_TENDER_CATEGORIES
+                ON GEM_TENDER_CATEGORIES.id = GEM_KEYWORD_TENDERS.tender_category_id
             LEFT JOIN USERS
                 ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
             WHERE GEM_KEYWORD_TENDERS.id = ${id}
@@ -277,10 +295,17 @@ export async function updateGemKeywordTenderById({
     stage,
     assignee_user_id = null,
     category_group_id = null,
+    tender_category_id = null,
+    locked = false,
+    lock_message = null,
 }) {
     const nextCategoryGroupId =
         category_group_id != null && Number(category_group_id) >= 1
             ? Number(category_group_id)
+            : null;
+    const nextTenderCategoryId =
+        tender_category_id != null && Number(tender_category_id) >= 1
+            ? Number(tender_category_id)
             : null;
 
     await executeSQLQuery(
@@ -293,7 +318,14 @@ export async function updateGemKeywordTenderById({
                 quote = ${quote},
                 stage = ${stage},
                 assignee_user_id = ${assignee_user_id},
-                category_group_id = ${nextCategoryGroupId}
+                category_group_id = ${nextCategoryGroupId},
+                tender_category_id = ${nextTenderCategoryId},
+                locked = ${locked ? 1 : 0},
+                lock_message = ${
+                    locked && lock_message != null && String(lock_message).trim()
+                        ? String(lock_message).trim()
+                        : null
+                }
             WHERE id = ${id}
         `,
     ).catch((error) => {
@@ -394,8 +426,12 @@ export async function stampGemKeywordTenderEligibilityReminders({ ids, sent_on =
     });
 }
 
-export async function markPastNewUnassignedGemKeywordTendersUnattended({
+/**
+ * Past due + new + unassigned → lock (do not change stage).
+ */
+export async function markPastNewUnassignedGemKeywordTendersLocked({
     as_of_datetime = null,
+    lock_message,
 }) {
     const cutoff = toDbDateTime(as_of_datetime) || getIstDateTime();
     const dueIds = await executeSQLQuery(
@@ -404,6 +440,7 @@ export async function markPastNewUnassignedGemKeywordTendersUnattended({
             FROM GEM_KEYWORD_TENDERS
             WHERE stage = ${GEM_KEYWORD_TENDER_STAGES.NEW}
               AND assignee_user_id IS NULL
+              AND (locked IS NULL OR locked = 0)
               AND end_date_time IS NOT NULL
               AND end_date_time < ${cutoff}
         `,
@@ -414,7 +451,7 @@ export async function markPastNewUnassignedGemKeywordTendersUnattended({
                 .filter((id) => id >= 1),
         )
         .catch((error) => {
-            logger.error(`markPastNewUnassignedGemKeywordTendersUnattended select: ${error}`);
+            logger.error(`markPastNewUnassignedGemKeywordTendersLocked select: ${error}`);
             return [];
         });
 
@@ -426,14 +463,13 @@ export async function markPastNewUnassignedGemKeywordTendersUnattended({
         (sql) => sql`
             UPDATE GEM_KEYWORD_TENDERS
             SET
-                stage = ${GEM_KEYWORD_TENDER_STAGES.UNATTENDED},
-                hidden = TRUE,
-                filed = FALSE,
-                eligible = ${GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK}
+                locked = 1,
+                lock_message = ${String(lock_message || "")},
+                hidden = TRUE
             WHERE id IN ${sql(dueIds)}
         `,
     ).catch((error) => {
-        logger.error(`markPastNewUnassignedGemKeywordTendersUnattended update: ${error}`);
+        logger.error(`markPastNewUnassignedGemKeywordTendersLocked update: ${error}`);
         return 0;
     });
 
@@ -441,10 +477,11 @@ export async function markPastNewUnassignedGemKeywordTendersUnattended({
 }
 
 /**
- * Past deadline + assignee + stage in active pipeline work stages → Missed + hidden.
+ * Past deadline + assignee + active pipeline → lock (do not change stage).
  */
-export async function markPastAssignedGemKeywordTendersMissed({
+export async function markPastAssignedGemKeywordTendersLocked({
     as_of_datetime = null,
+    lock_message,
 }) {
     const cutoff = toDbDateTime(as_of_datetime) || getIstDateTime();
     const dueIds = await executeSQLQuery(
@@ -452,6 +489,7 @@ export async function markPastAssignedGemKeywordTendersMissed({
             SELECT id
             FROM GEM_KEYWORD_TENDERS
             WHERE assignee_user_id IS NOT NULL
+              AND (locked IS NULL OR locked = 0)
               AND (
                     stage = ${GEM_KEYWORD_TENDER_STAGES.ASSIGNED}
                     OR stage = ${GEM_KEYWORD_TENDER_STAGES.ELIGIBLE}
@@ -470,7 +508,7 @@ export async function markPastAssignedGemKeywordTendersMissed({
                 .filter((id) => id >= 1),
         )
         .catch((error) => {
-            logger.error(`markPastAssignedGemKeywordTendersMissed select: ${error}`);
+            logger.error(`markPastAssignedGemKeywordTendersLocked select: ${error}`);
             return [];
         });
 
@@ -482,16 +520,16 @@ export async function markPastAssignedGemKeywordTendersMissed({
         (sql) => sql`
             UPDATE GEM_KEYWORD_TENDERS
             SET
-                stage = ${GEM_KEYWORD_TENDER_STAGES.MISSED},
-                hidden = TRUE,
-                filed = FALSE,
-                eligible = ${GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK}
+                locked = 1,
+                lock_message = ${String(lock_message || "")},
+                hidden = TRUE
             WHERE id IN ${sql(dueIds)}
         `,
     ).catch((error) => {
-        logger.error(`markPastAssignedGemKeywordTendersMissed update: ${error}`);
+        logger.error(`markPastAssignedGemKeywordTendersLocked update: ${error}`);
         return 0;
     });
 
     return dueIds.length;
 }
+

@@ -140,17 +140,14 @@ function emptyAssigneeBucket(key, label) {
         key,
         label,
         assigned_count: 0,
+        locked_count: 0,
         stage_new: 0,
-        stage_out_of_scope: 0,
-        stage_unattended: 0,
-        stage_missed: 0,
         stage_assigned: 0,
         stage_waiting_for_docs: 0,
         stage_waiting_for_gem: 0,
         stage_waiting_for_quote: 0,
         stage_preparing_docs: 0,
         stage_eligible: 0,
-        stage_not_eligible: 0,
         stage_filed: 0,
         untouched: 0,
         activity_count: 0,
@@ -194,9 +191,9 @@ export async function buildGemKeywordTenderReport({ from, to }) {
     }
 
     let unassignedCount = 0;
-    let outOfScopeCount = 0;
-    let unattendedCount = 0;
-    let missedCount = 0;
+    let lockedCount = 0;
+    const lockMessageCounts = new Map();
+    const tenderCategoryCounts = new Map();
     let filedCount = 0;
     let eligibleCount = 0;
     let assignedStageCount = 0;
@@ -204,7 +201,6 @@ export async function buildGemKeywordTenderReport({ from, to }) {
     let waitingForGemCount = 0;
     let waitingForQuoteCount = 0;
     let preparingDocsCount = 0;
-    let notEligibleCount = 0;
     let untouchedAssignedCount = 0;
 
     for (const tender of tenders) {
@@ -227,19 +223,22 @@ export async function buildGemKeywordTenderReport({ from, to }) {
         }
         stageTotals[stage] += 1;
 
+        if (Number(tender.locked)) {
+            bucket.locked_count += 1;
+            lockedCount += 1;
+            const lockMessage = String(tender.lock_message || "").trim() || "Locked (no message)";
+            lockMessageCounts.set(lockMessage, (lockMessageCounts.get(lockMessage) || 0) + 1);
+        }
+
+        const tenderCategoryLabel = tender.tender_category_id
+            ? tender.tender_category_name || `Category #${tender.tender_category_id}`
+            : "Uncategorized";
+        tenderCategoryCounts.set(
+            tenderCategoryLabel,
+            (tenderCategoryCounts.get(tenderCategoryLabel) || 0) + 1,
+        );
+
         if (stage === GEM_KEYWORD_TENDER_STAGES.NEW) bucket.stage_new += 1;
-        if (stage === GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE) {
-            bucket.stage_out_of_scope += 1;
-            outOfScopeCount += 1;
-        }
-        if (stage === GEM_KEYWORD_TENDER_STAGES.UNATTENDED) {
-            bucket.stage_unattended += 1;
-            unattendedCount += 1;
-        }
-        if (stage === GEM_KEYWORD_TENDER_STAGES.MISSED) {
-            bucket.stage_missed += 1;
-            missedCount += 1;
-        }
         if (stage === GEM_KEYWORD_TENDER_STAGES.ASSIGNED) {
             bucket.stage_assigned += 1;
             assignedStageCount += 1;
@@ -263,10 +262,6 @@ export async function buildGemKeywordTenderReport({ from, to }) {
         if (stage === GEM_KEYWORD_TENDER_STAGES.ELIGIBLE) {
             bucket.stage_eligible += 1;
             eligibleCount += 1;
-        }
-        if (stage === GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE) {
-            bucket.stage_not_eligible += 1;
-            notEligibleCount += 1;
         }
         if (stage === GEM_KEYWORD_TENDER_STAGES.FILED) {
             bucket.stage_filed += 1;
@@ -334,6 +329,16 @@ export async function buildGemKeywordTenderReport({ from, to }) {
         label: GEM_KEYWORD_TENDER_STAGE_LABELS[stage] || stage,
         count: Number(count || 0),
     }));
+    const lockMessageList = Array.from(lockMessageCounts.entries())
+        .map(([message, count]) => ({ message, count }))
+        .sort((left, right) => right.count - left.count);
+    const tenderCategoryList = Array.from(tenderCategoryCounts.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((left, right) => {
+            if (left.label === "Uncategorized") return 1;
+            if (right.label === "Uncategorized") return -1;
+            return right.count - left.count;
+        });
     const personWiseAssigned = chartAssignees.map((row) => ({
         label: row.label,
         assigned_count: row.assigned_count,
@@ -344,9 +349,7 @@ export async function buildGemKeywordTenderReport({ from, to }) {
             tenders: tenders.length,
             assigned: tenders.length - unassignedCount,
             unassigned: unassignedCount,
-            hidden: outOfScopeCount,
-            unattended: unattendedCount,
-            missed: missedCount,
+            locked: lockedCount,
             filed: filedCount,
             eligible: eligibleCount,
             need_to_check: assignedStageCount,
@@ -354,12 +357,13 @@ export async function buildGemKeywordTenderReport({ from, to }) {
             waiting_for_gem: waitingForGemCount,
             waiting_for_quote: waitingForQuoteCount,
             preparing_docs: preparingDocsCount,
-            not_eligible: notEligibleCount,
             untouched_assigned: untouchedAssignedCount,
             actors_with_activity: activityRows.length,
         },
         stageEntriesByDay,
         stageTotals: stageTotalsList,
+        lockMessages: lockMessageList,
+        tenderCategories: tenderCategoryList,
         personWiseAssigned,
         assigneeSummary,
         workingSummary,
@@ -373,9 +377,13 @@ export async function buildGemKeywordTenderReport({ from, to }) {
                 labels: chartAssignees.map((row) => row.label),
                 values: chartAssignees.map((row) => row.assigned_count),
             },
-            eligibilityOverall: {
-                labels: ["Assigned (pending)", "Eligible", "Not eligible"],
-                values: [assignedStageCount, eligibleCount, notEligibleCount],
+            lockReasons: {
+                labels: lockMessageList.map((row) => row.message),
+                values: lockMessageList.map((row) => row.count),
+            },
+            tenderCategoryMix: {
+                labels: tenderCategoryList.map((row) => row.label),
+                values: tenderCategoryList.map((row) => row.count),
             },
             stagesOverall: {
                 labels: Object.entries(stageTotals).map(

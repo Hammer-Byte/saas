@@ -3,6 +3,9 @@
     const alertElement = document.getElementById("gem-tender-alert");
     const stageSelect = document.getElementById("gem-tender-stage");
     const categoryGroupSelect = document.getElementById("gem-tender-category-group");
+    const tenderCategorySelect = document.getElementById("gem-tender-category");
+    const unlockButton = document.getElementById("gem-tender-unlock-btn");
+    const lockActionsWrap = document.getElementById("gem-tender-lock-actions");
     const assigneeSelect = document.getElementById("gem-tender-assignee");
     const assignMeButton = document.getElementById("gem-tender-assign-me-btn");
     const assignMeWrap = document.getElementById("gem-tender-assign-me-wrap");
@@ -26,23 +29,8 @@
     const tenderId = Number(detail.dataset.id || 0);
     const currentUserId = Number(detail.dataset.currentUserId || 0);
     const isSuperAdmin = detail.dataset.superAdmin === "1";
-    const QUOTE_DISABLED_STAGES = new Set([
-        "new",
-        "assigned",
-        "out_of_scope",
-        "missed",
-        "unattended",
-        "filed",
-        "not_eligible",
-    ]);
-    const SYSTEM_MANAGED_STAGES = new Set(["unattended", "missed"]);
-    const TERMINAL_STAGES = new Set([
-        "filed",
-        "out_of_scope",
-        "not_eligible",
-        "unattended",
-        "missed",
-    ]);
+    const QUOTE_DISABLED_STAGES = new Set(["new", "assigned", "filed"]);
+    const TERMINAL_STAGES = new Set(["filed"]);
     const ASSIGNEE_REQUIRED_STAGES = [
         "assigned",
         "waiting_for_docs",
@@ -50,11 +38,11 @@
         "waiting_for_quote",
         "preparing_docs",
     ];
-    const ONE_WAY_CONFIRM_STAGES = new Set([
-        "filed",
-        "out_of_scope",
-        "not_eligible",
-    ]);
+    const ONE_WAY_CONFIRM_STAGES = new Set(["filed"]);
+    const LOCK_ACTION_LABELS = {
+        out_of_scope: "Out of scope",
+        not_eligible: "Not eligible",
+    };
 
     function showAlert(message, type) {
         if (!alertElement) return;
@@ -84,6 +72,10 @@
         return detail.dataset.stage || "new";
     }
 
+    function isLocked() {
+        return detail.dataset.locked === "1";
+    }
+
     function isTerminalStage() {
         return (
             detail.dataset.terminalStage === "1" ||
@@ -91,15 +83,20 @@
         );
     }
 
+    /** Locked or filed: only a super admin may change anything. */
+    function isFrozen() {
+        return isLocked() || isTerminalStage();
+    }
+
     function canOperateAssigned() {
         if (isSuperAdmin) return true;
-        if (isTerminalStage()) return false;
+        if (isFrozen()) return false;
         const assigneeUserId = Number(currentAssigneeId() || 0);
         return assigneeUserId >= 1 && assigneeUserId === currentUserId;
     }
 
     function canChangeStage() {
-        if (isTerminalStage()) return isSuperAdmin;
+        if (isFrozen()) return isSuperAdmin;
         const assigneeUserId = Number(currentAssigneeId() || 0);
         if (!(assigneeUserId >= 1)) return false;
         return canOperateAssigned();
@@ -123,14 +120,21 @@
         if (newOption) {
             newOption.disabled = stage !== "new";
         }
-        for (const value of SYSTEM_MANAGED_STAGES) {
-            const option = stageSelect.querySelector(`option[value="${value}"]`);
-            if (option) option.disabled = true;
-        }
     }
 
     function canChangeCategoryGroup() {
         return canOperateAssigned();
+    }
+
+    function canChangeTenderCategory() {
+        return canOperateAssigned();
+    }
+
+    function canLockAction() {
+        if (isFrozen()) return false;
+        if (isSuperAdmin) return true;
+        const assigneeUserId = Number(currentAssigneeId() || 0);
+        return !(assigneeUserId >= 1) || assigneeUserId === currentUserId;
     }
 
     function syncControls() {
@@ -138,18 +142,22 @@
         const quoteEnabled = canEditQuote();
         const stageEnabled = canChangeStage();
         const groupEnabled = canChangeCategoryGroup();
-        const locked = isTerminalStage() && !isSuperAdmin;
+        const locked = isFrozen() && !isSuperAdmin;
 
         if (stageSelect) stageSelect.disabled = !stageEnabled;
         if (categoryGroupSelect) categoryGroupSelect.disabled = !groupEnabled;
+        if (tenderCategorySelect) {
+            tenderCategorySelect.disabled = !canChangeTenderCategory();
+        }
+        lockActionsWrap?.classList.toggle("d-none", !canLockAction());
         if (assigneeSelect) assigneeSelect.disabled = locked;
         if (quoteInput) quoteInput.disabled = !quoteEnabled;
         if (quoteSaveButton) quoteSaveButton.disabled = !quoteEnabled;
         if (assignMeWrap) {
-            assignMeWrap.classList.toggle("d-none", !!assigneeUserId || isTerminalStage());
+            assignMeWrap.classList.toggle("d-none", !!assigneeUserId || isFrozen());
         }
         if (assignMeButton) {
-            assignMeButton.disabled = !!assigneeUserId || isTerminalStage();
+            assignMeButton.disabled = !!assigneeUserId || isFrozen();
         }
         syncAssignedOption();
     }
@@ -177,16 +185,23 @@
             detail.dataset.terminalStage = TERMINAL_STAGES.has(tender.stage)
                 ? "1"
                 : "0";
-            detail.dataset.systemManagedStage = SYSTEM_MANAGED_STAGES.has(
-                tender.stage,
-            )
-                ? "1"
-                : "0";
             if (stageSelect) stageSelect.value = tender.stage;
         }
         if (assigneeSelect && "assignee_user_id" in tender) {
             assigneeSelect.value =
                 tender.assignee_user_id != null ? String(tender.assignee_user_id) : "";
+        }
+        if ("locked" in tender) {
+            detail.dataset.locked = Number(tender.locked) ? "1" : "0";
+        }
+        if ("tender_category_id" in tender) {
+            detail.dataset.tenderCategoryId =
+                tender.tender_category_id != null
+                    ? String(tender.tender_category_id)
+                    : "";
+            if (tenderCategorySelect) {
+                tenderCategorySelect.value = detail.dataset.tenderCategoryId;
+            }
         }
         if ("category_group_id" in tender) {
             detail.dataset.categoryGroupId =
@@ -227,8 +242,8 @@
         const previous = detail.dataset.categoryGroupId || "";
         if (!canChangeCategoryGroup()) {
             showAlert(
-                isTerminalStage() && !isSuperAdmin
-                    ? "Only a super admin can change a one-way stage tender."
+                isFrozen() && !isSuperAdmin
+                    ? "Only a super admin can change a locked tender."
                     : "Only the assignee or a super admin can change the category group.",
                 "danger",
             );
@@ -247,13 +262,84 @@
         if (!ok) categoryGroupSelect.value = previous;
     });
 
+    tenderCategorySelect?.addEventListener("change", async () => {
+        const previous = detail.dataset.tenderCategoryId || "";
+        if (!canChangeTenderCategory()) {
+            showAlert(
+                isFrozen() && !isSuperAdmin
+                    ? "Only a super admin can change a locked tender."
+                    : "Only the assignee or a super admin can change the category.",
+                "danger",
+            );
+            tenderCategorySelect.value = previous;
+            return;
+        }
+        const rawValue = tenderCategorySelect.value;
+        const tender_category_id = rawValue ? Number(rawValue) : null;
+        const ok = await applyPatch({ tender_category_id }, (tender) => {
+            detail.dataset.tenderCategoryId =
+                tender.tender_category_id != null
+                    ? String(tender.tender_category_id)
+                    : "";
+            window.location.reload();
+        });
+        if (!ok) tenderCategorySelect.value = previous;
+    });
+
+    unlockButton?.addEventListener("click", async () => {
+        if (!isSuperAdmin) return;
+        const confirmed = await window.showConfirm({
+            title: "Unlock tender?",
+            description: "This will remove the lock so the tender can be edited again.",
+            choices: [
+                { label: "Cancel", value: false, variant: "outline-secondary" },
+                { label: "Unlock", value: true, variant: "primary" },
+            ],
+        });
+        if (!confirmed) return;
+        unlockButton.disabled = true;
+        const ok = await applyPatch({ locked: false }, () => {
+            window.location.reload();
+        });
+        if (!ok) unlockButton.disabled = false;
+    });
+
+    lockActionsWrap?.addEventListener("click", async (event) => {
+        const actionButton = event.target.closest("[data-lock-action]");
+        if (!actionButton || !canLockAction()) return;
+        const lock_action = actionButton.dataset.lockAction;
+        if (!LOCK_ACTION_LABELS[lock_action]) return;
+
+        const confirmed = await window.showConfirm({
+            title: `Mark as ${LOCK_ACTION_LABELS[lock_action]}?`,
+            description: `This will lock the tender as "${LOCK_ACTION_LABELS[lock_action]}". Only a super admin can unlock it afterward. The stage will not change.`,
+            choices: [
+                { label: "Cancel", value: false, variant: "outline-secondary" },
+                { label: "Confirm", value: true, variant: "danger" },
+            ],
+        });
+        if (!confirmed) return;
+
+        for (const button of lockActionsWrap.querySelectorAll("button")) {
+            button.disabled = true;
+        }
+        const ok = await applyPatch({ lock_action }, () => {
+            window.location.reload();
+        });
+        if (!ok) {
+            for (const button of lockActionsWrap.querySelectorAll("button")) {
+                button.disabled = false;
+            }
+        }
+    });
+
     stageSelect?.addEventListener("change", async () => {
         const previous = detail.dataset.stage || "new";
         const stage = stageSelect.value;
         if (!canChangeStage()) {
             showAlert(
-                isTerminalStage() && !isSuperAdmin
-                    ? "Only a super admin can change a one-way stage tender."
+                isFrozen() && !isSuperAdmin
+                    ? "Only a super admin can change a locked tender."
                     : currentAssigneeId()
                       ? "Only the assignee or a super admin can change stage."
                       : "Assign someone before changing stage.",
@@ -267,14 +353,6 @@
             stageSelect.value = previous;
             return;
         }
-        if (SYSTEM_MANAGED_STAGES.has(stage)) {
-            showAlert(
-                "Unattended and Missed are set automatically and cannot be selected manually.",
-                "danger",
-            );
-            stageSelect.value = previous;
-            return;
-        }
         if (ASSIGNEE_REQUIRED_STAGES.includes(stage) && !currentAssigneeId()) {
             showAlert("Assign someone before selecting this stage.", "danger");
             stageSelect.value = previous;
@@ -284,7 +362,7 @@
             const confirmed = await window.showConfirm({
                 title: "Confirm one-way stage",
                 description:
-                    "This stage is one-way. After you save it, only a super admin can change the stage again. Continue?",
+                    "Filing locks the tender. After you save it, only a super admin can change it again. Continue?",
                 choices: [
                     { label: "Cancel", value: false, variant: "outline-secondary" },
                     { label: "Confirm", value: true, variant: "primary" },

@@ -1,63 +1,45 @@
 import { logger } from "@hammerbyte/utils";
+import { GEM_TENDER_LOCK_MESSAGES } from "../constants.js";
 import {
-    markPastAssignedGemKeywordTendersMissed,
-    markPastNewUnassignedGemKeywordTendersUnattended,
+    markPastAssignedGemKeywordTendersLocked,
+    markPastNewUnassignedGemKeywordTendersLocked,
 } from "../db/gem_keyword_tenders.js";
 import { getIstDateTime } from "./date.js";
 
-// One cycle every hour: mark both Unattended and Missed.
+// One cycle every hour: lock past-due new/unassigned and assigned pipeline tenders.
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
-const RUN_EVERY_MS = 60 * 60 * 1000;
 
-let lastRunAt = 0;
-
-export async function checkGemTenderDeadlineStages() {
+async function runUnattendedCycle() {
+    const asOf = getIstDateTime();
     try {
-        const now = Date.now();
-        if (lastRunAt && now - lastRunAt < RUN_EVERY_MS) {
-            return;
-        }
-
-        const asOf = getIstDateTime();
-        const unattended = await markPastNewUnassignedGemKeywordTendersUnattended({
+        const dueDatePassed = await markPastNewUnassignedGemKeywordTendersLocked({
             as_of_datetime: asOf,
+            lock_message: GEM_TENDER_LOCK_MESSAGES.DUE_DATE_PASSED,
         });
-        const missed = await markPastAssignedGemKeywordTendersMissed({
+        const deadlineMissed = await markPastAssignedGemKeywordTendersLocked({
             as_of_datetime: asOf,
+            lock_message: GEM_TENDER_LOCK_MESSAGES.DEADLINE_MISSED,
         });
-        lastRunAt = now;
-
-        if (unattended > 0) {
+        if (dueDatePassed || deadlineMissed) {
             logger.info(
-                `gem tender unattended: marked ${unattended} New/unassigned tender(s) past end (${asOf})`,
+                `gem tender lock watcher: due_date_passed=${dueDatePassed} deadline_missed=${deadlineMissed}`,
             );
-        } else {
-            logger.info(`gem tender unattended: no tenders to mark (${asOf})`);
-        }
-
-        if (missed > 0) {
-            logger.info(
-                `gem tender missed: marked ${missed} assigned tender(s) past end (${asOf})`,
-            );
-        } else {
-            logger.info(`gem tender missed: no tenders to mark (${asOf})`);
         }
     } catch (error) {
-        logger.error(`checkGemTenderDeadlineStages: ${error}`);
+        logger.error(`gem tender lock watcher cycle: ${error}`);
     }
 }
 
-/** @deprecated use checkGemTenderDeadlineStages */
 export async function checkGemTenderUnattended() {
-    return checkGemTenderDeadlineStages();
+    await runUnattendedCycle();
 }
 
 export function startGemTenderUnattendedWatcher() {
-    checkGemTenderDeadlineStages().catch((error) => {
+    runUnattendedCycle().catch((error) => {
         logger.error(`startGemTenderUnattendedWatcher initial: ${error}`);
     });
     setInterval(() => {
-        checkGemTenderDeadlineStages().catch((error) => {
+        runUnattendedCycle().catch((error) => {
             logger.error(`startGemTenderUnattendedWatcher tick: ${error}`);
         });
     }, CHECK_INTERVAL_MS);

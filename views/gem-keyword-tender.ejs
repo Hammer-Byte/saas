@@ -10,11 +10,12 @@
     const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
     const stageValues = Object.keys(stageLabels);
     const currentStage = tender.stage || "new";
-    const systemManagedStages = new Set(["unattended", "missed"]);
+    const isLocked = !!Number(tender.locked);
+    const lockMessage = tender.lock_message || "";
     const terminalStages = new Set(
         Array.isArray(GEM_KEYWORD_TENDER_TERMINAL_STAGES)
             ? GEM_KEYWORD_TENDER_TERMINAL_STAGES
-            : ["filed", "out_of_scope", "not_eligible", "unattended", "missed"],
+            : ["filed"],
     );
     const pipelineStages = Array.isArray(GEM_KEYWORD_TENDER_PIPELINE_STAGES)
         ? GEM_KEYWORD_TENDER_PIPELINE_STAGES
@@ -35,30 +36,31 @@
         "waiting_for_quote",
         "preparing_docs",
     ];
-    const isSystemManagedStage = systemManagedStages.has(currentStage);
     const isTerminalStage = terminalStages.has(currentStage);
-    const quoteDisabledStages = new Set([
-        "new",
-        "assigned",
-        "out_of_scope",
-        "missed",
-        "unattended",
-        "filed",
-        "not_eligible",
-    ]);
+    // Locked or one-way (filed): only a super admin may change anything.
+    const isFrozen = isLocked || isTerminalStage;
+    const quoteDisabledStages = new Set(["new", "assigned", "filed"]);
     const quoteStageEnabled = !quoteDisabledStages.has(currentStage);
-    const canOperateAssigned = isTerminalStage
+    const canOperateAssigned = isFrozen
         ? isSuperAdmin
         : isSuperAdmin || (assigneeUserId && assigneeUserId === currentUserId);
-    const canChangeStage = isTerminalStage
+    const canChangeStage = isFrozen
         ? isSuperAdmin
         : !!assigneeUserId && canOperateAssigned;
     const canEditQuote = quoteStageEnabled && canOperateAssigned;
-    const canManageDocs = !!canManageDocuments;
-    const canUseComments = !isTerminalStage || isSuperAdmin;
-    const selectableStageValues = stageValues.filter(function (stage) {
-        return !systemManagedStages.has(stage) || stage === currentStage;
+    const canManageDocs = !!canManageDocuments && (!isLocked || isSuperAdmin);
+    const canUseComments = !isFrozen || isSuperAdmin;
+    const canLockAction =
+        !isFrozen &&
+        (isSuperAdmin || !assigneeUserId || assigneeUserId === currentUserId);
+    const selectableStageValues = pipelineStages.filter(function (stage) {
+        return stageLabels[stage];
     });
+    const mseDisplay = function (value) {
+        if (value === true || value === 1 || value === "1") return "Yes";
+        if (value === false || value === 0 || value === "0") return "No";
+        return "-";
+    };
 
     const labelToStage = {};
     Object.keys(stageLabels).forEach(function (stage) {
@@ -86,11 +88,6 @@
         });
         pipelineCurrentIndex = farthest;
     }
-    const showSideBranch =
-        currentStage === "missed" ||
-        currentStage === "out_of_scope" ||
-        currentStage === "not_eligible" ||
-        currentStage === "unattended";
 
     let specificationLinks = [];
     if (tender.specification_links) {
@@ -141,7 +138,10 @@
                     <% } %>
                 </h1>
                 <p class="text-secondary mb-0">
-                    Group: <%= tender.category_group_name || "-" %>
+                    Category: <%= tender.tender_category_name || "-" %>
+                    <% if (tender.category_group_name) { %>
+                        · Group: <%= tender.category_group_name %>
+                    <% } %>
                 </p>
             </div>
         </div>
@@ -160,18 +160,33 @@
             data-super-admin="<%= isSuperAdmin ? '1' : '0' %>"
             data-can-assign-others="<%= canAssignOthers ? '1' : '0' %>"
             data-can-manage-documents="<%= canManageDocs ? '1' : '0' %>"
-            data-system-managed-stage="<%= isSystemManagedStage ? '1' : '0' %>"
+            data-tender-category-id="<%= tender.tender_category_id != null ? tender.tender_category_id : '' %>"
+            data-locked="<%= isLocked ? '1' : '0' %>"
             data-terminal-stage="<%= isTerminalStage ? '1' : '0' %>"
         >
             <div class="card-body p-4">
-                <% if (isTerminalStage) { %>
+                <% if (isLocked) { %>
+                    <div
+                        class="alert alert-danger py-2 d-flex flex-wrap justify-content-between align-items-center gap-2"
+                        role="status"
+                        id="gem-tender-lock-banner"
+                    >
+                        <span>
+                            <strong>Locked</strong><%= lockMessage ? ": " + lockMessage : "" %>.
+                            <%= isSuperAdmin
+                                ? "Only a super admin can change it."
+                                : "Details are locked; only a super admin can change them." %>
+                        </span>
+                        <% if (isSuperAdmin) { %>
+                            <button type="button" class="btn btn-sm btn-outline-danger" id="gem-tender-unlock-btn">
+                                Unlock
+                            </button>
+                        <% } %>
+                    </div>
+                <% } else if (isTerminalStage) { %>
                     <div class="alert alert-secondary py-2" role="status">
                         This tender is <strong><%= stageLabels[currentStage] || currentStage %></strong>
-                        <% if (isSystemManagedStage) { %>
-                            (set automatically).
-                        <% } else { %>
-                            (one-way stage).
-                        <% } %>
+                        (one-way stage).
                         <%= isSuperAdmin
                             ? "Only a super admin can change it."
                             : "Details are locked; only a super admin can change them." %>
@@ -186,8 +201,7 @@
                                 let nodeState = "future";
                                 if (pipelineCurrentIndex >= 0) {
                                     if (index < pipelineCurrentIndex) nodeState = "done";
-                                    else if (index === pipelineCurrentIndex && !showSideBranch) nodeState = "current";
-                                    else if (index === pipelineCurrentIndex && showSideBranch) nodeState = "done";
+                                    else if (index === pipelineCurrentIndex) nodeState = "current";
                                     else nodeState = "future";
                                 } else if (reachedAt) {
                                     nodeState = "done";
@@ -214,24 +228,28 @@
                             </div>
                         <% }) %>
                     </div>
-                    <% if (showSideBranch) { %>
-                        <div class="gem-tender-timeline-branch mt-3">
-                            <span class="gem-tender-timeline-branch-badge gem-tender-stage-<%= currentStage %>">
-                                <%= stageLabels[currentStage] || currentStage %>
-                            </span>
-                            <% if (stageReachedAt[currentStage]) { %>
-                                <span
-                                    class="gem-tender-timeline-time ms-2"
-                                    data-readable-date="<%= stageReachedAt[currentStage] %>"
-                                    data-date-format="DD/MM/YYYY HH:mm"
-                                ></span>
-                            <% } %>
-                        </div>
-                    <% } %>
                 </div>
 
                 <div class="row g-3 mb-2 align-items-end">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <label for="gem-tender-category" class="form-label">Category</label>
+                        <select
+                            class="form-select"
+                            id="gem-tender-category"
+                            <%= !canOperateAssigned ? "disabled" : "" %>
+                        >
+                            <option value="">No category</option>
+                            <% (tenderCategories || []).forEach(function (category) { %>
+                                <option
+                                    value="<%= category.id %>"
+                                    <%= Number(tender.tender_category_id) === Number(category.id) ? 'selected' : '' %>
+                                >
+                                    <%= category.name %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label for="gem-tender-category-group" class="form-label">Group</label>
                         <select
                             class="form-select"
@@ -249,7 +267,7 @@
                             <% }) %>
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="gem-tender-stage" class="form-label">Stage</label>
                         <select
                             class="form-select"
@@ -262,20 +280,19 @@
                                     <%= currentStage === stage ? 'selected' : '' %>
                                     <%= assigneeRequiredStages.includes(stage) && !assigneeUserId ? 'disabled' : '' %>
                                     <%= stage === 'new' && currentStage !== 'new' ? 'disabled' : '' %>
-                                    <%= systemManagedStages.has(stage) ? 'disabled' : '' %>
                                 >
                                     <%= stageLabels[stage] %>
                                 </option>
                             <% }) %>
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="gem-tender-assignee" class="form-label">Assignee</label>
-                        <% if (canAssignOthers && (!isTerminalStage || isSuperAdmin)) { %>
+                        <% if (canAssignOthers && (!isFrozen || isSuperAdmin)) { %>
                             <select
                                 class="form-select"
                                 id="gem-tender-assignee"
-                                <%= isTerminalStage && !isSuperAdmin ? "disabled" : "" %>
+                                <%= isFrozen && !isSuperAdmin ? "disabled" : "" %>
                             >
                                 <option value="">Unassigned</option>
                                 <% (users || []).forEach(function (user) { %>
@@ -297,27 +314,40 @@
                         <% } %>
                     </div>
                     <div
-                        class="col-md-12 <%= (!assigneeUserId && !isTerminalStage) ? '' : 'd-none' %>"
+                        class="col-md-12 <%= (!assigneeUserId && !isFrozen) ? '' : 'd-none' %>"
                         id="gem-tender-assign-me-wrap"
                     >
                         <button
                             type="button"
                             class="btn btn-outline-primary w-100"
                             id="gem-tender-assign-me-btn"
-                            <%= (!assigneeUserId && !isTerminalStage) ? '' : 'disabled' %>
+                            <%= (!assigneeUserId && !isFrozen) ? '' : 'disabled' %>
                         >
                             Assign to me
                         </button>
                     </div>
                 </div>
-                <% if (isTerminalStage && !isSuperAdmin) { %>
-                    <p class="form-text mb-3">Only a super admin can change a one-way stage tender.</p>
-                <% } else if (!assigneeUserId && !isTerminalStage) { %>
+                <% if (isFrozen && !isSuperAdmin) { %>
+                    <p class="form-text mb-3">
+                        Only a super admin can change a <%= isLocked ? "locked" : "one-way stage" %> tender.
+                    </p>
+                <% } else if (!assigneeUserId && !isFrozen) { %>
                     <p class="form-text mb-3">Assign someone before changing stage.</p>
                 <% } else if (assigneeUserId && !canChangeStage) { %>
                     <p class="form-text mb-3">Only the assignee or a super admin can change stage.</p>
                 <% } else { %>
                     <div class="mb-3"></div>
+                <% } %>
+
+                <% if (canLockAction) { %>
+                    <div class="d-flex flex-wrap gap-2 mb-3" id="gem-tender-lock-actions">
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-lock-action="out_of_scope">
+                            Mark out of scope
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-lock-action="not_eligible">
+                            Mark not eligible
+                        </button>
+                    </div>
                 <% } %>
 
                 <div class="row g-3 small">
@@ -334,8 +364,8 @@
                     <div class="col-md-4"><strong>Office</strong><br /><%= tender.office || "-" %></div>
                     <div class="col-md-4"><strong>Required Minimum Average Turnover</strong><br /><%= tender.required_minimum_average_turnover || "-" %></div>
                     <div class="col-md-4"><strong>Required Past Experience Years</strong><br /><%= tender.required_past_experice_years || "-" %></div>
-                    <div class="col-md-4"><strong>Experience Relaxation</strong><br /><%= tender.mse_experience_relaxation || "-" %></div>
-                    <div class="col-md-4"><strong>Turnover Relaxation</strong><br /><%= tender.mse_turnover_relaxation || "-" %></div>
+                    <div class="col-md-4"><strong>Experience Relaxation</strong><br /><%= mseDisplay(tender.mse_experience_relaxation) %></div>
+                    <div class="col-md-4"><strong>Turnover Relaxation</strong><br /><%= mseDisplay(tender.mse_turnover_relaxation) %></div>
                     <div class="col-md-4"><strong>Quantity</strong><br /><%= Number(tender.quantity || 0) > 0 ? Number(tender.quantity) : "NA" %></div>
                     <div class="col-md-4">
                         <strong>EMD amount</strong><br />
@@ -463,7 +493,7 @@
                 </form>
                 <% } else { %>
                     <p class="text-secondary small mb-4">
-                        Comments are locked on Unattended / Missed tenders (super admin only).
+                        Comments are locked on locked / filed tenders (super admin only).
                     </p>
                 <% } %>
 
@@ -811,25 +841,6 @@
     }
     .gem-tender-timeline-node-current .gem-tender-timeline-label {
         color: #0a58ca;
-    }
-    .gem-tender-timeline-branch-badge {
-        display: inline-block;
-        padding: 0.2rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        background: #e9ecef;
-        color: #495057;
-    }
-    .gem-tender-timeline-branch-badge.gem-tender-stage-missed,
-    .gem-tender-timeline-branch-badge.gem-tender-stage-unattended {
-        background: #fff3cd;
-        color: #7a5b00;
-    }
-    .gem-tender-timeline-branch-badge.gem-tender-stage-out_of_scope,
-    .gem-tender-timeline-branch-badge.gem-tender-stage-not_eligible {
-        background: #f8d7da;
-        color: #842029;
     }
 </style>
 

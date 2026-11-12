@@ -23,9 +23,9 @@
                     History
                 </p>
                 <h1 class="h3 mb-1">Scan History</h1>
-                <p class="text-secondary mb-0">Past GEM tender scan runs, category counts, and new tenders stored.</p>
+                <p class="text-secondary mb-0">Past GEM tender scan runs by type, items scanned, and new tenders stored.</p>
             </div>
-            <a href="/app/gem-categories" class="btn btn-outline-primary">Categories</a>
+            <a href="/app/gem-categories" class="btn btn-outline-primary">Scanner</a>
         </div>
 
         <div class="card border-0 shadow-sm">
@@ -38,9 +38,10 @@
                             <thead class="table-light">
                                 <tr>
                                     <th scope="col">ID</th>
+                                    <th scope="col">Type</th>
                                     <th scope="col">Status</th>
                                     <th scope="col">Started by</th>
-                                    <th scope="col">Categories</th>
+                                    <th scope="col">Scanned</th>
                                     <th scope="col">New tenders</th>
                                     <th scope="col">Started</th>
                                     <th scope="col">Finished</th>
@@ -51,6 +52,7 @@
                                 <% runs.forEach(function (run) { %>
                                     <tr>
                                         <td><%= run.id %></td>
+                                        <td><%= (GEM_TENDER_SCAN_TYPE_LABELS || {})[run.scan_type] || run.scan_type || "—" %></td>
                                         <td><%= run.status %></td>
                                         <td><%= run.created_by_name || run.created_by_email || "—" %></td>
                                         <td><%= Number(run.keyword_count || 0) %></td>

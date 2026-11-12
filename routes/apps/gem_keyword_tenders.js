@@ -16,10 +16,6 @@ const gemKeywordTenderStageLiteral = t.Union([
     t.Literal(GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_QUOTE),
     t.Literal(GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS),
     t.Literal(GEM_KEYWORD_TENDER_STAGES.FILED),
-    t.Literal(GEM_KEYWORD_TENDER_STAGES.OUT_OF_SCOPE),
-    t.Literal(GEM_KEYWORD_TENDER_STAGES.NOT_ELIGIBLE),
-    t.Literal(GEM_KEYWORD_TENDER_STAGES.UNATTENDED),
-    t.Literal(GEM_KEYWORD_TENDER_STAGES.MISSED),
 ]);
 
 export default function (app) {
@@ -72,6 +68,13 @@ export default function (app) {
                 assign_to_me: t.Optional(t.Boolean()),
                 category_group_id: t.Optional(
                     t.Union([t.Numeric({ minimum: 1 }), t.Null()]),
+                ),
+                tender_category_id: t.Optional(
+                    t.Union([t.Numeric({ minimum: 1 }), t.Null()]),
+                ),
+                locked: t.Optional(t.Boolean()),
+                lock_action: t.Optional(
+                    t.Union([t.Literal("out_of_scope"), t.Literal("not_eligible")]),
                 ),
             }),
             detail: {

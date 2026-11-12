@@ -3,6 +3,11 @@
 <%
     const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
     const stageValues = Object.keys(stageLabels);
+    const mseDisplay = function (value) {
+        if (value === true || value === 1 || value === "1") return "Yes";
+        if (value === false || value === 0 || value === "0") return "No";
+        return "-";
+    };
     const canAssignOthers = (authorities || []).includes(AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE);
     const canBulkChangeStage = (authorities || []).includes(AUTHORITIES.MARK_GEM_TENDER_MASS_STAGE_CHANGE);
     const currentUserId = Number(userId || 0);
@@ -148,9 +153,7 @@
                             <select class="form-select form-select-sm" id="gem-bulk-stage">
                                 <option value="">Choose stage…</option>
                                 <% stageValues.forEach(function (stage) { %>
-                                    <% if (stage !== "unattended" && stage !== "missed") { %>
-                                        <option value="<%= stage %>"><%= stageLabels[stage] || stage %></option>
-                                    <% } %>
+                                    <option value="<%= stage %>"><%= stageLabels[stage] || stage %></option>
                                 <% }) %>
                             </select>
                         </div>
@@ -246,9 +249,9 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <span class="form-label d-block">Group</span>
+                        <span class="form-label d-block">Category</span>
                         <div class="d-flex gap-1 align-items-stretch">
-                            <div class="dropdown gem-multi-filter flex-grow-1" id="gem-filter-group" data-empty-label="All groups">
+                            <div class="dropdown gem-multi-filter flex-grow-1" id="gem-filter-category" data-empty-label="All categories">
                                 <button
                                     class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
                                     type="button"
@@ -257,7 +260,7 @@
                                     data-bs-display="static"
                                     aria-expanded="false"
                                 >
-                                    <span class="gem-multi-filter-label">All groups</span>
+                                    <span class="gem-multi-filter-label">All categories</span>
                                 </button>
                                 <div class="dropdown-menu gem-multi-filter-menu p-2 shadow">
                                     <div class="form-check">
@@ -265,27 +268,27 @@
                                             class="form-check-input gem-multi-filter-option"
                                             type="checkbox"
                                             value="none"
-                                            id="gem-filter-group-none"
-                                            data-label="No group"
+                                            id="gem-filter-category-none"
+                                            data-label="No category"
                                         />
-                                        <label class="form-check-label" for="gem-filter-group-none">
-                                            No group
+                                        <label class="form-check-label" for="gem-filter-category-none">
+                                            No category
                                         </label>
                                     </div>
-                                    <% if ((categoryGroups || []).length) { %>
+                                    <% if ((tenderCategories || []).length) { %>
                                         <hr class="dropdown-divider my-2" />
                                     <% } %>
-                                    <% (categoryGroups || []).forEach(function (group) { %>
+                                    <% (tenderCategories || []).forEach(function (category) { %>
                                         <div class="form-check">
                                             <input
                                                 class="form-check-input gem-multi-filter-option"
                                                 type="checkbox"
-                                                value="<%= group.id %>"
-                                                id="gem-filter-group-<%= group.id %>"
-                                                data-label="<%= group.name %>"
+                                                value="<%= category.id %>"
+                                                id="gem-filter-category-<%= category.id %>"
+                                                data-label="<%= category.name %>"
                                             />
-                                            <label class="form-check-label" for="gem-filter-group-<%= group.id %>">
-                                                <%= group.name %>
+                                            <label class="form-check-label" for="gem-filter-category-<%= category.id %>">
+                                                <%= category.name %>
                                             </label>
                                         </div>
                                     <% }) %>
@@ -294,9 +297,9 @@
                             <button
                                 type="button"
                                 class="btn btn-outline-secondary btn-sm gem-filter-clear-btn gem-filter-clear-x"
-                                data-clear-multi="gem-filter-group"
-                                title="Clear group"
-                                aria-label="Clear group"
+                                data-clear-multi="gem-filter-category"
+                                title="Clear category"
+                                aria-label="Clear category"
                             >×</button>
                         </div>
                     </div>
@@ -499,7 +502,7 @@
                                 id="gem-filter-show-all"
                             />
                             <label class="form-check-label small" for="gem-filter-show-all">
-                                Show out of scope / not eligible / unattended / missed
+                                Show locked
                             </label>
                         </div>
                     </div>
@@ -564,7 +567,7 @@
                                 >
                                     Ends at <span class="gem-tenders-sort-indicator" aria-hidden="true"></span>
                                 </th>
-                                <th scope="col">Group</th>
+                                <th scope="col">Category</th>
                                 <th scope="col" class="gem-tenders-buyer-col">Buyer</th>
                                 <th
                                     scope="col"
@@ -599,16 +602,18 @@
                                         const buyerText = buyerParts.length ? buyerParts.join(" / ") : "-";
                                         const assigneeName = tender.assignee_full_name || "-";
                                         const stageLabel = stageLabels[stage] || stage || "New";
+                                        const isLocked = !!Number(tender.locked);
                                     %>
                                     <tr
                                         data-id="<%= tender.id %>"
-                                        data-category-group-id="<%= tender.category_group_id != null ? tender.category_group_id : '' %>"
-                                        data-category-group-name="<%= tender.category_group_name || '' %>"
+                                        data-tender-category-id="<%= tender.tender_category_id != null ? tender.tender_category_id : '' %>"
+                                        data-tender-category-name="<%= tender.tender_category_name || '' %>"
+                                        data-locked="<%= isLocked ? '1' : '0' %>"
                                         data-assignee-user-id="<%= tender.assignee_user_id != null ? tender.assignee_user_id : '' %>"
                                         data-stage="<%= stage %>"
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"
-                                        data-mse-exp="<%= tender.mse_experience_relaxation || '' %>"
-                                        data-mse-turnover="<%= tender.mse_turnover_relaxation || '' %>"
+                                        data-mse-exp="<%= mseDisplay(tender.mse_experience_relaxation) === '-' ? '' : mseDisplay(tender.mse_experience_relaxation) %>"
+                                        data-mse-turnover="<%= mseDisplay(tender.mse_turnover_relaxation) === '-' ? '' : mseDisplay(tender.mse_turnover_relaxation) %>"
                                         data-quantity="<%= Number(tender.quantity || 0) %>"
                                         data-end-at="<%= tender.end_date_time || '' %>"
                                     >
@@ -634,7 +639,7 @@
                                         data-readable-date="<%= tender.end_date_time || '' %>"
                                         data-date-format="DD/MM/YYYY HH:mm:ss"
                                     ></td>
-                                    <td><%= tender.category_group_name || "-" %></td>
+                                    <td><%= tender.tender_category_name || "-" %></td>
                                     <td class="gem-tenders-buyer-col">
                                         <span class="gem-tenders-buyer-text" title="<%= buyerText %>">
                                             <%= buyerText %>
@@ -647,12 +652,20 @@
                                             : "NA" %>
                                     </td>
                                     <td><%= tender.required_past_experice_years || "-" %></td>
-                                    <td><%= tender.mse_experience_relaxation || "-" %></td>
-                                    <td><%= tender.mse_turnover_relaxation || "-" %></td>
+                                    <td><%= mseDisplay(tender.mse_experience_relaxation) %></td>
+                                    <td><%= mseDisplay(tender.mse_turnover_relaxation) %></td>
                                     <td>
                                         <span class="gem-tender-tag gem-tender-stage-tag gem-tender-stage-<%= stage %>">
                                             <%= stageLabel %>
                                         </span>
+                                        <% if (isLocked) { %>
+                                            <span
+                                                class="gem-tender-tag gem-tender-lock-tag ms-1"
+                                                title="<%= tender.lock_message || 'Locked' %>"
+                                            >
+                                                Locked<%= tender.lock_message ? ': ' + tender.lock_message : '' %>
+                                            </span>
+                                        <% } %>
                                     </td>
                                     <td>
                                         <span class="gem-tender-tag gem-tender-assignee-tag<%= tender.assignee_user_id ? '' : ' gem-tender-assignee-empty' %>">
@@ -868,22 +881,16 @@
         background: #dcfce7;
         border-color: #86efac;
     }
-    .gem-tender-stage-not_eligible {
+    .gem-tender-lock-tag {
         color: #7f1d1d;
         background: #fee2e2;
         border-color: #fca5a5;
+        white-space: normal;
     }
     .gem-tender-stage-filed {
         color: #312e81;
         background: #e0e7ff;
         border-color: #a5b4fc;
-    }
-    .gem-tender-stage-out_of_scope,
-    .gem-tender-stage-unattended,
-    .gem-tender-stage-missed {
-        color: #374151;
-        background: #f3f4f6;
-        border-color: #d1d5db;
     }
     .gem-tender-assignee-tag {
         color: #5b21b6;
@@ -944,7 +951,7 @@
                 </div>
                 <div class="modal-body">
                     <p class="text-secondary small">
-                        Enter one GeM category name or Bid/RA number per line. Matching tenders will be scanned and added. No category group is assigned automatically — set it on the tender detail page if needed.
+                        Enter one GeM category name or Bid/RA number per line. Matching tenders will be scanned and added. No category is assigned automatically — set it on the tender detail page if needed.
                     </p>
                     <div class="mb-3">
                         <label for="gem-add-tender-query" class="form-label">Search texts</label>

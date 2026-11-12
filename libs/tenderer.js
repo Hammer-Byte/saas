@@ -4,6 +4,7 @@ import { logger } from "@hammerbyte/utils";
 import { updateGemTenderScanRunById } from "../db/gem_tender_scan_runs.js";
 import { toDbDateTime } from "./date.js";
 import { searchTendersByKeyword } from "./tenderer/gem_crawler.js";
+import { GEM_SEARCH_MODES } from "./tenderer/gem_pom.js";
 
 export let processing = false;
 
@@ -22,6 +23,14 @@ export function crawlGemForTenders({ keywords = [], runId = null } = {}) {
                 entry?.category_group_id != null && Number(entry.category_group_id) >= 1
                     ? Number(entry.category_group_id)
                     : null,
+            tender_category_id:
+                entry?.tender_category_id != null && Number(entry.tender_category_id) >= 1
+                    ? Number(entry.tender_category_id)
+                    : null,
+            search_mode:
+                entry?.search_mode === GEM_SEARCH_MODES.ALL_BIDS
+                    ? GEM_SEARCH_MODES.ALL_BIDS
+                    : GEM_SEARCH_MODES.ADVANCE_SEARCH,
         }))
         .filter((entry) => entry.keyword);
 

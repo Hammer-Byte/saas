@@ -28,6 +28,8 @@ import contractClauses from "./apps/contract_clauses.js";
 import clauseSubclauses from "./apps/clause_subclauses.js";
 import gemCategoryGroups from "./apps/gem_category_groups.js";
 import gemCategories from "./apps/gem_categories.js";
+import gemTenderCategories from "./apps/gem_tender_categories.js";
+import gemScanKeywords from "./apps/gem_scan_keywords.js";
 import gemKeywordTenders from "./apps/gem_keyword_tenders.js";
 import gemKeywordTenderComments from "./apps/gem_keyword_tender_comments.js";
 import gemKeywordTenderDocuments from "./apps/gem_keyword_tender_documents.js";
@@ -96,6 +98,8 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/clause-subclauses", clauseSubclauses)
             .group("/gem-category-groups", gemCategoryGroups)
             .group("/gem-categories", gemCategories)
+            .group("/gem-tender-categories", gemTenderCategories)
+            .group("/gem-scan-keywords", gemScanKeywords)
             .group("/gem-keyword-tenders", gemKeywordTenders)
             .group("/gem-keyword-tender-comments", gemKeywordTenderComments)
             .group("/gem-keyword-tender-documents", gemKeywordTenderDocuments)
