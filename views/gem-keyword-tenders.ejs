@@ -585,6 +585,7 @@
                                 <th scope="col">Experience Relaxation</th>
                                 <th scope="col">Turnover Relaxation</th>
                                 <th scope="col">Stage</th>
+                                <th scope="col" class="text-center" style="width: 4.5rem;">Locked</th>
                                 <th scope="col">Assignee</th>
                             </tr>
                         </thead>
@@ -658,14 +659,16 @@
                                         <span class="gem-tender-tag gem-tender-stage-tag gem-tender-stage-<%= stage %>">
                                             <%= stageLabel %>
                                         </span>
-                                        <% if (isLocked) { %>
-                                            <span
-                                                class="gem-tender-tag gem-tender-lock-tag ms-1"
-                                                title="<%= tender.lock_message || 'Locked' %>"
-                                            >
-                                                Locked<%= tender.lock_message ? ': ' + tender.lock_message : '' %>
-                                            </span>
-                                        <% } %>
+                                    </td>
+                                    <td class="text-center">
+                                        <input
+                                            type="checkbox"
+                                            class="form-check-input gem-tender-locked-check"
+                                            <%= isLocked ? "checked" : "" %>
+                                            disabled
+                                            aria-label="<%= isLocked ? (tender.lock_message || 'Locked') : 'Not locked' %>"
+                                            title="<%= isLocked ? (tender.lock_message || 'Locked') : 'Not locked' %>"
+                                        />
                                     </td>
                                     <td>
                                         <span class="gem-tender-tag gem-tender-assignee-tag<%= tender.assignee_user_id ? '' : ' gem-tender-assignee-empty' %>">
@@ -881,11 +884,14 @@
         background: #dcfce7;
         border-color: #86efac;
     }
-    .gem-tender-lock-tag {
-        color: #7f1d1d;
-        background: #fee2e2;
-        border-color: #fca5a5;
-        white-space: normal;
+    .gem-tender-locked-check:disabled {
+        opacity: 1;
+        pointer-events: none;
+    }
+
+    .gem-tender-locked-check:disabled:checked {
+        background-color: #842029;
+        border-color: #842029;
     }
     .gem-tender-stage-filed {
         color: #312e81;

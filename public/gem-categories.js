@@ -17,12 +17,17 @@
     const keywordsEmpty = document.getElementById("gem-keywords-empty");
     const keywordSelectAllWrap = document.getElementById("gem-keyword-select-all-wrap");
     const keywordSelectAll = document.getElementById("gem-keyword-select-all");
-    const keywordScanButton = document.getElementById("gem-keyword-scan-btn");
     const keywordAddButton = document.getElementById("gem-keyword-add-btn");
 
     const groupsList = document.getElementById("gem-groups-list");
     const groupsEmpty = document.getElementById("gem-groups-empty");
     const groupAddButton = document.getElementById("gem-group-add-btn");
+    const advanceSelectAllWrap = document.getElementById("gem-advance-select-all-wrap");
+    const advanceSelectAll = document.getElementById("gem-advance-select-all");
+
+    const scannerScanButton = document.getElementById("gem-scanner-scan-btn");
+    const scannerTabs = document.getElementById("gem-scanner-tabs");
+    let activeScannerTab = "direct";
 
     const tenderCategoriesTbody = document.getElementById("gem-tender-categories-tbody");
     const tenderCategoriesEmpty = document.getElementById("gem-tender-categories-empty");
@@ -121,17 +126,39 @@
 
     // ---------- Direct Search ----------
 
+    function syncSharedScanControls() {
+        const keywordCount = selectedKeywordIds.size;
+        const categoryCount = selectedCategoryIds.size;
+        const totalSelected = keywordCount + categoryCount;
+        const onCategoriesTab = activeScannerTab === "categories";
+
+        scannerScanButton.classList.toggle("d-none", onCategoriesTab);
+        scannerScanButton.disabled = state.processing || totalSelected === 0 || onCategoriesTab;
+
+        if (state.processing) {
+            scannerScanButton.textContent = "Scan in progress…";
+            return;
+        }
+        if (!totalSelected) {
+            scannerScanButton.textContent = "Scan";
+            return;
+        }
+        const parts = [];
+        if (keywordCount) {
+            parts.push(`${keywordCount} keyword${keywordCount === 1 ? "" : "s"}`);
+        }
+        if (categoryCount) {
+            parts.push(`${categoryCount} categor${categoryCount === 1 ? "y" : "ies"}`);
+        }
+        scannerScanButton.textContent = `Scan (${parts.join(" + ")})`;
+    }
+
     function syncKeywordControls() {
         const keywordCount = state.scanKeywords.length;
         const selectedCount = selectedKeywordIds.size;
         keywordSelectAll.checked = keywordCount > 0 && selectedCount === keywordCount;
         keywordSelectAll.indeterminate = selectedCount > 0 && selectedCount < keywordCount;
-        keywordScanButton.disabled = state.processing || selectedCount === 0;
-        keywordScanButton.textContent = state.processing
-            ? "Scan in progress…"
-            : selectedCount > 0
-              ? `Scan (${selectedCount})`
-              : "Scan";
+        syncSharedScanControls();
     }
 
     function renderKeywords() {
@@ -336,37 +363,18 @@
         }
     });
 
-    keywordScanButton.addEventListener("click", async () => {
-        const keywordIds = Array.from(selectedKeywordIds);
-        if (!keywordIds.length) {
-            showAlert("Select at least one keyword to scan.");
-            return;
-        }
-        keywordScanButton.disabled = true;
-        try {
-            const { ok, data } = await apiRequest("/api/gem-scan-keywords/scan", "POST", {
-                keyword_ids: keywordIds,
-            });
-            if (!ok) {
-                state.processing = !!data.processing || state.processing;
-                showAlert(data.error || "Failed to start scan.");
-                renderAll();
-                return;
-            }
-            state.processing = true;
-            showAlert(
-                data.message || `Scan started for ${keywordIds.length} keyword(s).`,
-                "success",
-            );
-            renderAll();
-        } catch (error) {
-            console.error(error);
-            showAlert("Failed to start scan.");
-            renderAll();
-        }
-    });
-
     // ---------- Advance Search ----------
+
+    function syncAdvanceScanControls() {
+        const totalCategories = state.categories.length;
+        const selectedCount = selectedCategoryIds.size;
+        advanceSelectAllWrap.classList.toggle("d-none", totalCategories === 0);
+        advanceSelectAll.checked =
+            totalCategories > 0 && selectedCount === totalCategories;
+        advanceSelectAll.indeterminate =
+            selectedCount > 0 && selectedCount < totalCategories;
+        syncSharedScanControls();
+    }
 
     function renderGroups() {
         for (const id of selectedCategoryIds) {
@@ -385,7 +393,6 @@
                 ).length;
                 const allSelected =
                     groupCategories.length > 0 && selectedCount === groupCategories.length;
-                const scanDisabled = state.processing || selectedCount === 0;
                 return `
                 <div class="col-12 col-lg-6">
                     <div class="card border-0 shadow-sm h-100 gem-group-card" data-id="${group.id}">
@@ -409,11 +416,8 @@
                                         ${allSelected ? "checked" : ""}
                                         ${groupCategories.length ? "" : "disabled"}
                                     />
-                                    <label class="form-check-label small" for="gem-group-select-all-${group.id}">Select all categories</label>
+                                    <label class="form-check-label small" for="gem-group-select-all-${group.id}">Select all in group</label>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-success ms-auto gem-group-scan-btn" ${scanDisabled ? "disabled" : ""}>
-                                    ${state.processing ? "Scan in progress…" : selectedCount > 0 ? `Scan (${selectedCount})` : "Scan"}
-                                </button>
                             </div>
                             <div class="d-flex justify-content-between align-items-center border-top pt-3 mb-2">
                                 <span class="small text-secondary">GEM categories (${groupCategories.length})</span>
@@ -448,6 +452,7 @@
                 </div>`;
             })
             .join("");
+        syncAdvanceScanControls();
     }
 
     async function loadGroups() {
@@ -684,39 +689,58 @@
             return;
         }
 
-        if (event.target.closest(".gem-group-scan-btn")) {
-            const categoryIds = state.categories
-                .filter(
-                    (item) =>
-                        Number(item.group_id) === groupId && selectedCategoryIds.has(item.id),
-                )
-                .map((item) => item.id);
-            if (!categoryIds.length) {
-                showAlert("Select at least one GEM category to scan.");
+    });
+
+    advanceSelectAll.addEventListener("change", () => {
+        if (advanceSelectAll.checked) {
+            for (const category of state.categories) {
+                selectedCategoryIds.add(category.id);
+            }
+        } else {
+            selectedCategoryIds.clear();
+        }
+        renderGroups();
+    });
+
+    scannerScanButton.addEventListener("click", async () => {
+        const keywordIds = Array.from(selectedKeywordIds);
+        const categoryIds = Array.from(selectedCategoryIds);
+        if (!keywordIds.length && !categoryIds.length) {
+            showAlert("Select at least one keyword or GEM category to scan.");
+            return;
+        }
+        scannerScanButton.disabled = true;
+        try {
+            const { ok, data } = await apiRequest("/api/gem-scanner/scan", "POST", {
+                keyword_ids: keywordIds,
+                category_ids: categoryIds,
+            });
+            if (!ok) {
+                state.processing = !!data.processing || state.processing;
+                showAlert(data.error || "Failed to start scan.");
+                renderAll();
                 return;
             }
-            try {
-                const { ok, data } = await apiRequest("/api/gem-categories/scan", "POST", {
-                    category_ids: categoryIds,
-                });
-                if (!ok) {
-                    state.processing = !!data.processing || state.processing;
-                    showAlert(data.error || "Failed to start scan.");
-                    renderAll();
-                    return;
-                }
-                state.processing = true;
-                showAlert(
-                    data.message || `Scan started for ${categoryIds.length} categor${categoryIds.length === 1 ? "y" : "ies"}.`,
-                    "success",
-                );
-                renderAll();
-            } catch (error) {
-                console.error(error);
-                showAlert("Failed to start scan.");
-                renderAll();
-            }
+            state.processing = true;
+            showAlert(data.message || "Scan started.", "success");
+            renderAll();
+        } catch (error) {
+            console.error(error);
+            showAlert("Failed to start scan.");
+            renderAll();
         }
+    });
+
+    scannerTabs?.addEventListener("shown.bs.tab", (event) => {
+        const target = event.target?.getAttribute("data-bs-target") || "";
+        if (target.includes("categories")) {
+            activeScannerTab = "categories";
+        } else if (target.includes("advance")) {
+            activeScannerTab = "advance";
+        } else {
+            activeScannerTab = "direct";
+        }
+        syncSharedScanControls();
     });
 
     // ---------- Categories (HammerByte) ----------

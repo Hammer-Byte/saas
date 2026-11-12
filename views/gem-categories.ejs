@@ -15,16 +15,35 @@
 
 <main class="bg-light min-vh-100">
     <div class="container py-5">
-        <div class="mb-4">
-            <p class="text-secondary small mb-1">
-                <a href="/app" class="text-decoration-none">App</a> /
-                <a href="/app/gem-tenders" class="text-decoration-none">GEM Tenders</a> /
-                Scanner
-            </p>
-            <h1 class="h3 mb-1">Scanner</h1>
-            <p class="text-secondary mb-0">
-                Scan GeM by keyword (Direct Search) or by category groups (Advance Search), and manage HammerByte categories.
-            </p>
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/gem-tenders" class="text-decoration-none">GEM Tenders</a> /
+                    Scanner
+                </p>
+                <h1 class="h3 mb-1">Scanner</h1>
+                <p class="text-secondary mb-0">
+                    Select keywords and/or GEM categories, then run one scan (keywords first, then categories).
+                </p>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <a
+                    href="/app/gem-tender-scan-history"
+                    class="btn btn-outline-secondary"
+                    id="gem-scanner-history-btn"
+                >
+                    History
+                </a>
+                <button
+                    type="button"
+                    class="btn btn-success"
+                    id="gem-scanner-scan-btn"
+                    disabled
+                >
+                    <%= processing ? 'Scan in progress…' : 'Scan' %>
+                </button>
+            </div>
         </div>
 
         <div id="gem-scanner-alert" class="alert d-none" role="alert"></div>
@@ -86,14 +105,9 @@
                                     Search GeM for each selected keyword. Matched tenders are stored under the keyword's HammerByte category.
                                 </p>
                             </div>
-                            <div class="d-flex flex-wrap gap-2">
-                                <button type="button" class="btn btn-outline-primary" id="gem-keyword-add-btn">
-                                    + Add keyword
-                                </button>
-                                <button type="button" class="btn btn-success" id="gem-keyword-scan-btn" disabled>
-                                    <%= processing ? 'Scan in progress…' : 'Scan' %>
-                                </button>
-                            </div>
+                            <button type="button" class="btn btn-outline-primary" id="gem-keyword-add-btn">
+                                + Add keyword
+                            </button>
                         </div>
 
                         <div class="form-check border-bottom pb-2 mb-2" id="gem-keyword-select-all-wrap">
@@ -118,6 +132,12 @@
                         </p>
                     </div>
                     <button type="button" class="btn btn-outline-primary" id="gem-group-add-btn">+ Add group</button>
+                </div>
+                <div class="form-check mb-3 d-none" id="gem-advance-select-all-wrap">
+                    <input class="form-check-input" type="checkbox" id="gem-advance-select-all" />
+                    <label class="form-check-label fw-semibold" for="gem-advance-select-all">
+                        Select all categories
+                    </label>
                 </div>
                 <div class="row g-3" id="gem-groups-list"></div>
                 <div class="card border-0 shadow-sm d-none" id="gem-groups-empty">

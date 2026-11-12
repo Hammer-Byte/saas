@@ -157,12 +157,14 @@ export const GEM_TENDER_LOCK_MESSAGES = {
 export const GEM_TENDER_SCAN_TYPES = {
     DIRECT_SEARCH: "direct_search",
     ADVANCE_SEARCH: "advance_search",
+    COMBINED: "combined",
     ADHOC: "adhoc",
 };
 
 export const GEM_TENDER_SCAN_TYPE_LABELS = {
     [GEM_TENDER_SCAN_TYPES.DIRECT_SEARCH]: "Direct Search",
     [GEM_TENDER_SCAN_TYPES.ADVANCE_SEARCH]: "Advance Search",
+    [GEM_TENDER_SCAN_TYPES.COMBINED]: "Direct + Advance",
     [GEM_TENDER_SCAN_TYPES.ADHOC]: "Add tender",
 };
 

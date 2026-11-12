@@ -519,11 +519,16 @@
                         <span class="gem-tender-tag gem-tender-stage-tag gem-tender-stage-${escapeHtml(stage)}">
                             ${escapeHtml(stageLabel)}
                         </span>
-                        ${
-                            isLocked
-                                ? `<span class="gem-tender-tag gem-tender-lock-tag ms-1" title="${escapeHtml(lockMessage || "Locked")}">Locked${lockMessage ? `: ${escapeHtml(lockMessage)}` : ""}</span>`
-                                : ""
-                        }
+                    </td>
+                    <td class="text-center">
+                        <input
+                            type="checkbox"
+                            class="form-check-input gem-tender-locked-check"
+                            ${isLocked ? "checked" : ""}
+                            disabled
+                            aria-label="${escapeHtml(isLocked ? lockMessage || "Locked" : "Not locked")}"
+                            title="${escapeHtml(isLocked ? lockMessage || "Locked" : "Not locked")}"
+                        />
                     </td>
                     <td>
                         <span class="gem-tender-tag gem-tender-assignee-tag${assigneeUserId ? "" : " gem-tender-assignee-empty"}">
