@@ -1,528 +1,260 @@
-import {
-    GEM_TENDER_ELIGIBILITY_CHOICE_LABELS,
-    GEM_TENDER_LOCK_MESSAGES,
-    GEM_TENDER_STAGE_LABELS,
-    GEM_TENDER_STAGES,
-} from "../constants.js";
-import {
-    getGemTenderActivityCountsByActor,
-    getGemTenderLockActivities,
-    getGemTenderStageChangeActivities,
-} from "../db/gem_tender_activities.js";
-import {
-    getAllGemTenders,
-    getGemTenderNewCountsByCreatedDay,
-} from "../db/gem_tenders.js";
+import { GEM_TENDER_STAGE_LABELS, GEM_TENDER_STAGES } from "../constants.js";
+import { getGemTenderActivitiesInRange } from "../db/gem_tender_activities.js";
+import { getGemTenderAssigneeWorkload } from "../db/gem_tenders.js";
 import { getIstDateTime, getReadableDate } from "../libs/date.js";
 
-const STAGE_ORDER = Object.values(GEM_TENDER_STAGES);
+/** What an employee did, classified from activity log text. */
+const ACTION_TYPES = [
+    { key: "assignment", label: "Assignments", color: "#6c757d" },
+    { key: "category", label: "Category changes", color: "#0dcaf0" },
+    { key: "eligible", label: "Marked eligible", color: "#198754" },
+    { key: "ineligible", label: "Not eligible", color: "#d63384" },
+    { key: "out_of_scope", label: "Out of scope", color: "#b02a37" },
+    { key: "stage", label: "Stage moves", color: "#6610f2" },
+    { key: "filed", label: "Filed", color: "#212529" },
+    { key: "quote", label: "Quotes", color: "#fd7e14" },
+    { key: "comment", label: "Comments", color: "#0d6efd" },
+    { key: "lock", label: "Unlock / lock again", color: "#ffc107" },
+];
+const ACTION_KEYS = ACTION_TYPES.map((type) => type.key);
+const ACTION_LABELS = Object.fromEntries(ACTION_TYPES.map((type) => [type.key, type.label]));
 
-/** Snapshot status: lock reason, then pipeline stage, then assignment (same as the list page). */
-const STATUS_LABELS = {
-    unassigned: "Unassigned",
-    assigned: "Assigned (undecided)",
-    eligible: "Eligible (no stage)",
-    ...GEM_TENDER_STAGE_LABELS,
-    ineligible: GEM_TENDER_ELIGIBILITY_CHOICE_LABELS.ineligible,
-    out_of_scope: GEM_TENDER_ELIGIBILITY_CHOICE_LABELS.out_of_scope,
-    missed: "Missed",
-    unattended: "Unattended",
+const ELIGIBILITY_ACTIONS = {
+    Eligible: "eligible",
+    "Not eligible": "ineligible",
+    "Out of scope": "out_of_scope",
 };
-
-function tenderStatus(tender) {
-    if (Number(tender.missed)) return "missed";
-    if (Number(tender.unattended)) return "unattended";
-    if (Number(tender.ineligible)) return "ineligible";
-    if (Number(tender.out_of_scope)) return "out_of_scope";
-    if (GEM_TENDER_STAGE_LABELS[tender.stage]) return tender.stage;
-    if (Number(tender.eligible)) return "eligible";
-    return tender.assignee_user_id ? "assigned" : "unassigned";
-}
-
-const STAGE_LABEL_TO_KEY = Object.fromEntries(
-    Object.entries(GEM_TENDER_STAGE_LABELS).map(([stage, label]) => [label, stage]),
+const FILED_LABEL = GEM_TENDER_STAGE_LABELS[GEM_TENDER_STAGES.FILED];
+const WORK_STAGE_LABELS = new Set(
+    Object.entries(GEM_TENDER_STAGE_LABELS)
+        .filter(([stage]) => stage !== GEM_TENDER_STAGES.FILED)
+        .map(([, label]) => label),
 );
+// Pre-redesign logs marked eligibility as a stage change to "Eligible".
+const LEGACY_ELIGIBLE_STAGE_LABEL = "Eligible";
+// Choosing Eligible logs "No stage -> Waiting For Docs" automatically; that is not a separate stage move.
+const NO_STAGE_LABEL = "No stage";
 
-const LOCK_SERIES = [
-    {
-        key: "lock_missed",
-        label: "Missed",
-        messages: [GEM_TENDER_LOCK_MESSAGES.DEADLINE_MISSED],
-    },
-    {
-        key: "lock_due_date",
-        label: "Unattended",
-        messages: [GEM_TENDER_LOCK_MESSAGES.DUE_DATE_PASSED],
-    },
-    {
-        key: "lock_out_of_scope",
-        label: "Out of scope",
-        messages: [GEM_TENDER_LOCK_MESSAGES.OUT_OF_SCOPE],
-    },
-    {
-        key: "lock_not_eligible",
-        label: "Not eligible",
-        messages: [GEM_TENDER_LOCK_MESSAGES.NOT_ELIGIBLE],
-    },
-    {
-        key: "lock_other",
-        label: "Other lock",
-        messages: [],
-    },
+const PERSON_COLORS = [
+    "#0d6efd",
+    "#198754",
+    "#fd7e14",
+    "#6f42c1",
+    "#dc3545",
+    "#20c997",
+    "#d63384",
+    "#0dcaf0",
+    "#795548",
+    "#6c757d",
+    "#8bc34a",
+    "#ffc107",
 ];
 
-const LOCK_MESSAGE_TO_KEY = new Map();
-for (const series of LOCK_SERIES) {
-    for (const message of series.messages) {
-        LOCK_MESSAGE_TO_KEY.set(String(message).trim().toLowerCase(), series.key);
+const LOG_ROW_LIMIT = 3000;
+
+function classifyActivity(text) {
+    const activity = String(text || "").trim();
+    if (/^Assigned tender to self\b/.test(activity) || /^Changed assignee from /.test(activity)) {
+        return "assignment";
     }
-}
-
-const DAILY_SERIES = [
-    { key: "new", label: "New", kind: "stage" },
-    { key: "eligible", label: "Marked eligible", kind: "stage" },
-    ...STAGE_ORDER.map((stage) => ({
-        key: stage,
-        label: GEM_TENDER_STAGE_LABELS[stage] || stage,
-        kind: "stage",
-    })),
-    ...LOCK_SERIES.map((series) => ({
-        key: series.key,
-        label: series.label,
-        kind: "lock",
-    })),
-];
-
-const DAILY_SERIES_KEYS = DAILY_SERIES.map((series) => series.key);
-
-const EVENT_SERIES_COLORS = {
-    new: "#0d6efd",
-    assigned: "#6c757d",
-    eligible: "#198754",
-    waiting_for_docs: "#0dcaf0",
-    waiting_for_gem: "#6610f2",
-    waiting_for_quote: "#fd7e14",
-    preparing_docs: "#20c997",
-    filed: "#212529",
-    lock_missed: "#dc3545",
-    lock_out_of_scope: "#b02a37",
-    lock_not_eligible: "#d63384",
-    lock_due_date: "#ffc107",
-    lock_other: "#adb5bd",
-};
-
-const STAGE_CHANGE_TO_PATTERN = /^Changed stage from .+ to (.+)$/;
-const MARKED_ELIGIBLE_PATTERN = new RegExp(
-    `^Changed eligibility from .+ to ${GEM_TENDER_ELIGIBILITY_CHOICE_LABELS.eligible}$`,
-);
-const LOCK_ACTIVITY_PATTERN = /^Locked tender(?::\s*(.+))?$/i;
-
-function emptySeriesCounts() {
-    return Object.fromEntries(DAILY_SERIES_KEYS.map((key) => [key, 0]));
+    if (/^Changed category from /.test(activity)) {
+        return "category";
+    }
+    const eligibility = activity.match(/^Changed eligibility from .+ to (.+)$/);
+    if (eligibility) {
+        return ELIGIBILITY_ACTIONS[eligibility[1].trim()] || null;
+    }
+    const stage = activity.match(/^Changed stage from (.+?) to (.+)$/);
+    if (stage) {
+        const fromLabel = stage[1].trim();
+        const toLabel = stage[2].trim();
+        if (toLabel === FILED_LABEL) return "filed";
+        if (toLabel === LEGACY_ELIGIBLE_STAGE_LABEL) return "eligible";
+        if (fromLabel === NO_STAGE_LABEL) return null;
+        return WORK_STAGE_LABELS.has(toLabel) ? "stage" : null;
+    }
+    if (/^(Added|Updated|Cleared) quote\b/.test(activity)) {
+        return "quote";
+    }
+    if (/^(Added|Updated) comment\b/.test(activity)) {
+        return "comment";
+    }
+    if (activity === "Unlocked tender" || /^Locked tender again:/.test(activity)) {
+        return "lock";
+    }
+    return null;
 }
 
 function eachDateKey(from, to) {
-    const rangeStart = from <= to ? from : to;
-    const rangeEnd = from <= to ? to : from;
     const dates = [];
-    const cursor = new Date(
-        Number(rangeStart.slice(0, 4)),
-        Number(rangeStart.slice(5, 7)) - 1,
-        Number(rangeStart.slice(8, 10)),
-    );
-    const end = new Date(
-        Number(rangeEnd.slice(0, 4)),
-        Number(rangeEnd.slice(5, 7)) - 1,
-        Number(rangeEnd.slice(8, 10)),
-    );
+    const cursor = new Date(Number(from.slice(0, 4)), Number(from.slice(5, 7)) - 1, Number(from.slice(8, 10)));
+    const end = new Date(Number(to.slice(0, 4)), Number(to.slice(5, 7)) - 1, Number(to.slice(8, 10)));
     while (cursor <= end) {
-        const yyyy = cursor.getFullYear();
         const mm = `${cursor.getMonth() + 1}`.padStart(2, "0");
         const dd = `${cursor.getDate()}`.padStart(2, "0");
-        dates.push(`${yyyy}-${mm}-${dd}`);
+        dates.push(`${cursor.getFullYear()}-${mm}-${dd}`);
         cursor.setDate(cursor.getDate() + 1);
     }
     return dates;
 }
 
-function activityDateKey(createdOn) {
-    return getReadableDate("YYYY-MM-DD", createdOn) || "";
-}
-
-/** Series key for a stage / eligibility activity, or null. */
-function parseStageEntered(activityText) {
-    const text = String(activityText || "").trim();
-    if (MARKED_ELIGIBLE_PATTERN.test(text)) {
-        return "eligible";
-    }
-    const match = text.match(STAGE_CHANGE_TO_PATTERN);
-    if (!match) {
-        return null;
-    }
-    const label = match[1].trim();
-    return STAGE_LABEL_TO_KEY[label] || null;
-}
-
-function parseLockSeriesKey(activityText) {
-    const match = String(activityText || "").trim().match(LOCK_ACTIVITY_PATTERN);
-    if (!match) {
-        return null;
-    }
-    const message = String(match[1] || "").trim().toLowerCase();
-    if (!message) {
-        return "lock_other";
-    }
-    // Filing already counted via stage "Filed"; skip the paired lock activity.
-    if (message === String(GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED).trim().toLowerCase()) {
-        return null;
-    }
-    return LOCK_MESSAGE_TO_KEY.get(message) || "lock_other";
-}
-
-function actorKeyFromRow(row) {
-    const userId = Number(row?.user_id);
-    if (userId >= 1) {
-        return String(userId);
-    }
-    return "unknown";
-}
-
-function actorLabelFromRow(row) {
-    const userId = Number(row?.user_id);
-    if (userId >= 1) {
-        return row.user_full_name || row.user_email || `User #${userId}`;
-    }
-    return "Unknown";
-}
-
-function clampStageEntryRange(from, to) {
+/** Charts stop at today; a range reaching into the future would only add empty days. */
+function clampToToday(from, to) {
     const today = getIstDateTime()?.slice(0, 10);
-    const rangeStart = from <= to ? from : to;
-    const rangeEnd = from <= to ? to : from;
     if (!today || !/^\d{4}-\d{2}-\d{2}$/.test(today)) {
-        return { from: rangeStart, to: rangeEnd };
+        return { from, to };
     }
-    const end = rangeEnd > today ? today : rangeEnd;
-    const start = rangeStart > end ? end : rangeStart;
-    return { from: start, to: end };
+    const end = to > today ? today : to;
+    return { from: from > end ? end : from, to: end };
 }
 
-function ensureDayBucket(map, date) {
-    if (!map.has(date)) {
-        map.set(date, emptySeriesCounts());
-    }
-    return map.get(date);
+function personLabel(fullName, email, userId) {
+    return fullName || email || `User #${userId}`;
 }
 
-function ensurePersonDayBucket(peopleMap, personKey, personLabel, date) {
-    if (!peopleMap.has(personKey)) {
-        peopleMap.set(personKey, {
-            key: personKey,
-            label: personLabel,
-            byDate: new Map(),
-        });
-    }
-    const person = peopleMap.get(personKey);
-    if (!person.byDate.has(date)) {
-        person.byDate.set(date, emptySeriesCounts());
-    }
-    return person.byDate.get(date);
-}
-
-function countsToSeriesArrays(dates, byDate) {
-    const values = {};
-    for (const key of DAILY_SERIES_KEYS) {
-        values[key] = dates.map((date) => Number((byDate.get(date) || emptySeriesCounts())[key] || 0));
-    }
-    return values;
-}
-
-function buildDailyEventCharts({
-    from,
-    to,
-    stageChangeActivities,
-    lockActivities,
-    newCountsByDay,
-}) {
-    const dates = eachDateKey(from, to);
-    const overallByDate = new Map(dates.map((date) => [date, emptySeriesCounts()]));
-    const peopleMap = new Map();
-
-    for (const row of newCountsByDay) {
-        const dateKey = activityDateKey(row.entry_date);
-        if (!overallByDate.has(dateKey)) continue;
-        ensureDayBucket(overallByDate, dateKey).new += Number(
-            row.entry_count || 0,
-        );
-    }
-
-    for (const activity of stageChangeActivities) {
-        const stage = parseStageEntered(activity.activity);
-        if (!stage) continue;
-
-        const dateKey = activityDateKey(activity.created_on);
-        if (!overallByDate.has(dateKey)) continue;
-
-        ensureDayBucket(overallByDate, dateKey)[stage] += 1;
-        ensurePersonDayBucket(
-            peopleMap,
-            actorKeyFromRow(activity),
-            actorLabelFromRow(activity),
-            dateKey,
-        )[stage] += 1;
-    }
-
-    for (const activity of lockActivities) {
-        const lockKey = parseLockSeriesKey(activity.activity);
-        if (!lockKey) continue;
-
-        const dateKey = activityDateKey(activity.created_on);
-        if (!overallByDate.has(dateKey)) continue;
-
-        ensureDayBucket(overallByDate, dateKey)[lockKey] += 1;
-        ensurePersonDayBucket(
-            peopleMap,
-            actorKeyFromRow(activity),
-            actorLabelFromRow(activity),
-            dateKey,
-        )[lockKey] += 1;
-    }
-
-    const series = DAILY_SERIES.map((item) => ({
-        key: item.key,
-        label: item.label,
-        kind: item.kind,
-        color: EVENT_SERIES_COLORS[item.key] || "#6c757d",
-    }));
-
-    const people = Array.from(peopleMap.values())
-        .map((person) => {
-            const values = countsToSeriesArrays(dates, person.byDate);
-            const total = DAILY_SERIES_KEYS.reduce(
-                (sum, key) =>
-                    sum + values[key].reduce((inner, count) => inner + Number(count || 0), 0),
-                0,
-            );
-            return {
-                key: person.key,
-                label: person.label,
-                total,
-                values,
-            };
-        })
-        .filter((person) => person.total > 0)
-        .sort((left, right) => right.total - left.total || left.label.localeCompare(right.label));
-
-    const overallValues = countsToSeriesArrays(dates, overallByDate);
-    const overallTotal = DAILY_SERIES_KEYS.reduce(
-        (sum, key) =>
-            sum + overallValues[key].reduce((inner, count) => inner + Number(count || 0), 0),
-        0,
-    );
-
-    return {
-        dailyEvents: {
-            series,
-            dates,
-            overall: {
-                total: overallTotal,
-                values: overallValues,
-            },
-            people,
-        },
-    };
-}
-
-function emptyAssigneeBucket(key, label) {
-    return {
-        key,
-        label,
-        assigned_count: 0,
-        locked_count: 0,
-        ...Object.fromEntries(Object.keys(STATUS_LABELS).map((status) => [`status_${status}`, 0])),
-        untouched: 0,
-        activity_count: 0,
-    };
+function emptyActionCounts() {
+    return Object.fromEntries(ACTION_KEYS.map((key) => [key, 0]));
 }
 
 export async function buildGemTenderReport({ from, to }) {
-    const tenders = await getAllGemTenders({ from, to });
-    const activityRows = await getGemTenderActivityCountsByActor({ from, to });
-    const stageEntryRange = clampStageEntryRange(from, to);
-    const [stageChangeActivities, lockActivities, newCountsByDay] = await Promise.all([
-        getGemTenderStageChangeActivities(stageEntryRange),
-        getGemTenderLockActivities(stageEntryRange),
-        getGemTenderNewCountsByCreatedDay(stageEntryRange),
+    const [activities, workloadRows] = await Promise.all([
+        getGemTenderActivitiesInRange({ from, to }),
+        getGemTenderAssigneeWorkload({ from, to }),
     ]);
-    const { dailyEvents } = buildDailyEventCharts({
-        from: stageEntryRange.from,
-        to: stageEntryRange.to,
-        stageChangeActivities,
-        lockActivities,
-        newCountsByDay,
-    });
 
-    const assigneeBuckets = new Map();
-    const statusTotals = Object.fromEntries(Object.keys(STATUS_LABELS).map((status) => [status, 0]));
+    const chartRange = clampToToday(from, to);
+    const dates = eachDateKey(chartRange.from, chartRange.to);
+    const dateIndex = new Map(dates.map((date, index) => [date, index]));
 
-    let unassignedCount = 0;
-    let lockedCount = 0;
-    const lockMessageCounts = new Map();
-    const tenderCategoryCounts = new Map();
-    let untouchedAssignedCount = 0;
-
-    for (const tender of tenders) {
-        const status = tenderStatus(tender);
-        const assigneeKey = tender.assignee_user_id
-            ? String(tender.assignee_user_id)
-            : "unassigned";
-        const assigneeLabel = tender.assignee_user_id
-            ? tender.assignee_full_name || tender.assignee_email || `User #${tender.assignee_user_id}`
-            : "Unassigned";
-
-        if (!assigneeBuckets.has(assigneeKey)) {
-            assigneeBuckets.set(assigneeKey, emptyAssigneeBucket(assigneeKey, assigneeLabel));
+    const employees = new Map();
+    function employee(userId, label) {
+        const key = String(userId);
+        if (!employees.has(key)) {
+            employees.set(key, {
+                user_id: Number(userId),
+                label,
+                counts: emptyActionCounts(),
+                total: 0,
+                tenders: new Set(),
+                last_active: null,
+                last_active_label: "",
+                open_undecided: 0,
+                open_in_progress: 0,
+                missed: 0,
+                daily: Object.fromEntries(ACTION_KEYS.map((actionKey) => [actionKey, dates.map(() => 0)])),
+            });
         }
-        const bucket = assigneeBuckets.get(assigneeKey);
-        bucket.assigned_count += 1;
-        bucket[`status_${status}`] += 1;
-        statusTotals[status] += 1;
+        return employees.get(key);
+    }
 
-        if (Number(tender.locked)) {
-            bucket.locked_count += 1;
-            lockedCount += 1;
-            const lockMessage = String(tender.lock_message || "").trim() || "Locked (no message)";
-            lockMessageCounts.set(lockMessage, (lockMessageCounts.get(lockMessage) || 0) + 1);
+    const totals = {
+        actions: 0,
+        tenders_touched: 0,
+        eligible: 0,
+        filed: 0,
+        missed: 0,
+        unattended: 0,
+    };
+    const tendersTouched = new Set();
+    const log = [];
+
+    for (const row of activities) {
+        const person = employee(row.user_id, personLabel(row.user_full_name, row.user_email, row.user_id));
+        const createdOn = getReadableDate("YYYY-MM-DD HH:mm:ss", row.created_on) || "";
+        const createdOnLabel = getReadableDate("DD/MM/YYYY HH:mm", row.created_on) || "";
+        const actionKey = classifyActivity(row.activity);
+
+        if (log.length < LOG_ROW_LIMIT) {
+            log.push({
+                user_id: person.user_id,
+                at: createdOnLabel,
+                gem_tender_id: row.gem_tender_id,
+                tender_id: row.tender_id,
+                action: actionKey ? ACTION_LABELS[actionKey] : "",
+                activity: row.activity,
+            });
         }
+        if (!person.last_active || createdOn > person.last_active) {
+            person.last_active = createdOn;
+            person.last_active_label = createdOnLabel;
+        }
+        if (!actionKey) continue;
 
-        const tenderCategoryLabel = tender.tender_category_id
-            ? tender.tender_category_name || `Category #${tender.tender_category_id}`
-            : "Uncategorized";
-        tenderCategoryCounts.set(
-            tenderCategoryLabel,
-            (tenderCategoryCounts.get(tenderCategoryLabel) || 0) + 1,
+        person.counts[actionKey] += 1;
+        person.total += 1;
+        person.tenders.add(row.gem_tender_id);
+        tendersTouched.add(row.gem_tender_id);
+        totals.actions += 1;
+        if (actionKey === "eligible") totals.eligible += 1;
+        if (actionKey === "filed") totals.filed += 1;
+
+        const index = dateIndex.get(createdOn.slice(0, 10));
+        if (index != null) {
+            person.daily[actionKey][index] += 1;
+        }
+    }
+    totals.tenders_touched = tendersTouched.size;
+
+    for (const row of workloadRows) {
+        totals.unattended += Number(row.unattended_in_range || 0);
+        if (!row.assignee_user_id) continue;
+        const person = employee(
+            row.assignee_user_id,
+            personLabel(row.assignee_full_name, row.assignee_email, row.assignee_user_id),
         );
-
-        if (status === "assigned") {
-            bucket.untouched += 1;
-            untouchedAssignedCount += 1;
-        }
-
-        if (!tender.assignee_user_id) {
-            unassignedCount += 1;
-        }
+        person.open_undecided = Number(row.open_undecided || 0);
+        person.open_in_progress = Number(row.open_in_progress || 0);
+        person.missed = Number(row.missed_in_range || 0);
+        totals.missed += person.missed;
     }
 
-    const activityByUserId = new Map();
-    for (const row of activityRows) {
-        activityByUserId.set(String(row.user_id), Number(row.activity_count || 0));
-    }
-
-    for (const [key, bucket] of assigneeBuckets.entries()) {
-        if (key === "unassigned") continue;
-        bucket.activity_count = activityByUserId.get(key) || 0;
-    }
-
-    const assigneeSummary = Array.from(assigneeBuckets.values()).sort((left, right) => {
-        if (left.key === "unassigned") return 1;
-        if (right.key === "unassigned") return -1;
-        return right.assigned_count - left.assigned_count;
-    });
-
-    const workingSummary = assigneeSummary
-        .filter((row) => row.key !== "unassigned")
-        .map((row) => {
-            const progressed = row.assigned_count - row.untouched;
-            const progressRate =
-                row.assigned_count > 0
-                    ? Math.round((progressed / row.assigned_count) * 100)
-                    : 0;
-            let status = "On track";
-            if (row.assigned_count === 0) {
-                status = "No assignments";
-            } else if (row.untouched === row.assigned_count) {
-                status = "Not started";
-            } else if (row.untouched > 0 && progressRate < 50) {
-                status = "Needs attention";
-            } else if (row.activity_count === 0 && row.untouched > 0) {
-                status = "Low activity";
-            }
-
-            return {
-                ...row,
-                progressed,
-                progress_rate: progressRate,
-                status,
-            };
-        });
-
-    const chartAssignees = assigneeSummary.filter((row) => row.key !== "unassigned");
-    const stageTotalsList = Object.entries(statusTotals).map(([stage, count]) => ({
-        stage,
-        label: STATUS_LABELS[stage] || stage,
-        count: Number(count || 0),
-    }));
-    const lockMessageList = Array.from(lockMessageCounts.entries())
-        .map(([message, count]) => ({ message, count }))
-        .sort((left, right) => right.count - left.count);
-    const tenderCategoryList = Array.from(tenderCategoryCounts.entries())
-        .map(([label, count]) => ({ label, count }))
-        .sort((left, right) => {
-            if (left.label === "Uncategorized") return 1;
-            if (right.label === "Uncategorized") return -1;
-            return right.count - left.count;
-        });
-    const personWiseAssigned = chartAssignees.map((row) => ({
-        label: row.label,
-        assigned_count: row.assigned_count,
-    }));
+    const employeeRows = Array.from(employees.values())
+        .filter(
+            (person) =>
+                person.total > 0 ||
+                person.last_active ||
+                person.open_undecided ||
+                person.open_in_progress ||
+                person.missed,
+        )
+        .sort(
+            (left, right) =>
+                right.total - left.total ||
+                right.open_undecided + right.open_in_progress -
+                    (left.open_undecided + left.open_in_progress) ||
+                left.label.localeCompare(right.label),
+        );
 
     return {
         totals: {
-            tenders: tenders.length,
-            assigned: tenders.length - unassignedCount,
-            unassigned: unassignedCount,
-            locked: lockedCount,
-            ...statusTotals,
-            untouched_assigned: untouchedAssignedCount,
-            actors_with_activity: activityRows.length,
+            ...totals,
+            active_people: employeeRows.filter((person) => person.total > 0).length,
         },
-        dailyEvents,
-        stageTotals: stageTotalsList,
-        lockMessages: lockMessageList,
-        tenderCategories: tenderCategoryList,
-        personWiseAssigned,
-        assigneeSummary,
-        workingSummary,
-        activityRows: activityRows.map((row) => ({
-            user_id: row.user_id,
-            label: row.user_full_name || row.user_email || `User #${row.user_id}`,
-            activity_count: Number(row.activity_count || 0),
+        actionTypes: ACTION_TYPES,
+        employees: employeeRows.map((person) => ({
+            user_id: person.user_id,
+            label: person.label,
+            counts: person.counts,
+            total: person.total,
+            tenders_touched: person.tenders.size,
+            last_active: person.last_active_label,
+            open_undecided: person.open_undecided,
+            open_in_progress: person.open_in_progress,
+            missed: person.missed,
         })),
+        logTruncated: activities.length > LOG_ROW_LIMIT,
         charts: {
-            dailyEvents,
-            tendersByAssignee: {
-                labels: chartAssignees.map((row) => row.label),
-                values: chartAssignees.map((row) => row.assigned_count),
-            },
-            lockReasons: {
-                labels: lockMessageList.map((row) => row.message),
-                values: lockMessageList.map((row) => row.count),
-            },
-            tenderCategoryMix: {
-                labels: tenderCategoryList.map((row) => row.label),
-                values: tenderCategoryList.map((row) => row.count),
-            },
-            stagesOverall: {
-                labels: stageTotalsList.map((row) => row.label),
-                values: stageTotalsList.map((row) => row.count),
-            },
-            activityByUser: {
-                labels: activityRows.map(
-                    (row) => row.user_full_name || row.user_email || `User #${row.user_id}`,
-                ),
-                values: activityRows.map((row) => Number(row.activity_count || 0)),
-            },
+            dates,
+            actionTypes: ACTION_TYPES,
+            people: employeeRows
+                .filter((person) => person.total > 0)
+                .map((person, index) => ({
+                    user_id: person.user_id,
+                    label: person.label,
+                    color: PERSON_COLORS[index % PERSON_COLORS.length],
+                    daily: person.daily,
+                })),
+            log,
         },
     };
 }

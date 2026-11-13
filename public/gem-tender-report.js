@@ -4,298 +4,8 @@
     const toInput = document.getElementById("report-to");
     const rangeForm = document.getElementById("gem-report-range-form");
     const personSelect = document.getElementById("gem-report-person-select");
-    const seriesChecks = Array.from(
-        document.querySelectorAll(".gem-report-series-check"),
-    );
-
-    if (!dataElement || typeof window.Chart !== "function") {
-        return;
-    }
-
-    let charts = {};
-    try {
-        charts = JSON.parse(dataElement.textContent || "{}");
-    } catch (error) {
-        console.error(error);
-        return;
-    }
-
-    const palette = [
-        "#0d6efd",
-        "#198754",
-        "#ffc107",
-        "#dc3545",
-        "#6f42c1",
-        "#20c997",
-        "#fd7e14",
-        "#0dcaf0",
-        "#d63384",
-        "#6c757d",
-        "#795548",
-        "#8bc34a",
-    ];
-
-    const SERIES_STORAGE_KEY = "gem-tender-report-series";
-    const dailyEvents = charts.dailyEvents || {
-        series: [],
-        dates: [],
-        overall: { values: {}, total: 0 },
-        people: [],
-    };
-
-    let overallChart = null;
-    let personChart = null;
-
-    function formatDayLabel(dateKey) {
-        return window.getReadableDate?.("DD/MM", dateKey) || dateKey;
-    }
-
-    function selectedSeriesKeys() {
-        return seriesChecks
-            .filter((input) => input.checked)
-            .map((input) => input.value);
-    }
-
-    function readStoredSeries() {
-        try {
-            const raw = window.localStorage.getItem(SERIES_STORAGE_KEY);
-            if (!raw) return null;
-            const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed.map(String) : null;
-        } catch {
-            return null;
-        }
-    }
-
-    function writeStoredSeries(keys) {
-        try {
-            window.localStorage.setItem(SERIES_STORAGE_KEY, JSON.stringify(keys));
-        } catch {
-            // ignore
-        }
-    }
-
-    function applyStoredSeriesSelection() {
-        const stored = readStoredSeries();
-        if (!stored || !stored.length) return;
-        const storedSet = new Set(stored);
-        for (const input of seriesChecks) {
-            input.checked = storedSet.has(input.value);
-        }
-    }
-
-    function buildStackedDatasets(valuesByKey, selectedKeys) {
-        const seriesMeta = new Map(
-            (dailyEvents.series || []).map((item) => [item.key, item]),
-        );
-        return selectedKeys
-            .map((key) => {
-                const meta = seriesMeta.get(key);
-                const data = valuesByKey?.[key] || [];
-                const hasData = data.some((value) => Number(value) > 0);
-                if (!hasData && selectedKeys.length > 1) {
-                    // Keep empty series so legend stays stable when toggling.
-                }
-                return {
-                    key,
-                    label: meta?.label || key,
-                    data,
-                    backgroundColor: meta?.color || palette[0],
-                    borderWidth: 0,
-                    stack: "daily",
-                };
-            })
-            .filter((dataset) =>
-                (dataset.data || []).some((value) => Number(value) > 0),
-            );
-    }
-
-    function stackedOptions() {
-        return {
-            responsive: true,
-            maintainAspectRatio: false,
-            resizeDelay: 100,
-            animation: false,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: "bottom",
-                },
-                tooltip: {
-                    mode: "index",
-                    intersect: false,
-                },
-            },
-            scales: {
-                x: {
-                    stacked: true,
-                    ticks: {
-                        autoSkip: true,
-                        maxRotation: 45,
-                        minRotation: 0,
-                    },
-                },
-                y: {
-                    stacked: true,
-                    beginAtZero: true,
-                    ticks: { precision: 0 },
-                },
-            },
-        };
-    }
-
-    function showEmpty(canvas, message) {
-        const parent = canvas?.parentElement;
-        if (!parent) return;
-        canvas.classList.add("d-none");
-        let empty = parent.querySelector(".gem-report-chart-empty");
-        if (!empty) {
-            empty = document.createElement("p");
-            empty.className = "text-secondary small mb-0 gem-report-chart-empty";
-            parent.appendChild(empty);
-        }
-        empty.textContent = message;
-        empty.classList.remove("d-none");
-    }
-
-    function hideEmpty(canvas) {
-        const parent = canvas?.parentElement;
-        if (!parent) return;
-        canvas.classList.remove("d-none");
-        const empty = parent.querySelector(".gem-report-chart-empty");
-        if (empty) empty.classList.add("d-none");
-    }
-
-    function renderOverallChart() {
-        const canvas = document.getElementById("chart-daily-overall");
-        if (!canvas) return;
-
-        const selectedKeys = selectedSeriesKeys();
-        const labels = (dailyEvents.dates || []).map(formatDayLabel);
-        const datasets = buildStackedDatasets(
-            dailyEvents.overall?.values || {},
-            selectedKeys,
-        );
-
-        if (overallChart) {
-            overallChart.destroy();
-            overallChart = null;
-        }
-
-        if (!labels.length || !datasets.length) {
-            showEmpty(canvas, "No matching activity in this range.");
-            return;
-        }
-
-        hideEmpty(canvas);
-        overallChart = new window.Chart(canvas, {
-            type: "bar",
-            data: { labels, datasets },
-            options: stackedOptions(),
-        });
-    }
-
-    function renderPersonChart() {
-        const canvas = document.getElementById("chart-daily-person");
-        if (!canvas) return;
-
-        const people = dailyEvents.people || [];
-        const selectedPersonKey =
-            personSelect?.value || people[0]?.key || "";
-        const person = people.find((row) => row.key === selectedPersonKey);
-
-        if (personChart) {
-            personChart.destroy();
-            personChart = null;
-        }
-
-        if (!person) {
-            showEmpty(canvas, "No person activity in this range.");
-            return;
-        }
-
-        const selectedKeys = selectedSeriesKeys();
-        const labels = (dailyEvents.dates || []).map(formatDayLabel);
-        const datasets = buildStackedDatasets(person.values || {}, selectedKeys);
-
-        if (!labels.length || !datasets.length) {
-            showEmpty(canvas, "No matching activity for this person.");
-            return;
-        }
-
-        hideEmpty(canvas);
-        personChart = new window.Chart(canvas, {
-            type: "bar",
-            data: { labels, datasets },
-            options: stackedOptions(),
-        });
-    }
-
-    function refreshDailyCharts() {
-        writeStoredSeries(selectedSeriesKeys());
-        renderOverallChart();
-        renderPersonChart();
-    }
-
-    function makeChart(canvasId, type, labels, values, label) {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
-
-        const hasData = (values || []).some((value) => Number(value) > 0);
-        if (!hasData) {
-            showEmpty(canvas, "No data in this range.");
-            return;
-        }
-
-        hideEmpty(canvas);
-        new window.Chart(canvas, {
-            type,
-            data: {
-                labels: labels || [],
-                datasets: [
-                    {
-                        label,
-                        data: values || [],
-                        backgroundColor:
-                            type === "doughnut" || type === "pie"
-                                ? (labels || []).map(
-                                      (_, index) => palette[index % palette.length],
-                                  )
-                                : palette[0],
-                        borderWidth: 0,
-                    },
-                ],
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                resizeDelay: 100,
-                animation: false,
-                plugins: {
-                    legend: {
-                        display: type === "doughnut" || type === "pie",
-                        position: "bottom",
-                    },
-                },
-                scales:
-                    type === "doughnut" || type === "pie"
-                        ? {}
-                        : {
-                              x: {
-                                  ticks: {
-                                      autoSkip: true,
-                                      maxRotation: 45,
-                                      minRotation: 0,
-                                  },
-                              },
-                              y: {
-                                  beginAtZero: true,
-                                  ticks: { precision: 0 },
-                              },
-                          },
-            },
-        });
-    }
+    const logBody = document.getElementById("gem-report-log-body");
+    const employeeRows = Array.from(document.querySelectorAll(".gem-report-employee-row"));
 
     function startOfIndianQuarterKey(dateKey) {
         const year = Number(dateKey.slice(0, 4));
@@ -373,62 +83,177 @@
         setQuickDateRange(button.dataset.range || "");
     });
 
-    document.getElementById("gem-report-series-all")?.addEventListener("click", () => {
-        for (const input of seriesChecks) input.checked = true;
-        refreshDailyCharts();
-    });
-    document.getElementById("gem-report-series-none")?.addEventListener("click", () => {
-        for (const input of seriesChecks) input.checked = false;
-        refreshDailyCharts();
-    });
-    document.getElementById("gem-report-series-stages")?.addEventListener("click", () => {
-        for (const input of seriesChecks) {
-            input.checked = input.dataset.kind === "stage";
-        }
-        refreshDailyCharts();
-    });
-    document.getElementById("gem-report-series-locks")?.addEventListener("click", () => {
-        for (const input of seriesChecks) {
-            input.checked = input.dataset.kind === "lock";
-        }
-        refreshDailyCharts();
-    });
+    let data = {};
+    try {
+        data = JSON.parse(dataElement?.textContent || "{}");
+    } catch (error) {
+        console.error(error);
+    }
+    const dates = data.dates || [];
+    const actionTypes = data.actionTypes || [];
+    const people = data.people || [];
+    const log = data.log || [];
+    const hasChart = typeof window.Chart === "function";
 
-    for (const input of seriesChecks) {
-        input.addEventListener("change", refreshDailyCharts);
+    let personChart = null;
+
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
     }
 
-    personSelect?.addEventListener("change", renderPersonChart);
+    function formatDayLabel(dateKey) {
+        return window.getReadableDate?.("DD/MM", dateKey) || dateKey;
+    }
 
-    applyStoredSeriesSelection();
-    refreshDailyCharts();
+    function sumDaily(daily) {
+        return dates.map((_, index) =>
+            actionTypes.reduce((sum, type) => sum + Number(daily?.[type.key]?.[index] || 0), 0),
+        );
+    }
 
-    makeChart(
-        "chart-tenders-by-assignee",
-        "bar",
-        charts.tendersByAssignee?.labels,
-        charts.tendersByAssignee?.values,
-        "Assigned tenders",
-    );
-    makeChart(
-        "chart-activity-by-user",
-        "bar",
-        charts.activityByUser?.labels,
-        charts.activityByUser?.values,
-        "Activities",
-    );
-    makeChart(
-        "chart-lock-reasons",
-        "doughnut",
-        charts.lockReasons?.labels,
-        charts.lockReasons?.values,
-        "Lock reasons",
-    );
-    makeChart(
-        "chart-stages",
-        "doughnut",
-        charts.stagesOverall?.labels,
-        charts.stagesOverall?.values,
-        "Stages",
-    );
+    function showEmpty(canvas, message) {
+        const parent = canvas?.parentElement;
+        if (!parent) return;
+        canvas.classList.add("d-none");
+        let empty = parent.querySelector(".gem-report-chart-empty");
+        if (!empty) {
+            empty = document.createElement("p");
+            empty.className = "text-secondary small mb-0 gem-report-chart-empty";
+            parent.appendChild(empty);
+        }
+        empty.textContent = message;
+        empty.classList.remove("d-none");
+    }
+
+    function hideEmpty(canvas) {
+        const parent = canvas?.parentElement;
+        if (!parent) return;
+        canvas.classList.remove("d-none");
+        parent.querySelector(".gem-report-chart-empty")?.classList.add("d-none");
+    }
+
+    function stackedBarOptions() {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            resizeDelay: 100,
+            animation: false,
+            plugins: {
+                legend: { display: true, position: "bottom" },
+                tooltip: { mode: "index", intersect: false },
+            },
+            scales: {
+                x: { stacked: true, ticks: { autoSkip: true, maxRotation: 45, minRotation: 0 } },
+                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
+            },
+        };
+    }
+
+    function renderDailyByEmployee() {
+        const canvas = document.getElementById("chart-daily-by-employee");
+        if (!canvas || !hasChart) return;
+        const datasets = people
+            .map((person) => ({
+                label: person.label,
+                data: sumDaily(person.daily),
+                backgroundColor: person.color,
+                borderWidth: 0,
+                stack: "daily",
+            }))
+            .filter((dataset) => dataset.data.some((value) => value > 0));
+        if (!dates.length || !datasets.length) {
+            showEmpty(canvas, "No actions in this range.");
+            return;
+        }
+        hideEmpty(canvas);
+        new window.Chart(canvas, {
+            type: "bar",
+            data: { labels: dates.map(formatDayLabel), datasets },
+            options: stackedBarOptions(),
+        });
+    }
+
+    function renderPersonChart(userId) {
+        const canvas = document.getElementById("chart-daily-person");
+        if (!canvas || !hasChart) return;
+        if (personChart) {
+            personChart.destroy();
+            personChart = null;
+        }
+        const person = people.find((row) => String(row.user_id) === String(userId));
+        const datasets = person
+            ? actionTypes
+                  .map((type) => ({
+                      label: type.label,
+                      data: person.daily?.[type.key] || [],
+                      backgroundColor: type.color,
+                      borderWidth: 0,
+                      stack: "daily",
+                  }))
+                  .filter((dataset) => dataset.data.some((value) => Number(value) > 0))
+            : [];
+        if (!dates.length || !datasets.length) {
+            showEmpty(canvas, "No actions by this person in this range.");
+            return;
+        }
+        hideEmpty(canvas);
+        personChart = new window.Chart(canvas, {
+            type: "bar",
+            data: { labels: dates.map(formatDayLabel), datasets },
+            options: stackedBarOptions(),
+        });
+    }
+
+    function renderLog(userId) {
+        if (!logBody) return;
+        const rows = log.filter((row) => String(row.user_id) === String(userId));
+        if (!rows.length) {
+            logBody.innerHTML =
+                '<tr><td colspan="4" class="text-secondary small">No activity logged by this person in this range.</td></tr>';
+            return;
+        }
+        logBody.innerHTML = rows
+            .map(
+                (row) => `
+                    <tr>
+                        <td class="small text-nowrap">${escapeHtml(row.at)}</td>
+                        <td class="small text-nowrap">
+                            <a href="/app/gem-tenders/${encodeURIComponent(row.gem_tender_id)}" target="_blank" rel="noopener noreferrer">
+                                ${escapeHtml(row.tender_id || `#${row.gem_tender_id}`)}
+                            </a>
+                        </td>
+                        <td class="small text-nowrap">${row.action ? escapeHtml(row.action) : '<span class="text-body-tertiary">-</span>'}</td>
+                        <td class="small">${escapeHtml(row.activity)}</td>
+                    </tr>`,
+            )
+            .join("");
+    }
+
+    function selectPerson(userId) {
+        for (const row of employeeRows) {
+            row.classList.toggle("table-active", row.dataset.userId === String(userId));
+        }
+        renderPersonChart(userId);
+        renderLog(userId);
+    }
+
+    personSelect?.addEventListener("change", () => selectPerson(personSelect.value));
+
+    for (const row of employeeRows) {
+        row.addEventListener("click", () => {
+            if (personSelect) personSelect.value = row.dataset.userId;
+            selectPerson(row.dataset.userId);
+            document.getElementById("gem-report-person")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+    }
+
+    renderDailyByEmployee();
+    if (personSelect?.value) {
+        selectPerson(personSelect.value);
+    }
 })();

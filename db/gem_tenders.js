@@ -231,8 +231,11 @@ export async function getAllGemTenders({ from, to }) {
         });
 }
 
-/** New tenders created per calendar day (by created_on wall-clock date). */
-export async function getGemTenderNewCountsByCreatedDay({ from, to }) {
+/**
+ * Per assignee: current open workload (no date filter) and tenders missed with a due date in the range.
+ * Unassigned tenders that went unattended in the range come back as one row with assignee_user_id NULL.
+ */
+export async function getGemTenderAssigneeWorkload({ from, to }) {
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
     if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {
         return [];
@@ -246,18 +249,47 @@ export async function getGemTenderNewCountsByCreatedDay({ from, to }) {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT
-                DATE(GEM_TENDERS.created_on) AS entry_date,
-                COUNT(GEM_TENDERS.id) AS entry_count
+                GEM_TENDERS.assignee_user_id,
+                USERS.full_name AS assignee_full_name,
+                USERS.email AS assignee_email,
+                SUM(
+                    GEM_TENDERS.assignee_user_id IS NOT NULL
+                    AND GEM_TENDERS.locked = 0
+                    AND GEM_TENDERS.eligible = FALSE
+                    AND GEM_TENDERS.ineligible = FALSE
+                    AND GEM_TENDERS.out_of_scope = FALSE
+                ) AS open_undecided,
+                SUM(
+                    GEM_TENDERS.assignee_user_id IS NOT NULL
+                    AND GEM_TENDERS.locked = 0
+                    AND GEM_TENDERS.eligible = TRUE
+                    AND (GEM_TENDERS.stage IS NULL OR GEM_TENDERS.stage <> ${GEM_TENDER_STAGES.FILED})
+                ) AS open_in_progress,
+                SUM(
+                    GEM_TENDERS.missed = TRUE
+                    AND GEM_TENDERS.end_date_time >= ${startDateTime}
+                    AND GEM_TENDERS.end_date_time <= ${endDateTime}
+                ) AS missed_in_range,
+                SUM(
+                    GEM_TENDERS.unattended = TRUE
+                    AND GEM_TENDERS.end_date_time >= ${startDateTime}
+                    AND GEM_TENDERS.end_date_time <= ${endDateTime}
+                ) AS unattended_in_range
             FROM GEM_TENDERS
-            WHERE GEM_TENDERS.created_on >= ${startDateTime}
-              AND GEM_TENDERS.created_on <= ${endDateTime}
-            GROUP BY DATE(GEM_TENDERS.created_on)
-            ORDER BY entry_date ASC
+            LEFT JOIN USERS
+                ON USERS.id = GEM_TENDERS.assignee_user_id
+            WHERE GEM_TENDERS.assignee_user_id IS NOT NULL
+               OR (
+                    GEM_TENDERS.unattended = TRUE
+                    AND GEM_TENDERS.end_date_time >= ${startDateTime}
+                    AND GEM_TENDERS.end_date_time <= ${endDateTime}
+               )
+            GROUP BY GEM_TENDERS.assignee_user_id, USERS.full_name, USERS.email
         `,
     )
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
-            logger.error(`getGemTenderNewCountsByCreatedDay: ${error}`);
+            logger.error(`getGemTenderAssigneeWorkload: ${error}`);
             return [];
         });
 }

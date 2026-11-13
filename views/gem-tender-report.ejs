@@ -1,5 +1,11 @@
 <%- include('common/header') %>
 
+<%
+    const totals = report.totals || {};
+    const actionTypes = report.actionTypes || [];
+    const employees = report.employees || [];
+%>
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
         <a class="navbar-brand" href="/app">HammerByte App</a>
@@ -23,9 +29,9 @@
                     <a href="/app/gem-tenders/list?from=<%= from %>&to=<%= to %>" class="text-decoration-none">Tenders</a> /
                     Report
                 </p>
-                <h1 class="h3 mb-1">Tenders report</h1>
+                <h1 class="h3 mb-1">Employee activity</h1>
                 <p class="text-secondary mb-0">
-                    Day-by-day stage and lock activity for
+                    What each person did on GEM tenders from
                     <strong data-readable-date="<%= from %>" data-date-format="DD/MM/YYYY"></strong>
                     to
                     <strong data-readable-date="<%= to %>" data-date-format="DD/MM/YYYY"></strong>.
@@ -39,32 +45,16 @@
             </a>
         </div>
 
-        <% const dailyEvents = report.dailyEvents || { series: [], dates: [], overall: { values: {}, total: 0 }, people: [] }; %>
-
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body p-3 p-md-4">
                 <form class="row g-3 align-items-end" method="get" action="/app/gem-tender-report" id="gem-report-range-form">
                     <div class="col-6 col-md-3 col-lg-2">
                         <label for="report-from" class="form-label">From</label>
-                        <input
-                            type="date"
-                            class="form-control"
-                            id="report-from"
-                            name="from"
-                            value="<%= from %>"
-                            required
-                        />
+                        <input type="date" class="form-control" id="report-from" name="from" value="<%= from %>" required />
                     </div>
                     <div class="col-6 col-md-3 col-lg-2">
                         <label for="report-to" class="form-label">To</label>
-                        <input
-                            type="date"
-                            class="form-control"
-                            id="report-to"
-                            name="to"
-                            value="<%= to %>"
-                            required
-                        />
+                        <input type="date" class="form-control" id="report-to" name="to" value="<%= to %>" required />
                     </div>
                     <div class="col-12 col-md-3 col-lg-2">
                         <button type="submit" class="btn btn-primary w-100">Apply range</button>
@@ -85,180 +75,134 @@
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-body p-3 p-md-4">
-                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-                    <div>
-                        <h2 class="h5 mb-1">Series</h2>
-                        <p class="text-secondary small mb-0">Choose stages and lock outcomes to show on the charts.</p>
-                    </div>
-                    <div class="d-flex flex-wrap gap-1">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="gem-report-series-all">Select all</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="gem-report-series-stages">Stages only</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="gem-report-series-locks">Locks only</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="gem-report-series-none">Clear</button>
-                    </div>
-                </div>
-                <div class="row g-2" id="gem-report-series-checks">
-                    <% (dailyEvents.series || []).forEach(function (series) { %>
-                        <div class="col-6 col-md-4 col-lg-3 col-xl-2">
-                            <div class="form-check">
-                                <input
-                                    class="form-check-input gem-report-series-check"
-                                    type="checkbox"
-                                    id="gem-report-series-<%= series.key %>"
-                                    value="<%= series.key %>"
-                                    data-kind="<%= series.kind %>"
-                                    checked
-                                />
-                                <label class="form-check-label small" for="gem-report-series-<%= series.key %>">
-                                    <span
-                                        class="gem-report-series-swatch"
-                                        style="background: <%= series.color %>;"
-                                    ></span>
-                                    <%= series.label %>
-                                </label>
-                            </div>
+        <div class="row g-3 mb-4">
+            <% [
+                { label: "Actions", value: totals.actions },
+                { label: "Active people", value: totals.active_people },
+                { label: "Tenders worked on", value: totals.tenders_touched },
+                { label: "Marked eligible", value: totals.eligible },
+                { label: "Filed", value: totals.filed },
+                { label: "Missed (due in range)", value: totals.missed, danger: true },
+                { label: "Unattended (due in range)", value: totals.unattended, danger: true },
+            ].forEach(function (card) { %>
+                <div class="col-6 col-md-4 col-xl">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <p class="text-secondary small mb-1"><%= card.label %></p>
+                            <p class="h4 mb-0<%= card.danger && Number(card.value) ? ' text-danger' : '' %>"><%= Number(card.value || 0) %></p>
                         </div>
-                    <% }) %>
+                    </div>
                 </div>
+            <% }) %>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="h5 mb-1">By employee</h2>
+                <p class="text-secondary small mb-3">
+                    Actions are counted from the activity log in this range. <strong>Open now</strong> is the
+                    person's current unlocked workload. <strong>Missed</strong> counts their tenders whose due
+                    date falls in this range and were missed. Click a row to see that person below.
+                </p>
+                <% if (!employees.length) { %>
+                    <p class="text-secondary mb-0">No activity or assigned work in this range.</p>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0" id="gem-report-employees">
+                            <thead class="table-light">
+                                <tr>
+                                    <th rowspan="2">Employee</th>
+                                    <th colspan="<%= actionTypes.length + 2 %>" class="text-center border-start">Actions in range</th>
+                                    <th colspan="2" class="text-center border-start">Open now</th>
+                                    <th rowspan="2" class="text-end border-start">Missed</th>
+                                    <th rowspan="2" class="border-start">Last active</th>
+                                </tr>
+                                <tr>
+                                    <% actionTypes.forEach(function (type, index) { %>
+                                        <th class="text-end small<%= index === 0 ? ' border-start' : '' %>"><%= type.label %></th>
+                                    <% }) %>
+                                    <th class="text-end small">Total</th>
+                                    <th class="text-end small">Tenders</th>
+                                    <th class="text-end small border-start">Undecided</th>
+                                    <th class="text-end small">In progress</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% employees.forEach(function (person) { %>
+                                    <tr class="gem-report-employee-row" data-user-id="<%= person.user_id %>" role="button">
+                                        <td class="fw-semibold"><%= person.label %></td>
+                                        <% actionTypes.forEach(function (type, index) { %>
+                                            <td class="text-end<%= index === 0 ? ' border-start' : '' %><%= person.counts[type.key] ? '' : ' text-body-tertiary' %>">
+                                                <%= person.counts[type.key] || 0 %>
+                                            </td>
+                                        <% }) %>
+                                        <td class="text-end fw-semibold"><%= person.total %></td>
+                                        <td class="text-end"><%= person.tenders_touched %></td>
+                                        <td class="text-end border-start"><%= person.open_undecided %></td>
+                                        <td class="text-end"><%= person.open_in_progress %></td>
+                                        <td class="text-end border-start<%= person.missed ? ' text-danger fw-semibold' : ' text-body-tertiary' %>"><%= person.missed %></td>
+                                        <td class="border-start small text-nowrap"><%= person.last_active || "-" %></td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
             </div>
         </div>
 
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body p-3 p-md-4">
-                <h2 class="h5 mb-1">Overall — by day</h2>
-                <p class="text-secondary small mb-3">
-                    Stacked counts of stage entries and lock outcomes each day.
-                    <strong>New</strong> uses tender created date; other series use activity logs.
-                </p>
-                <div class="gem-report-chart-box gem-report-chart-box-tall">
-                    <canvas id="chart-daily-overall"></canvas>
+                <h2 class="h5 mb-1">Actions per day</h2>
+                <p class="text-secondary small mb-3">Each bar is split by employee.</p>
+                <div class="gem-report-chart-box">
+                    <canvas id="chart-daily-by-employee"></canvas>
                 </div>
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm mb-4">
+        <div class="card border-0 shadow-sm mb-4" id="gem-report-person">
             <div class="card-body p-3 p-md-4">
                 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
                     <div>
-                        <h2 class="h5 mb-1">Person-wise — by day</h2>
-                        <p class="text-secondary small mb-0">
-                            Stage changes and locks attributed to the person who performed them.
-                        </p>
+                        <h2 class="h5 mb-1">Employee detail</h2>
+                        <p class="text-secondary small mb-0">Daily actions by type, and everything the person logged in this range.</p>
                     </div>
                     <div style="min-width: 220px; max-width: 320px;">
-                        <label for="gem-report-person-select" class="form-label small mb-1">Person</label>
+                        <label for="gem-report-person-select" class="form-label small mb-1">Employee</label>
                         <select class="form-select form-select-sm" id="gem-report-person-select">
-                            <% if (!(dailyEvents.people || []).length) { %>
-                                <option value="">No person activity</option>
-                            <% } else { %>
-                                <% dailyEvents.people.forEach(function (person, index) { %>
-                                    <option value="<%= person.key %>" <%= index === 0 ? "selected" : "" %>>
-                                        <%= person.label %> (<%= person.total %>)
-                                    </option>
-                                <% }) %>
+                            <% if (!employees.length) { %>
+                                <option value="">No employees</option>
                             <% } %>
+                            <% employees.forEach(function (person, index) { %>
+                                <option value="<%= person.user_id %>" <%= index === 0 ? "selected" : "" %>>
+                                    <%= person.label %> (<%= person.total %>)
+                                </option>
+                            <% }) %>
                         </select>
                     </div>
                 </div>
-                <div class="gem-report-chart-box gem-report-chart-box-tall">
+                <div class="gem-report-chart-box mb-4">
                     <canvas id="chart-daily-person"></canvas>
                 </div>
-            </div>
-        </div>
-
-        <div class="mb-2">
-            <h2 class="h6 text-secondary mb-0">
-                Snapshot by tender end date
-                (<span data-readable-date="<%= from %>" data-date-format="DD/MM/YYYY"></span>
-                –
-                <span data-readable-date="<%= to %>" data-date-format="DD/MM/YYYY"></span>)
-            </h2>
-        </div>
-
-        <div class="row g-3 mb-3">
-            <div class="col-6 col-md-4 col-xl-2">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body">
-                        <p class="text-secondary small mb-1">Total tenders</p>
-                        <p class="h4 mb-0"><%= report.totals.tenders %></p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-4 col-xl-2">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body">
-                        <p class="text-secondary small mb-1">With assignee</p>
-                        <p class="h4 mb-0"><%= report.totals.assigned %></p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-4 col-xl-2">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body">
-                        <p class="text-secondary small mb-1">Unassigned</p>
-                        <p class="h4 mb-0"><%= report.totals.unassigned %></p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-4 col-xl-2">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body">
-                        <p class="text-secondary small mb-1">Untouched assigned</p>
-                        <p class="h4 mb-0"><%= report.totals.untouched_assigned %></p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-4 col-xl-2">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body">
-                        <p class="text-secondary small mb-1">Locked</p>
-                        <p class="h4 mb-0"><%= report.totals.locked || 0 %></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row g-4 mb-4">
-            <div class="col-12 col-lg-6">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body p-3 p-md-4">
-                        <h2 class="h6 mb-3">Tenders by assignee</h2>
-                        <div class="gem-report-chart-box">
-                            <canvas id="chart-tenders-by-assignee"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-lg-6">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body p-3 p-md-4">
-                        <h2 class="h6 mb-3">Activity by person</h2>
-                        <div class="gem-report-chart-box">
-                            <canvas id="chart-activity-by-user"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-lg-6">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body p-3 p-md-4">
-                        <h2 class="h6 mb-3">Lock reasons</h2>
-                        <div class="gem-report-chart-box gem-report-chart-box-doughnut">
-                            <canvas id="chart-lock-reasons"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-lg-6">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body p-3 p-md-4">
-                        <h2 class="h6 mb-3">Status mix</h2>
-                        <div class="gem-report-chart-box gem-report-chart-box-doughnut">
-                            <canvas id="chart-stages"></canvas>
-                        </div>
-                    </div>
+                <h3 class="h6 mb-2">Activity log</h3>
+                <% if (report.logTruncated) { %>
+                    <p class="small text-warning mb-2">
+                        This range has a lot of activity; the log shows the most recent entries only. Choose a shorter range to see everything.
+                    </p>
+                <% } %>
+                <div class="table-responsive gem-report-log">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-nowrap">When</th>
+                                <th>Tender</th>
+                                <th>Action</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gem-report-log-body"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -269,19 +213,9 @@
     .gem-report-chart-box {
         position: relative;
         width: 100%;
-        height: 260px;
-        max-height: 260px;
+        height: 300px;
+        max-height: 300px;
         overflow: hidden;
-    }
-
-    .gem-report-chart-box-tall {
-        height: 360px;
-        max-height: 360px;
-    }
-
-    .gem-report-chart-box-doughnut {
-        height: 240px;
-        max-height: 240px;
     }
 
     .gem-report-chart-box canvas {
@@ -291,17 +225,17 @@
         max-width: 100%;
     }
 
-    .gem-report-series-swatch {
-        display: inline-block;
-        width: 0.7rem;
-        height: 0.7rem;
-        border-radius: 0.15rem;
-        margin-right: 0.35rem;
-        vertical-align: -0.05rem;
+    .gem-report-employee-row.table-active td {
+        background-color: var(--bs-primary-bg-subtle);
+    }
+
+    .gem-report-log {
+        max-height: 420px;
+        overflow-y: auto;
     }
 </style>
 <script id="gem-tender-report-data" type="application/json">
-<%- JSON.stringify(report.charts || {}) %>
+<%- JSON.stringify(report.charts || {}).replace(/</g, "\\u003c") %>
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <script src="/public/app.js" defer></script>

@@ -358,7 +358,7 @@ export async function updateGemTender({ params, body, cookie, set }) {
         await logActivities({
             gem_tender_id: gemTender.id,
             user_id: currentUser.id,
-            activities: [`Locked tender: ${relock.lock_message}`],
+            activities: [`Locked tender again: ${relock.lock_message}`],
         });
         set.status = 200;
         return {

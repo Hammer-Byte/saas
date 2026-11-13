@@ -74,7 +74,8 @@ export async function getAllGemTenderActivitiesByTenderId({ gem_tender_id }) {
         });
 }
 
-export async function getGemTenderActivityCountsByActor({ from, to }) {
+/** Every activity in a calendar date range (by created_on), with actor and GEM tender number. */
+export async function getGemTenderActivitiesInRange({ from, to }) {
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
     if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {
         return [];
@@ -88,104 +89,27 @@ export async function getGemTenderActivityCountsByActor({ from, to }) {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT
-                USERS.id AS user_id,
+                GEM_TENDER_ACTIVITIES.id,
+                GEM_TENDER_ACTIVITIES.gem_tender_id,
+                GEM_TENDER_ACTIVITIES.user_id,
+                GEM_TENDER_ACTIVITIES.activity,
+                GEM_TENDER_ACTIVITIES.created_on,
                 USERS.full_name AS user_full_name,
                 USERS.email AS user_email,
-                COUNT(GEM_TENDER_ACTIVITIES.id) AS activity_count
+                GEM_TENDERS.tender_id
             FROM GEM_TENDER_ACTIVITIES
             INNER JOIN USERS
                 ON USERS.id = GEM_TENDER_ACTIVITIES.user_id
             INNER JOIN GEM_TENDERS
                 ON GEM_TENDERS.id = GEM_TENDER_ACTIVITIES.gem_tender_id
-            WHERE GEM_TENDERS.end_date_time IS NOT NULL
-              AND GEM_TENDERS.end_date_time >= ${startDateTime}
-              AND GEM_TENDERS.end_date_time <= ${endDateTime}
-            GROUP BY USERS.id, USERS.full_name, USERS.email
-            ORDER BY activity_count DESC, USERS.full_name ASC
-        `,
-    )
-        .then((result) => Array.from(result ?? []))
-        .catch((error) => {
-            logger.error(`getGemTenderActivityCountsByActor: ${error}`);
-            return [];
-        });
-}
-
-/** Stage- and eligibility-change activity rows in a calendar date range (by activity created_on). */
-export async function getGemTenderStageChangeActivities({ from, to }) {
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {
-        return [];
-    }
-
-    const rangeStart = from <= to ? from : to;
-    const rangeEnd = from <= to ? to : from;
-    const startDateTime = `${rangeStart} 00:00:00`;
-    const endDateTime = `${rangeEnd} 23:59:59`;
-
-    return await executeSQLQuery(
-        (sql) => sql`
-            SELECT
-                GEM_TENDER_ACTIVITIES.id,
-                GEM_TENDER_ACTIVITIES.gem_tender_id,
-                GEM_TENDER_ACTIVITIES.user_id,
-                GEM_TENDER_ACTIVITIES.activity,
-                GEM_TENDER_ACTIVITIES.created_on,
-                USERS.full_name AS user_full_name,
-                USERS.email AS user_email
-            FROM GEM_TENDER_ACTIVITIES
-            LEFT JOIN USERS
-                ON USERS.id = GEM_TENDER_ACTIVITIES.user_id
-            WHERE (
-                    GEM_TENDER_ACTIVITIES.activity LIKE ${"Changed stage from %"}
-                 OR GEM_TENDER_ACTIVITIES.activity LIKE ${"Changed eligibility from %"}
-              )
-              AND GEM_TENDER_ACTIVITIES.created_on >= ${startDateTime}
+            WHERE GEM_TENDER_ACTIVITIES.created_on >= ${startDateTime}
               AND GEM_TENDER_ACTIVITIES.created_on <= ${endDateTime}
-            ORDER BY GEM_TENDER_ACTIVITIES.created_on ASC, GEM_TENDER_ACTIVITIES.id ASC
+            ORDER BY GEM_TENDER_ACTIVITIES.created_on DESC, GEM_TENDER_ACTIVITIES.id DESC
         `,
     )
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
-            logger.error(`getGemTenderStageChangeActivities: ${error}`);
-            return [];
-        });
-}
-
-/** Lock activity rows in a calendar date range (by activity created_on). */
-export async function getGemTenderLockActivities({ from, to }) {
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {
-        return [];
-    }
-
-    const rangeStart = from <= to ? from : to;
-    const rangeEnd = from <= to ? to : from;
-    const startDateTime = `${rangeStart} 00:00:00`;
-    const endDateTime = `${rangeEnd} 23:59:59`;
-
-    return await executeSQLQuery(
-        (sql) => sql`
-            SELECT
-                GEM_TENDER_ACTIVITIES.id,
-                GEM_TENDER_ACTIVITIES.gem_tender_id,
-                GEM_TENDER_ACTIVITIES.user_id,
-                GEM_TENDER_ACTIVITIES.activity,
-                GEM_TENDER_ACTIVITIES.created_on,
-                USERS.full_name AS user_full_name,
-                USERS.email AS user_email
-            FROM GEM_TENDER_ACTIVITIES
-            LEFT JOIN USERS
-                ON USERS.id = GEM_TENDER_ACTIVITIES.user_id
-            WHERE GEM_TENDER_ACTIVITIES.activity LIKE ${"Locked tender%"}
-              AND GEM_TENDER_ACTIVITIES.created_on >= ${startDateTime}
-              AND GEM_TENDER_ACTIVITIES.created_on <= ${endDateTime}
-            ORDER BY GEM_TENDER_ACTIVITIES.created_on ASC, GEM_TENDER_ACTIVITIES.id ASC
-        `,
-    )
-        .then((result) => Array.from(result ?? []))
-        .catch((error) => {
-            logger.error(`getGemTenderLockActivities: ${error}`);
+            logger.error(`getGemTenderActivitiesInRange: ${error}`);
             return [];
         });
 }

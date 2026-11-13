@@ -976,7 +976,7 @@ export const uiRoutes = new Elysia()
                 });
 
                 return render("gem-tender-report", appPage(session, {
-                    title: "Tenders report — GEM Tenders — HammerByte",
+                    title: "Employee activity — GEM Tenders — HammerByte",
                     from: rangeFrom,
                     to: rangeTo,
                     report,
