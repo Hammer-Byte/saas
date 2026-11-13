@@ -156,13 +156,46 @@ export async function buildGemTenderReport({ from, to }) {
         unattended: 0,
     };
     const tendersTouched = new Set();
+    const counted = new Set();
     const log = [];
 
+    function credit(person, actionKey, gemTenderId, createdOn) {
+        const key = actionKey === "filed" ? `filed|${gemTenderId}` : `${person.user_id}|${actionKey}|${gemTenderId}`;
+        if (counted.has(key)) return;
+        counted.add(key);
+
+        person.counts[actionKey] += 1;
+        person.total += 1;
+        person.tenders.add(gemTenderId);
+        tendersTouched.add(gemTenderId);
+        totals.actions += 1;
+        if (actionKey === "eligible") totals.eligible += 1;
+        if (actionKey === "filed") totals.filed += 1;
+
+        const index = dateIndex.get(createdOn.slice(0, 10));
+        if (index != null) {
+            person.daily[actionKey][index] += 1;
+        }
+    }
+
+    // Rows are newest first, so each (person, action, tender) is credited on its latest day in range.
     for (const row of activities) {
         const person = employee(row.user_id, personLabel(row.user_full_name, row.user_email, row.user_id));
         const createdOn = getReadableDate("YYYY-MM-DD HH:mm:ss", row.created_on) || "";
         const createdOnLabel = getReadableDate("DD/MM/YYYY HH:mm", row.created_on) || "";
         const actionKey = classifyActivity(row.activity);
+
+        let logAction = actionKey ? ACTION_LABELS[actionKey] : "";
+        if (actionKey === "filed") {
+            if (row.tender_stage !== GEM_TENDER_STAGES.FILED) {
+                logAction = "Filed (no longer filed, not counted)";
+            } else if (Number(row.tender_assignee_user_id) !== Number(row.user_id)) {
+                const assigneeName = row.tender_assignee_user_id
+                    ? personLabel(row.tender_assignee_full_name, row.tender_assignee_email, row.tender_assignee_user_id)
+                    : "nobody (unassigned)";
+                logAction = `Filed (credited to ${assigneeName})`;
+            }
+        }
 
         if (log.length < LOG_ROW_LIMIT) {
             log.push({
@@ -170,7 +203,7 @@ export async function buildGemTenderReport({ from, to }) {
                 at: createdOnLabel,
                 gem_tender_id: row.gem_tender_id,
                 tender_id: row.tender_id,
-                action: actionKey ? ACTION_LABELS[actionKey] : "",
+                action: logAction,
                 activity: row.activity,
             });
         }
@@ -180,18 +213,21 @@ export async function buildGemTenderReport({ from, to }) {
         }
         if (!actionKey) continue;
 
-        person.counts[actionKey] += 1;
-        person.total += 1;
-        person.tenders.add(row.gem_tender_id);
-        tendersTouched.add(row.gem_tender_id);
-        totals.actions += 1;
-        if (actionKey === "eligible") totals.eligible += 1;
-        if (actionKey === "filed") totals.filed += 1;
-
-        const index = dateIndex.get(createdOn.slice(0, 10));
-        if (index != null) {
-            person.daily[actionKey][index] += 1;
+        if (actionKey === "filed") {
+            // Filing belongs to the tender's assignee, and only counts while the tender is still filed.
+            if (row.tender_stage !== GEM_TENDER_STAGES.FILED || !row.tender_assignee_user_id) continue;
+            const assignee = employee(
+                row.tender_assignee_user_id,
+                personLabel(
+                    row.tender_assignee_full_name,
+                    row.tender_assignee_email,
+                    row.tender_assignee_user_id,
+                ),
+            );
+            credit(assignee, actionKey, row.gem_tender_id, createdOn);
+            continue;
         }
+        credit(person, actionKey, row.gem_tender_id, createdOn);
     }
     totals.tenders_touched = tendersTouched.size;
 

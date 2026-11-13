@@ -96,12 +96,18 @@ export async function getGemTenderActivitiesInRange({ from, to }) {
                 GEM_TENDER_ACTIVITIES.created_on,
                 USERS.full_name AS user_full_name,
                 USERS.email AS user_email,
-                GEM_TENDERS.tender_id
+                GEM_TENDERS.tender_id,
+                GEM_TENDERS.stage AS tender_stage,
+                GEM_TENDERS.assignee_user_id AS tender_assignee_user_id,
+                ASSIGNEES.full_name AS tender_assignee_full_name,
+                ASSIGNEES.email AS tender_assignee_email
             FROM GEM_TENDER_ACTIVITIES
             INNER JOIN USERS
                 ON USERS.id = GEM_TENDER_ACTIVITIES.user_id
             INNER JOIN GEM_TENDERS
                 ON GEM_TENDERS.id = GEM_TENDER_ACTIVITIES.gem_tender_id
+            LEFT JOIN USERS AS ASSIGNEES
+                ON ASSIGNEES.id = GEM_TENDERS.assignee_user_id
             WHERE GEM_TENDER_ACTIVITIES.created_on >= ${startDateTime}
               AND GEM_TENDER_ACTIVITIES.created_on <= ${endDateTime}
             ORDER BY GEM_TENDER_ACTIVITIES.created_on DESC, GEM_TENDER_ACTIVITIES.id DESC
