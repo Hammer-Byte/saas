@@ -22,7 +22,7 @@ $MetricsUrl = "$HostUrl/api/servers/metrics"
 $PingIntervalSeconds = 60
 $MetricsIntervalSeconds = 900
 $MetricsPerRun = 2
-$AgentVersion = "0.3.7-ps-stable"
+$AgentVersion = "0.3.8-ps-stable"
 $InstallDir = Join-Path $env:ProgramData "HammerByte\ServerMonitor"
 $AgentLogFile = Join-Path $InstallDir "agent.log"
 
@@ -294,15 +294,41 @@ function Collect-Metrics {
     }
 }
 
-function Get-DesktopScreenshotBase64 {
-    # Best-effort desktop capture. SYSTEM/session-0 tasks may get a blank image.
+function Test-InteractiveDesktopAvailable {
+    # Session 0 (SYSTEM services / ONSTART tasks) has no interactive desktop HDC.
     try {
+        $sid = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
+        if ($sid -eq 0) { return $false }
+    } catch {}
+    try {
+        # explorer in a real user session is a good signal a desktop exists.
+        $explorers = @(Get-Process -Name explorer -ErrorAction SilentlyContinue)
+        if ($explorers.Count -eq 0) { return $false }
+    } catch {
+        return $false
+    }
+    return $true
+}
+
+function Get-DesktopScreenshotBase64 {
+    # Best-effort desktop capture. Expected to skip under SYSTEM/session-0 after reboot.
+    try {
+        if (-not (Test-InteractiveDesktopAvailable)) {
+            Write-AgentLog "screenshot skipped (no interactive desktop; normal for SYSTEM after reboot)"
+            return $null
+        }
+
         Add-Type -AssemblyName System.Drawing -ErrorAction Stop
         Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
 
         $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
         $width = [math]::Max(1, [int]$screen.Width)
         $height = [math]::Max(1, [int]$screen.Height)
+        if ($width -lt 16 -or $height -lt 16) {
+            Write-AgentLog "screenshot skipped (screen metrics unavailable)"
+            return $null
+        }
+
         $bmp = New-Object System.Drawing.Bitmap $width, $height
         $graphics = [System.Drawing.Graphics]::FromImage($bmp)
         try {
@@ -348,12 +374,18 @@ function Get-DesktopScreenshotBase64 {
         }
 
         if ($null -eq $bytes -or $bytes.Length -lt 64) {
-            throw "screenshot bytes empty"
+            Write-AgentLog "screenshot skipped (empty capture)"
+            return $null
         }
         Write-AgentLog ("screenshot captured ({0} bytes jpeg)" -f $bytes.Length)
         return [Convert]::ToBase64String($bytes)
     } catch {
-        Write-AgentLog ("screenshot failed: {0}" -f $_.Exception.Message)
+        $msg = [string]$_.Exception.Message
+        if ($msg -match "handle is invalid|not currently available|access is denied|A generic error") {
+            Write-AgentLog "screenshot skipped (no interactive desktop; normal for SYSTEM after reboot)"
+        } else {
+            Write-AgentLog ("screenshot skipped: {0}" -f $msg)
+        }
         return $null
     }
 }
@@ -382,7 +414,7 @@ function Send-Metrics {
         if ($shot) {
             $payload["screenshot_jpeg_base64"] = $shot
         } else {
-            $payload["screenshot_error"] = "capture failed or unavailable in this session"
+            $payload["screenshot_error"] = "unavailable in this session (SYSTEM/session-0 has no desktop)"
         }
 
         Write-AgentLog "metrics collection done"
