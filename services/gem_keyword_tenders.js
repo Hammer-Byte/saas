@@ -772,9 +772,6 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     if (assigneeChanging && !assignToMeClaim) {
         patch.assignee_user_id = nextAssigneeUserId;
     }
-    if (assigneeChanging && assignToMeClaim && (stageChanging || lockChanging)) {
-        // claim helper already set assignee/stage; only apply remaining lock/flag bits
-    }
     if (categoryGroupChanging) {
         patch.category_group_id = nextCategoryGroupId;
     }

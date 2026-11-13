@@ -304,31 +304,31 @@ export async function updateGemKeywordTenderById(patch = {}) {
     const has = (key) => Object.prototype.hasOwnProperty.call(patch, key);
     const assignments = [];
 
-    const queueAssignment = (column, value) => {
+    const pushAssignment = (column, value) => {
         assignments.push({ column, value });
     };
 
     if (has("hidden")) {
-        queueAssignment("hidden", !!patch.hidden);
+        pushAssignment("hidden", !!patch.hidden);
     }
     if (has("eligible")) {
-        queueAssignment("eligible", patch.eligible);
+        pushAssignment("eligible", patch.eligible);
     }
     if (has("filed")) {
-        queueAssignment("filed", !!patch.filed);
+        pushAssignment("filed", !!patch.filed);
     }
     if (has("quote")) {
-        queueAssignment("quote", patch.quote == null ? null : String(patch.quote));
+        pushAssignment("quote", patch.quote == null ? null : String(patch.quote));
     }
     if (has("stage")) {
-        queueAssignment("stage", patch.stage == null ? null : String(patch.stage));
+        pushAssignment("stage", patch.stage == null ? null : String(patch.stage));
     }
     if (has("assignee_user_id")) {
         const assigneeId =
             patch.assignee_user_id != null && Number(patch.assignee_user_id) >= 1
                 ? Number(patch.assignee_user_id)
                 : null;
-        queueAssignment("assignee_user_id", assigneeId);
+        pushAssignment("assignee_user_id", assigneeId);
     }
     if (has("category_group_id")) {
         const groupId =
