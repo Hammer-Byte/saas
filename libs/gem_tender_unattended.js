@@ -25,10 +25,6 @@ async function runUnattendedCycle() {
     }
 }
 
-export async function checkGemTenderUnattended() {
-    await runUnattendedCycle();
-}
-
 export function startGemTenderUnattendedWatcher() {
     runUnattendedCycle().catch((error) => {
         logger.error(`startGemTenderUnattendedWatcher initial: ${error}`);

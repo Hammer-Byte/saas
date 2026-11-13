@@ -3,7 +3,7 @@ import { Elysia } from "elysia";
 import { CONSTANTS } from "@hammerbyte/utils";
 import requireSession from "../middlewares/require_session.js";
 import { getCurrentUser } from "../services/authentication.js";
-import { appPage, hasAuthority } from "../libs/app_page.js";
+import { appPage } from "../libs/app_page.js";
 import { getAllRoles } from "../db/roles.js";
 import { getAllAuthorities } from "../db/authorities.js";
 import {
@@ -70,7 +70,6 @@ import { canManageTenderDocuments } from "../services/gem_tender_documents.js";
 import { canManageInternalDocuments } from "../services/internal_documents.js";
 import { getMaxRequestBodySize } from "../libs/upload_limits.js";
 import {
-    AUTHORITIES,
     CONTRACT_BROKEN_BY,
     CONTRACT_BROKEN_BY_LABELS,
     GEM_TENDER_ELIGIBILITY_CHOICE_LABELS,

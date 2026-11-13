@@ -35,7 +35,7 @@ import { getCurrentUser } from "./authentication.js";
 const STAGE_VALUES = new Set(Object.values(GEM_TENDER_STAGES));
 
 /** Filed is only reachable through the filing endpoint (documents required). */
-export const MANUAL_STAGE_VALUES = new Set(
+const MANUAL_STAGE_VALUES = new Set(
     Object.values(GEM_TENDER_STAGES).filter((stage) => stage !== GEM_TENDER_STAGES.FILED),
 );
 
@@ -55,19 +55,19 @@ function eligibilityLabel(choice) {
     return GEM_TENDER_ELIGIBILITY_CHOICE_LABELS[choice] || "Not decided";
 }
 
-export function isTenderLocked(tenderOrLocked) {
+function isTenderLocked(tenderOrLocked) {
     if (tenderOrLocked && typeof tenderOrLocked === "object") {
         return !!Number(tenderOrLocked.locked);
     }
     return !!Number(tenderOrLocked);
 }
 
-export function isTenderEligible(tender) {
+function isTenderEligible(tender) {
     return !!Number(tender?.eligible);
 }
 
 /** Current radio choice from the boolean columns, or null when undecided. */
-export function eligibilityChoiceOf(tender) {
+function eligibilityChoiceOf(tender) {
     if (!tender) return null;
     if (Number(tender.eligible)) return GEM_TENDER_ELIGIBILITY_CHOICES.ELIGIBLE;
     if (Number(tender.ineligible)) return GEM_TENDER_ELIGIBILITY_CHOICES.INELIGIBLE;
@@ -127,7 +127,7 @@ export function canWorkOnEligibleTender({ currentUser, tender }) {
     );
 }
 
-export function canAssignOtherUsers(currentUser) {
+function canAssignOtherUsers(currentUser) {
     return (
         !!currentUser?.super_admin ||
         (currentUser?.authorities || []).includes(AUTHORITIES.ASSIGN_GEM_TENDER_ASSIGNEE)

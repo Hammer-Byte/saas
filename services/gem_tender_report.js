@@ -320,32 +320,7 @@ function buildDailyEventCharts({
         0,
     );
 
-    // Keep legacy table shape for any leftover consumers.
-    const stageEntriesByDay = {
-        columns: STAGE_ORDER.map((stage) => ({
-            stage,
-            label: GEM_TENDER_STAGE_LABELS[stage] || stage,
-        })),
-        rows: dates.map((date) => {
-            const counts = emptyStageCountsFromOverall(overallByDate.get(date));
-            const total = STAGE_ORDER.reduce((sum, stage) => sum + Number(counts[stage] || 0), 0);
-            return { date, counts, total };
-        }),
-        columnTotals: emptyStageCounts(),
-        grandTotal: 0,
-    };
-    for (const row of stageEntriesByDay.rows) {
-        for (const stage of STAGE_ORDER) {
-            stageEntriesByDay.columnTotals[stage] += Number(row.counts[stage] || 0);
-        }
-    }
-    stageEntriesByDay.grandTotal = STAGE_ORDER.reduce(
-        (sum, stage) => sum + Number(stageEntriesByDay.columnTotals[stage] || 0),
-        0,
-    );
-
     return {
-        stageEntriesByDay,
         dailyEvents: {
             series,
             dates,
@@ -356,19 +331,6 @@ function buildDailyEventCharts({
             people,
         },
     };
-}
-
-function emptyStageCounts() {
-    return Object.fromEntries(STAGE_ORDER.map((stage) => [stage, 0]));
-}
-
-function emptyStageCountsFromOverall(counts) {
-    const next = emptyStageCounts();
-    if (!counts) return next;
-    for (const stage of STAGE_ORDER) {
-        next[stage] = Number(counts[stage] || 0);
-    }
-    return next;
 }
 
 function emptyAssigneeBucket(key, label) {
@@ -392,7 +354,7 @@ export async function buildGemTenderReport({ from, to }) {
         getGemTenderLockActivities(stageEntryRange),
         getGemTenderNewCountsByCreatedDay(stageEntryRange),
     ]);
-    const { stageEntriesByDay, dailyEvents } = buildDailyEventCharts({
+    const { dailyEvents } = buildDailyEventCharts({
         from: stageEntryRange.from,
         to: stageEntryRange.to,
         stageChangeActivities,
@@ -525,7 +487,6 @@ export async function buildGemTenderReport({ from, to }) {
             untouched_assigned: untouchedAssignedCount,
             actors_with_activity: activityRows.length,
         },
-        stageEntriesByDay,
         dailyEvents,
         stageTotals: stageTotalsList,
         lockMessages: lockMessageList,
