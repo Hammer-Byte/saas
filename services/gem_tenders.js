@@ -1,3 +1,4 @@
+import { logger } from "@hammerbyte/utils";
 import {
     AUTHORITIES,
     GEM_TENDER_ELIGIBILITY_CHOICES,
@@ -685,13 +686,105 @@ export async function updateGemTender({ params, body, cookie, set }) {
     return { message: "Tender updated", gemTender: updatedGemTender };
 }
 
-function bulkResult({ verb, successCount, skippedCount, failedCount, failures, set }) {
+/** Super admins and mass-change users can bulk-work any assigned tender; others only their own. */
+function canBulkManageAnyTender(currentUser) {
+    return (
+        !!currentUser?.super_admin ||
+        hasAuthority(currentUser?.authorities, AUTHORITIES.MARK_GEM_TENDER_MASS_STAGE_CHANGE)
+    );
+}
+
+/** Reason the user cannot do assignee-gated work on this tender in bulk, or null. */
+function bulkWorkBlocker(currentUser, tender) {
+    if (isTenderLocked(tender)) return "Locked — unlock it first";
+    const assigneeId = asAssigneeId(tender.assignee_user_id);
+    if (!(assigneeId >= 1)) return "No assignee — assign someone first";
+    if (!canBulkManageAnyTender(currentUser) && assigneeId !== Number(currentUser.id)) {
+        return "Assigned to someone else";
+    }
+    return null;
+}
+
+/** Auth + comment + ids shared by every bulk endpoint; `response` is set when the request must stop. */
+async function startBulk({ body, cookie, set }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { response: { error: "Unauthorized" } };
+    }
+    const comment = asText(body?.comment).trim();
+    if (!comment) {
+        set.status = 400;
+        return { response: { error: "Comment is required" } };
+    }
+    const ids = parseIds(body?.ids);
+    if (!ids.length) {
+        set.status = 400;
+        return { response: { error: "Select at least one tender" } };
+    }
+    return { currentUser, comment, ids };
+}
+
+/**
+ * Runs `handle` per tender. It returns { skip }, { error } or { activities, after? } once it has saved its change;
+ * the comment and activity log are then written here.
+ */
+async function runBulk({ ids, currentUser, comment, verb, set, handle }) {
+    let successCount = 0;
+    let skippedCount = 0;
+    const failures = [];
+
+    for (const id of ids) {
+        const gemTender = await getGemTenderById({ id });
+        if (!gemTender) {
+            failures.push({ id, error: "Tender not found" });
+            continue;
+        }
+        const fail = (error) => failures.push({ id, tender_id: gemTender.tender_id, error });
+
+        let outcome;
+        try {
+            outcome = await handle(gemTender);
+        } catch (error) {
+            logger.error(`runBulk(${verb}) #${id}: ${error}`);
+            fail("Failed to save the change");
+            continue;
+        }
+        if (outcome?.skip) {
+            skippedCount += 1;
+            continue;
+        }
+        if (outcome?.error) {
+            fail(outcome.error);
+            continue;
+        }
+
+        const commentId = await createGemTenderComment({
+            gem_tender_id: gemTender.id,
+            user_id: currentUser.id,
+            comment,
+        });
+        await logActivities({
+            gem_tender_id: gemTender.id,
+            user_id: currentUser.id,
+            activities: [
+                ...(outcome?.activities || []),
+                ...(commentId ? [`Added comment: "${quotePreview(comment)}"`] : []),
+            ],
+        });
+        if (outcome?.after) {
+            await outcome.after();
+        }
+        successCount += 1;
+    }
+
+    const failedCount = failures.length;
     set.status = failedCount && !successCount ? 400 : 200;
     return {
         message:
             `${verb} ${successCount}` +
-            (skippedCount ? `, skipped ${skippedCount}` : "") +
-            (failedCount ? `, failed ${failedCount}` : ""),
+            (skippedCount ? `, skipped ${skippedCount} (already set)` : "") +
+            (failedCount ? `, could not change ${failedCount}` : ""),
         successCount,
         skippedCount,
         failedCount,
@@ -700,16 +793,9 @@ function bulkResult({ verb, successCount, skippedCount, failedCount, failures, s
 }
 
 export async function bulkChangeGemTenderStages({ body, cookie, set }) {
-    const currentUser = await getCurrentUser({ cookie });
-    if (!currentUser?.id) {
-        set.status = 401;
-        return { error: "Unauthorized" };
-    }
-
-    if (!hasAuthority(currentUser.authorities, AUTHORITIES.MARK_GEM_TENDER_MASS_STAGE_CHANGE)) {
-        set.status = 403;
-        return { error: "Missing authority to bulk change tender stage" };
-    }
+    const start = await startBulk({ body, cookie, set });
+    if (start.response) return start.response;
+    const { currentUser, comment, ids } = start;
 
     const nextStage = knownStageOrNull(body?.stage);
     if (!nextStage || !MANUAL_STAGE_VALUES.has(nextStage)) {
@@ -717,331 +803,205 @@ export async function bulkChangeGemTenderStages({ body, cookie, set }) {
         return { error: "Invalid stage (Filed needs documents and must be done per tender)" };
     }
 
-    const comment = asText(body?.comment).trim();
-    if (!comment) {
-        set.status = 400;
-        return { error: "Comment is required" };
-    }
+    return await runBulk({
+        ids,
+        currentUser,
+        comment,
+        verb: "Changed stage on",
+        set,
+        handle: async (gemTender) => {
+            const previousStage = knownStageOrNull(gemTender.stage);
+            if (previousStage === nextStage) return { skip: true };
+            const blocker = bulkWorkBlocker(currentUser, gemTender);
+            if (blocker) return { error: blocker };
+            if (previousStage === GEM_TENDER_STAGES.FILED) return { error: "Already filed" };
+            if (!isTenderEligible(gemTender)) return { error: "Not marked eligible" };
 
-    const ids = parseIds(body?.ids);
-    if (!ids.length) {
-        set.status = 400;
-        return { error: "Select at least one tender" };
-    }
-
-    let successCount = 0;
-    let skippedCount = 0;
-    let failedCount = 0;
-    const failures = [];
-
-    for (const id of ids) {
-        const gemTender = await getGemTenderById({ id });
-        if (!gemTender) {
-            failedCount += 1;
-            failures.push({ id, error: "Tender not found" });
-            continue;
-        }
-
-        const previousStage = knownStageOrNull(gemTender.stage);
-        if (previousStage === nextStage) {
-            skippedCount += 1;
-            continue;
-        }
-
-        let error = null;
-        if (isTenderLocked(gemTender)) {
-            error = "Unlock this tender before making changes";
-        } else if (!(asAssigneeId(gemTender.assignee_user_id) >= 1)) {
-            error = "Assign someone before changing stage";
-        } else if (!isTenderEligible(gemTender)) {
-            error = "Mark the tender eligible before changing stage";
-        } else if (previousStage === GEM_TENDER_STAGES.FILED) {
-            error = "Stage cannot change after the tender is filed";
-        }
-        if (error) {
-            failedCount += 1;
-            failures.push({ id, error });
-            continue;
-        }
-
-        try {
             await updateGemTenderById({ id: gemTender.id, stage: nextStage });
-
-            const commentId = await createGemTenderComment({
-                gem_tender_id: gemTender.id,
-                user_id: currentUser.id,
-                comment,
-            });
-            if (!commentId) {
-                failedCount += 1;
-                failures.push({ id, error: "Failed to add comment" });
-                continue;
-            }
-
-            await logActivities({
-                gem_tender_id: gemTender.id,
-                user_id: currentUser.id,
+            return {
                 activities: [
                     `Changed stage from ${stageLabel(previousStage)} to ${stageLabel(nextStage)}`,
-                    `Added comment: "${quotePreview(comment)}"`,
                 ],
-            });
-
-            if (nextStage === GEM_TENDER_STAGES.WAITING_FOR_QUOTE) {
-                const updated = await getGemTenderById({ id: gemTender.id });
-                await notifyGemTenderQuoteRequested({
-                    tender: updated || gemTender,
-                    requestedByUser: currentUser,
-                    assigneeUser: await getUserById({ id: Number(gemTender.assignee_user_id) }),
-                });
-            }
-
-            successCount += 1;
-        } catch (error) {
-            failedCount += 1;
-            failures.push({ id, error: "Failed to change stage" });
-        }
-    }
-
-    return bulkResult({ verb: "Changed stage on", successCount, skippedCount, failedCount, failures, set });
+                after:
+                    nextStage === GEM_TENDER_STAGES.WAITING_FOR_QUOTE
+                        ? async () =>
+                              notifyGemTenderQuoteRequested({
+                                  tender: (await getGemTenderById({ id: gemTender.id })) || gemTender,
+                                  requestedByUser: currentUser,
+                                  assigneeUser: await getUserById({
+                                      id: Number(gemTender.assignee_user_id),
+                                  }),
+                              })
+                        : null,
+            };
+        },
+    });
 }
 
-/** Bulk Not eligible / Out of scope: sets the flag and locks. */
+/** Bulk Eligible / Not eligible / Out of scope; the negative choices lock and hide the tender. */
 export async function bulkSetGemTenderEligibility({ body, cookie, set }) {
-    const currentUser = await getCurrentUser({ cookie });
-    if (!currentUser?.id) {
-        set.status = 401;
-        return { error: "Unauthorized" };
-    }
-
-    if (!hasAuthority(currentUser.authorities, AUTHORITIES.MARK_GEM_TENDER_MASS_STAGE_CHANGE)) {
-        set.status = 403;
-        return { error: "Missing authority to bulk change tender eligibility" };
-    }
+    const start = await startBulk({ body, cookie, set });
+    if (start.response) return start.response;
+    const { currentUser, comment, ids } = start;
 
     const choice = String(body?.eligibility || "").trim();
-    if (!ELIGIBILITY_LOCK_MESSAGES[choice]) {
+    if (!ELIGIBILITY_CHOICE_VALUES.has(choice)) {
         set.status = 400;
         return { error: "Invalid eligibility" };
     }
 
-    const comment = asText(body?.comment).trim();
-    if (!comment) {
-        set.status = 400;
-        return { error: "Comment is required" };
-    }
-
-    const ids = parseIds(body?.ids);
-    if (!ids.length) {
-        set.status = 400;
-        return { error: "Select at least one tender" };
-    }
-
-    let successCount = 0;
-    let skippedCount = 0;
-    let failedCount = 0;
-    const failures = [];
-
-    for (const id of ids) {
-        const gemTender = await getGemTenderById({ id });
-        if (!gemTender) {
-            failedCount += 1;
-            failures.push({ id, error: "Tender not found" });
-            continue;
-        }
-
-        const previousChoice = eligibilityChoiceOf(gemTender);
-        if (previousChoice === choice) {
-            skippedCount += 1;
-            continue;
-        }
-
-        let error = null;
-        if (isTenderLocked(gemTender)) {
-            error = "Unlock this tender before making changes";
-        } else if (!(asAssigneeId(gemTender.assignee_user_id) >= 1)) {
-            error = "Assign someone before changing eligibility";
-        } else if (knownStageOrNull(gemTender.stage) === GEM_TENDER_STAGES.FILED) {
-            error = "Eligibility cannot change after the tender is filed";
-        }
-        if (error) {
-            failedCount += 1;
-            failures.push({ id, error });
-            continue;
-        }
-
-        try {
+    return await runBulk({
+        ids,
+        currentUser,
+        comment,
+        verb: `Marked ${eligibilityLabel(choice).toLowerCase()}:`,
+        set,
+        handle: async (gemTender) => {
+            const previousChoice = eligibilityChoiceOf(gemTender);
+            if (previousChoice === choice) return { skip: true };
+            const blocker = bulkWorkBlocker(currentUser, gemTender);
+            if (blocker) return { error: blocker };
             const previousStage = knownStageOrNull(gemTender.stage);
+            if (previousStage === GEM_TENDER_STAGES.FILED) return { error: "Already filed" };
+
             const choicePatch = eligibilityPatch({ choice, previousStage });
             await updateGemTenderById({ id: gemTender.id, ...choicePatch });
-
-            const commentId = await createGemTenderComment({
-                gem_tender_id: gemTender.id,
-                user_id: currentUser.id,
-                comment,
-            });
-            if (!commentId) {
-                failedCount += 1;
-                failures.push({ id, error: "Failed to add comment" });
-                continue;
-            }
-
-            await logActivities({
-                gem_tender_id: gemTender.id,
-                user_id: currentUser.id,
-                activities: [
-                    ...eligibilityActivities({
-                        previousChoice,
-                        choice,
-                        previousStage,
-                        patch: choicePatch,
-                    }),
-                    `Added comment: "${quotePreview(comment)}"`,
-                ],
-            });
-
-            successCount += 1;
-        } catch (error) {
-            failedCount += 1;
-            failures.push({ id, error: "Failed to change eligibility" });
-        }
-    }
-
-    return bulkResult({ verb: "Updated", successCount, skippedCount, failedCount, failures, set });
+            return {
+                activities: eligibilityActivities({
+                    previousChoice,
+                    choice,
+                    previousStage,
+                    patch: choicePatch,
+                }),
+            };
+        },
+    });
 }
 
-export async function bulkAssignGemTenders({ body, cookie, set }) {
-    const currentUser = await getCurrentUser({ cookie });
-    if (!currentUser?.id) {
-        set.status = 401;
-        return { error: "Unauthorized" };
+export async function bulkSetGemTenderCategory({ body, cookie, set }) {
+    const start = await startBulk({ body, cookie, set });
+    if (start.response) return start.response;
+    const { currentUser, comment, ids } = start;
+
+    const nextCategoryId = asCategoryId(body?.tender_category_id);
+    const nextCategory = nextCategoryId
+        ? await getGemTenderCategoryById({ id: nextCategoryId })
+        : null;
+    if (nextCategoryId && !nextCategory) {
+        set.status = 400;
+        return { error: "Category not found" };
     }
 
+    return await runBulk({
+        ids,
+        currentUser,
+        comment,
+        verb: "Changed category on",
+        set,
+        handle: async (gemTender) => {
+            if (asCategoryId(gemTender.tender_category_id) === nextCategoryId) return { skip: true };
+            const blocker = bulkWorkBlocker(currentUser, gemTender);
+            if (blocker) return { error: blocker };
+
+            await updateGemTenderById({ id: gemTender.id, tender_category_id: nextCategoryId });
+            return {
+                activities: [
+                    `Changed category from ${gemTender.tender_category_name || "None"} to ${nextCategory?.name || "None"}`,
+                ],
+            };
+        },
+    });
+}
+
+/** Assign to me, assign to someone (assign authority), or unassign (assign authority; resets unfiled work). */
+export async function bulkAssignGemTenders({ body, cookie, set }) {
+    const start = await startBulk({ body, cookie, set });
+    if (start.response) return start.response;
+    const { currentUser, comment, ids } = start;
+
     const assignToMe = body?.assign_to_me === true;
+    const unassign = !assignToMe && body?.assignee_user_id === null;
     const nextAssigneeUserId = assignToMe
         ? Number(currentUser.id)
         : asAssigneeId(body?.assignee_user_id);
-
-    if (!(nextAssigneeUserId >= 1)) {
+    if (!unassign && !(nextAssigneeUserId >= 1)) {
         set.status = 400;
         return { error: "Assignee is required" };
     }
 
-    const comment = asText(body?.comment).trim();
-    if (!comment) {
-        set.status = 400;
-        return { error: "Comment is required" };
-    }
-
     const canAssignOthers = canAssignOtherUsers(currentUser);
-    const assigningSelf = nextAssigneeUserId === Number(currentUser.id);
-    if (!canAssignOthers && !assigningSelf) {
+    if (!canAssignOthers && (unassign || nextAssigneeUserId !== Number(currentUser.id))) {
         set.status = 403;
         return { error: "Missing authority to assign other users" };
     }
 
-    const assigneeUser = await getUserById({ id: nextAssigneeUserId });
-    if (!assigneeUser) {
+    const assigneeUser = unassign ? null : await getUserById({ id: nextAssigneeUserId });
+    if (!unassign && !assigneeUser) {
         set.status = 400;
         return { error: "Assignee not found" };
     }
 
-    const ids = parseIds(body?.ids);
-    if (!ids.length) {
-        set.status = 400;
-        return { error: "Select at least one tender" };
-    }
-
-    let successCount = 0;
-    let skippedCount = 0;
-    let failedCount = 0;
-    const failures = [];
     const assignedTenders = [];
+    const result = await runBulk({
+        ids,
+        currentUser,
+        comment,
+        verb: unassign ? "Unassigned" : "Assigned",
+        set,
+        handle: async (gemTender) => {
+            const previousAssigneeUserId = asAssigneeId(gemTender.assignee_user_id);
+            if (previousAssigneeUserId === (unassign ? null : nextAssigneeUserId)) return { skip: true };
+            if (isTenderLocked(gemTender)) return { error: "Locked — unlock it first" };
+            if (previousAssigneeUserId != null && (assignToMe || !canAssignOthers)) {
+                return { error: `Already assigned to ${tenderAssigneeDisplayName(gemTender)}` };
+            }
 
-    for (const id of ids) {
-        const gemTender = await getGemTenderById({ id });
-        if (!gemTender) {
-            failedCount += 1;
-            failures.push({ id, error: "Tender not found" });
-            continue;
-        }
+            const previousAssigneeName = previousAssigneeUserId
+                ? tenderAssigneeDisplayName(gemTender)
+                : "Unassigned";
 
-        if (isTenderLocked(gemTender)) {
-            failedCount += 1;
-            failures.push({ id, error: "Unlock this tender before making changes" });
-            continue;
-        }
+            if (unassign) {
+                const previousStage = knownStageOrNull(gemTender.stage);
+                const previousChoice = eligibilityChoiceOf(gemTender);
+                const patch = { id: gemTender.id, assignee_user_id: null };
+                const activities = [`Changed assignee from ${previousAssigneeName} to Unassigned`];
+                if (previousStage !== GEM_TENDER_STAGES.FILED) {
+                    if (previousStage) {
+                        patch.stage = null;
+                        activities.push(`Changed stage from ${stageLabel(previousStage)} to No stage`);
+                    }
+                    if (previousChoice) {
+                        Object.assign(patch, eligibilityFlags(null));
+                        activities.push(
+                            `Changed eligibility from ${eligibilityLabel(previousChoice)} to Not decided`,
+                        );
+                    }
+                }
+                await updateGemTenderById(patch);
+                return { activities };
+            }
 
-        const previousAssigneeUserId = asAssigneeId(gemTender.assignee_user_id);
-        if (previousAssigneeUserId === nextAssigneeUserId) {
-            skippedCount += 1;
-            continue;
-        }
-
-        if (!canAssignOthers && previousAssigneeUserId != null) {
-            failedCount += 1;
-            failures.push({ id, error: "Selected tenders already have an assignee" });
-            continue;
-        }
-
-        if (assignToMe && previousAssigneeUserId != null) {
-            failedCount += 1;
-            failures.push({ id, error: "Already assigned to someone else" });
-            continue;
-        }
-
-        const previousAssignee = previousAssigneeUserId
-            ? await getUserById({ id: previousAssigneeUserId })
-            : null;
-
-        try {
             if (previousAssigneeUserId == null) {
                 const claimed = await claimUnassignedGemTenderById({
                     id: gemTender.id,
                     assignee_user_id: nextAssigneeUserId,
                 });
-                if (!claimed) {
-                    failedCount += 1;
-                    failures.push({ id, error: "Already assigned to someone else" });
-                    continue;
-                }
+                if (!claimed) return { error: "Already assigned to someone else" };
             } else {
-                await updateGemTenderById({
-                    id: gemTender.id,
-                    assignee_user_id: nextAssigneeUserId,
-                });
+                await updateGemTenderById({ id: gemTender.id, assignee_user_id: nextAssigneeUserId });
             }
-
-            const commentId = await createGemTenderComment({
-                gem_tender_id: gemTender.id,
-                user_id: currentUser.id,
-                comment,
-            });
-            if (!commentId) {
-                failedCount += 1;
-                failures.push({ id, error: "Failed to add comment" });
-                continue;
-            }
-
-            await logActivities({
-                gem_tender_id: gemTender.id,
-                user_id: currentUser.id,
+            return {
                 activities: [
                     assignToMe
                         ? "Assigned tender to self"
-                        : `Changed assignee from ${assigneeLabel(previousAssignee)} to ${assigneeLabel(assigneeUser)}`,
-                    `Added comment: "${quotePreview(comment)}"`,
+                        : `Changed assignee from ${previousAssigneeName} to ${assigneeLabel(assigneeUser)}`,
                 ],
-            });
-
-            const updated = await getGemTenderById({ id: gemTender.id });
-            assignedTenders.push(updated || gemTender);
-            successCount += 1;
-        } catch (error) {
-            failedCount += 1;
-            failures.push({ id, error: "Failed to assign tender" });
-        }
-    }
+                after: async () => {
+                    assignedTenders.push((await getGemTenderById({ id: gemTender.id })) || gemTender);
+                },
+            };
+        },
+    });
 
     if (assignedTenders.length) {
         notifyGemTendersBulkAssigned({
@@ -1050,8 +1010,41 @@ export async function bulkAssignGemTenders({ body, cookie, set }) {
             assignedByUser: currentUser,
         });
     }
+    return result;
+}
 
-    return bulkResult({ verb: "Assigned", successCount, skippedCount, failedCount, failures, set });
+/** Super admin: unlock, or lock again with the reason derived from each tender's state. */
+export async function bulkSetGemTenderLock({ body, cookie, set }) {
+    const start = await startBulk({ body, cookie, set });
+    if (start.response) return start.response;
+    const { currentUser, comment, ids } = start;
+
+    if (!currentUser.super_admin) {
+        set.status = 403;
+        return { error: "Only a super admin can lock or unlock tenders" };
+    }
+    const lock = body?.locked === true;
+
+    return await runBulk({
+        ids,
+        currentUser,
+        comment,
+        verb: lock ? "Locked" : "Unlocked",
+        set,
+        handle: async (gemTender) => {
+            if (isTenderLocked(gemTender) === lock) return { skip: true };
+            if (!lock) {
+                await unlockGemTenderById({ id: gemTender.id });
+                return { activities: ["Unlocked tender"] };
+            }
+            const relock = relockStateOf(gemTender);
+            if (!relock) {
+                return { error: "No lock reason (not filed, not eligible, out of scope, missed or unattended)" };
+            }
+            await updateGemTenderById({ id: gemTender.id, locked: true, ...relock });
+            return { activities: [`Locked tender again: ${relock.lock_message}`] };
+        },
+    });
 }
 
 /**

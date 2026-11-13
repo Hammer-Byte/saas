@@ -7,7 +7,9 @@ import {
 import {
     bulkAssignGemTenders,
     bulkChangeGemTenderStages,
+    bulkSetGemTenderCategory,
     bulkSetGemTenderEligibility,
+    bulkSetGemTenderLock,
     listGemTenders,
     searchGemTenderList,
     startGemAdhocTenderScan,
@@ -64,27 +66,46 @@ export default function (app) {
         .post("/bulk-eligibility", bulkSetGemTenderEligibility, {
             body: t.Object({
                 ids: t.Array(t.Numeric({ minimum: 1 }), { minItems: 1 }),
-                eligibility: t.Union([
-                    t.Literal(GEM_TENDER_ELIGIBILITY_CHOICES.INELIGIBLE),
-                    t.Literal(GEM_TENDER_ELIGIBILITY_CHOICES.OUT_OF_SCOPE),
-                ]),
+                eligibility: gemTenderEligibilityLiteral,
                 comment: t.String({ minLength: 1 }),
             }),
             detail: {
                 tags: ["GEM Tenders"],
-                summary: "Mark selected GEM tenders not eligible or out of scope (locks them)",
+                summary: "Mark selected GEM tenders eligible, not eligible or out of scope (negatives lock them)",
+            },
+        })
+        .post("/bulk-category", bulkSetGemTenderCategory, {
+            body: t.Object({
+                ids: t.Array(t.Numeric({ minimum: 1 }), { minItems: 1 }),
+                tender_category_id: t.Union([t.Numeric({ minimum: 1 }), t.Null()]),
+                comment: t.String({ minLength: 1 }),
+            }),
+            detail: {
+                tags: ["GEM Tenders"],
+                summary: "Set or clear the category on selected GEM tenders (comment required)",
             },
         })
         .post("/bulk-assign", bulkAssignGemTenders, {
             body: t.Object({
                 ids: t.Array(t.Numeric({ minimum: 1 }), { minItems: 1 }),
-                assignee_user_id: t.Optional(t.Numeric({ minimum: 1 })),
+                assignee_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
                 assign_to_me: t.Optional(t.Boolean()),
                 comment: t.String({ minLength: 1 }),
             }),
             detail: {
                 tags: ["GEM Tenders"],
-                summary: "Assign selected GEM tenders to one person (single email)",
+                summary: "Assign selected GEM tenders to one person, or unassign them with null (single email)",
+            },
+        })
+        .post("/bulk-lock", bulkSetGemTenderLock, {
+            body: t.Object({
+                ids: t.Array(t.Numeric({ minimum: 1 }), { minItems: 1 }),
+                locked: t.Boolean(),
+                comment: t.String({ minLength: 1 }),
+            }),
+            detail: {
+                tags: ["GEM Tenders"],
+                summary: "Super admin: unlock selected GEM tenders, or lock them again with their derived reason",
             },
         })
         .post("/adhoc-scan", startGemAdhocTenderScan, {
