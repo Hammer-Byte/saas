@@ -14,6 +14,7 @@ import {
     claimUnassignedGemKeywordTenderById,
     getAllGemKeywordTenders,
     getGemKeywordTenderById,
+    unlockGemKeywordTenderById,
     updateGemKeywordTenderById,
 } from "../db/gem_keyword_tenders.js";
 import { getGemTenderCategoryById } from "../db/gem_tender_categories.js";
@@ -377,19 +378,12 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
 
     // Unlock is lock-only: never rewrite stage / assignee / category / quote.
     if (unlocking) {
-        await updateGemKeywordTenderById({
-            id: gemKeywordTender.id,
-            hidden: false,
-            eligible: gemKeywordTender.eligible,
-            filed: !!Number(gemKeywordTender.filed),
-            quote: previousQuote,
-            stage: previousStage,
-            assignee_user_id: previousAssigneeUserId,
-            category_group_id: previousCategoryGroupId,
-            tender_category_id: previousTenderCategoryId,
-            locked: false,
-            lock_message: null,
-        });
+        try {
+            await unlockGemKeywordTenderById({ id: gemKeywordTender.id });
+        } catch (error) {
+            set.status = 500;
+            return { error: "Failed to unlock tender" };
+        }
         await logActivities({
             gem_keyword_tender_id: gemKeywordTender.id,
             user_id: currentUser.id,
@@ -738,6 +732,11 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         }
     }
 
+    const lockChanging =
+        previousLocked !== !!lockState.locked ||
+        (previousLockMessage || null) !== (lockState.lock_message || null);
+    const quoteChanging = nextQuote !== previousQuote;
+
     if (assignToMeClaim) {
         // Race-safe claim: only succeeds if still unassigned.
         const claimed = await claimUnassignedGemKeywordTenderById({
@@ -755,35 +754,42 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
                 set,
             });
         }
-        if (categoryGroupChanging || tenderCategoryChanging || unlocking || body.lock_action) {
-            await updateGemKeywordTenderById({
-                id: gemKeywordTender.id,
-                hidden: flags.hidden,
-                eligible: flags.eligible,
-                filed: flags.filed,
-                quote: nextQuote,
-                stage: nextStage,
-                assignee_user_id: nextAssigneeUserId,
-                category_group_id: nextCategoryGroupId,
-                tender_category_id: nextTenderCategoryId,
-                locked: lockState.locked,
-                lock_message: lockState.lock_message,
-            });
+    }
+
+    // Partial patch: only write columns that actually change for this request.
+    const patch = { id: gemKeywordTender.id };
+    if (stageChanging || lockChanging || !!body?.lock_action) {
+        patch.hidden = flags.hidden;
+        patch.eligible = flags.eligible;
+        patch.filed = flags.filed;
+        patch.stage = nextStage;
+        patch.locked = lockState.locked;
+        patch.lock_message = lockState.lock_message;
+    }
+    if (quoteChanging) {
+        patch.quote = nextQuote;
+    }
+    if (assigneeChanging && !assignToMeClaim) {
+        patch.assignee_user_id = nextAssigneeUserId;
+    }
+    if (assigneeChanging && assignToMeClaim && (stageChanging || lockChanging)) {
+        // claim helper already set assignee/stage; only apply remaining lock/flag bits
+    }
+    if (categoryGroupChanging) {
+        patch.category_group_id = nextCategoryGroupId;
+    }
+    if (tenderCategoryChanging) {
+        patch.tender_category_id = nextTenderCategoryId;
+    }
+
+    const patchKeys = Object.keys(patch).filter((key) => key !== "id");
+    if (patchKeys.length) {
+        try {
+            await updateGemKeywordTenderById(patch);
+        } catch (error) {
+            set.status = 500;
+            return { error: "Failed to update tender" };
         }
-    } else {
-        await updateGemKeywordTenderById({
-            id: gemKeywordTender.id,
-            hidden: flags.hidden,
-            eligible: flags.eligible,
-            filed: flags.filed,
-            quote: nextQuote,
-            stage: nextStage,
-            assignee_user_id: nextAssigneeUserId,
-            category_group_id: nextCategoryGroupId,
-            tender_category_id: nextTenderCategoryId,
-            locked: lockState.locked,
-            lock_message: lockState.lock_message,
-        });
     }
 
     if (activities.length) {

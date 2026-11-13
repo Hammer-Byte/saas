@@ -163,6 +163,16 @@
         if (commentFile) commentFile.disabled = !operateEnabled;
         if (commentSubmitButton) commentSubmitButton.disabled = !operateEnabled;
         syncAssignedOption();
+        // Disabling options can make browsers reset the visible selection — re-assert.
+        if (stageSelect && detail.dataset.stage) {
+            stageSelect.value = detail.dataset.stage;
+        }
+        if (tenderCategorySelect) {
+            tenderCategorySelect.value = detail.dataset.tenderCategoryId || "";
+        }
+        if (assigneeSelect) {
+            assigneeSelect.value = detail.dataset.assigneeUserId || "";
+        }
     }
 
     async function patchTender(payload) {

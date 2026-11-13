@@ -291,51 +291,146 @@ export async function getGemKeywordTenderById({ id }) {
         });
 }
 
-export async function updateGemKeywordTenderById({
-    id,
-    hidden,
-    eligible,
-    filed,
-    quote,
-    stage,
-    assignee_user_id = null,
-    category_group_id = null,
-    tender_category_id = null,
-    locked = false,
-    lock_message = null,
-}) {
-    const nextCategoryGroupId =
-        category_group_id != null && Number(category_group_id) >= 1
-            ? Number(category_group_id)
-            : null;
-    const nextTenderCategoryId =
-        tender_category_id != null && Number(tender_category_id) >= 1
-            ? Number(tender_category_id)
-            : null;
+/**
+ * Partial update: only columns present on `patch` are written.
+ * Pass explicit `null` to clear nullable fields. Omit a key to leave it unchanged.
+ */
+export async function updateGemKeywordTenderById(patch = {}) {
+    const id = Number(patch.id);
+    if (!(id >= 1)) {
+        throw new Error("updateGemKeywordTenderById: invalid id");
+    }
 
-    await executeSQLQuery(
-        (sql) => sql`
-            UPDATE GEM_KEYWORD_TENDERS
-            SET
-                hidden = ${!!hidden},
-                eligible = ${eligible},
-                filed = ${!!filed},
-                quote = ${quote},
-                stage = ${stage},
-                assignee_user_id = ${assignee_user_id},
-                category_group_id = ${nextCategoryGroupId},
-                tender_category_id = ${nextTenderCategoryId},
-                locked = ${locked ? 1 : 0},
-                lock_message = ${
-                    locked && lock_message != null && String(lock_message).trim()
-                        ? String(lock_message).trim()
-                        : null
+    const has = (key) => Object.prototype.hasOwnProperty.call(patch, key);
+    const assignments = [];
+
+    const queueAssignment = (column, value) => {
+        assignments.push({ column, value });
+    };
+
+    if (has("hidden")) {
+        queueAssignment("hidden", !!patch.hidden);
+    }
+    if (has("eligible")) {
+        queueAssignment("eligible", patch.eligible);
+    }
+    if (has("filed")) {
+        queueAssignment("filed", !!patch.filed);
+    }
+    if (has("quote")) {
+        queueAssignment("quote", patch.quote == null ? null : String(patch.quote));
+    }
+    if (has("stage")) {
+        queueAssignment("stage", patch.stage == null ? null : String(patch.stage));
+    }
+    if (has("assignee_user_id")) {
+        const assigneeId =
+            patch.assignee_user_id != null && Number(patch.assignee_user_id) >= 1
+                ? Number(patch.assignee_user_id)
+                : null;
+        queueAssignment("assignee_user_id", assigneeId);
+    }
+    if (has("category_group_id")) {
+        const groupId =
+            patch.category_group_id != null && Number(patch.category_group_id) >= 1
+                ? Number(patch.category_group_id)
+                : null;
+        pushAssignment("category_group_id", groupId);
+    }
+    if (has("tender_category_id")) {
+        const categoryId =
+            patch.tender_category_id != null && Number(patch.tender_category_id) >= 1
+                ? Number(patch.tender_category_id)
+                : null;
+        pushAssignment("tender_category_id", categoryId);
+    }
+    if (has("locked")) {
+        const locked = !!patch.locked;
+        pushAssignment("locked", locked ? 1 : 0);
+        if (!locked) {
+            // Unlock always clears the message.
+            pushAssignment("lock_message", null);
+        } else if (has("lock_message")) {
+            pushAssignment(
+                "lock_message",
+                patch.lock_message != null && String(patch.lock_message).trim()
+                    ? String(patch.lock_message).trim()
+                    : null,
+            );
+        }
+    } else if (has("lock_message")) {
+        pushAssignment(
+            "lock_message",
+            patch.lock_message != null && String(patch.lock_message).trim()
+                ? String(patch.lock_message).trim()
+                : null,
+        );
+    }
+
+    if (!assignments.length) {
+        return true;
+    }
+
+    try {
+        // Bun SQL tagged templates don't support dynamic column lists safely;
+        // apply each trusted column with a bound value.
+        for (const { column, value } of assignments) {
+            await executeSQLQuery((sql) => {
+                switch (column) {
+                    case "hidden":
+                        return sql`UPDATE GEM_KEYWORD_TENDERS SET hidden = ${value} WHERE id = ${id}`;
+                    case "eligible":
+                        return sql`UPDATE GEM_KEYWORD_TENDERS SET eligible = ${value} WHERE id = ${id}`;
+                    case "filed":
+                        return sql`UPDATE GEM_KEYWORD_TENDERS SET filed = ${value} WHERE id = ${id}`;
+                    case "quote":
+                        return sql`UPDATE GEM_KEYWORD_TENDERS SET quote = ${value} WHERE id = ${id}`;
+                    case "stage":
+                        return sql`UPDATE GEM_KEYWORD_TENDERS SET stage = ${value} WHERE id = ${id}`;
+                    case "assignee_user_id":
+                        return sql`UPDATE GEM_KEYWORD_TENDERS SET assignee_user_id = ${value} WHERE id = ${id}`;
+                    case "category_group_id":
+                        return sql`UPDATE GEM_KEYWORD_TENDERS SET category_group_id = ${value} WHERE id = ${id}`;
+                    case "tender_category_id":
+                        return sql`UPDATE GEM_KEYWORD_TENDERS SET tender_category_id = ${value} WHERE id = ${id}`;
+                    case "locked":
+                        return sql`UPDATE GEM_KEYWORD_TENDERS SET locked = ${value} WHERE id = ${id}`;
+                    case "lock_message":
+                        return sql`UPDATE GEM_KEYWORD_TENDERS SET lock_message = ${value} WHERE id = ${id}`;
+                    default:
+                        throw new Error(`updateGemKeywordTenderById: unknown column ${column}`);
                 }
-            WHERE id = ${id}
-        `,
-    ).catch((error) => {
+            });
+        }
+        return true;
+    } catch (error) {
         logger.error(`updateGemKeywordTenderById: ${error}`);
-    });
+        throw error;
+    }
+}
+
+/** Unlock only — never touches stage, assignee, category, or quote. */
+export async function unlockGemKeywordTenderById({ id }) {
+    const tenderId = Number(id);
+    if (!(tenderId >= 1)) {
+        throw new Error("unlockGemKeywordTenderById: invalid id");
+    }
+    try {
+        await executeSQLQuery(
+            (sql) => sql`
+                UPDATE GEM_KEYWORD_TENDERS
+                SET
+                    locked = 0,
+                    lock_message = NULL,
+                    hidden = FALSE
+                WHERE id = ${tenderId}
+            `,
+        );
+        return true;
+    } catch (error) {
+        logger.error(`unlockGemKeywordTenderById: ${error}`);
+        throw error;
+    }
 }
 
 /**
