@@ -12,7 +12,7 @@ import { createMedia, deleteMediaById, getMediaById } from "../db/media.js";
 import { getGemKeywordTenderById } from "../db/gem_keyword_tenders.js";
 import { getCurrentUser } from "./authentication.js";
 import {
-    isTerminalStage,
+    canOperateAssignedTender,
     logGemKeywordTenderActivity,
 } from "./gem_keyword_tenders.js";
 
@@ -71,10 +71,18 @@ export async function addGemKeywordTenderComment({ body, cookie, set }) {
         set.status = 403;
         return { error: "Unlock this tender before commenting" };
     }
-    const lockedStage = isTerminalStage(gemKeywordTender.stage);
-    if (lockedStage && !currentUser.super_admin) {
+    if (
+        !canOperateAssignedTender({
+            currentUser,
+            assigneeUserId: gemKeywordTender.assignee_user_id,
+            stage: gemKeywordTender.stage,
+            locked: tenderLocked,
+        })
+    ) {
         set.status = 403;
-        return { error: "Only a super admin can comment on this tender" };
+        return {
+            error: "Only the assignee or a super admin can comment on this tender",
+        };
     }
 
     const comment = String(body.comment || "").trim();
@@ -160,12 +168,6 @@ export async function updateGemKeywordTenderComment({ params, body, cookie, set 
         set.status = 403;
         return { error: "Unlock this tender before editing comments" };
     }
-    if (tender && isTerminalStage(tender.stage) && !currentUser.super_admin) {
-        set.status = 403;
-        return {
-            error: "Only a super admin can edit comments on a one-way stage tender",
-        };
-    }
 
     if (Number(existingComment.user_id) !== Number(currentUser.id)) {
         set.status = 403;
@@ -222,12 +224,6 @@ export async function deleteGemKeywordTenderComment({ params, cookie, set }) {
     if (tender && Number(tender.locked)) {
         set.status = 403;
         return { error: "Unlock this tender before deleting comments" };
-    }
-    if (tender && isTerminalStage(tender.stage) && !currentUser.super_admin) {
-        set.status = 403;
-        return {
-            error: "Only a super admin can delete comments on a one-way stage tender",
-        };
     }
 
     if (Number(existingComment.user_id) !== Number(currentUser.id)) {

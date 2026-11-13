@@ -37,25 +37,22 @@
         "preparing_docs",
     ];
     const isTerminalStage = terminalStages.has(currentStage);
-    // Locked: no edits for anyone until unlock. Filed (unlocked): super admin only.
-    const isFrozen = isLocked || isTerminalStage;
+    // Locked: no edits for anyone until unlock (including admin).
+    // Unlocked: category/stage need an assignee; then assignee or admin.
+    const isFrozen = isLocked;
     const quoteDisabledStages = new Set(["new", "assigned", "filed"]);
     const quoteStageEnabled = !quoteDisabledStages.has(currentStage) && !isLocked;
-    const canOperateAssigned = isLocked
-        ? false
-        : isTerminalStage
-          ? isSuperAdmin
-          : isSuperAdmin || (assigneeUserId && assigneeUserId === currentUserId);
-    const canChangeStage = isLocked
-        ? false
-        : isTerminalStage
-          ? isSuperAdmin
-          : !!assigneeUserId && canOperateAssigned;
+    const canOperateAssigned =
+        !isLocked &&
+        !!assigneeUserId &&
+        (isSuperAdmin || assigneeUserId === currentUserId);
+    const canChangeStage = canOperateAssigned;
     const canEditQuote = quoteStageEnabled && canOperateAssigned;
-    const canManageDocs = !!canManageDocuments && !isLocked && (!isTerminalStage || isSuperAdmin);
-    const canUseComments = !isLocked && (!isTerminalStage || isSuperAdmin);
+    const canManageDocs = !!canManageDocuments && canOperateAssigned;
+    const canUseComments = canOperateAssigned;
     const canLockAction =
-        !isFrozen &&
+        !isLocked &&
+        !isTerminalStage &&
         !!assigneeUserId &&
         (isSuperAdmin || assigneeUserId === currentUserId);
     const selectableStageValues = pipelineStages.filter(function (stage) {
@@ -185,10 +182,12 @@
                 <% } else if (isTerminalStage) { %>
                     <div class="alert alert-secondary py-2" role="status">
                         This tender is <strong><%= stageLabels[currentStage] || currentStage %></strong>
-                        (one-way stage).
-                        <%= isSuperAdmin
-                            ? "Only a super admin can change it."
-                            : "Details are locked; only a super admin can change them." %>
+                        and unlocked.
+                        <%= canOperateAssigned
+                            ? "You can change category and stage while it stays unlocked."
+                            : assigneeUserId
+                              ? "Only the assignee or a super admin can change category and stage."
+                              : "Assign someone before changing category or stage." %>
                     </div>
                 <% } %>
 
@@ -269,11 +268,10 @@
                     </div>
                     <div class="col-md-4">
                         <label for="gem-tender-assignee" class="form-label">Assignee</label>
-                        <% if (canAssignOthers && !isLocked && (!isTerminalStage || isSuperAdmin)) { %>
+                        <% if (canAssignOthers && !isLocked) { %>
                             <select
                                 class="form-select"
                                 id="gem-tender-assignee"
-                                <%= isTerminalStage && !isSuperAdmin ? "disabled" : "" %>
                             >
                                 <option value="">Unassigned</option>
                                 <% (users || []).forEach(function (user) { %>
@@ -312,14 +310,10 @@
                     <p class="form-text mb-3">
                         Unlock this tender before making any changes.
                     </p>
-                <% } else if (isTerminalStage && !isSuperAdmin) { %>
-                    <p class="form-text mb-3">
-                        Only a super admin can change a one-way stage tender.
-                    </p>
-                <% } else if (!assigneeUserId && !isFrozen) { %>
-                    <p class="form-text mb-3">Assign someone before changing stage.</p>
-                <% } else if (assigneeUserId && !canChangeStage) { %>
-                    <p class="form-text mb-3">Only the assignee or a super admin can change stage.</p>
+                <% } else if (!assigneeUserId) { %>
+                    <p class="form-text mb-3">Assign someone before changing category or stage.</p>
+                <% } else if (!canChangeStage) { %>
+                    <p class="form-text mb-3">Only the assignee or a super admin can change category or stage.</p>
                 <% } else { %>
                     <div class="mb-3"></div>
                 <% } %>

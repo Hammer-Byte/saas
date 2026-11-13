@@ -91,10 +91,10 @@ export function isQuoteStageEnabled(stage) {
 }
 
 /**
- * Stage / quote / docs:
- * - Locked: nobody (must unlock first)
- * - Filed (unlocked): super_admin only
- * - Otherwise with assignee: assignee or super_admin
+ * Category / stage / quote / docs (after unlock):
+ * - Locked: nobody (must unlock first — even super admin)
+ * - No assignee: nobody can operate these fields
+ * - With assignee: that assignee or a super admin
  */
 export function canOperateAssignedTender({
     currentUser,
@@ -108,14 +108,14 @@ export function canOperateAssignedTender({
     if (locked) {
         return false;
     }
+    const assigneeId = assigneeUserId ? Number(assigneeUserId) : null;
+    if (!(assigneeId >= 1)) {
+        return false;
+    }
     if (currentUser.super_admin) {
         return true;
     }
-    if (stage != null && isTerminalStage(stage)) {
-        return false;
-    }
-    const assigneeId = assigneeUserId ? Number(assigneeUserId) : null;
-    return assigneeId >= 1 && assigneeId === Number(currentUser.id);
+    return assigneeId === Number(currentUser.id);
 }
 
 function assigneeLabel(user) {
@@ -430,29 +430,16 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         }
     }
 
-    // Filed (unlocked): only a super admin may change anything.
-    if (!previousLocked && isTerminalStage(previousStage) && !currentUser.super_admin) {
-        const touching =
-            assigneeChanging ||
-            body.assign_to_me === true ||
-            body.stage !== undefined ||
-            body.quote !== undefined ||
-            categoryGroupChanging ||
-            tenderCategoryChanging ||
-            body.lock_action != null;
-        if (touching) {
-            set.status = 403;
-            return {
-                error: "Only a super admin can change tenders in a one-way stage",
-            };
-        }
-    }
-
     if (categoryGroupChanging || tenderCategoryChanging) {
+        const categoryAssigneeId = previousAssigneeUserId;
+        if (!(categoryAssigneeId >= 1)) {
+            set.status = 400;
+            return { error: "Assign someone before changing the category" };
+        }
         if (
             !canOperateAssignedTender({
                 currentUser,
-                assigneeUserId: nextAssigneeUserId ?? previousAssigneeUserId,
+                assigneeUserId: categoryAssigneeId,
                 stage: previousStage,
                 locked: previousLocked && !unlocking,
             })
@@ -558,36 +545,26 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         };
     }
 
-    // Explicit stage change from UI/API: require an assignee first, then only
-    // that assignee or a super admin. Auto stage bumps on assign/unassign are OK.
-    // Terminal stages remain super-admin-only (even if unassigned).
+    // Explicit stage change: assignee required first; then only that assignee
+    // or a super admin. Auto stage bumps on assign/unassign are OK.
     if (stageChanging && body.stage !== undefined) {
-        if (isTerminalStage(previousStage)) {
-            if (!currentUser.super_admin) {
-                set.status = 403;
-                return {
-                    error: "Only a super admin can change stage on a one-way tender",
-                };
-            }
-        } else {
-            const stageAssigneeId = nextAssigneeUserId ?? previousAssigneeUserId;
-            if (!(stageAssigneeId >= 1)) {
-                set.status = 400;
-                return { error: "Assign someone before changing stage" };
-            }
-            if (
-                !canOperateAssignedTender({
-                    currentUser,
-                    assigneeUserId: stageAssigneeId,
-                    stage: previousStage,
-                    locked: previousLocked && !unlocking,
-                })
-            ) {
-                set.status = 403;
-                return {
-                    error: "Only the assignee or a super admin can change stage",
-                };
-            }
+        const stageAssigneeId = previousAssigneeUserId;
+        if (!(stageAssigneeId >= 1)) {
+            set.status = 400;
+            return { error: "Assign someone before changing stage" };
+        }
+        if (
+            !canOperateAssignedTender({
+                currentUser,
+                assigneeUserId: stageAssigneeId,
+                stage: previousStage,
+                locked: previousLocked && !unlocking,
+            })
+        ) {
+            set.status = 403;
+            return {
+                error: "Only the assignee or a super admin can change stage",
+            };
         }
     }
 
@@ -852,26 +829,19 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
             continue;
         }
 
-        if (isTerminalStage(previousStage) && !currentUser.super_admin) {
-            failedCount += 1;
-            failures.push({
-                id,
-                error: "Only a super admin can change tenders in a one-way stage",
-            });
-            continue;
-        }
-
         const assigneeUserId = gemKeywordTender.assignee_user_id
             ? Number(gemKeywordTender.assignee_user_id)
             : null;
-        if (ASSIGNEE_REQUIRED_STAGES.has(nextStage) && !(assigneeUserId >= 1)) {
+        if (!(assigneeUserId >= 1)) {
             failedCount += 1;
-            failures.push({ id, error: "Assignee is required for this stage" });
+            failures.push({ id, error: "Assign someone before changing stage" });
             continue;
         }
 
         try {
-            const isFiling = nextStage === GEM_KEYWORD_TENDER_STAGES.FILED;
+            const isFiling =
+                nextStage === GEM_KEYWORD_TENDER_STAGES.FILED &&
+                previousStage !== GEM_KEYWORD_TENDER_STAGES.FILED;
             const bulkLock = isFiling
                 ? {
                       locked: true,
@@ -917,10 +887,7 @@ export async function bulkChangeGemKeywordTenderStages({ body, cookie, set }) {
                 `Changed stage from ${stageLabel(previousStage)} to ${stageLabel(nextStage)}`,
                 `Added comment: "${quotePreview(comment)}"`,
             ];
-            if (
-                nextStage === GEM_KEYWORD_TENDER_STAGES.FILED &&
-                !isTenderLocked(gemKeywordTender)
-            ) {
+            if (isFiling) {
                 activities.push(
                     `Locked tender: ${GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED}`,
                 );
@@ -1049,17 +1016,8 @@ export async function bulkLockGemKeywordTenders({ body, cookie, set }) {
             continue;
         }
 
-        const previousStage = normalizeStage(gemKeywordTender.stage);
-        if (isTerminalStage(previousStage) && !currentUser.super_admin) {
-            failedCount += 1;
-            failures.push({
-                id,
-                error: "Only a super admin can change tenders in a one-way stage",
-            });
-            continue;
-        }
-
         try {
+            const previousStage = normalizeStage(gemKeywordTender.stage);
             const flags = flagsForStage(previousStage);
             if (eligibleOverride != null) {
                 flags.eligible = eligibleOverride;
@@ -1198,15 +1156,6 @@ export async function bulkAssignGemKeywordTenders({ body, cookie, set }) {
         }
 
         const previousStage = normalizeStage(gemKeywordTender.stage);
-        if (isTerminalStage(previousStage) && !currentUser.super_admin) {
-            failedCount += 1;
-            failures.push({
-                id,
-                error: "Only a super admin can change tenders in a one-way stage",
-            });
-            continue;
-        }
-
         const previousAssigneeUserId = gemKeywordTender.assignee_user_id
             ? Number(gemKeywordTender.assignee_user_id)
             : null;

@@ -82,24 +82,21 @@
         );
     }
 
-    /** Locked blocks everyone until unlock. Filed (unlocked) is super-admin only. */
+    /** Locked blocks everyone until unlock — including super admin. */
     function isFrozen() {
-        return isLocked() || isTerminalStage();
+        return isLocked();
     }
 
+    /** Category / stage / quote / comments: need assignee; then assignee or admin. */
     function canOperateAssigned() {
         if (isLocked()) return false;
-        if (isTerminalStage()) return isSuperAdmin;
-        if (isSuperAdmin) return true;
         const assigneeUserId = Number(currentAssigneeId() || 0);
-        return assigneeUserId >= 1 && assigneeUserId === currentUserId;
+        if (!(assigneeUserId >= 1)) return false;
+        if (isSuperAdmin) return true;
+        return assigneeUserId === currentUserId;
     }
 
     function canChangeStage() {
-        if (isLocked()) return false;
-        if (isTerminalStage()) return isSuperAdmin;
-        const assigneeUserId = Number(currentAssigneeId() || 0);
-        if (!(assigneeUserId >= 1)) return false;
         return canOperateAssigned();
     }
 
@@ -128,8 +125,14 @@
         return canOperateAssigned();
     }
 
+    function canChangeAssignee() {
+        if (isLocked()) return false;
+        return detail.dataset.canAssignOthers === "1";
+    }
+
     function canLockAction() {
-        if (isFrozen()) return false;
+        if (isLocked()) return false;
+        if (isTerminalStage()) return false;
         const assigneeUserId = Number(currentAssigneeId() || 0);
         if (!(assigneeUserId >= 1)) return false;
         if (isSuperAdmin) return true;
@@ -140,14 +143,14 @@
         const assigneeUserId = currentAssigneeId();
         const quoteEnabled = canEditQuote();
         const stageEnabled = canChangeStage();
-        const editsBlocked = isLocked() || (isTerminalStage() && !isSuperAdmin);
+        const operateEnabled = canOperateAssigned();
 
         if (stageSelect) stageSelect.disabled = !stageEnabled;
         if (tenderCategorySelect) {
             tenderCategorySelect.disabled = !canChangeTenderCategory();
         }
         lockActionsWrap?.classList.toggle("d-none", !canLockAction());
-        if (assigneeSelect) assigneeSelect.disabled = editsBlocked;
+        if (assigneeSelect) assigneeSelect.disabled = !canChangeAssignee();
         if (quoteInput) quoteInput.disabled = !quoteEnabled;
         if (quoteSaveButton) quoteSaveButton.disabled = !quoteEnabled;
         if (assignMeWrap) {
@@ -156,12 +159,9 @@
         if (assignMeButton) {
             assignMeButton.disabled = !!assigneeUserId || isFrozen();
         }
-        if (commentText) commentText.disabled = isLocked() || (isTerminalStage() && !isSuperAdmin);
-        if (commentFile) commentFile.disabled = isLocked() || (isTerminalStage() && !isSuperAdmin);
-        if (commentSubmitButton) {
-            commentSubmitButton.disabled =
-                isLocked() || (isTerminalStage() && !isSuperAdmin);
-        }
+        if (commentText) commentText.disabled = !operateEnabled;
+        if (commentFile) commentFile.disabled = !operateEnabled;
+        if (commentSubmitButton) commentSubmitButton.disabled = !operateEnabled;
         syncAssignedOption();
     }
 
@@ -329,9 +329,9 @@
         }
         if (ONE_WAY_CONFIRM_STAGES.has(stage) && stage !== previous) {
             const confirmed = await window.showConfirm({
-                title: "Confirm one-way stage",
+                title: "Confirm filed stage",
                 description:
-                    "Filing locks the tender. After you save it, only a super admin can change it again. Continue?",
+                    "Filing locks the tender. A super admin must unlock it before category, stage, or assignee can be changed again. Continue?",
                 choices: [
                     { label: "Cancel", value: false, variant: "outline-secondary" },
                     { label: "Confirm", value: true, variant: "primary" },

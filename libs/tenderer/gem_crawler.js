@@ -1014,16 +1014,16 @@ export const processTender = async ({
             const tenderRowId = await createGemKeywordTender({
                 category_group_id: resolvedCategoryGroupId,
                 tender_category_id: resolvedTenderCategoryId,
-                tender_id,
-                document,
-                ...gemTenderDetails,
-            });
+            tender_id,
+            document,
+            ...gemTenderDetails,
+        });
 
             if (!tenderRowId) {
                 return false;
             }
 
-            logger.info(`Stored tender details: ${tender_id}`);
+        logger.info(`Stored tender details: ${tender_id}`);
             return true;
         }
 
@@ -1094,7 +1094,7 @@ export const searchTendersByKeyword = async (
         await page.setBidNumber(searchKeyword);
     } else if (search_mode === GEM_SEARCH_MODES.ALL_BIDS) {
         page = new GemAllBidsPage(driver, GEM_URL);
-        await page.open();
+    await page.open();
         await page.selectSearchType(!!exact_search);
         await page.setKeyword(searchKeyword);
         logger.info(
@@ -1209,11 +1209,11 @@ export const searchTendersByKeyword = async (
                     if (changed) {
                         changedCount += 1;
                     }
-                } catch (error) {
-                    logger.error(`Failed download ${tenderId}: ${error}`);
-                }
+            } catch (error) {
+                logger.error(`Failed download ${tenderId}: ${error}`);
+            }
 
-                await sleep(driver, DELAY_SHORT);
+            await sleep(driver, DELAY_SHORT);
             }
         }
 
