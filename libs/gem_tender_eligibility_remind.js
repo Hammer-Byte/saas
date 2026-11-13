@@ -1,8 +1,8 @@
 import { filer, logger } from "@hammerbyte/utils";
 import {
-    getGemKeywordTendersPendingEligibilityReminder,
-    stampGemKeywordTenderEligibilityReminders,
-} from "../db/gem_keyword_tenders.js";
+    getGemTendersPendingEligibilityReminder,
+    stampGemTenderEligibilityReminders,
+} from "../db/gem_tenders.js";
 import { getIstDateTime, getReadableDate } from "./date.js";
 import transporter from "./transporter.js";
 
@@ -32,7 +32,7 @@ function buildTendersHtml(tenders) {
                     tender.end_date_time ||
                     "—",
             );
-            const detailUrl = `${baseUrl}/app/gem-keyword-tenders/${Number(tender.id)}`;
+            const detailUrl = `${baseUrl}/app/gem-tenders/${Number(tender.id)}`;
             return `<div style="padding:8px 0;${index ? "border-top:1px solid #e5e7eb;" : ""}">
         <div><strong>${index + 1}. ${tenderId}</strong></div>
         <div>Group: ${categoryGroupName}</div>
@@ -104,7 +104,7 @@ function sendEligibilityReminder({ group }) {
 export async function checkGemTenderEligibilityReminders() {
     try {
         const cutoff = new Date(Date.now() - REMINDER_EVERY_MS);
-        const pending = await getGemKeywordTendersPendingEligibilityReminder({
+        const pending = await getGemTendersPendingEligibilityReminder({
             older_than_datetime: cutoff,
         });
         if (!pending.length) {
@@ -117,7 +117,7 @@ export async function checkGemTenderEligibilityReminders() {
         for (const group of groups) {
             const sent = sendEligibilityReminder({ group });
             if (!sent) continue;
-            await stampGemKeywordTenderEligibilityReminders({
+            await stampGemTenderEligibilityReminders({
                 ids: group.tenders.map((tender) => tender.id),
                 sent_on: stampedOn,
             });

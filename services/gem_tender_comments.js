@@ -2,19 +2,19 @@ import { join } from "node:path";
 import { unlink } from "node:fs/promises";
 import { filer, logger } from "@hammerbyte/utils";
 import {
-    createGemKeywordTenderComment,
-    deleteGemKeywordTenderCommentById,
-    getAllGemKeywordTenderCommentsByTenderId,
-    getGemKeywordTenderCommentById,
-    updateGemKeywordTenderCommentById,
-} from "../db/gem_keyword_tender_comments.js";
+    createGemTenderComment,
+    deleteGemTenderCommentById,
+    getAllGemTenderCommentsByTenderId,
+    getGemTenderCommentById,
+    updateGemTenderCommentById,
+} from "../db/gem_tender_comments.js";
 import { createMedia, deleteMediaById, getMediaById } from "../db/media.js";
-import { getGemKeywordTenderById } from "../db/gem_keyword_tenders.js";
+import { getGemTenderById } from "../db/gem_tenders.js";
 import { getCurrentUser } from "./authentication.js";
 import {
     canOperateAssignedTender,
-    logGemKeywordTenderActivity,
-} from "./gem_keyword_tenders.js";
+    logGemTenderActivity,
+} from "./gem_tenders.js";
 
 function commentPreview(value) {
     const text = String(value || "")
@@ -51,22 +51,22 @@ async function deleteCommentMedia(mediaId) {
     await deleteMediaById({ id: media.id });
 }
 
-export async function addGemKeywordTenderComment({ body, cookie, set }) {
+export async function addGemTenderComment({ body, cookie, set }) {
     const currentUser = await getCurrentUser({ cookie });
     if (!currentUser?.id) {
         set.status = 401;
         return { error: "Unauthorized" };
     }
 
-    const gemKeywordTender = await getGemKeywordTenderById({
-        id: body.gem_keyword_tender_id,
+    const gemTender = await getGemTenderById({
+        id: body.gem_tender_id,
     });
-    if (!gemKeywordTender) {
+    if (!gemTender) {
         set.status = 404;
         return { error: "Tender not found" };
     }
 
-    const tenderLocked = !!Number(gemKeywordTender.locked);
+    const tenderLocked = !!Number(gemTender.locked);
     if (tenderLocked) {
         set.status = 403;
         return { error: "Unlock this tender before commenting" };
@@ -74,8 +74,8 @@ export async function addGemKeywordTenderComment({ body, cookie, set }) {
     if (
         !canOperateAssignedTender({
             currentUser,
-            assigneeUserId: gemKeywordTender.assignee_user_id,
-            stage: gemKeywordTender.stage,
+            assigneeUserId: gemTender.assignee_user_id,
+            stage: gemTender.stage,
             locked: tenderLocked,
         })
     ) {
@@ -105,14 +105,14 @@ export async function addGemKeywordTenderComment({ body, cookie, set }) {
             }
             attachmentName = stored.name;
         } catch (error) {
-            logger.error(`addGemKeywordTenderComment attachment: ${error}`);
+            logger.error(`addGemTenderComment attachment: ${error}`);
             set.status = 500;
             return { error: "Failed to upload attachment" };
         }
     }
 
-    const commentId = await createGemKeywordTenderComment({
-        gem_keyword_tender_id: gemKeywordTender.id,
+    const commentId = await createGemTenderComment({
+        gem_tender_id: gemTender.id,
         user_id: currentUser.id,
         comment,
         media_id: mediaId,
@@ -128,41 +128,41 @@ export async function addGemKeywordTenderComment({ body, cookie, set }) {
     if (attachmentName) {
         activityParts.push(`with attachment "${attachmentName}"`);
     }
-    await logGemKeywordTenderActivity({
-        gem_keyword_tender_id: gemKeywordTender.id,
+    await logGemTenderActivity({
+        gem_tender_id: gemTender.id,
         user_id: currentUser.id,
         activity: activityParts.join(" "),
     });
 
-    const comments = await getAllGemKeywordTenderCommentsByTenderId({
-        gem_keyword_tender_id: gemKeywordTender.id,
+    const comments = await getAllGemTenderCommentsByTenderId({
+        gem_tender_id: gemTender.id,
     });
-    const gemKeywordTenderComment = comments.find(
+    const gemTenderComment = comments.find(
         (row) => Number(row.id) === Number(commentId),
     );
 
     set.status = 201;
     return {
         message: "Comment added",
-        gemKeywordTenderComment,
+        gemTenderComment,
     };
 }
 
-export async function updateGemKeywordTenderComment({ params, body, cookie, set }) {
+export async function updateGemTenderComment({ params, body, cookie, set }) {
     const currentUser = await getCurrentUser({ cookie });
     if (!currentUser?.id) {
         set.status = 401;
         return { error: "Unauthorized" };
     }
 
-    const existingComment = await getGemKeywordTenderCommentById({ id: params.id });
+    const existingComment = await getGemTenderCommentById({ id: params.id });
     if (!existingComment) {
         set.status = 404;
         return { error: "Comment not found" };
     }
 
-    const tender = await getGemKeywordTenderById({
-        id: existingComment.gem_keyword_tender_id,
+    const tender = await getGemTenderById({
+        id: existingComment.gem_tender_id,
     });
     if (tender && Number(tender.locked)) {
         set.status = 403;
@@ -180,46 +180,46 @@ export async function updateGemKeywordTenderComment({ params, body, cookie, set 
         return { error: "Comment is required" };
     }
 
-    await updateGemKeywordTenderCommentById({
+    await updateGemTenderCommentById({
         id: existingComment.id,
         comment,
     });
 
-    await logGemKeywordTenderActivity({
-        gem_keyword_tender_id: existingComment.gem_keyword_tender_id,
+    await logGemTenderActivity({
+        gem_tender_id: existingComment.gem_tender_id,
         user_id: currentUser.id,
         activity: `Updated comment to: "${commentPreview(comment)}"`,
     });
 
-    const comments = await getAllGemKeywordTenderCommentsByTenderId({
-        gem_keyword_tender_id: existingComment.gem_keyword_tender_id,
+    const comments = await getAllGemTenderCommentsByTenderId({
+        gem_tender_id: existingComment.gem_tender_id,
     });
-    const gemKeywordTenderComment = comments.find(
+    const gemTenderComment = comments.find(
         (row) => Number(row.id) === Number(existingComment.id),
     );
 
     set.status = 200;
     return {
         message: "Comment updated",
-        gemKeywordTenderComment,
+        gemTenderComment,
     };
 }
 
-export async function deleteGemKeywordTenderComment({ params, cookie, set }) {
+export async function deleteGemTenderComment({ params, cookie, set }) {
     const currentUser = await getCurrentUser({ cookie });
     if (!currentUser?.id) {
         set.status = 401;
         return { error: "Unauthorized" };
     }
 
-    const existingComment = await getGemKeywordTenderCommentById({ id: params.id });
+    const existingComment = await getGemTenderCommentById({ id: params.id });
     if (!existingComment) {
         set.status = 404;
         return { error: "Comment not found" };
     }
 
-    const tender = await getGemKeywordTenderById({
-        id: existingComment.gem_keyword_tender_id,
+    const tender = await getGemTenderById({
+        id: existingComment.gem_tender_id,
     });
     if (tender && Number(tender.locked)) {
         set.status = 403;
@@ -233,11 +233,11 @@ export async function deleteGemKeywordTenderComment({ params, cookie, set }) {
 
     const preview = commentPreview(existingComment.comment);
     const mediaId = existingComment.media_id;
-    await deleteGemKeywordTenderCommentById({ id: existingComment.id });
+    await deleteGemTenderCommentById({ id: existingComment.id });
     await deleteCommentMedia(mediaId);
 
-    await logGemKeywordTenderActivity({
-        gem_keyword_tender_id: existingComment.gem_keyword_tender_id,
+    await logGemTenderActivity({
+        gem_tender_id: existingComment.gem_tender_id,
         user_id: currentUser.id,
         activity: preview ? `Deleted comment: "${preview}"` : "Deleted a comment",
     });

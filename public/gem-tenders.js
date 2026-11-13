@@ -62,6 +62,13 @@
     } catch {
         stageLabels = {};
     }
+    const PIPELINE_STAGES = new Set([
+        "waiting_for_docs",
+        "waiting_for_gem",
+        "waiting_for_quote",
+        "preparing_docs",
+        "filed",
+    ]);
     /** Replaced after table rows are available. */
     let reloadTendersFromServer = async () => {};
 
@@ -92,10 +99,21 @@
     const bulkStageBtn = document.getElementById("gem-bulk-stage-btn");
     const bulkOutOfScopeBtn = document.getElementById("gem-bulk-out-of-scope-btn");
     const bulkNotEligibleBtn = document.getElementById("gem-bulk-not-eligible-btn");
-    const BULK_LOCK_LABELS = {
+    const BULK_ELIGIBILITY_LABELS = {
         out_of_scope: "Out of scope",
-        not_eligible: "Not eligible",
+        ineligible: "Not eligible",
     };
+
+    /** List status: lock reason, then pipeline stage, then assignment (mirrors the server view). */
+    function tenderStatus(tender) {
+        if (Number(tender.missed)) return "missed";
+        if (Number(tender.unattended)) return "unattended";
+        if (Number(tender.ineligible)) return "ineligible";
+        if (Number(tender.out_of_scope)) return "out_of_scope";
+        if (PIPELINE_STAGES.has(String(tender.stage || ""))) return String(tender.stage);
+        if (Number(tender.eligible)) return "eligible";
+        return tender.assignee_user_id ? "assigned" : "unassigned";
+    }
     const currentUserId = Number(bulkBar?.dataset.currentUserId || 0);
     const canAssignOthers = bulkBar?.dataset.canAssignOthers === "1";
     const canBulkChangeStage = bulkBar?.dataset.canBulkChangeStage === "1";
@@ -243,7 +261,7 @@
         window.history.replaceState({}, "", url.toString());
 
         if (reportLink) {
-            reportLink.href = `/app/gem-keyword-tender-report?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+            reportLink.href = `/app/gem-tender-report?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
         }
 
         const rangeSpans = rangeHighlight?.querySelectorAll("[data-readable-date]");
@@ -364,7 +382,7 @@
 
         if (addTenderSubmit) addTenderSubmit.disabled = true;
         try {
-            const response = await fetch("/api/gem-keyword-tenders/adhoc-scan", {
+            const response = await fetch("/api/gem-tenders/adhoc-scan", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
@@ -519,7 +537,7 @@
         const list = Array.isArray(tenders) ? tenders : [];
         const html = list
             .map((tender) => {
-                const stage = String(tender.stage || "new");
+                const stage = tenderStatus(tender);
                 const emdAmount = Number(tender.emd_amount || 0);
                 const buyerParts = [
                     tender.ministry,
@@ -529,7 +547,7 @@
                 ].filter(Boolean);
                 const buyerText = buyerParts.length ? buyerParts.join(" / ") : "-";
                 const assigneeName = tender.assignee_full_name || "-";
-                const stageLabel = stageLabels[stage] || stage || "New";
+                const stageLabel = stageLabels[stage] || stage;
                 const quantity = Number(tender.quantity || 0);
                 const quantityDisplay = quantity > 0 ? String(quantity) : "NA";
                 const emdDisplay =
@@ -580,7 +598,7 @@
                     </td>
                     <td data-col="tenderId">
                         <a
-                            href="/app/gem-keyword-tenders/${escapeHtml(rowId)}"
+                            href="/app/gem-tenders/${escapeHtml(rowId)}"
                             target="_blank"
                             rel="noopener noreferrer"
                         >${escapeHtml(tenderId)}</a>
@@ -649,7 +667,7 @@
         setListLoading(true);
 
         try {
-            const url = new URL("/api/gem-keyword-tenders", window.location.origin);
+            const url = new URL("/api/gem-tenders", window.location.origin);
             url.searchParams.set("from", from);
             url.searchParams.set("to", to);
             const response = await fetch(url.toString(), {
@@ -897,7 +915,7 @@
         let visibleCount = 0;
 
         for (const row of rows) {
-            const rowStage = String(row.dataset.stage || "new");
+            const rowStage = String(row.dataset.stage || "unassigned");
             const isHiddenRow = row.dataset.hidden === "1";
             const matchesHidden = includeHidden || !isHiddenRow;
 
@@ -1002,7 +1020,7 @@
             from: normalizeDateInput(filters.from, pageFrom),
             to: normalizeDateInput(filters.to, pageTo),
             categories: categories.map(String).filter(Boolean),
-            stages: stages.map(String).filter(Boolean),
+            stages: stages.map(String).filter((stage) => !!stage && !!stageLabels[stage]),
             assignees: assignees.map(String).filter(Boolean),
             search: String(filters.search || "").trim(),
             includeHidden: !!filters.includeHidden,
@@ -1200,10 +1218,10 @@
         syncBulkBar();
     });
 
-    async function runBulkLockAction(lockAction) {
+    async function runBulkEligibilityAction(eligibility) {
         if (!canBulkChangeStage) return;
 
-        const label = BULK_LOCK_LABELS[lockAction];
+        const label = BULK_ELIGIBILITY_LABELS[eligibility];
         if (!label) return;
 
         const selected = selectedCheckboxes();
@@ -1232,7 +1250,7 @@
 
         const confirmed = await window.showConfirm({
             title: `Mark as ${label}?`,
-            description: `This will lock ${ids.length} tender(s) as "${label}" and hide them. Only a super admin can unlock afterward. Stage will not change.`,
+            description: `This will mark ${ids.length} tender(s) as "${label}", clear their stage, lock and hide them. Only a super admin can unlock afterward.`,
             choices: [
                 { label: "Cancel", value: false, variant: "outline-secondary" },
                 { label: `Mark ${label}`, value: true, variant: "danger" },
@@ -1247,11 +1265,11 @@
         setBulkStatus(`Marking ${ids.length} tender(s) as ${label}…`, "secondary");
 
         try {
-            const response = await fetch("/api/gem-keyword-tenders/bulk-lock", {
+            const response = await fetch("/api/gem-tenders/bulk-eligibility", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ids, lock_action: lockAction, comment }),
+                body: JSON.stringify({ ids, eligibility, comment }),
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) {
@@ -1281,11 +1299,11 @@
     }
 
     bulkOutOfScopeBtn?.addEventListener("click", () => {
-        runBulkLockAction("out_of_scope");
+        runBulkEligibilityAction("out_of_scope");
     });
 
     bulkNotEligibleBtn?.addEventListener("click", () => {
-        runBulkLockAction("not_eligible");
+        runBulkEligibilityAction("ineligible");
     });
 
     bulkStageBtn?.addEventListener("click", async () => {
@@ -1309,18 +1327,6 @@
             .filter((id) => id >= 1);
         if (!ids.length) return;
 
-        if (stage === "filed") {
-            const confirmed = await window.showConfirm({
-                title: "Confirm filed stage",
-                description: `Set ${ids.length} tender(s) to Filed? They will be locked and only a super admin can change them afterward.`,
-                choices: [
-                    { label: "Cancel", value: false, variant: "outline-secondary" },
-                    { label: "Confirm", value: true, variant: "primary" },
-                ],
-            });
-            if (!confirmed) return;
-        }
-
         bulkStageBtn.disabled = true;
         if (bulkOutOfScopeBtn) bulkOutOfScopeBtn.disabled = true;
         if (bulkNotEligibleBtn) bulkNotEligibleBtn.disabled = true;
@@ -1328,7 +1334,7 @@
         setBulkStatus(`Changing stage on ${ids.length} tender(s)…`, "secondary");
 
         try {
-            const response = await fetch("/api/gem-keyword-tenders/bulk-change-stage", {
+            const response = await fetch("/api/gem-tenders/bulk-change-stage", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
@@ -1408,7 +1414,7 @@
                 assigneeUserId === currentUserId
                     ? { ids, assign_to_me: true, comment }
                     : { ids, assignee_user_id: assigneeUserId, comment };
-            const response = await fetch("/api/gem-keyword-tenders/bulk-assign", {
+            const response = await fetch("/api/gem-tenders/bulk-assign", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },

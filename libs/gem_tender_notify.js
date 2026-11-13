@@ -1,21 +1,14 @@
 import { filer, logger } from "@hammerbyte/utils";
-import {
-    GEM_KEYWORD_TENDER_STAGE_LABELS,
-    GEM_KEYWORD_TENDER_STAGES,
-} from "../constants.js";
+import { GEM_TENDER_STAGE_LABELS } from "../constants.js";
 import { getAllSuperAdminUsers } from "../db/users.js";
 import { getReadableDate } from "./date.js";
 import transporter from "./transporter.js";
 
 function stageLabel(stage) {
-    return (
-        GEM_KEYWORD_TENDER_STAGE_LABELS[stage] ||
-        stage ||
-        GEM_KEYWORD_TENDER_STAGE_LABELS[GEM_KEYWORD_TENDER_STAGES.NEW]
-    );
+    return GEM_TENDER_STAGE_LABELS[stage] || "No stage";
 }
 
-export function notifyGemKeywordTenderAssigned({
+export function notifyGemTenderAssigned({
     tender,
     assigneeUser,
     assignedByUser,
@@ -23,7 +16,7 @@ export function notifyGemKeywordTenderAssigned({
     try {
         const recipient = String(assigneeUser?.email || "").trim();
         if (!recipient) {
-            logger.error("notifyGemKeywordTenderAssigned: assignee has no email");
+            logger.error("notifyGemTenderAssigned: assignee has no email");
             return;
         }
 
@@ -53,11 +46,11 @@ export function notifyGemKeywordTenderAssigned({
             `gem tender assignment email queued for ${recipient} (tender #${tender.id})`,
         );
     } catch (error) {
-        logger.error(`notifyGemKeywordTenderAssigned: ${error}`);
+        logger.error(`notifyGemTenderAssigned: ${error}`);
     }
 }
 
-export function notifyGemKeywordTendersBulkAssigned({
+export function notifyGemTendersBulkAssigned({
     tenders,
     assigneeUser,
     assignedByUser,
@@ -68,7 +61,7 @@ export function notifyGemKeywordTendersBulkAssigned({
 
         const recipient = String(assigneeUser?.email || "").trim();
         if (!recipient) {
-            logger.error("notifyGemKeywordTendersBulkAssigned: assignee has no email");
+            logger.error("notifyGemTendersBulkAssigned: assignee has no email");
             return;
         }
 
@@ -107,11 +100,11 @@ export function notifyGemKeywordTendersBulkAssigned({
             `gem tender bulk assignment email queued for ${recipient} (${list.length} tender(s))`,
         );
     } catch (error) {
-        logger.error(`notifyGemKeywordTendersBulkAssigned: ${error}`);
+        logger.error(`notifyGemTendersBulkAssigned: ${error}`);
     }
 }
 
-export async function notifyGemKeywordTenderQuoteRequested({
+export async function notifyGemTenderQuoteRequested({
     tender,
     requestedByUser,
     assigneeUser,
@@ -138,7 +131,7 @@ export async function notifyGemKeywordTenderQuoteRequested({
 
         if (!recipientUsers.length) {
             logger.error(
-                "notifyGemKeywordTenderQuoteRequested: no assignee or super admin emails",
+                "notifyGemTenderQuoteRequested: no assignee or super admin emails",
             );
             return;
         }
@@ -175,6 +168,6 @@ export async function notifyGemKeywordTenderQuoteRequested({
             `gem tender quote request emailed to ${recipientUsers.length} recipient(s) (tender #${tender.id})`,
         );
     } catch (error) {
-        logger.error(`notifyGemKeywordTenderQuoteRequested: ${error}`);
+        logger.error(`notifyGemTenderQuoteRequested: ${error}`);
     }
 }

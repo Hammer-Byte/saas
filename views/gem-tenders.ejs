@@ -1,8 +1,31 @@
 <%- include('common/header') %>
 
 <%
-    const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
+    const pipelineStageLabels = GEM_TENDER_STAGE_LABELS || {};
+    const manualStageValues = Object.keys(pipelineStageLabels).filter(function (stage) {
+        return stage !== "filed";
+    });
+    // List "status" = the lock reason / pipeline stage / assignment state, in that priority.
+    const stageLabels = Object.assign(
+        { unassigned: "Unassigned", assigned: "Assigned", eligible: "Eligible" },
+        pipelineStageLabels,
+        {
+            ineligible: (GEM_TENDER_ELIGIBILITY_CHOICE_LABELS || {}).ineligible || "Not eligible",
+            out_of_scope: (GEM_TENDER_ELIGIBILITY_CHOICE_LABELS || {}).out_of_scope || "Out of scope",
+            missed: "Missed",
+            unattended: "Unattended",
+        },
+    );
     const stageValues = Object.keys(stageLabels);
+    const tenderStatus = function (tender) {
+        if (Number(tender.missed)) return "missed";
+        if (Number(tender.unattended)) return "unattended";
+        if (Number(tender.ineligible)) return "ineligible";
+        if (Number(tender.out_of_scope)) return "out_of_scope";
+        if (pipelineStageLabels[tender.stage]) return tender.stage;
+        if (Number(tender.eligible)) return "eligible";
+        return tender.assignee_user_id ? "assigned" : "unassigned";
+    };
     const mseDisplay = function (value) {
         if (value === true || value === 1 || value === "1") return "Yes";
         if (value === false || value === 0 || value === "0") return "No";
@@ -96,7 +119,7 @@
                 </button>
                 <a
                     id="gem-tenders-report-link"
-                    href="/app/gem-keyword-tender-report?from=<%= from %>&to=<%= to %>"
+                    href="/app/gem-tender-report?from=<%= from %>&to=<%= to %>"
                     class="btn btn-outline-primary"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -151,7 +174,7 @@
                                 aria-controls="gem-bulk-pane-lock"
                                 aria-selected="false"
                             >
-                                Out of scope / Not eligible
+                                Eligibility
                             </button>
                         </li>
                     <% } %>
@@ -200,11 +223,14 @@
                                     </label>
                                     <select class="form-select form-select-sm" id="gem-bulk-stage">
                                         <option value="">Choose stage…</option>
-                                        <% stageValues.forEach(function (stage) { %>
-                                            <option value="<%= stage %>"><%= stageLabels[stage] || stage %></option>
+                                        <% manualStageValues.forEach(function (stage) { %>
+                                            <option value="<%= stage %>"><%= pipelineStageLabels[stage] || stage %></option>
                                         <% }) %>
                                     </select>
                                 </div>
+                                <p class="form-text small mb-0 align-self-center">
+                                    Only eligible tenders. Filed needs documents, so file from the tender page.
+                                </p>
                                 <button type="button" class="btn btn-sm btn-primary" id="gem-bulk-stage-btn" disabled>
                                     Change stage
                                 </button>
@@ -432,9 +458,9 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <span class="form-label d-block">Stage</span>
+                        <span class="form-label d-block">Status</span>
                         <div class="d-flex gap-1 align-items-stretch">
-                            <div class="dropdown gem-multi-filter flex-grow-1" id="gem-filter-stage" data-empty-label="All stages">
+                            <div class="dropdown gem-multi-filter flex-grow-1" id="gem-filter-stage" data-empty-label="All statuses">
                                 <button
                                     class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
                                     type="button"
@@ -443,7 +469,7 @@
                                     data-bs-display="static"
                                     aria-expanded="false"
                                 >
-                                    <span class="gem-multi-filter-label">All stages</span>
+                                    <span class="gem-multi-filter-label">All statuses</span>
                                 </button>
                                 <div class="dropdown-menu gem-multi-filter-menu p-2 shadow">
                                     <% stageValues.forEach(function (stage) { %>
@@ -466,8 +492,8 @@
                                 type="button"
                                 class="btn btn-outline-secondary btn-sm gem-filter-clear-btn gem-filter-clear-x"
                                 data-clear-multi="gem-filter-stage"
-                                title="Clear stage"
-                                aria-label="Clear stage"
+                                title="Clear status"
+                                aria-label="Clear status"
                             >×</button>
                         </div>
                     </div>
@@ -693,7 +719,7 @@
                         </div>
                         <div class="form-check">
                             <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-stage" value="stage" checked />
-                            <label class="form-check-label" for="gem-col-stage">Stage</label>
+                            <label class="form-check-label" for="gem-col-stage">Status</label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-locked" value="locked" checked />
@@ -785,14 +811,14 @@
                                 <th scope="col" data-col="pastExp">Past exp.</th>
                                 <th scope="col" data-col="mseExp">Experience Relaxation</th>
                                 <th scope="col" data-col="mseTurnover">Turnover Relaxation</th>
-                                <th scope="col" data-col="stage">Stage</th>
+                                <th scope="col" data-col="stage">Status</th>
                                 <th scope="col" data-col="locked" class="text-center" style="width: 4.5rem;">Locked</th>
                                 <th scope="col" data-col="assignee">Assignee</th>
                             </tr>
                         </thead>
                         <tbody id="gem-tenders-tbody">
                                 <% (tenders || []).forEach(function (tender) { %>
-                                    <% const stage = tender.stage || "new"; %>
+                                    <% const stage = tenderStatus(tender); %>
                                     <% const emdAmount = Number(tender.emd_amount || 0); %>
                                     <%
                                         const buyerParts = [
@@ -803,7 +829,7 @@
                                         ].filter(Boolean);
                                         const buyerText = buyerParts.length ? buyerParts.join(" / ") : "-";
                                         const assigneeName = tender.assignee_full_name || "-";
-                                        const stageLabel = stageLabels[stage] || stage || "New";
+                                        const stageLabel = stageLabels[stage] || stage;
                                         const isLocked = !!Number(tender.locked);
                                         const isHidden = !!Number(tender.hidden) || tender.hidden === true;
                                     %>
@@ -831,7 +857,7 @@
                                     </td>
                                     <td data-col="tenderId">
                                         <a
-                                            href="/app/gem-keyword-tenders/<%= tender.id %>"
+                                            href="/app/gem-tenders/<%= tender.id %>"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >
@@ -1051,10 +1077,22 @@
         background: #e5e7eb;
         border-color: #d1d5db;
     }
-    .gem-tender-stage-new {
+    .gem-tender-stage-unassigned {
         color: #1e3a8a;
         background: #dbeafe;
         border-color: #93c5fd;
+    }
+    .gem-tender-stage-missed,
+    .gem-tender-stage-unattended {
+        color: #842029;
+        background: #f8d7da;
+        border-color: #f1aeb5;
+    }
+    .gem-tender-stage-ineligible,
+    .gem-tender-stage-out_of_scope {
+        color: #41464b;
+        background: #e2e3e5;
+        border-color: #c4c8cb;
     }
     .gem-tender-stage-assigned {
         color: #164e63;
@@ -1199,5 +1237,5 @@
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
-<script src="/public/gem-keyword-tenders.js" defer></script>
+<script src="/public/gem-tenders.js" defer></script>
 <%- include('common/footer') %>

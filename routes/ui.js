@@ -59,23 +59,24 @@ import { getAllGemScanKeywords } from "../db/gem_scan_keywords.js";
 import { getAllGemTenderCategories } from "../db/gem_tender_categories.js";
 import { canUseGemCategories } from "../services/gem_categories.js";
 import {
-    getAllGemKeywordTenders,
-    getGemKeywordTenderById,
-} from "../db/gem_keyword_tenders.js";
-import { getAllGemKeywordTenderActivitiesByTenderId } from "../db/gem_keyword_tender_activities.js";
-import { getAllGemKeywordTenderCommentsByTenderId } from "../db/gem_keyword_tender_comments.js";
-import { getAllGemKeywordTenderDocumentsByTenderId } from "../db/gem_keyword_tender_documents.js";
-import { buildGemKeywordTenderReport } from "../services/gem_keyword_tender_report.js";
-import { canManageTenderDocuments } from "../services/gem_keyword_tender_documents.js";
+    getAllGemTenders,
+    getGemTenderById,
+} from "../db/gem_tenders.js";
+import { getAllGemTenderActivitiesByTenderId } from "../db/gem_tender_activities.js";
+import { getAllGemTenderCommentsByTenderId } from "../db/gem_tender_comments.js";
+import { getAllGemTenderDocumentsByTenderId } from "../db/gem_tender_documents.js";
+import { buildGemTenderReport } from "../services/gem_tender_report.js";
+import { canManageTenderDocuments } from "../services/gem_tender_documents.js";
 import { canManageInternalDocuments } from "../services/internal_documents.js";
 import { getMaxRequestBodySize } from "../libs/upload_limits.js";
 import {
     AUTHORITIES,
     CONTRACT_BROKEN_BY,
     CONTRACT_BROKEN_BY_LABELS,
-    GEM_KEYWORD_TENDER_PIPELINE_STAGES,
-    GEM_KEYWORD_TENDER_STAGE_LABELS,
-    GEM_KEYWORD_TENDER_TERMINAL_STAGES,
+    GEM_TENDER_ELIGIBILITY_CHOICE_LABELS,
+    GEM_TENDER_FILING_MIN_DOCUMENTS,
+    GEM_TENDER_PIPELINE_STAGES,
+    GEM_TENDER_STAGE_LABELS,
     GEM_TENDER_LOCK_MESSAGES,
     INQUIRY_FOLLOWUP_DAY_OFFSETS,
     INQUIRY_SOURCE_LABELS,
@@ -924,7 +925,18 @@ export const uiRoutes = new Elysia()
             .get("/app/gem-tender-scan-history", ({ redirect }) =>
                 redirect("/app/selenium?source=gem"),
             )
-            .get("/app/gem-keyword-tenders", async ({ render, session, query }) => {
+            .get("/app/gem-keyword-tenders", ({ redirect, query }) => {
+                const search = new URLSearchParams(query || {}).toString();
+                return redirect(`/app/gem-tenders/list${search ? `?${search}` : ""}`);
+            })
+            .get("/app/gem-keyword-tenders/:id", ({ redirect, params }) =>
+                redirect(`/app/gem-tenders/${encodeURIComponent(params.id)}`),
+            )
+            .get("/app/gem-keyword-tender-report", ({ redirect, query }) => {
+                const search = new URLSearchParams(query || {}).toString();
+                return redirect(`/app/gem-tender-report${search ? `?${search}` : ""}`);
+            })
+            .get("/app/gem-tenders/list", async ({ render, session, query }) => {
                 const defaults = defaultDateRangeDays({ daysAhead: 7 });
                 const from =
                     parseQueryDate(query.from) || defaults.from;
@@ -934,21 +946,22 @@ export const uiRoutes = new Elysia()
                 const rangeFrom = from <= to ? from : to;
                 const rangeTo = from <= to ? to : from;
 
-                return render("gem-keyword-tenders", appPage(session, {
+                return render("gem-tenders", appPage(session, {
                     title: "Tenders — GEM Tenders — HammerByte",
                     from: rangeFrom,
                     to: rangeTo,
                     userId: session?.id,
                     tenderCategories: await getAllGemTenderCategories(),
                     users: await getAllUsers(),
-                    tenders: await getAllGemKeywordTenders({
+                    tenders: await getAllGemTenders({
                         from: rangeFrom,
                         to: rangeTo,
                     }),
-                    GEM_KEYWORD_TENDER_STAGE_LABELS,
+                    GEM_TENDER_STAGE_LABELS,
+                    GEM_TENDER_ELIGIBILITY_CHOICE_LABELS,
                 }));
             })
-            .get("/app/gem-keyword-tender-report", async ({ render, session, query }) => {
+            .get("/app/gem-tender-report", async ({ render, session, query }) => {
                 const defaults = defaultDateRangeLookingBack({ daysBack: 6 });
                 const from =
                     parseQueryDate(query.from) || defaults.from;
@@ -957,12 +970,12 @@ export const uiRoutes = new Elysia()
 
                 const rangeFrom = from <= to ? from : to;
                 const rangeTo = from <= to ? to : from;
-                const report = await buildGemKeywordTenderReport({
+                const report = await buildGemTenderReport({
                     from: rangeFrom,
                     to: rangeTo,
                 });
 
-                return render("gem-keyword-tender-report", appPage(session, {
+                return render("gem-tender-report", appPage(session, {
                     title: "Tenders report — GEM Tenders — HammerByte",
                     from: rangeFrom,
                     to: rangeTo,
@@ -970,9 +983,9 @@ export const uiRoutes = new Elysia()
                 }));
             })
             .get(
-                "/app/gem-keyword-tenders/:id",
+                "/app/gem-tenders/:id",
                 async ({ render, session, params, redirect }) => {
-                    const tender = await getGemKeywordTenderById({ id: params.id });
+                    const tender = await getGemTenderById({ id: params.id });
                     if (!tender) {
                         return redirect("/not-found");
                     }
@@ -985,25 +998,26 @@ export const uiRoutes = new Elysia()
                         tender,
                     });
 
-                    return render("gem-keyword-tender", appPage(session, {
+                    return render("gem-tender", appPage(session, {
                         title: `Tender ${tender.tender_id} — HammerByte`,
                         tender,
                         userId: session?.id,
                         users: await getAllUsers(),
                         tenderCategories: await getAllGemTenderCategories(),
-                        activities: await getAllGemKeywordTenderActivitiesByTenderId({
-                            gem_keyword_tender_id: tender.id,
+                        activities: await getAllGemTenderActivitiesByTenderId({
+                            gem_tender_id: tender.id,
                         }),
-                        comments: await getAllGemKeywordTenderCommentsByTenderId({
-                            gem_keyword_tender_id: tender.id,
+                        comments: await getAllGemTenderCommentsByTenderId({
+                            gem_tender_id: tender.id,
                         }),
-                        documents: await getAllGemKeywordTenderDocumentsByTenderId({
-                            gem_keyword_tender_id: tender.id,
+                        documents: await getAllGemTenderDocumentsByTenderId({
+                            gem_tender_id: tender.id,
                         }),
                         canManageDocuments,
-                        GEM_KEYWORD_TENDER_STAGE_LABELS,
-                        GEM_KEYWORD_TENDER_PIPELINE_STAGES,
-                        GEM_KEYWORD_TENDER_TERMINAL_STAGES,
+                        GEM_TENDER_STAGE_LABELS,
+                        GEM_TENDER_PIPELINE_STAGES,
+                        GEM_TENDER_ELIGIBILITY_CHOICE_LABELS,
+                        GEM_TENDER_FILING_MIN_DOCUMENTS,
                         GEM_TENDER_LOCK_MESSAGES,
                     }));
                 },

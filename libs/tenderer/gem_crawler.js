@@ -4,10 +4,10 @@ import { logger } from "@hammerbyte/utils";
 import { toDbDateTime } from "../date.js";
 import { GEM_SEARCH_MODES, GemAllBidsPage, GemPage } from "./gem_pom.js";
 import {
-    createGemKeywordTender,
-    getGemKeywordTenderByTenderId,
-    updateGemKeywordTenderScanDetailsById,
-} from "../../db/gem_keyword_tenders.js";
+    createGemTender,
+    getGemTenderByTenderId,
+    updateGemTenderScanDetailsById,
+} from "../../db/gem_tenders.js";
 
 const DELAY_SHORT = 1000;
 
@@ -1011,7 +1011,7 @@ export const processTender = async ({
 
         // category_group_id / tender_category_id are set only on insert; never overwritten on re-scan.
         if (!existingTender) {
-            const tenderRowId = await createGemKeywordTender({
+            const tenderRowId = await createGemTender({
                 category_group_id: resolvedCategoryGroupId,
                 tender_category_id: resolvedTenderCategoryId,
             tender_id,
@@ -1038,7 +1038,7 @@ export const processTender = async ({
             return false;
         }
 
-        await updateGemKeywordTenderScanDetailsById({
+        await updateGemTenderScanDetailsById({
             id: existingTender.id,
             ...nextDetails,
         });
@@ -1188,7 +1188,7 @@ export const searchTendersByKeyword = async (
                     continue;
                 }
 
-                const existingTender = await getGemKeywordTenderByTenderId({
+                const existingTender = await getGemTenderByTenderId({
                     tender_id: tenderId,
                 });
 
