@@ -153,21 +153,57 @@ function quotePreview(value) {
     return text.length > 120 ? `${text.slice(0, 117)}...` : text;
 }
 
-function normalizeStage(value) {
-    if (STAGE_VALUES.has(value)) {
-        return value;
+function bodyHasField(body, key) {
+    return !!body && Object.prototype.hasOwnProperty.call(body, key);
+}
+
+/** Resolve a known stage key, or null when the value is absent/unknown. */
+function knownStageOrNull(value) {
+    if (value == null || value === "") {
+        return null;
     }
-    if (value === "work_in_progress") {
+    const raw = String(value).trim();
+    if (STAGE_VALUES.has(raw)) {
+        return raw;
+    }
+    const lower = raw.toLowerCase();
+    if (STAGE_VALUES.has(lower)) {
+        return lower;
+    }
+    if (raw === "work_in_progress" || lower === "work_in_progress") {
         return GEM_KEYWORD_TENDER_STAGES.ASSIGNED;
     }
     if (
-        value === "requested_for_quote" ||
-        value === "waiting_for_technical" ||
-        value === "waiting_for_financial"
+        raw === "requested_for_quote" ||
+        raw === "waiting_for_technical" ||
+        raw === "waiting_for_financial" ||
+        lower === "requested_for_quote" ||
+        lower === "waiting_for_technical" ||
+        lower === "waiting_for_financial"
     ) {
         return GEM_KEYWORD_TENDER_STAGES.ELIGIBLE;
     }
-    return GEM_KEYWORD_TENDER_STAGES.NEW;
+    return null;
+}
+
+function normalizeStage(value) {
+    return knownStageOrNull(value) || GEM_KEYWORD_TENDER_STAGES.NEW;
+}
+
+function asAssigneeId(value) {
+    if (value == null || value === "") {
+        return null;
+    }
+    const id = Number(value);
+    return id >= 1 ? id : null;
+}
+
+function asCategoryId(value) {
+    if (value == null || value === "") {
+        return null;
+    }
+    const id = Number(value);
+    return id >= 1 ? id : null;
 }
 
 function flagsForStage(stage) {
@@ -327,16 +363,50 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
 
     const previousQuote = asText(gemKeywordTender.quote);
     const previousStage = normalizeStage(gemKeywordTender.stage);
-    const previousAssigneeUserId = gemKeywordTender.assignee_user_id
-        ? Number(gemKeywordTender.assignee_user_id)
-        : null;
+    const previousAssigneeUserId = asAssigneeId(gemKeywordTender.assignee_user_id);
+    const previousCategoryGroupId = asCategoryId(gemKeywordTender.category_group_id);
+    const previousTenderCategoryId = asCategoryId(gemKeywordTender.tender_category_id);
+    const previousLocked = isTenderLocked(gemKeywordTender);
+    const previousLockMessage = gemKeywordTender.lock_message || null;
 
-    let nextAssigneeUserId =
-        body.assignee_user_id !== undefined
-            ? body.assignee_user_id
-            : gemKeywordTender.assignee_user_id;
+    const unlocking = body?.locked === false && previousLocked;
+    if (unlocking && !currentUser.super_admin) {
+        set.status = 403;
+        return { error: "Only a super admin can unlock a tender" };
+    }
 
-    if (body.assign_to_me === true) {
+    // Unlock is lock-only: never rewrite stage / assignee / category / quote.
+    if (unlocking) {
+        await updateGemKeywordTenderById({
+            id: gemKeywordTender.id,
+            hidden: false,
+            eligible: gemKeywordTender.eligible,
+            filed: !!Number(gemKeywordTender.filed),
+            quote: previousQuote,
+            stage: previousStage,
+            assignee_user_id: previousAssigneeUserId,
+            category_group_id: previousCategoryGroupId,
+            tender_category_id: previousTenderCategoryId,
+            locked: false,
+            lock_message: null,
+        });
+        await logActivities({
+            gem_keyword_tender_id: gemKeywordTender.id,
+            user_id: currentUser.id,
+            activities: ["Unlocked tender"],
+        });
+        const updatedGemKeywordTender = await getGemKeywordTenderById({
+            id: gemKeywordTender.id,
+        });
+        set.status = 200;
+        return {
+            message: "Tender unlocked",
+            gemKeywordTender: updatedGemKeywordTender,
+        };
+    }
+
+    let nextAssigneeUserId = previousAssigneeUserId;
+    if (body?.assign_to_me === true) {
         // Fast path: someone else already claimed it before this request.
         if (
             previousAssigneeUserId != null &&
@@ -347,39 +417,34 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
                 set,
             });
         }
-        nextAssigneeUserId = currentUser.id;
-    }
-
-    if (nextAssigneeUserId != null) {
-        nextAssigneeUserId = Number(nextAssigneeUserId);
-        if (!(nextAssigneeUserId >= 1)) {
-            set.status = 400;
-            return { error: "Invalid assignee" };
+        nextAssigneeUserId = Number(currentUser.id);
+    } else if (bodyHasField(body, "assignee_user_id")) {
+        // Explicit null clears assignee. Absent key leaves it unchanged.
+        if (body.assignee_user_id == null || body.assignee_user_id === "") {
+            nextAssigneeUserId = null;
+        } else {
+            nextAssigneeUserId = asAssigneeId(body.assignee_user_id);
+            if (nextAssigneeUserId == null) {
+                set.status = 400;
+                return { error: "Invalid assignee" };
+            }
         }
-    } else {
-        nextAssigneeUserId = null;
     }
 
     const assigneeChanging = nextAssigneeUserId !== previousAssigneeUserId;
     const assignToMeClaim =
-        body.assign_to_me === true &&
+        body?.assign_to_me === true &&
         previousAssigneeUserId == null &&
         nextAssigneeUserId === Number(currentUser.id);
 
-    const previousLocked = isTenderLocked(gemKeywordTender);
-    const previousLockMessage = gemKeywordTender.lock_message || null;
-
-    const previousCategoryGroupId = gemKeywordTender.category_group_id
-        ? Number(gemKeywordTender.category_group_id)
-        : null;
     let nextCategoryGroupId = previousCategoryGroupId;
     let categoryGroupChanging = false;
-    if (body.category_group_id !== undefined) {
-        if (body.category_group_id == null) {
+    if (bodyHasField(body, "category_group_id")) {
+        if (body.category_group_id == null || body.category_group_id === "") {
             nextCategoryGroupId = null;
         } else {
-            nextCategoryGroupId = Number(body.category_group_id);
-            if (!(nextCategoryGroupId >= 1)) {
+            nextCategoryGroupId = asCategoryId(body.category_group_id);
+            if (nextCategoryGroupId == null) {
                 set.status = 400;
                 return { error: "Invalid category group" };
             }
@@ -387,17 +452,14 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         categoryGroupChanging = nextCategoryGroupId !== previousCategoryGroupId;
     }
 
-    const previousTenderCategoryId = gemKeywordTender.tender_category_id
-        ? Number(gemKeywordTender.tender_category_id)
-        : null;
     let nextTenderCategoryId = previousTenderCategoryId;
     let tenderCategoryChanging = false;
-    if (body.tender_category_id !== undefined) {
-        if (body.tender_category_id == null) {
+    if (bodyHasField(body, "tender_category_id")) {
+        if (body.tender_category_id == null || body.tender_category_id === "") {
             nextTenderCategoryId = null;
         } else {
-            nextTenderCategoryId = Number(body.tender_category_id);
-            if (!(nextTenderCategoryId >= 1)) {
+            nextTenderCategoryId = asCategoryId(body.tender_category_id);
+            if (nextTenderCategoryId == null) {
                 set.status = 400;
                 return { error: "Invalid category" };
             }
@@ -405,23 +467,17 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         tenderCategoryChanging = nextTenderCategoryId !== previousTenderCategoryId;
     }
 
-    const unlocking = body.locked === false && previousLocked;
-    if (unlocking && !currentUser.super_admin) {
-        set.status = 403;
-        return { error: "Only a super admin can unlock a tender" };
-    }
-
-    // Locked: no edits for anyone until unlock (unlock itself is allowed above).
-    if (previousLocked && !unlocking) {
+    // Locked: no edits for anyone until unlock (handled above).
+    if (previousLocked) {
         const touching =
             assigneeChanging ||
-            body.assign_to_me === true ||
-            body.stage !== undefined ||
-            body.quote !== undefined ||
+            body?.assign_to_me === true ||
+            bodyHasField(body, "stage") ||
+            bodyHasField(body, "quote") ||
             categoryGroupChanging ||
             tenderCategoryChanging ||
-            body.lock_action != null ||
-            body.locked === true;
+            body?.lock_action != null ||
+            body?.locked === true;
         if (touching) {
             set.status = 403;
             return {
@@ -441,7 +497,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
                 currentUser,
                 assigneeUserId: categoryAssigneeId,
                 stage: previousStage,
-                locked: previousLocked && !unlocking,
+                locked: previousLocked,
             })
         ) {
             set.status = 403;
@@ -491,12 +547,15 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         }
     }
 
-    let nextStage =
-        body.stage !== undefined ? normalizeStage(body.stage) : previousStage;
-
-    if (!STAGE_VALUES.has(nextStage)) {
-        set.status = 400;
-        return { error: "Invalid stage" };
+    const stageProvided = bodyHasField(body, "stage");
+    let nextStage = previousStage;
+    if (stageProvided) {
+        const requestedStage = knownStageOrNull(body.stage);
+        if (!requestedStage) {
+            set.status = 400;
+            return { error: "Invalid stage" };
+        }
+        nextStage = requestedStage;
     }
 
     // Assign to me / admin assign: if stage would stay New, move to Assigned.
@@ -510,7 +569,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     if (
         assigneeChanging &&
         nextAssigneeUserId == null &&
-        body.stage === undefined &&
+        !stageProvided &&
         UNASSIGN_RESET_STAGES.has(previousStage)
     ) {
         nextStage = GEM_KEYWORD_TENDER_STAGES.NEW;
@@ -547,7 +606,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
 
     // Explicit stage change: assignee required first; then only that assignee
     // or a super admin. Auto stage bumps on assign/unassign are OK.
-    if (stageChanging && body.stage !== undefined) {
+    if (stageChanging && stageProvided) {
         const stageAssigneeId = previousAssigneeUserId;
         if (!(stageAssigneeId >= 1)) {
             set.status = 400;
@@ -558,7 +617,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
                 currentUser,
                 assigneeUserId: stageAssigneeId,
                 stage: previousStage,
-                locked: previousLocked && !unlocking,
+                locked: previousLocked,
             })
         ) {
             set.status = 403;
@@ -568,17 +627,17 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
         }
     }
 
-    const nextQuoteRaw = body.quote !== undefined ? asText(body.quote) : previousQuote;
-    let nextQuote = nextQuoteRaw;
+    const quoteProvided = bodyHasField(body, "quote");
+    const nextQuote = quoteProvided ? asText(body.quote) : previousQuote;
 
-    if (body.quote !== undefined && nextQuote !== previousQuote) {
+    if (quoteProvided && nextQuote !== previousQuote) {
         if (
             !canEditQuote({
                 currentUser,
                 assigneeUserId: nextAssigneeUserId ?? previousAssigneeUserId,
                 stage: nextStage,
             }) ||
-            (previousLocked && !unlocking && !currentUser.super_admin)
+            previousLocked
         ) {
             set.status = 403;
             return {
