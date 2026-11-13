@@ -7,7 +7,9 @@ RUN apt-get update \
         ca-certificates \
         wget \
         curl \
+        zip \
         unzip \
+        python3 \
         xfonts-75dpi \
         xfonts-base \
         fontconfig \

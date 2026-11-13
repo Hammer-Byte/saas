@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { deflateSync } from "node:zlib";
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 
 const dir = join(import.meta.dir, "..", "public", "server-monitors");
 
@@ -51,6 +51,10 @@ function u32(n) {
     return b;
 }
 
+/**
+ * Build a PKZIP archive Windows Explorer can open.
+ * Must use raw DEFLATE (deflateRaw), NOT zlib-wrapped deflateSync.
+ */
 function buildZip(entries) {
     const localParts = [];
     const centralParts = [];
@@ -59,16 +63,17 @@ function buildZip(entries) {
     for (const entry of entries) {
         const nameBuf = Buffer.from(entry.name, "utf8");
         const data = entry.data;
-        const compressed = deflateSync(data, { level: 9 });
+        // ZIP method 8 requires raw deflate streams (no zlib header/adler32).
+        const compressed = deflateRawSync(data, { level: 9 });
         const crc = crc32(data);
 
         const localHeader = Buffer.concat([
             u32(0x04034b50),
-            u16(20),
-            u16(0),
-            u16(8),
-            u16(0),
-            u16(0),
+            u16(20), // version needed
+            u16(0), // flags
+            u16(8), // deflate
+            u16(0), // time
+            u16(0), // date
             u32(crc),
             u32(compressed.length),
             u32(data.length),
@@ -120,11 +125,125 @@ function buildZip(entries) {
 }
 
 function zipWithCli(archiveName, files) {
-    const result = spawnSync("zip", ["-q", "-j", archiveName, ...files], {
+    const result = spawnSync("zip", ["-q", "-j", "-X", archiveName, ...files], {
         cwd: dir,
         encoding: "utf8",
     });
     return result.status === 0;
+}
+
+function zipWithPython(archiveName, files) {
+    const script = `
+import zipfile, sys
+from pathlib import Path
+out, root, names = sys.argv[1], Path(sys.argv[2]), sys.argv[3:]
+with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+    for name in names:
+        # ZipInfo with forward-slash names is fine; Windows Explorer accepts them.
+        zf.write(root / name, arcname=name)
+print("ok")
+`;
+    const result = spawnSync(
+        "python3",
+        ["-c", script, join(dir, archiveName), dir, ...files],
+        { encoding: "utf8" },
+    );
+    return result.status === 0;
+}
+
+function zipWithSevenZip(archiveName, files) {
+    const archivePath = join(dir, archiveName);
+    const result = spawnSync(
+        "7z",
+        ["a", "-tzip", "-mx=9", "-y", archivePath, ...files],
+        { cwd: dir, encoding: "utf8" },
+    );
+    return result.status === 0;
+}
+
+function readU16(buf, offset) {
+    return buf.readUInt16LE(offset);
+}
+
+function readU32(buf, offset) {
+    return buf.readUInt32LE(offset);
+}
+
+function verifyZipLocal(archivePath, expectedFiles) {
+    const buf = readFileSync(archivePath);
+    const names = [];
+    let offset = 0;
+    while (offset + 30 <= buf.length && readU32(buf, offset) === 0x04034b50) {
+        const flags = readU16(buf, offset + 6);
+        const method = readU16(buf, offset + 8);
+        const compSize = readU32(buf, offset + 18);
+        const uncompSize = readU32(buf, offset + 22);
+        const nameLen = readU16(buf, offset + 26);
+        const extraLen = readU16(buf, offset + 28);
+        const name = buf.subarray(offset + 30, offset + 30 + nameLen).toString("utf8");
+        const dataStart = offset + 30 + nameLen + extraLen;
+        const dataEnd = dataStart + compSize;
+        if (dataEnd > buf.length) {
+            throw new Error(`truncated local entry for ${name}`);
+        }
+        if (flags & 0x08) {
+            throw new Error(`data descriptor bit set for ${name} (bad for Windows Explorer)`);
+        }
+        const compressed = buf.subarray(dataStart, dataEnd);
+        let plain;
+        if (method === 0) {
+            plain = compressed;
+        } else if (method === 8) {
+            plain = inflateRawSync(compressed);
+        } else {
+            throw new Error(`unsupported method ${method} for ${name}`);
+        }
+        if (plain.length !== uncompSize) {
+            throw new Error(`size mismatch for ${name}`);
+        }
+        if (crc32(plain) !== readU32(buf, offset + 14)) {
+            throw new Error(`crc mismatch for ${name}`);
+        }
+        names.push(name);
+        offset = dataEnd;
+    }
+    const expected = [...expectedFiles].sort();
+    const actual = [...names].sort();
+    if (JSON.stringify(expected) !== JSON.stringify(actual)) {
+        throw new Error(`namelist mismatch ${JSON.stringify(actual)} != ${JSON.stringify(expected)}`);
+    }
+}
+
+function verifyZip(archivePath, expectedFiles) {
+    // Prefer python (matches Windows zlib inflate), else local raw-deflate check.
+    const script = `
+import zipfile, sys
+path = sys.argv[1]
+expected = set(sys.argv[2:])
+with zipfile.ZipFile(path) as zf:
+    names = zf.namelist()
+    if set(names) != expected:
+        raise SystemExit(f"namelist mismatch {names!r} != {sorted(expected)!r}")
+    bad = zf.testzip()
+    if bad:
+        raise SystemExit(f"corrupt member {bad}")
+print("verified")
+`;
+    const result = spawnSync(
+        "python3",
+        ["-c", script, archivePath, ...expectedFiles],
+        { encoding: "utf8" },
+    );
+    if (result.status === 0) {
+        return;
+    }
+    try {
+        verifyZipLocal(archivePath, expectedFiles);
+    } catch (error) {
+        throw new Error(
+            `ZIP verify failed for ${archivePath}: ${result.stderr || result.stdout || ""} ${error.message}`,
+        );
+    }
 }
 
 for (const archive of archives) {
@@ -138,12 +257,22 @@ for (const archive of archives) {
         }
     }
 
-    if (!zipWithCli(archive.name, archive.files)) {
+    let method = "";
+    if (zipWithCli(archive.name, archive.files)) {
+        method = "zip-cli";
+    } else if (zipWithPython(archive.name, archive.files)) {
+        method = "python";
+    } else if (zipWithSevenZip(archive.name, archive.files)) {
+        method = "7z";
+    } else {
         const entries = archive.files.map((name) => ({
             name,
             data: readFileSync(join(dir, name)),
         }));
         writeFileSync(archivePath, buildZip(entries));
+        method = "deflateRaw";
     }
-    console.log(`created ${archive.name}`);
+
+    verifyZip(archivePath, archive.files);
+    console.log(`created ${archive.name} via ${method}`);
 }
