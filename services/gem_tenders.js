@@ -83,6 +83,27 @@ function eligibilityFlags(choice) {
     };
 }
 
+/** Lock message + list visibility to restore when a super admin locks an unlocked tender again; null if no reason. */
+export function relockStateOf(tender) {
+    if (!tender) return null;
+    if (tender.stage === GEM_TENDER_STAGES.FILED || Number(tender.filed)) {
+        return { lock_message: GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED, hidden: false };
+    }
+    if (Number(tender.ineligible)) {
+        return { lock_message: GEM_TENDER_LOCK_MESSAGES.NOT_ELIGIBLE, hidden: true };
+    }
+    if (Number(tender.out_of_scope)) {
+        return { lock_message: GEM_TENDER_LOCK_MESSAGES.OUT_OF_SCOPE, hidden: true };
+    }
+    if (Number(tender.missed)) {
+        return { lock_message: GEM_TENDER_LOCK_MESSAGES.DEADLINE_MISSED, hidden: true };
+    }
+    if (Number(tender.unattended)) {
+        return { lock_message: GEM_TENDER_LOCK_MESSAGES.DUE_DATE_PASSED, hidden: true };
+    }
+    return null;
+}
+
 /** Stage value from the DB / request, or null when empty or a legacy value. */
 export function knownStageOrNull(value) {
     if (value == null || value === "") {
@@ -308,6 +329,40 @@ export async function updateGemTender({ params, body, cookie, set }) {
         set.status = 200;
         return {
             message: "Tender unlocked",
+            gemTender: await getGemTenderById({ id: gemTender.id }),
+        };
+    }
+
+    if (body?.locked === true) {
+        if (!currentUser.super_admin) {
+            set.status = 403;
+            return { error: "Only a super admin can lock a tender" };
+        }
+        if (previousLocked) {
+            set.status = 400;
+            return { error: "Tender is already locked" };
+        }
+        const relock = relockStateOf(gemTender);
+        if (!relock) {
+            set.status = 400;
+            return {
+                error: "This tender has no lock reason (not filed, not eligible, out of scope, missed or unattended)",
+            };
+        }
+        try {
+            await updateGemTenderById({ id: gemTender.id, locked: true, ...relock });
+        } catch (error) {
+            set.status = 500;
+            return { error: "Failed to lock tender" };
+        }
+        await logActivities({
+            gem_tender_id: gemTender.id,
+            user_id: currentUser.id,
+            activities: [`Locked tender: ${relock.lock_message}`],
+        });
+        set.status = 200;
+        return {
+            message: "Tender locked",
             gemTender: await getGemTenderById({ id: gemTender.id }),
         };
     }

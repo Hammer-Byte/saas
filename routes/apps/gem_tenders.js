@@ -121,7 +121,7 @@ export default function (app) {
                 tender_category_id: t.Optional(
                     t.Union([t.Numeric({ minimum: 1 }), t.Null()]),
                 ),
-                locked: t.Optional(t.Literal(false)),
+                locked: t.Optional(t.Boolean()),
             }),
             detail: {
                 tags: ["GEM Tenders"],

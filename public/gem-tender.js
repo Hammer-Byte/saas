@@ -5,6 +5,7 @@
     const tenderCategorySelect = document.getElementById("gem-tender-category");
     const eligibilityFieldset = document.getElementById("gem-tender-eligibility");
     const unlockButton = document.getElementById("gem-tender-unlock-btn");
+    const lockButton = document.getElementById("gem-tender-lock-btn");
     const assigneeSelect = document.querySelector("select#gem-tender-assignee");
     const assignMeButton = document.getElementById("gem-tender-assign-me-btn");
     const quoteInput = document.getElementById("gem-tender-quote");
@@ -119,6 +120,21 @@
         if (!confirmed) return;
         unlockButton.disabled = true;
         if (!(await applyPatch({ locked: false }))) unlockButton.disabled = false;
+    });
+
+    lockButton?.addEventListener("click", async () => {
+        if (!isSuperAdmin) return;
+        const confirmed = await window.showConfirm({
+            title: "Lock tender again?",
+            description: `This locks the tender as "${lockButton.dataset.lockMessage}". Nothing else changes.`,
+            choices: [
+                { label: "Cancel", value: false, variant: "outline-secondary" },
+                { label: "Lock", value: true, variant: "primary" },
+            ],
+        });
+        if (!confirmed) return;
+        lockButton.disabled = true;
+        if (!(await applyPatch({ locked: true }))) lockButton.disabled = false;
     });
 
     assignMeButton?.addEventListener("click", async () => {

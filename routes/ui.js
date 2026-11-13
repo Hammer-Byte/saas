@@ -67,6 +67,7 @@ import { getAllGemTenderCommentsByTenderId } from "../db/gem_tender_comments.js"
 import { getAllGemTenderDocumentsByTenderId } from "../db/gem_tender_documents.js";
 import { buildGemTenderReport } from "../services/gem_tender_report.js";
 import { canManageTenderDocuments } from "../services/gem_tender_documents.js";
+import { relockStateOf } from "../services/gem_tenders.js";
 import { canManageInternalDocuments } from "../services/internal_documents.js";
 import { getMaxRequestBodySize } from "../libs/upload_limits.js";
 import {
@@ -1013,6 +1014,7 @@ export const uiRoutes = new Elysia()
                             gem_tender_id: tender.id,
                         }),
                         canManageDocuments,
+                        relockMessage: relockStateOf(tender)?.lock_message || "",
                         GEM_TENDER_STAGE_LABELS,
                         GEM_TENDER_PIPELINE_STAGES,
                         GEM_TENDER_ELIGIBILITY_CHOICE_LABELS,
