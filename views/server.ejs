@@ -330,6 +330,27 @@
             </div>
         <% } else { %>
             <h2 class="h5 mb-3">Monitoring</h2>
+            <% if (snap.screenshot_media_id) { %>
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0 pt-4 px-4">
+                        <h3 class="h6 mb-0">Desktop screenshot</h3>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <a href="/api/media/<%= snap.screenshot_media_id %>" target="_blank" rel="noopener">
+                            <img
+                                src="/api/media/<%= snap.screenshot_media_id %>"
+                                alt="Server desktop screenshot"
+                                class="img-fluid rounded border"
+                                style="max-height: 28rem;"
+                            />
+                        </a>
+                    </div>
+                </div>
+            <% } else if (snap.screenshot_error) { %>
+                <div class="alert alert-secondary py-2 small mb-4">
+                    Screenshot unavailable: <%= snap.screenshot_error %>
+                </div>
+            <% } %>
             <div class="row g-3 mb-4">
                 <div class="col-md-6 col-xl-3">
                     <div class="card border-0 shadow-sm h-100">
@@ -673,6 +694,9 @@
                                                 <span class="badge text-bg-light border">CPU <%= fmt(proc.usage_percent, "%") %></span>
                                                 <span class="badge text-bg-light border">RAM <%= fmt(mem.used_percent, "%") %></span>
                                                 <span class="badge text-bg-light border">Procs <%= fmt((data.processes || {}).total) %></span>
+                                                <% if (data.screenshot_media_id) { %>
+                                                    <span class="badge text-bg-info">Screenshot</span>
+                                                <% } %>
                                             <% } else { %>
                                                 <span class="badge text-bg-warning">Unparsed payload</span>
                                             <% } %>
@@ -693,6 +717,20 @@
                                                     <% }) %>
                                                 </ul>
                                             </div>
+                                        <% } %>
+                                        <% if (!isSync && data.screenshot_media_id) { %>
+                                            <div class="mb-3">
+                                                <a href="/api/media/<%= data.screenshot_media_id %>" target="_blank" rel="noopener">
+                                                    <img
+                                                        src="/api/media/<%= data.screenshot_media_id %>"
+                                                        alt="Screenshot"
+                                                        class="img-fluid rounded border"
+                                                        style="max-height: 16rem;"
+                                                    />
+                                                </a>
+                                            </div>
+                                        <% } else if (!isSync && data.screenshot_error) { %>
+                                            <div class="small text-secondary mb-2">Screenshot: <%= data.screenshot_error %></div>
                                         <% } %>
                                         <pre class="small mb-0 text-break" style="white-space: pre-wrap; max-height: 24rem; overflow: auto"><%= metric.raw %></pre>
                                     </div>

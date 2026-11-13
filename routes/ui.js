@@ -589,15 +589,16 @@ export const uiRoutes = new Elysia()
                         data && String(data.type || "").toLowerCase() === "drive_sync"
                             ? "drive_sync"
                             : "metrics";
+                    let rawObj = data;
+                    if (rawObj && typeof rawObj === "object" && rawObj.screenshot_jpeg_base64) {
+                        rawObj = { ...rawObj, screenshot_jpeg_base64: "[omitted]" };
+                    }
                     return {
                         id: metric.id,
                         collected_at: metric.collected_at,
                         kind,
                         data,
-                        raw:
-                            typeof metric.payload === "string"
-                                ? metric.payload
-                                : JSON.stringify(metric.payload ?? {}, null, 2),
+                        raw: JSON.stringify(rawObj ?? {}, null, 2),
                     };
                 });
                 const latestMonitor =

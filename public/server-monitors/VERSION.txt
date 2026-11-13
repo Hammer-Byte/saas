@@ -1,6 +1,6 @@
 HammerByte Windows agents - Server 2012 stable
 drive-sync=0.2.3-ps-stable
-monitor-agent=0.3.3-ps-stable
+monitor-agent=0.3.4-ps-stable
 
 Includes:
 - install-monitor.cmd + supervisor.ps1 + agent.ps1
@@ -21,5 +21,6 @@ Server 2012 notes fixed in this build:
 - Quiet robocopy logging: heartbeats + copy issue lines + end summary
 - Shared machine tag at %ProgramData%\HammerByte\.server-tag
 - Agent payload types: ping (60s alive), metrics (long interval), drive_sync (sync utility)
+- Metrics include desktop JPEG screenshot (best-effort; may be blank under SYSTEM)
 
 On child after deploy: unzip package, run .cmd as Administrator once.

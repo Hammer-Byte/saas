@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { filer, logger } from "@hammerbyte/utils";
 import {
     createServer,
     getAllServers,
@@ -11,8 +13,53 @@ import {
     updateServerSyncStatusById,
 } from "../db/servers.js";
 import { createServerMetric, getServerMetricsByServerId } from "../db/server_metrics.js";
+import { createMedia } from "../db/media.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
 import { notifyServerMetricAlertsIfNeeded } from "../libs/server_alert_notify.js";
+
+const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
+
+async function persistMetricScreenshot(server, body) {
+    if (!body || typeof body !== "object") {
+        return body;
+    }
+
+    const raw = body.screenshot_jpeg_base64;
+    delete body.screenshot_jpeg_base64;
+
+    if (raw == null || raw === "") {
+        return body;
+    }
+
+    try {
+        const b64 = String(raw).replace(/\s+/g, "");
+        const buffer = Buffer.from(b64, "base64");
+        if (!buffer.length || buffer.length > MAX_SCREENSHOT_BYTES) {
+            body.screenshot_error = "screenshot rejected (empty or too large)";
+            return body;
+        }
+        // JPEG SOI marker
+        if (buffer[0] !== 0xff || buffer[1] !== 0xd8) {
+            body.screenshot_error = "screenshot rejected (not jpeg)";
+            return body;
+        }
+
+        const mediaFile = `${filer.generateRandomFileName()}.jpg`;
+        const mediaName = `server-${server.id}-screenshot.jpg`.slice(0, 64);
+        await Bun.write(join(Bun.env.DIRECTORY_MEDIA, mediaFile), buffer);
+        const mediaId = await createMedia({ name: mediaName, file: mediaFile });
+        if (!mediaId) {
+            body.screenshot_error = "failed to create media record";
+            return body;
+        }
+        body.screenshot_media_id = mediaId;
+        delete body.screenshot_error;
+    } catch (error) {
+        logger.error(`persistMetricScreenshot server #${server?.id}: ${error}`);
+        body.screenshot_error = String(error?.message || error).slice(0, 200);
+    }
+    return body;
+}
 
 export async function addServerMetrics({ request, body, set }) {
     const tag = String(request.headers.get("x-server-tag") || "").trim();
@@ -79,11 +126,19 @@ export async function addServerMetrics({ request, body, set }) {
 
     // Do not store ping rows — they are high-frequency alive signals only.
     if (!isPing) {
-        const payload = JSON.stringify(body ?? {});
+        let storeBody = body ?? {};
+        if (isMetrics) {
+            storeBody = await persistMetricScreenshot(server, storeBody);
+        } else if (storeBody && typeof storeBody === "object") {
+            // Never persist raw base64 on non-metrics payloads.
+            delete storeBody.screenshot_jpeg_base64;
+        }
+        const payload = JSON.stringify(storeBody);
         await createServerMetric({
             server_id: server.id,
             payload,
         });
+        body = storeBody;
     }
 
     if (isMetrics) {

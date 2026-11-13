@@ -22,7 +22,7 @@ $MetricsUrl = "$HostUrl/api/servers/metrics"
 $PingIntervalSeconds = 60
 $MetricsIntervalSeconds = 900
 $MetricsPerRun = 2
-$AgentVersion = "0.3.3-ps-stable"
+$AgentVersion = "0.3.4-ps-stable"
 $InstallDir = Join-Path $env:ProgramData "HammerByte\ServerMonitor"
 $AgentLogFile = Join-Path $InstallDir "agent.log"
 
@@ -289,6 +289,70 @@ function Collect-Metrics {
     }
 }
 
+function Get-DesktopScreenshotBase64 {
+    # Best-effort desktop capture. SYSTEM/session-0 tasks may get a blank image.
+    try {
+        Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+
+        $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
+        $width = [math]::Max(1, [int]$screen.Width)
+        $height = [math]::Max(1, [int]$screen.Height)
+        $bmp = New-Object System.Drawing.Bitmap $width, $height
+        $graphics = [System.Drawing.Graphics]::FromImage($bmp)
+        try {
+            $graphics.CopyFromScreen([int]$screen.X, [int]$screen.Y, 0, 0, $bmp.Size)
+        } finally {
+            $graphics.Dispose()
+        }
+
+        $maxWidth = 1280
+        if ($bmp.Width -gt $maxWidth) {
+            $newHeight = [math]::Max(1, [int]($bmp.Height * ($maxWidth / [double]$bmp.Width)))
+            $scaled = New-Object System.Drawing.Bitmap $maxWidth, $newHeight
+            $sg = [System.Drawing.Graphics]::FromImage($scaled)
+            try {
+                $sg.DrawImage($bmp, 0, 0, $maxWidth, $newHeight)
+            } finally {
+                $sg.Dispose()
+            }
+            $bmp.Dispose()
+            $bmp = $scaled
+        }
+
+        $ms = New-Object System.IO.MemoryStream
+        try {
+            $codec = $null
+            foreach ($enc in [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders()) {
+                if ($enc.MimeType -eq "image/jpeg") { $codec = $enc; break }
+            }
+            if ($null -eq $codec) {
+                $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Jpeg)
+            } else {
+                $ep = New-Object System.Drawing.Imaging.EncoderParameters(1)
+                $ep.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter(
+                    [System.Drawing.Imaging.Encoder]::Quality,
+                    [long]55
+                )
+                $bmp.Save($ms, $codec, $ep)
+            }
+            $bytes = $ms.ToArray()
+        } finally {
+            $ms.Dispose()
+            $bmp.Dispose()
+        }
+
+        if ($null -eq $bytes -or $bytes.Length -lt 64) {
+            throw "screenshot bytes empty"
+        }
+        Write-AgentLog ("screenshot captured ({0} bytes jpeg)" -f $bytes.Length)
+        return [Convert]::ToBase64String($bytes)
+    } catch {
+        Write-AgentLog ("screenshot failed: {0}" -f $_.Exception.Message)
+        return $null
+    }
+}
+
 function Send-Metrics {
     param([string]$ServerTag)
     $payload = $null
@@ -308,6 +372,14 @@ function Send-Metrics {
         if ($payload.collection_error) {
             Write-AgentLog ("collection warning: {0}" -f $payload.collection_error)
         }
+
+        $shot = Get-DesktopScreenshotBase64
+        if ($shot) {
+            $payload["screenshot_jpeg_base64"] = $shot
+        } else {
+            $payload["screenshot_error"] = "capture failed or unavailable in this session"
+        }
+
         Write-AgentLog "metrics collection done"
         if (-not (Send-JsonPayload -ServerTag $ServerTag -Payload $payload)) {
             return $false
