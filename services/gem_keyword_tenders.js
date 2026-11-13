@@ -202,6 +202,7 @@ function flagsForStage(stage) {
 function lockStateForUpdate({
     previousLocked,
     previousLockMessage,
+    previousStage,
     nextStage,
     body,
 }) {
@@ -224,8 +225,12 @@ function lockStateForUpdate({
         };
     }
 
-    // Filed: lock but keep visible (not hidden).
-    if (nextStage === GEM_KEYWORD_TENDER_STAGES.FILED) {
+    // Entering Filed: lock but keep visible. Do not re-lock if already Filed
+    // and unlocked (e.g. admin unlocked, then edits category/assignee).
+    const enteringFiled =
+        nextStage === GEM_KEYWORD_TENDER_STAGES.FILED &&
+        previousStage !== GEM_KEYWORD_TENDER_STAGES.FILED;
+    if (enteringFiled) {
         return {
             locked: true,
             lock_message: GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED,
@@ -234,10 +239,13 @@ function lockStateForUpdate({
     }
 
     if (previousLocked) {
+        const filedLock =
+            nextStage === GEM_KEYWORD_TENDER_STAGES.FILED ||
+            previousLockMessage === GEM_TENDER_LOCK_MESSAGES.ALREADY_FILED;
         return {
             locked: true,
             lock_message: previousLockMessage || null,
-            hide: true,
+            hide: !filedLock,
         };
     }
 
@@ -607,6 +615,7 @@ export async function updateGemKeywordTender({ params, body, cookie, set }) {
     const lockState = lockStateForUpdate({
         previousLocked,
         previousLockMessage,
+        previousStage,
         nextStage,
         body,
     });
