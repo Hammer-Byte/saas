@@ -109,10 +109,8 @@ export const TASK_PRIORITY_LABELS = {
     [TASK_PRIORITIES.HIGH]: "High",
 };
 
-export const GEM_KEYWORD_TENDER_STAGES = {
-    NEW: "new",
-    ASSIGNED: "assigned",
-    ELIGIBLE: "eligible",
+/** Stage is NULL until the tender is marked eligible; only these values are allowed after. */
+export const GEM_TENDER_STAGES = {
     WAITING_FOR_DOCS: "waiting_for_docs",
     WAITING_FOR_GEM: "waiting_for_gem",
     WAITING_FOR_QUOTE: "waiting_for_quote",
@@ -120,31 +118,23 @@ export const GEM_KEYWORD_TENDER_STAGES = {
     FILED: "filed",
 };
 
-export const GEM_KEYWORD_TENDER_STAGE_LABELS = {
-    [GEM_KEYWORD_TENDER_STAGES.NEW]: "New",
-    [GEM_KEYWORD_TENDER_STAGES.ASSIGNED]: "Assigned",
-    [GEM_KEYWORD_TENDER_STAGES.ELIGIBLE]: "Eligible",
-    [GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_DOCS]: "Waiting For Docs",
-    [GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_GEM]: "Waiting for GEM",
-    [GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_QUOTE]: "Waiting for Quote",
-    [GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS]: "Preparing Docs",
-    [GEM_KEYWORD_TENDER_STAGES.FILED]: "Filed",
+export const GEM_TENDER_STAGE_LABELS = {
+    [GEM_TENDER_STAGES.WAITING_FOR_DOCS]: "Waiting For Docs",
+    [GEM_TENDER_STAGES.WAITING_FOR_GEM]: "Waiting for GEM",
+    [GEM_TENDER_STAGES.WAITING_FOR_QUOTE]: "Waiting for Quote",
+    [GEM_TENDER_STAGES.PREPARING_DOCS]: "Preparing Docs",
+    [GEM_TENDER_STAGES.FILED]: "Filed",
 };
 
-/** Happy-path pipeline order for timeline / UI. */
-export const GEM_KEYWORD_TENDER_PIPELINE_STAGES = [
-    GEM_KEYWORD_TENDER_STAGES.NEW,
-    GEM_KEYWORD_TENDER_STAGES.ASSIGNED,
-    GEM_KEYWORD_TENDER_STAGES.ELIGIBLE,
-    GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_DOCS,
-    GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_GEM,
-    GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_QUOTE,
-    GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS,
-    GEM_KEYWORD_TENDER_STAGES.FILED,
+export const GEM_TENDER_PIPELINE_STAGES = [
+    GEM_TENDER_STAGES.WAITING_FOR_DOCS,
+    GEM_TENDER_STAGES.WAITING_FOR_GEM,
+    GEM_TENDER_STAGES.WAITING_FOR_QUOTE,
+    GEM_TENDER_STAGES.PREPARING_DOCS,
+    GEM_TENDER_STAGES.FILED,
 ];
 
-/** Filed is terminal via lock; only super admin may unlock / change after. */
-export const GEM_KEYWORD_TENDER_TERMINAL_STAGES = [GEM_KEYWORD_TENDER_STAGES.FILED];
+export const GEM_TENDER_FILING_MIN_DOCUMENTS = 2;
 
 export const GEM_TENDER_LOCK_MESSAGES = {
     DUE_DATE_PASSED: "Tender Disabled As Due Date Passed",
@@ -168,16 +158,17 @@ export const GEM_TENDER_SCAN_TYPE_LABELS = {
     [GEM_TENDER_SCAN_TYPES.ADHOC]: "Add tender",
 };
 
-export const GEM_KEYWORD_TENDER_ELIGIBILITY = {
-    NEED_TO_CHECK: "need_to_check",
+/** Radio choice on a tender; each value is also the name of its boolean column. */
+export const GEM_TENDER_ELIGIBILITY_CHOICES = {
     ELIGIBLE: "eligible",
-    NOT_ELIGIBLE: "not_eligible",
+    INELIGIBLE: "ineligible",
+    OUT_OF_SCOPE: "out_of_scope",
 };
 
-export const GEM_KEYWORD_TENDER_ELIGIBILITY_LABELS = {
-    [GEM_KEYWORD_TENDER_ELIGIBILITY.NEED_TO_CHECK]: "Need to check",
-    [GEM_KEYWORD_TENDER_ELIGIBILITY.ELIGIBLE]: "Eligible",
-    [GEM_KEYWORD_TENDER_ELIGIBILITY.NOT_ELIGIBLE]: "Not eligible",
+export const GEM_TENDER_ELIGIBILITY_CHOICE_LABELS = {
+    [GEM_TENDER_ELIGIBILITY_CHOICES.ELIGIBLE]: "Eligible",
+    [GEM_TENDER_ELIGIBILITY_CHOICES.INELIGIBLE]: "Not eligible",
+    [GEM_TENDER_ELIGIBILITY_CHOICES.OUT_OF_SCOPE]: "Out of scope",
 };
 
 export const INQUIRY_STATES = {

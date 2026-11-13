@@ -3,13 +3,18 @@
     const alertElement = document.getElementById("gem-tender-alert");
     const stageSelect = document.getElementById("gem-tender-stage");
     const tenderCategorySelect = document.getElementById("gem-tender-category");
+    const eligibilityFieldset = document.getElementById("gem-tender-eligibility");
     const unlockButton = document.getElementById("gem-tender-unlock-btn");
-    const lockActionsWrap = document.getElementById("gem-tender-lock-actions");
-    const assigneeSelect = document.getElementById("gem-tender-assignee");
+    const assigneeSelect = document.querySelector("select#gem-tender-assignee");
     const assignMeButton = document.getElementById("gem-tender-assign-me-btn");
-    const assignMeWrap = document.getElementById("gem-tender-assign-me-wrap");
     const quoteInput = document.getElementById("gem-tender-quote");
     const quoteSaveButton = document.getElementById("gem-tender-quote-save-btn");
+    const fileModalElement = document.getElementById("gem-tender-file-modal");
+    const fileForm = document.getElementById("gem-tender-file-form");
+    const fileFilesInput = document.getElementById("gem-tender-file-files");
+    const fileCount = document.getElementById("gem-tender-file-count");
+    const fileAlert = document.getElementById("gem-tender-file-alert");
+    const fileSubmitButton = document.getElementById("gem-tender-file-submit-btn");
     const commentForm = document.getElementById("gem-tender-comment-form");
     const commentText = document.getElementById("gem-tender-comment-text");
     const commentFile = document.getElementById("gem-tender-comment-file");
@@ -28,19 +33,18 @@
     const tenderId = Number(detail.dataset.id || 0);
     const currentUserId = Number(detail.dataset.currentUserId || 0);
     const isSuperAdmin = detail.dataset.superAdmin === "1";
-    const QUOTE_DISABLED_STAGES = new Set(["new", "assigned", "filed"]);
-    const TERMINAL_STAGES = new Set(["filed"]);
-    const ASSIGNEE_REQUIRED_STAGES = [
-        "assigned",
-        "waiting_for_docs",
-        "waiting_for_gem",
-        "waiting_for_quote",
-        "preparing_docs",
-    ];
-    const ONE_WAY_CONFIRM_STAGES = new Set(["filed"]);
-    const LOCK_ACTION_LABELS = {
-        out_of_scope: "Out of scope",
-        not_eligible: "Not eligible",
+    const minFilingDocuments = Number(detail.dataset.minFilingDocuments || 2);
+    const ELIGIBILITY_CONFIRM = {
+        ineligible: {
+            title: "Mark as not eligible?",
+            description:
+                "This locks the tender as \"Not eligible\" and clears its stage. Only a super admin can unlock it.",
+        },
+        out_of_scope: {
+            title: "Mark as out of scope?",
+            description:
+                "This locks the tender as \"Out of scope\" and clears its stage. Only a super admin can unlock it.",
+        },
     };
 
     function showAlert(message, type) {
@@ -63,120 +67,15 @@
         editAlert.textContent = "";
     }
 
-    function currentAssigneeId() {
-        return String(detail.dataset.assigneeUserId || "").trim();
-    }
-
-    function currentStage() {
-        return detail.dataset.stage || "new";
-    }
-
-    function isLocked() {
-        return detail.dataset.locked === "1";
-    }
-
-    function isTerminalStage() {
-        return (
-            detail.dataset.terminalStage === "1" ||
-            TERMINAL_STAGES.has(currentStage())
-        );
-    }
-
-    /** Locked blocks everyone until unlock — including super admin. */
-    function isFrozen() {
-        return isLocked();
-    }
-
-    /** Category / stage / quote / comments: need assignee; then assignee or admin. */
-    function canOperateAssigned() {
-        if (isLocked()) return false;
-        const assigneeUserId = Number(currentAssigneeId() || 0);
-        if (!(assigneeUserId >= 1)) return false;
-        if (isSuperAdmin) return true;
-        return assigneeUserId === currentUserId;
-    }
-
-    function canChangeStage() {
-        return canOperateAssigned();
-    }
-
-    function canEditQuote() {
-        if (isLocked()) return false;
-        const stage = currentStage();
-        if (QUOTE_DISABLED_STAGES.has(stage)) return false;
-        return canOperateAssigned();
-    }
-
-    function syncAssignedOption() {
-        if (!stageSelect) return;
-        const hasAssignee = !!currentAssigneeId();
-        const stage = currentStage();
-        for (const value of ASSIGNEE_REQUIRED_STAGES) {
-            const option = stageSelect.querySelector(`option[value="${value}"]`);
-            if (option) option.disabled = !hasAssignee;
-        }
-        const newOption = stageSelect.querySelector('option[value="new"]');
-        if (newOption) {
-            newOption.disabled = stage !== "new";
-        }
-    }
-
-    function canChangeTenderCategory() {
-        return canOperateAssigned();
-    }
-
-    function canChangeAssignee() {
-        if (isLocked()) return false;
-        return detail.dataset.canAssignOthers === "1";
-    }
-
-    function canLockAction() {
-        if (isLocked()) return false;
-        if (isTerminalStage()) return false;
-        const assigneeUserId = Number(currentAssigneeId() || 0);
-        if (!(assigneeUserId >= 1)) return false;
-        if (isSuperAdmin) return true;
-        return assigneeUserId === currentUserId;
-    }
-
-    function syncControls() {
-        const assigneeUserId = currentAssigneeId();
-        const quoteEnabled = canEditQuote();
-        const stageEnabled = canChangeStage();
-        const operateEnabled = canOperateAssigned();
-
-        if (stageSelect) stageSelect.disabled = !stageEnabled;
-        if (tenderCategorySelect) {
-            tenderCategorySelect.disabled = !canChangeTenderCategory();
-        }
-        lockActionsWrap?.classList.toggle("d-none", !canLockAction());
-        if (assigneeSelect) assigneeSelect.disabled = !canChangeAssignee();
-        if (quoteInput) quoteInput.disabled = !quoteEnabled;
-        if (quoteSaveButton) quoteSaveButton.disabled = !quoteEnabled;
-        if (assignMeWrap) {
-            assignMeWrap.classList.toggle("d-none", !!assigneeUserId || isFrozen());
-        }
-        if (assignMeButton) {
-            assignMeButton.disabled = !!assigneeUserId || isFrozen();
-        }
-        if (commentText) commentText.disabled = !operateEnabled;
-        if (commentFile) commentFile.disabled = !operateEnabled;
-        if (commentSubmitButton) commentSubmitButton.disabled = !operateEnabled;
-        syncAssignedOption();
-        // Disabling options can make browsers reset the visible selection — re-assert.
-        if (stageSelect && detail.dataset.stage) {
-            stageSelect.value = detail.dataset.stage;
-        }
-        if (tenderCategorySelect) {
-            tenderCategorySelect.value = detail.dataset.tenderCategoryId || "";
-        }
-        if (assigneeSelect) {
-            assigneeSelect.value = detail.dataset.assigneeUserId || "";
-        }
+    function showFileAlert(message, type) {
+        if (!fileAlert) return;
+        fileAlert.textContent = message;
+        fileAlert.className = `alert alert-${type}`;
+        fileAlert.classList.remove("d-none");
     }
 
     async function patchTender(payload) {
-        const response = await fetch(`/api/gem-keyword-tenders/${tenderId}`, {
+        const response = await fetch(`/api/gem-tenders/${tenderId}`, {
             method: "PATCH",
             credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
@@ -186,53 +85,18 @@
         return { response, data };
     }
 
-    function applyTenderDetailsFromApi(tender) {
-        if (!tender || typeof tender !== "object") return;
-        if (tender.assignee_user_id != null) {
-            detail.dataset.assigneeUserId = String(tender.assignee_user_id);
-        } else if ("assignee_user_id" in tender) {
-            detail.dataset.assigneeUserId = "";
-        }
-        if (tender.stage) {
-            detail.dataset.stage = tender.stage;
-            detail.dataset.terminalStage = TERMINAL_STAGES.has(tender.stage)
-                ? "1"
-                : "0";
-            if (stageSelect) stageSelect.value = tender.stage;
-        }
-        if (assigneeSelect && "assignee_user_id" in tender) {
-            assigneeSelect.value =
-                tender.assignee_user_id != null ? String(tender.assignee_user_id) : "";
-        }
-        if ("locked" in tender) {
-            detail.dataset.locked = Number(tender.locked) ? "1" : "0";
-        }
-        if ("tender_category_id" in tender) {
-            detail.dataset.tenderCategoryId =
-                tender.tender_category_id != null
-                    ? String(tender.tender_category_id)
-                    : "";
-            if (tenderCategorySelect) {
-                tenderCategorySelect.value = detail.dataset.tenderCategoryId;
-            }
-        }
-        syncControls();
-    }
-
-    async function applyPatch(payload, onSuccess) {
+    /** Every change re-renders server-side so controls always match the stored state. */
+    async function applyPatch(payload) {
         try {
             const { response, data } = await patchTender(payload);
             if (!response.ok) {
                 showAlert(data.error || "Failed to update tender.", "danger");
-                if (data.gemKeywordTender) {
-                    applyTenderDetailsFromApi(data.gemKeywordTender);
-                    // Reload so SSR fields (assignee name, locks, tabs) match server state.
+                if (data.gemTender) {
                     window.setTimeout(() => window.location.reload(), 900);
                 }
                 return false;
             }
-            onSuccess?.(data.gemKeywordTender || {});
-            syncControls();
+            window.location.reload();
             return true;
         } catch (error) {
             console.error(error);
@@ -241,35 +105,12 @@
         }
     }
 
-    tenderCategorySelect?.addEventListener("change", async () => {
-        const previous = detail.dataset.tenderCategoryId || "";
-        if (!canChangeTenderCategory()) {
-            showAlert(
-                isLocked()
-                    ? "Unlock this tender before making changes."
-                    : "Only the assignee or a super admin can change the category.",
-                "danger",
-            );
-            tenderCategorySelect.value = previous;
-            return;
-        }
-        const rawValue = tenderCategorySelect.value;
-        const tender_category_id = rawValue ? Number(rawValue) : null;
-        const ok = await applyPatch({ tender_category_id }, (tender) => {
-            detail.dataset.tenderCategoryId =
-                tender.tender_category_id != null
-                    ? String(tender.tender_category_id)
-                    : "";
-            window.location.reload();
-        });
-        if (!ok) tenderCategorySelect.value = previous;
-    });
-
     unlockButton?.addEventListener("click", async () => {
         if (!isSuperAdmin) return;
         const confirmed = await window.showConfirm({
             title: "Unlock tender?",
-            description: "This will remove the lock so the tender can be edited again.",
+            description:
+                "This removes the lock only. Stage, assignee, category and eligibility stay as they are.",
             choices: [
                 { label: "Cancel", value: false, variant: "outline-secondary" },
                 { label: "Unlock", value: true, variant: "primary" },
@@ -277,131 +118,150 @@
         });
         if (!confirmed) return;
         unlockButton.disabled = true;
-        const ok = await applyPatch({ locked: false }, () => {
-            window.location.reload();
-        });
-        if (!ok) unlockButton.disabled = false;
+        if (!(await applyPatch({ locked: false }))) unlockButton.disabled = false;
     });
 
-    lockActionsWrap?.addEventListener("click", async (event) => {
-        const actionButton = event.target.closest("[data-lock-action]");
-        if (!actionButton || !canLockAction()) return;
-        const lock_action = actionButton.dataset.lockAction;
-        if (!LOCK_ACTION_LABELS[lock_action]) return;
-
-        const confirmed = await window.showConfirm({
-            title: `Mark as ${LOCK_ACTION_LABELS[lock_action]}?`,
-            description: `This will lock the tender as "${LOCK_ACTION_LABELS[lock_action]}". Only a super admin can unlock it afterward. The stage will not change.`,
-            choices: [
-                { label: "Cancel", value: false, variant: "outline-secondary" },
-                { label: "Confirm", value: true, variant: "danger" },
-            ],
-        });
-        if (!confirmed) return;
-
-        for (const button of lockActionsWrap.querySelectorAll("button")) {
-            button.disabled = true;
-        }
-        const ok = await applyPatch({ lock_action }, () => {
-            window.location.reload();
-        });
-        if (!ok) {
-            for (const button of lockActionsWrap.querySelectorAll("button")) {
-                button.disabled = false;
-            }
-        }
-    });
-
-    stageSelect?.addEventListener("change", async () => {
-        const previous = detail.dataset.stage || "new";
-        const stage = stageSelect.value;
-        if (!canChangeStage()) {
-            showAlert(
-                isLocked()
-                    ? "Unlock this tender before making changes."
-                    : currentAssigneeId()
-                      ? "Only the assignee or a super admin can change stage."
-                      : "Assign someone before changing stage.",
-                "danger",
-            );
-            stageSelect.value = previous;
-            return;
-        }
-        if (stage === "new" && previous !== "new") {
-            showAlert("Stage cannot go back to New once the tender has left New.", "danger");
-            stageSelect.value = previous;
-            return;
-        }
-        if (ASSIGNEE_REQUIRED_STAGES.includes(stage) && !currentAssigneeId()) {
-            showAlert("Assign someone before selecting this stage.", "danger");
-            stageSelect.value = previous;
-            return;
-        }
-        if (ONE_WAY_CONFIRM_STAGES.has(stage) && stage !== previous) {
-            const confirmed = await window.showConfirm({
-                title: "Confirm filed stage",
-                description:
-                    "Filing locks the tender. A super admin must unlock it before category, stage, or assignee can be changed again. Continue?",
-                choices: [
-                    { label: "Cancel", value: false, variant: "outline-secondary" },
-                    { label: "Confirm", value: true, variant: "primary" },
-                ],
-            });
-            if (!confirmed) {
-                stageSelect.value = previous;
-                return;
-            }
-        }
-        const ok = await applyPatch({ stage }, (tender) => {
-            detail.dataset.stage = tender.stage || stage;
-            window.location.reload();
-        });
-        if (!ok) stageSelect.value = previous;
+    assignMeButton?.addEventListener("click", async () => {
+        assignMeButton.disabled = true;
+        if (!(await applyPatch({ assign_to_me: true }))) assignMeButton.disabled = false;
     });
 
     assigneeSelect?.addEventListener("change", async () => {
         const previous = detail.dataset.assigneeUserId || "";
         const rawValue = assigneeSelect.value;
-        const assignee_user_id = rawValue ? Number(rawValue) : null;
-        const ok = await applyPatch({ assignee_user_id }, (tender) => {
-            detail.dataset.assigneeUserId = tender.assignee_user_id
-                ? String(tender.assignee_user_id)
-                : "";
-            detail.dataset.stage = tender.stage || detail.dataset.stage;
-            if (stageSelect && tender.stage) {
-                stageSelect.value = tender.stage;
+        if (!rawValue && previous) {
+            const confirmed = await window.showConfirm({
+                title: "Unassign tender?",
+                description: "Unassigning clears the eligibility choice and the stage.",
+                choices: [
+                    { label: "Cancel", value: false, variant: "outline-secondary" },
+                    { label: "Unassign", value: true, variant: "danger" },
+                ],
+            });
+            if (!confirmed) {
+                assigneeSelect.value = previous;
+                return;
             }
-            window.location.reload();
-        });
-        if (!ok) assigneeSelect.value = previous;
+        }
+        const assignee_user_id = rawValue ? Number(rawValue) : null;
+        if (!(await applyPatch({ assignee_user_id }))) assigneeSelect.value = previous;
     });
 
-    assignMeButton?.addEventListener("click", async () => {
-        assignMeButton.disabled = true;
-        const ok = await applyPatch({ assign_to_me: true }, (tender) => {
-            detail.dataset.assigneeUserId = tender.assignee_user_id
-                ? String(tender.assignee_user_id)
-                : String(currentUserId || "");
-            detail.dataset.stage = tender.stage || detail.dataset.stage;
-            if (stageSelect && tender.stage) {
-                stageSelect.value = tender.stage;
+    tenderCategorySelect?.addEventListener("change", async () => {
+        const previous = detail.dataset.tenderCategoryId || "";
+        const rawValue = tenderCategorySelect.value;
+        const tender_category_id = rawValue ? Number(rawValue) : null;
+        if (!(await applyPatch({ tender_category_id }))) tenderCategorySelect.value = previous;
+    });
+
+    eligibilityFieldset?.addEventListener("change", async (event) => {
+        const radio = event.target.closest('input[name="gem-tender-eligibility"]');
+        if (!radio) return;
+        const previous = detail.dataset.eligibility || "";
+        const eligibility = radio.value;
+        const restore = () => {
+            for (const input of eligibilityFieldset.querySelectorAll("input")) {
+                input.checked = input.value === previous;
+            }
+        };
+        const confirmText = ELIGIBILITY_CONFIRM[eligibility];
+        if (confirmText) {
+            const confirmed = await window.showConfirm({
+                ...confirmText,
+                choices: [
+                    { label: "Cancel", value: false, variant: "outline-secondary" },
+                    { label: "Confirm", value: true, variant: "danger" },
+                ],
+            });
+            if (!confirmed) {
+                restore();
+                return;
+            }
+        }
+        eligibilityFieldset.disabled = true;
+        if (!(await applyPatch({ eligibility }))) {
+            eligibilityFieldset.disabled = false;
+            restore();
+        }
+    });
+
+    stageSelect?.addEventListener("change", async () => {
+        const previous = detail.dataset.stage || "";
+        const stage = stageSelect.value;
+        if (stage === "filed") {
+            stageSelect.value = previous;
+            if (fileModalElement) {
+                window.bootstrap.Modal.getOrCreateInstance(fileModalElement).show();
+            }
+            return;
+        }
+        if (!(await applyPatch({ stage }))) stageSelect.value = previous;
+    });
+
+    function selectedFilingFiles() {
+        return Array.from(fileFilesInput?.files || []);
+    }
+
+    fileFilesInput?.addEventListener("change", () => {
+        fileAlert?.classList.add("d-none");
+        const count = selectedFilingFiles().length;
+        if (fileCount) {
+            fileCount.textContent = count
+                ? `${count} file(s) selected${count < minFilingDocuments ? ` — at least ${minFilingDocuments} required` : ""}.`
+                : "No files selected.";
+        }
+        if (fileSubmitButton) fileSubmitButton.disabled = count < minFilingDocuments;
+    });
+
+    fileModalElement?.addEventListener("hidden.bs.modal", () => {
+        fileForm?.reset();
+        fileAlert?.classList.add("d-none");
+        if (fileCount) fileCount.textContent = "No files selected.";
+        if (fileSubmitButton) fileSubmitButton.disabled = true;
+    });
+
+    fileForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const files = selectedFilingFiles();
+        if (files.length < minFilingDocuments) {
+            showFileAlert(`Select at least ${minFilingDocuments} documents.`, "danger");
+            return;
+        }
+        const sizeCheck = window.validateUploadFiles?.(files);
+        if (sizeCheck && !sizeCheck.ok) {
+            showFileAlert(sizeCheck.error, "danger");
+            return;
+        }
+
+        if (fileSubmitButton) fileSubmitButton.disabled = true;
+        if (fileFilesInput) fileFilesInput.disabled = true;
+        try {
+            const body = new FormData();
+            for (const file of files) body.append("files", file);
+            const response = await fetch(`/api/gem-tenders/${tenderId}/file`, {
+                method: "POST",
+                credentials: "same-origin",
+                body,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showFileAlert(data.error || "Failed to file tender.", "danger");
+                return;
             }
             window.location.reload();
-        });
-        if (!ok) syncControls();
+        } catch (error) {
+            console.error(error);
+            showFileAlert("Failed to file tender.", "danger");
+        } finally {
+            if (fileSubmitButton) fileSubmitButton.disabled = selectedFilingFiles().length < minFilingDocuments;
+            if (fileFilesInput) fileFilesInput.disabled = false;
+        }
     });
 
     quoteSaveButton?.addEventListener("click", async () => {
-        if (!canEditQuote()) return;
         quoteSaveButton.disabled = true;
         const quote = quoteInput?.value || "";
-        const ok = await applyPatch({ quote }, (tender) => {
-            detail.dataset.quote = encodeURIComponent(tender.quote || "");
-            showAlert("Quote saved.", "success");
-            window.location.reload();
-        });
-        if (!ok) syncControls();
-        else quoteSaveButton.disabled = false;
+        if (!(await applyPatch({ quote }))) quoteSaveButton.disabled = false;
     });
 
     function decodeComment(value) {
@@ -435,13 +295,13 @@
         if (commentFile) commentFile.disabled = true;
         try {
             const body = new FormData();
-            body.append("gem_keyword_tender_id", String(tenderId));
+            body.append("gem_tender_id", String(tenderId));
             body.append("comment", comment);
             if (uploadedFile) {
                 body.append("file", uploadedFile);
             }
 
-            const response = await fetch("/api/gem-keyword-tender-comments", {
+            const response = await fetch("/api/gem-tender-comments", {
                 method: "POST",
                 credentials: "same-origin",
                 body,
@@ -492,7 +352,7 @@
 
         deleteButton.disabled = true;
         try {
-            const response = await fetch(`/api/gem-keyword-tender-comments/${commentId}`, {
+            const response = await fetch(`/api/gem-tender-comments/${commentId}`, {
                 method: "DELETE",
                 credentials: "same-origin",
             });
@@ -520,7 +380,7 @@
         if (editSaveButton) editSaveButton.disabled = true;
         hideEditAlert();
         try {
-            const response = await fetch(`/api/gem-keyword-tender-comments/${commentId}`, {
+            const response = await fetch(`/api/gem-tender-comments/${commentId}`, {
                 method: "PATCH",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
@@ -639,11 +499,11 @@
 
     async function uploadTenderDocument({ file, name }) {
         const body = new FormData();
-        body.append("gem_keyword_tender_id", String(tenderId));
+        body.append("gem_tender_id", String(tenderId));
         body.append("name", name);
         body.append("file", file);
 
-        const response = await fetch("/api/gem-keyword-tender-documents", {
+        const response = await fetch("/api/gem-tender-documents", {
             method: "POST",
             credentials: "same-origin",
             body,
@@ -767,7 +627,7 @@
 
         deleteBtn.disabled = true;
         try {
-            const response = await fetch(`/api/gem-keyword-tender-documents/${documentId}`, {
+            const response = await fetch(`/api/gem-tender-documents/${documentId}`, {
                 method: "DELETE",
                 credentials: "same-origin",
             });
@@ -787,6 +647,4 @@
             deleteBtn.disabled = false;
         }
     });
-
-    syncControls();
 })();

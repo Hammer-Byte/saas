@@ -7,57 +7,40 @@
     const currentUserId = Number(userId || 0);
     const isSuperAdmin = !!super_admin;
     const assigneeUserId = tender.assignee_user_id ? Number(tender.assignee_user_id) : null;
-    const stageLabels = GEM_KEYWORD_TENDER_STAGE_LABELS || {};
-    const stageValues = Object.keys(stageLabels);
-    const currentStage = tender.stage || "new";
+    const stageLabels = GEM_TENDER_STAGE_LABELS || {};
+    const pipelineStages = Array.isArray(GEM_TENDER_PIPELINE_STAGES) ? GEM_TENDER_PIPELINE_STAGES : [];
+    const eligibilityLabels = GEM_TENDER_ELIGIBILITY_CHOICE_LABELS || {};
+    const minFilingDocuments = Number(GEM_TENDER_FILING_MIN_DOCUMENTS || 2);
+    const currentStage = stageLabels[tender.stage] ? tender.stage : null;
+    const isFiled = currentStage === "filed";
     const isLocked = !!Number(tender.locked);
     const lockMessage = tender.lock_message || "";
-    const terminalStages = new Set(
-        Array.isArray(GEM_KEYWORD_TENDER_TERMINAL_STAGES)
-            ? GEM_KEYWORD_TENDER_TERMINAL_STAGES
-            : ["filed"],
-    );
-    const pipelineStages = Array.isArray(GEM_KEYWORD_TENDER_PIPELINE_STAGES)
-        ? GEM_KEYWORD_TENDER_PIPELINE_STAGES
-        : [
-              "new",
-              "assigned",
-              "eligible",
-              "waiting_for_docs",
-              "waiting_for_gem",
-              "waiting_for_quote",
-              "preparing_docs",
-              "filed",
-          ];
-    const assigneeRequiredStages = [
-        "assigned",
-        "waiting_for_docs",
-        "waiting_for_gem",
-        "waiting_for_quote",
-        "preparing_docs",
-    ];
-    const isTerminalStage = terminalStages.has(currentStage);
-    // Locked: no edits for anyone until unlock (including admin).
-    // Unlocked: category/stage need an assignee; then assignee or admin.
-    const isFrozen = isLocked;
-    const quoteDisabledStages = new Set(["new", "assigned", "filed"]);
-    const quoteStageEnabled = !quoteDisabledStages.has(currentStage) && !isLocked;
+    const isEligible = !!Number(tender.eligible);
+    const eligibilityChoice = Number(tender.eligible)
+        ? "eligible"
+        : Number(tender.ineligible)
+          ? "ineligible"
+          : Number(tender.out_of_scope)
+            ? "out_of_scope"
+            : "";
+    // Locked: nothing for anyone until unlock. Unlocked: assignee or super admin.
     const canOperateAssigned =
         !isLocked &&
         !!assigneeUserId &&
         (isSuperAdmin || assigneeUserId === currentUserId);
-    const canChangeStage = canOperateAssigned;
-    const canEditQuote = quoteStageEnabled && canOperateAssigned;
-    const canManageDocs = !!canManageDocuments && canOperateAssigned;
+    const canChooseEligibility = canOperateAssigned && !isFiled;
+    const canChangeStage = canOperateAssigned && isEligible && !isFiled;
+    const canEditQuote = canOperateAssigned && isEligible && !isFiled;
+    const canManageDocs = !!canManageDocuments;
     const canUseComments = canOperateAssigned;
-    const canLockAction =
-        !isLocked &&
-        !isTerminalStage &&
-        !!assigneeUserId &&
-        (isSuperAdmin || assigneeUserId === currentUserId);
-    const selectableStageValues = pipelineStages.filter(function (stage) {
-        return stageLabels[stage];
-    });
+    const statusBadges = [];
+    if (Number(tender.missed)) statusBadges.push({ label: "Missed", variant: "danger" });
+    if (Number(tender.unattended)) statusBadges.push({ label: "Unattended", variant: "danger" });
+    if (Number(tender.ineligible)) statusBadges.push({ label: "Not eligible", variant: "secondary" });
+    if (Number(tender.out_of_scope)) statusBadges.push({ label: "Out of scope", variant: "secondary" });
+    if (isEligible) statusBadges.push({ label: "Eligible", variant: "success" });
+    if (!assigneeUserId) statusBadges.push({ label: "Unassigned", variant: "light text-dark border" });
+
     const mseDisplay = function (value) {
         if (value === true || value === 1 || value === "1") return "Yes";
         if (value === false || value === 0 || value === "0") return "No";
@@ -68,7 +51,7 @@
     Object.keys(stageLabels).forEach(function (stage) {
         labelToStage[String(stageLabels[stage]).toLowerCase()] = stage;
     });
-    const stageReachedAt = { new: tender.created_on || null };
+    const stageReachedAt = {};
     (activities || [])
         .slice()
         .reverse()
@@ -82,14 +65,8 @@
             stageReachedAt[toStage] = activity.created_on || null;
         });
 
-    let pipelineCurrentIndex = pipelineStages.indexOf(currentStage);
-    if (pipelineCurrentIndex < 0) {
-        let farthest = -1;
-        pipelineStages.forEach(function (stage, index) {
-            if (stageReachedAt[stage]) farthest = index;
-        });
-        pipelineCurrentIndex = farthest;
-    }
+    let pipelineCurrentIndex = currentStage ? pipelineStages.indexOf(currentStage) : -1;
+    const showTimeline = isEligible || !!currentStage;
 
     let specificationLinks = [];
     if (tender.specification_links) {
@@ -127,7 +104,7 @@
                 <p class="text-secondary small mb-1">
                     <a href="/app" class="text-decoration-none">App</a> /
                     <a href="/app/gem-tenders" class="text-decoration-none">GEM Tenders</a> /
-                    <a href="/app/gem-keyword-tenders" class="text-decoration-none">Tenders</a> /
+                    <a href="/app/gem-tenders/list" class="text-decoration-none">Tenders</a> /
                     <%= tender.tender_id %>
                 </p>
                 <h1 class="h3 mb-1">
@@ -139,9 +116,15 @@
                         <%= tender.tender_id %>
                     <% } %>
                 </h1>
-                <p class="text-secondary mb-0">
+                <p class="text-secondary mb-1">
                     Category: <%= tender.tender_category_name || "-" %>
+                    · Stage: <%= currentStage ? stageLabels[currentStage] : "No stage" %>
                 </p>
+                <div class="d-flex flex-wrap gap-1" id="gem-tender-status-badges">
+                    <% statusBadges.forEach(function (badge) { %>
+                        <span class="badge bg-<%= badge.variant %>"><%= badge.label %></span>
+                    <% }) %>
+                </div>
             </div>
         </div>
 
@@ -151,16 +134,15 @@
             class="card border-0 shadow-sm mb-4"
             id="gem-tender-detail"
             data-id="<%= tender.id %>"
-            data-stage="<%= currentStage %>"
+            data-stage="<%= currentStage || '' %>"
+            data-eligibility="<%= eligibilityChoice %>"
             data-assignee-user-id="<%= assigneeUserId || '' %>"
-            data-quote="<%= encodeURIComponent(tender.quote || '') %>"
+            data-tender-category-id="<%= tender.tender_category_id != null ? tender.tender_category_id : '' %>"
             data-current-user-id="<%= currentUserId %>"
             data-super-admin="<%= isSuperAdmin ? '1' : '0' %>"
-            data-can-assign-others="<%= canAssignOthers ? '1' : '0' %>"
             data-can-manage-documents="<%= canManageDocs ? '1' : '0' %>"
-            data-tender-category-id="<%= tender.tender_category_id != null ? tender.tender_category_id : '' %>"
             data-locked="<%= isLocked ? '1' : '0' %>"
-            data-terminal-stage="<%= isTerminalStage ? '1' : '0' %>"
+            data-min-filing-documents="<%= minFilingDocuments %>"
         >
             <div class="card-body p-4">
                 <% if (isLocked) { %>
@@ -179,18 +161,9 @@
                             </button>
                         <% } %>
                     </div>
-                <% } else if (isTerminalStage) { %>
-                    <div class="alert alert-secondary py-2" role="status">
-                        This tender is <strong><%= stageLabels[currentStage] || currentStage %></strong>
-                        and unlocked.
-                        <%= canOperateAssigned
-                            ? "You can change category and stage while it stays unlocked."
-                            : assigneeUserId
-                              ? "Only the assignee or a super admin can change category and stage."
-                              : "Assign someone before changing category or stage." %>
-                    </div>
                 <% } %>
 
+                <% if (showTimeline) { %>
                 <div class="gem-tender-timeline mb-4" aria-label="Tender stage timeline">
                     <div class="gem-tender-timeline-track">
                         <% pipelineStages.forEach(function (stage, index) { %>
@@ -200,14 +173,12 @@
                                 if (pipelineCurrentIndex >= 0) {
                                     if (index < pipelineCurrentIndex) nodeState = "done";
                                     else if (index === pipelineCurrentIndex) nodeState = "current";
-                                    else nodeState = "future";
                                 } else if (reachedAt) {
                                     nodeState = "done";
                                 }
-                                if (currentStage === stage) nodeState = "current";
                             %>
                             <% if (index > 0) { %>
-                                <div class="gem-tender-timeline-arrow <%= nodeState !== 'future' || (pipelineCurrentIndex >= index) ? 'is-active' : '' %>" aria-hidden="true">→</div>
+                                <div class="gem-tender-timeline-arrow <%= nodeState !== 'future' ? 'is-active' : '' %>" aria-hidden="true">→</div>
                             <% } %>
                             <div class="gem-tender-timeline-node gem-tender-timeline-node-<%= nodeState %>">
                                 <div class="gem-tender-timeline-dot"></div>
@@ -227,52 +198,13 @@
                         <% }) %>
                     </div>
                 </div>
+                <% } %>
 
                 <div class="row g-3 mb-2 align-items-end">
                     <div class="col-md-4">
-                        <label for="gem-tender-category" class="form-label">Category</label>
-                        <select
-                            class="form-select"
-                            id="gem-tender-category"
-                            <%= !canOperateAssigned ? "disabled" : "" %>
-                        >
-                            <option value="">No category</option>
-                            <% (tenderCategories || []).forEach(function (category) { %>
-                                <option
-                                    value="<%= category.id %>"
-                                    <%= Number(tender.tender_category_id) === Number(category.id) ? 'selected' : '' %>
-                                >
-                                    <%= category.name %>
-                                </option>
-                            <% }) %>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="gem-tender-stage" class="form-label">Stage</label>
-                        <select
-                            class="form-select"
-                            id="gem-tender-stage"
-                            <%= !canChangeStage ? "disabled" : "" %>
-                        >
-                            <% selectableStageValues.forEach(function (stage) { %>
-                                <option
-                                    value="<%= stage %>"
-                                    <%= currentStage === stage ? 'selected' : '' %>
-                                    <%= assigneeRequiredStages.includes(stage) && !assigneeUserId ? 'disabled' : '' %>
-                                    <%= stage === 'new' && currentStage !== 'new' ? 'disabled' : '' %>
-                                >
-                                    <%= stageLabels[stage] %>
-                                </option>
-                            <% }) %>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
                         <label for="gem-tender-assignee" class="form-label">Assignee</label>
                         <% if (canAssignOthers && !isLocked) { %>
-                            <select
-                                class="form-select"
-                                id="gem-tender-assignee"
-                            >
+                            <select class="form-select" id="gem-tender-assignee" autocomplete="off">
                                 <option value="">Unassigned</option>
                                 <% (users || []).forEach(function (user) { %>
                                     <option
@@ -287,46 +219,94 @@
                             <input
                                 type="text"
                                 class="form-control"
+                                id="gem-tender-assignee"
                                 value="<%= tender.assignee_full_name || 'Unassigned' %>"
                                 disabled
                             />
                         <% } %>
                     </div>
-                    <div
-                        class="col-md-12 <%= (!assigneeUserId && !isFrozen) ? '' : 'd-none' %>"
-                        id="gem-tender-assign-me-wrap"
-                    >
-                        <button
-                            type="button"
-                            class="btn btn-outline-primary w-100"
-                            id="gem-tender-assign-me-btn"
-                            <%= (!assigneeUserId && !isFrozen) ? '' : 'disabled' %>
-                        >
-                            Assign to me
-                        </button>
-                    </div>
+                    <% if (!assigneeUserId && !isLocked) { %>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-outline-primary w-100" id="gem-tender-assign-me-btn">
+                                Assign to me
+                            </button>
+                        </div>
+                    <% } %>
+                    <% if (assigneeUserId) { %>
+                        <div class="col-md-4">
+                            <label for="gem-tender-category" class="form-label">Category</label>
+                            <select
+                                class="form-select"
+                                id="gem-tender-category"
+                                autocomplete="off"
+                                <%= !canOperateAssigned ? "disabled" : "" %>
+                            >
+                                <option value="">No category</option>
+                                <% (tenderCategories || []).forEach(function (category) { %>
+                                    <option
+                                        value="<%= category.id %>"
+                                        <%= Number(tender.tender_category_id) === Number(category.id) ? 'selected' : '' %>
+                                    >
+                                        <%= category.name %>
+                                    </option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <% if (isEligible) { %>
+                            <div class="col-md-4">
+                                <label for="gem-tender-stage" class="form-label">Stage</label>
+                                <select
+                                    class="form-select"
+                                    id="gem-tender-stage"
+                                    autocomplete="off"
+                                    <%= !canChangeStage ? "disabled" : "" %>
+                                >
+                                    <% if (!currentStage) { %>
+                                        <option value="" selected disabled>Select stage</option>
+                                    <% } %>
+                                    <% pipelineStages.forEach(function (stage) { %>
+                                        <option value="<%= stage %>" <%= currentStage === stage ? 'selected' : '' %>>
+                                            <%= stageLabels[stage] %><%= stage === 'filed' ? ' (upload documents)' : '' %>
+                                        </option>
+                                    <% }) %>
+                                </select>
+                            </div>
+                        <% } %>
+                    <% } %>
                 </div>
-                <% if (isLocked) { %>
-                    <p class="form-text mb-3">
-                        Unlock this tender before making any changes.
-                    </p>
-                <% } else if (!assigneeUserId) { %>
-                    <p class="form-text mb-3">Assign someone before changing category or stage.</p>
-                <% } else if (!canChangeStage) { %>
-                    <p class="form-text mb-3">Only the assignee or a super admin can change category or stage.</p>
-                <% } else { %>
-                    <div class="mb-3"></div>
+
+                <% if (assigneeUserId) { %>
+                    <fieldset class="mb-2" id="gem-tender-eligibility" <%= !canChooseEligibility ? "disabled" : "" %>>
+                        <legend class="form-label fs-6 mb-1">Eligibility</legend>
+                        <% ["eligible", "ineligible", "out_of_scope"].forEach(function (choice) { %>
+                            <div class="form-check form-check-inline">
+                                <input
+                                    class="form-check-input"
+                                    type="radio"
+                                    name="gem-tender-eligibility"
+                                    id="gem-tender-eligibility-<%= choice %>"
+                                    value="<%= choice %>"
+                                    autocomplete="off"
+                                    <%= eligibilityChoice === choice ? "checked" : "" %>
+                                />
+                                <label class="form-check-label" for="gem-tender-eligibility-<%= choice %>">
+                                    <%= eligibilityLabels[choice] || choice %>
+                                </label>
+                            </div>
+                        <% }) %>
+                    </fieldset>
                 <% } %>
 
-                <% if (canLockAction) { %>
-                    <div class="d-flex flex-wrap gap-2 mb-3" id="gem-tender-lock-actions">
-                        <button type="button" class="btn btn-sm btn-outline-danger" data-lock-action="out_of_scope">
-                            Mark out of scope
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger" data-lock-action="not_eligible">
-                            Mark not eligible
-                        </button>
-                    </div>
+                <% if (isLocked) { %>
+                    <p class="form-text mb-3">Unlock this tender before making any changes.</p>
+                <% } else if (!assigneeUserId) { %>
+                    <p class="form-text mb-3">Assign someone before working on this tender.</p>
+                <% } else if (!canOperateAssigned) { %>
+                    <p class="form-text mb-3">Only the assignee or a super admin can change this tender.</p>
+                <% } else if (!eligibilityChoice) { %>
+                    <p class="form-text mb-3">Choose eligibility. Not eligible and Out of scope lock the tender.</p>
+                <% } else { %>
+                    <div class="mb-3"></div>
                 <% } %>
 
                 <div class="row g-3 small">
@@ -473,7 +453,11 @@
                 </form>
                 <% } else { %>
                     <p class="text-secondary small mb-4">
-                        Comments are disabled while this tender is locked. Unlock it to comment.
+                        <%= isLocked
+                            ? "Comments are disabled while this tender is locked. Unlock it to comment."
+                            : !assigneeUserId
+                              ? "Assign someone before commenting."
+                              : "Only the assignee or a super admin can comment on this tender." %>
                     </p>
                 <% } %>
 
@@ -534,7 +518,11 @@
                 aria-labelledby="gem-tender-documents-tab"
             >
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <p class="text-secondary small mb-0">Tender documents for this bid.</p>
+                    <p class="text-secondary small mb-0">
+                        <%= isEligible
+                            ? "Tender documents for this bid."
+                            : "Documents are available once the tender is marked eligible." %>
+                    </p>
                     <% if (canManageDocs) { %>
                         <button
                             type="button"
@@ -634,8 +622,10 @@
                     >
                         Save quote
                     </button>
-                    <% if (!quoteStageEnabled) { %>
-                        <p class="form-text mb-0">Quote is not available in this stage.</p>
+                    <% if (!isEligible) { %>
+                        <p class="form-text mb-0">Quote is available once the tender is marked eligible.</p>
+                    <% } else if (isFiled || isLocked) { %>
+                        <p class="form-text mb-0">Quote cannot be edited on a locked or filed tender.</p>
                     <% } else if (!canEditQuote) { %>
                         <p class="form-text mb-0">Only the assignee or a super admin can edit the quote.</p>
                     <% } %>
@@ -757,6 +747,37 @@
 </div>
 <% } %>
 
+<% if (canChangeStage) { %>
+<div class="modal fade" id="gem-tender-file-modal" tabindex="-1" aria-labelledby="gem-tender-file-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="gem-tender-file-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="gem-tender-file-modal-label">File tender</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="gem-tender-file-alert" class="alert d-none" role="alert"></div>
+                    <p class="small text-secondary">
+                        Upload at least <%= minFilingDocuments %> filing documents. They are added to the
+                        tender's documents, the stage becomes Filed and the tender is locked.
+                    </p>
+                    <label for="gem-tender-file-files" class="form-label">Documents</label>
+                    <input type="file" class="form-control" id="gem-tender-file-files" multiple required />
+                    <div class="form-text" id="gem-tender-file-count">No files selected.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="gem-tender-file-submit-btn" disabled>
+                        Upload and file
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<% } %>
+
 <style>
     .document-icon-btn {
         width: 2rem;
@@ -826,5 +847,5 @@
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
-<script src="/public/gem-keyword-tender.js" defer></script>
+<script src="/public/gem-tender.js" defer></script>
 <%- include('common/footer') %>

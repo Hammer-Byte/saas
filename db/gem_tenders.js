@@ -1,8 +1,5 @@
 import { logger } from "@hammerbyte/utils";
-import {
-    GEM_KEYWORD_TENDER_ELIGIBILITY,
-    GEM_KEYWORD_TENDER_STAGES,
-} from "../constants.js";
+import { GEM_TENDER_STAGES } from "../constants.js";
 import { executeSQLQuery } from "../libs/db.js";
 import { getIstDateTime, toDbDateTime } from "../libs/date.js";
 
@@ -25,7 +22,7 @@ function asMseFlag(value) {
     return null;
 }
 
-export async function createGemKeywordTender({
+export async function createGemTender({
     category_group_id = null,
     tender_category_id = null,
     tender_id,
@@ -58,7 +55,7 @@ export async function createGemKeywordTender({
 
     return await executeSQLQuery(
         (sql) => sql`
-            INSERT INTO GEM_KEYWORD_TENDERS ${sql(
+            INSERT INTO GEM_TENDERS ${sql(
                 {
                     category_group_id:
                         category_group_id != null && Number(category_group_id) >= 1
@@ -116,11 +113,11 @@ export async function createGemKeywordTender({
     )
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
-            logger.error(`createGemKeywordTender: ${error}`);
+            logger.error(`createGemTender: ${error}`);
         });
 }
 
-export async function updateGemKeywordTenderScanDetailsById({
+export async function updateGemTenderScanDetailsById({
     id,
     document = null,
     start_date_time = null,
@@ -151,7 +148,7 @@ export async function updateGemKeywordTenderScanDetailsById({
 
     await executeSQLQuery(
         (sql) => sql`
-            UPDATE GEM_KEYWORD_TENDERS
+            UPDATE GEM_TENDERS
             SET
                 document = ${document},
                 start_date_time = ${toDbDateTime(start_date_time)},
@@ -175,27 +172,27 @@ export async function updateGemKeywordTenderScanDetailsById({
             WHERE id = ${id}
         `,
     ).catch((error) => {
-        logger.error(`updateGemKeywordTenderScanDetailsById: ${error}`);
+        logger.error(`updateGemTenderScanDetailsById: ${error}`);
     });
 }
 
-export async function getGemKeywordTenderByTenderId({ tender_id }) {
+export async function getGemTenderByTenderId({ tender_id }) {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT *
-            FROM GEM_KEYWORD_TENDERS
+            FROM GEM_TENDERS
             WHERE tender_id = ${tender_id}
             LIMIT 1
         `,
     )
         .then((result) => (result.length ? result[0] : null))
         .catch((error) => {
-            logger.error(`getGemKeywordTenderByTenderId: ${error}`);
+            logger.error(`getGemTenderByTenderId: ${error}`);
             return null;
         });
 }
 
-export async function getAllGemKeywordTenders({ from, to }) {
+export async function getAllGemTenders({ from, to }) {
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
     if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {
         return [];
@@ -209,33 +206,33 @@ export async function getAllGemKeywordTenders({ from, to }) {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT
-                GEM_KEYWORD_TENDERS.*,
+                GEM_TENDERS.*,
                 GEM_CATEGORY_GROUPS.name AS category_group_name,
                 GEM_TENDER_CATEGORIES.name AS tender_category_name,
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email
-            FROM GEM_KEYWORD_TENDERS
+            FROM GEM_TENDERS
             LEFT JOIN GEM_CATEGORY_GROUPS
-                ON GEM_CATEGORY_GROUPS.id = GEM_KEYWORD_TENDERS.category_group_id
+                ON GEM_CATEGORY_GROUPS.id = GEM_TENDERS.category_group_id
             LEFT JOIN GEM_TENDER_CATEGORIES
-                ON GEM_TENDER_CATEGORIES.id = GEM_KEYWORD_TENDERS.tender_category_id
+                ON GEM_TENDER_CATEGORIES.id = GEM_TENDERS.tender_category_id
             LEFT JOIN USERS
-                ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
-            WHERE GEM_KEYWORD_TENDERS.end_date_time IS NOT NULL
-              AND GEM_KEYWORD_TENDERS.end_date_time >= ${startDateTime}
-              AND GEM_KEYWORD_TENDERS.end_date_time <= ${endDateTime}
-            ORDER BY GEM_KEYWORD_TENDERS.end_date_time ASC, GEM_KEYWORD_TENDERS.id DESC
+                ON USERS.id = GEM_TENDERS.assignee_user_id
+            WHERE GEM_TENDERS.end_date_time IS NOT NULL
+              AND GEM_TENDERS.end_date_time >= ${startDateTime}
+              AND GEM_TENDERS.end_date_time <= ${endDateTime}
+            ORDER BY GEM_TENDERS.end_date_time ASC, GEM_TENDERS.id DESC
         `,
     )
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
-            logger.error(`getAllGemKeywordTenders: ${error}`);
+            logger.error(`getAllGemTenders: ${error}`);
             return [];
         });
 }
 
 /** New tenders created per calendar day (by created_on wall-clock date). */
-export async function getGemKeywordTenderNewCountsByCreatedDay({ from, to }) {
+export async function getGemTenderNewCountsByCreatedDay({ from, to }) {
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
     if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {
         return [];
@@ -249,44 +246,44 @@ export async function getGemKeywordTenderNewCountsByCreatedDay({ from, to }) {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT
-                DATE(GEM_KEYWORD_TENDERS.created_on) AS entry_date,
-                COUNT(GEM_KEYWORD_TENDERS.id) AS entry_count
-            FROM GEM_KEYWORD_TENDERS
-            WHERE GEM_KEYWORD_TENDERS.created_on >= ${startDateTime}
-              AND GEM_KEYWORD_TENDERS.created_on <= ${endDateTime}
-            GROUP BY DATE(GEM_KEYWORD_TENDERS.created_on)
+                DATE(GEM_TENDERS.created_on) AS entry_date,
+                COUNT(GEM_TENDERS.id) AS entry_count
+            FROM GEM_TENDERS
+            WHERE GEM_TENDERS.created_on >= ${startDateTime}
+              AND GEM_TENDERS.created_on <= ${endDateTime}
+            GROUP BY DATE(GEM_TENDERS.created_on)
             ORDER BY entry_date ASC
         `,
     )
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
-            logger.error(`getGemKeywordTenderNewCountsByCreatedDay: ${error}`);
+            logger.error(`getGemTenderNewCountsByCreatedDay: ${error}`);
             return [];
         });
 }
 
-export async function getGemKeywordTenderById({ id }) {
+export async function getGemTenderById({ id }) {
     return await executeSQLQuery(
         (sql) => sql`
             SELECT
-                GEM_KEYWORD_TENDERS.*,
+                GEM_TENDERS.*,
                 GEM_CATEGORY_GROUPS.name AS category_group_name,
                 GEM_TENDER_CATEGORIES.name AS tender_category_name,
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email
-            FROM GEM_KEYWORD_TENDERS
+            FROM GEM_TENDERS
             LEFT JOIN GEM_CATEGORY_GROUPS
-                ON GEM_CATEGORY_GROUPS.id = GEM_KEYWORD_TENDERS.category_group_id
+                ON GEM_CATEGORY_GROUPS.id = GEM_TENDERS.category_group_id
             LEFT JOIN GEM_TENDER_CATEGORIES
-                ON GEM_TENDER_CATEGORIES.id = GEM_KEYWORD_TENDERS.tender_category_id
+                ON GEM_TENDER_CATEGORIES.id = GEM_TENDERS.tender_category_id
             LEFT JOIN USERS
-                ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
-            WHERE GEM_KEYWORD_TENDERS.id = ${id}
+                ON USERS.id = GEM_TENDERS.assignee_user_id
+            WHERE GEM_TENDERS.id = ${id}
         `,
     )
         .then((result) => (result.length ? result[0] : null))
         .catch((error) => {
-            logger.error(`getGemKeywordTenderById: ${error}`);
+            logger.error(`getGemTenderById: ${error}`);
             return null;
         });
 }
@@ -295,10 +292,10 @@ export async function getGemKeywordTenderById({ id }) {
  * Partial update: only columns present on `patch` are written.
  * Pass explicit `null` to clear nullable fields. Omit a key to leave it unchanged.
  */
-export async function updateGemKeywordTenderById(patch = {}) {
+export async function updateGemTenderById(patch = {}) {
     const id = Number(patch.id);
     if (!(id >= 1)) {
-        throw new Error("updateGemKeywordTenderById: invalid id");
+        throw new Error("updateGemTenderById: invalid id");
     }
 
     const has = (key) => Object.prototype.hasOwnProperty.call(patch, key);
@@ -311,8 +308,10 @@ export async function updateGemKeywordTenderById(patch = {}) {
     if (has("hidden")) {
         pushAssignment("hidden", !!patch.hidden);
     }
-    if (has("eligible")) {
-        pushAssignment("eligible", patch.eligible);
+    for (const flag of ["eligible", "ineligible", "out_of_scope", "missed", "unattended"]) {
+        if (has(flag)) {
+            pushAssignment(flag, !!patch[flag]);
+        }
     }
     if (has("filed")) {
         pushAssignment("filed", !!patch.filed);
@@ -378,47 +377,55 @@ export async function updateGemKeywordTenderById(patch = {}) {
             await executeSQLQuery((sql) => {
                 switch (column) {
                     case "hidden":
-                        return sql`UPDATE GEM_KEYWORD_TENDERS SET hidden = ${value} WHERE id = ${id}`;
+                        return sql`UPDATE GEM_TENDERS SET hidden = ${value} WHERE id = ${id}`;
                     case "eligible":
-                        return sql`UPDATE GEM_KEYWORD_TENDERS SET eligible = ${value} WHERE id = ${id}`;
+                        return sql`UPDATE GEM_TENDERS SET eligible = ${value} WHERE id = ${id}`;
+                    case "ineligible":
+                        return sql`UPDATE GEM_TENDERS SET ineligible = ${value} WHERE id = ${id}`;
+                    case "out_of_scope":
+                        return sql`UPDATE GEM_TENDERS SET out_of_scope = ${value} WHERE id = ${id}`;
+                    case "missed":
+                        return sql`UPDATE GEM_TENDERS SET missed = ${value} WHERE id = ${id}`;
+                    case "unattended":
+                        return sql`UPDATE GEM_TENDERS SET unattended = ${value} WHERE id = ${id}`;
                     case "filed":
-                        return sql`UPDATE GEM_KEYWORD_TENDERS SET filed = ${value} WHERE id = ${id}`;
+                        return sql`UPDATE GEM_TENDERS SET filed = ${value} WHERE id = ${id}`;
                     case "quote":
-                        return sql`UPDATE GEM_KEYWORD_TENDERS SET quote = ${value} WHERE id = ${id}`;
+                        return sql`UPDATE GEM_TENDERS SET quote = ${value} WHERE id = ${id}`;
                     case "stage":
-                        return sql`UPDATE GEM_KEYWORD_TENDERS SET stage = ${value} WHERE id = ${id}`;
+                        return sql`UPDATE GEM_TENDERS SET stage = ${value} WHERE id = ${id}`;
                     case "assignee_user_id":
-                        return sql`UPDATE GEM_KEYWORD_TENDERS SET assignee_user_id = ${value} WHERE id = ${id}`;
+                        return sql`UPDATE GEM_TENDERS SET assignee_user_id = ${value} WHERE id = ${id}`;
                     case "category_group_id":
-                        return sql`UPDATE GEM_KEYWORD_TENDERS SET category_group_id = ${value} WHERE id = ${id}`;
+                        return sql`UPDATE GEM_TENDERS SET category_group_id = ${value} WHERE id = ${id}`;
                     case "tender_category_id":
-                        return sql`UPDATE GEM_KEYWORD_TENDERS SET tender_category_id = ${value} WHERE id = ${id}`;
+                        return sql`UPDATE GEM_TENDERS SET tender_category_id = ${value} WHERE id = ${id}`;
                     case "locked":
-                        return sql`UPDATE GEM_KEYWORD_TENDERS SET locked = ${value} WHERE id = ${id}`;
+                        return sql`UPDATE GEM_TENDERS SET locked = ${value} WHERE id = ${id}`;
                     case "lock_message":
-                        return sql`UPDATE GEM_KEYWORD_TENDERS SET lock_message = ${value} WHERE id = ${id}`;
+                        return sql`UPDATE GEM_TENDERS SET lock_message = ${value} WHERE id = ${id}`;
                     default:
-                        throw new Error(`updateGemKeywordTenderById: unknown column ${column}`);
+                        throw new Error(`updateGemTenderById: unknown column ${column}`);
                 }
             });
         }
         return true;
     } catch (error) {
-        logger.error(`updateGemKeywordTenderById: ${error}`);
+        logger.error(`updateGemTenderById: ${error}`);
         throw error;
     }
 }
 
 /** Unlock only — never touches stage, assignee, category, or quote. */
-export async function unlockGemKeywordTenderById({ id }) {
+export async function unlockGemTenderById({ id }) {
     const tenderId = Number(id);
     if (!(tenderId >= 1)) {
-        throw new Error("unlockGemKeywordTenderById: invalid id");
+        throw new Error("unlockGemTenderById: invalid id");
     }
     try {
         await executeSQLQuery(
             (sql) => sql`
-                UPDATE GEM_KEYWORD_TENDERS
+                UPDATE GEM_TENDERS
                 SET
                     locked = 0,
                     lock_message = NULL,
@@ -428,7 +435,7 @@ export async function unlockGemKeywordTenderById({ id }) {
         );
         return true;
     } catch (error) {
-        logger.error(`unlockGemKeywordTenderById: ${error}`);
+        logger.error(`unlockGemTenderById: ${error}`);
         throw error;
     }
 }
@@ -437,76 +444,66 @@ export async function unlockGemKeywordTenderById({ id }) {
  * Atomic claim for "Assign to me": only updates when still unassigned.
  * @returns {Promise<boolean>} true if this request claimed the tender
  */
-export async function claimUnassignedGemKeywordTenderById({
-    id,
-    hidden,
-    eligible,
-    filed,
-    quote,
-    stage,
-    assignee_user_id,
-}) {
+export async function claimUnassignedGemTenderById({ id, assignee_user_id }) {
     try {
         const result = await executeSQLQuery(
             (sql) => sql`
-                UPDATE GEM_KEYWORD_TENDERS
-                SET
-                    hidden = ${!!hidden},
-                    eligible = ${eligible},
-                    filed = ${!!filed},
-                    quote = ${quote},
-                    stage = ${stage},
-                    assignee_user_id = ${assignee_user_id}
+                UPDATE GEM_TENDERS
+                SET assignee_user_id = ${assignee_user_id}
                 WHERE id = ${id}
                   AND assignee_user_id IS NULL
+                  AND (locked IS NULL OR locked = 0)
             `,
         );
         const affected = Number(result?.affectedRows ?? result?.changes ?? 0);
         return Number.isFinite(affected) && affected > 0;
     } catch (error) {
-        logger.error(`claimUnassignedGemKeywordTenderById: ${error}`);
+        logger.error(`claimUnassignedGemTenderById: ${error}`);
         return false;
     }
 }
 
-export async function getGemKeywordTendersPendingEligibilityReminder({
+export async function getGemTendersPendingEligibilityReminder({
     older_than_datetime,
 }) {
     const cutoff = toDbDateTime(older_than_datetime) || older_than_datetime;
     return await executeSQLQuery(
         (sql) => sql`
             SELECT
-                GEM_KEYWORD_TENDERS.id,
-                GEM_KEYWORD_TENDERS.tender_id,
-                GEM_KEYWORD_TENDERS.end_date_time,
-                GEM_KEYWORD_TENDERS.assignee_user_id,
-                GEM_KEYWORD_TENDERS.eligibility_reminder_sent_on,
+                GEM_TENDERS.id,
+                GEM_TENDERS.tender_id,
+                GEM_TENDERS.end_date_time,
+                GEM_TENDERS.assignee_user_id,
+                GEM_TENDERS.eligibility_reminder_sent_on,
                 GEM_CATEGORY_GROUPS.name AS category_group_name,
                 USERS.full_name AS assignee_full_name,
                 USERS.email AS assignee_email,
                 USERS.personal_email AS assignee_personal_email
-            FROM GEM_KEYWORD_TENDERS
+            FROM GEM_TENDERS
             LEFT JOIN GEM_CATEGORY_GROUPS
-                ON GEM_CATEGORY_GROUPS.id = GEM_KEYWORD_TENDERS.category_group_id
+                ON GEM_CATEGORY_GROUPS.id = GEM_TENDERS.category_group_id
             INNER JOIN USERS
-                ON USERS.id = GEM_KEYWORD_TENDERS.assignee_user_id
-            WHERE GEM_KEYWORD_TENDERS.assignee_user_id IS NOT NULL
-              AND GEM_KEYWORD_TENDERS.stage = ${GEM_KEYWORD_TENDER_STAGES.ASSIGNED}
+                ON USERS.id = GEM_TENDERS.assignee_user_id
+            WHERE GEM_TENDERS.assignee_user_id IS NOT NULL
+              AND GEM_TENDERS.eligible = FALSE
+              AND GEM_TENDERS.ineligible = FALSE
+              AND GEM_TENDERS.out_of_scope = FALSE
+              AND (GEM_TENDERS.locked IS NULL OR GEM_TENDERS.locked = 0)
               AND (
-                    GEM_KEYWORD_TENDERS.eligibility_reminder_sent_on IS NULL
-                 OR GEM_KEYWORD_TENDERS.eligibility_reminder_sent_on <= ${cutoff}
+                    GEM_TENDERS.eligibility_reminder_sent_on IS NULL
+                 OR GEM_TENDERS.eligibility_reminder_sent_on <= ${cutoff}
               )
-            ORDER BY USERS.id ASC, GEM_KEYWORD_TENDERS.end_date_time ASC, GEM_KEYWORD_TENDERS.id ASC
+            ORDER BY USERS.id ASC, GEM_TENDERS.end_date_time ASC, GEM_TENDERS.id ASC
         `,
     )
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
-            logger.error(`getGemKeywordTendersPendingEligibilityReminder: ${error}`);
+            logger.error(`getGemTendersPendingEligibilityReminder: ${error}`);
             return [];
         });
 }
 
-export async function stampGemKeywordTenderEligibilityReminders({ ids, sent_on = null }) {
+export async function stampGemTenderEligibilityReminders({ ids, sent_on = null }) {
     const tenderIds = (ids || [])
         .map((id) => Number(id))
         .filter((id) => id >= 1);
@@ -517,41 +514,24 @@ export async function stampGemKeywordTenderEligibilityReminders({ ids, sent_on =
     const stampedOn = toDbDateTime(sent_on) || getIstDateTime();
     await executeSQLQuery(
         (sql) => sql`
-            UPDATE GEM_KEYWORD_TENDERS
+            UPDATE GEM_TENDERS
             SET eligibility_reminder_sent_on = ${stampedOn}
             WHERE id IN ${sql(tenderIds)}
         `,
     ).catch((error) => {
-        logger.error(`stampGemKeywordTenderEligibilityReminders: ${error}`);
+        logger.error(`stampGemTenderEligibilityReminders: ${error}`);
     });
 }
 
-/**
- * Past due + new + unassigned → lock (do not change stage).
- */
-export async function markPastNewUnassignedGemKeywordTendersLocked({
-    as_of_datetime = null,
-    lock_message,
-}) {
-    const cutoff = toDbDateTime(as_of_datetime) || getIstDateTime();
-    const dueIds = await executeSQLQuery(
-        (sql) => sql`
-            SELECT id
-            FROM GEM_KEYWORD_TENDERS
-            WHERE stage = ${GEM_KEYWORD_TENDER_STAGES.NEW}
-              AND assignee_user_id IS NULL
-              AND (locked IS NULL OR locked = 0)
-              AND end_date_time IS NOT NULL
-              AND end_date_time < ${cutoff}
-        `,
-    )
+async function lockDueTendersWithFlag({ label, flag, lock_message, selectDueIds }) {
+    const dueIds = await executeSQLQuery(selectDueIds)
         .then((result) =>
             Array.from(result ?? [])
                 .map((row) => Number(row.id))
                 .filter((id) => id >= 1),
         )
         .catch((error) => {
-            logger.error(`markPastNewUnassignedGemKeywordTendersLocked select: ${error}`);
+            logger.error(`${label} select: ${error}`);
             return [];
         });
 
@@ -559,77 +539,80 @@ export async function markPastNewUnassignedGemKeywordTendersLocked({
         return 0;
     }
 
-    await executeSQLQuery(
-        (sql) => sql`
-            UPDATE GEM_KEYWORD_TENDERS
-            SET
-                locked = 1,
-                lock_message = ${String(lock_message || "")},
-                hidden = TRUE
-            WHERE id IN ${sql(dueIds)}
-        `,
-    ).catch((error) => {
-        logger.error(`markPastNewUnassignedGemKeywordTendersLocked update: ${error}`);
-        return 0;
-    });
+    const message = String(lock_message || "");
+    const updated = await executeSQLQuery((sql) =>
+        flag === "missed"
+            ? sql`
+                UPDATE GEM_TENDERS
+                SET missed = TRUE, locked = 1, lock_message = ${message}, hidden = TRUE
+                WHERE id IN ${sql(dueIds)}
+                  AND (locked IS NULL OR locked = 0)
+            `
+            : sql`
+                UPDATE GEM_TENDERS
+                SET unattended = TRUE, locked = 1, lock_message = ${message}, hidden = TRUE
+                WHERE id IN ${sql(dueIds)}
+                  AND (locked IS NULL OR locked = 0)
+            `,
+    )
+        .then(() => true)
+        .catch((error) => {
+            logger.error(`${label} update: ${error}`);
+            return false;
+        });
 
-    return dueIds.length;
+    return updated ? dueIds.length : 0;
 }
 
 /**
- * Past deadline + assignee + active pipeline → lock (do not change stage).
+ * Past due + assignee + not marked ineligible / out of scope → missed + locked.
+ * Covers both eligible and still-undecided tenders. Never touches stage or assignee.
+ * Tenders already flagged missed/unattended are skipped, so an admin unlock sticks.
  */
-export async function markPastAssignedGemKeywordTendersLocked({
-    as_of_datetime = null,
-    lock_message,
-}) {
+export async function markMissedGemTenders({ as_of_datetime = null, lock_message }) {
     const cutoff = toDbDateTime(as_of_datetime) || getIstDateTime();
-    const dueIds = await executeSQLQuery(
-        (sql) => sql`
+    return await lockDueTendersWithFlag({
+        label: "markMissedGemTenders",
+        flag: "missed",
+        lock_message,
+        selectDueIds: (sql) => sql`
             SELECT id
-            FROM GEM_KEYWORD_TENDERS
+            FROM GEM_TENDERS
             WHERE assignee_user_id IS NOT NULL
               AND (locked IS NULL OR locked = 0)
-              AND (
-                    stage = ${GEM_KEYWORD_TENDER_STAGES.ASSIGNED}
-                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.ELIGIBLE}
-                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_DOCS}
-                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_GEM}
-                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.WAITING_FOR_QUOTE}
-                    OR stage = ${GEM_KEYWORD_TENDER_STAGES.PREPARING_DOCS}
-              )
+              AND missed = FALSE
+              AND unattended = FALSE
+              AND ineligible = FALSE
+              AND out_of_scope = FALSE
+              AND (stage IS NULL OR stage <> ${GEM_TENDER_STAGES.FILED})
               AND end_date_time IS NOT NULL
               AND end_date_time < ${cutoff}
         `,
-    )
-        .then((result) =>
-            Array.from(result ?? [])
-                .map((row) => Number(row.id))
-                .filter((id) => id >= 1),
-        )
-        .catch((error) => {
-            logger.error(`markPastAssignedGemKeywordTendersLocked select: ${error}`);
-            return [];
-        });
-
-    if (!dueIds.length) {
-        return 0;
-    }
-
-    await executeSQLQuery(
-        (sql) => sql`
-            UPDATE GEM_KEYWORD_TENDERS
-            SET
-                locked = 1,
-                lock_message = ${String(lock_message || "")},
-                hidden = TRUE
-            WHERE id IN ${sql(dueIds)}
-        `,
-    ).catch((error) => {
-        logger.error(`markPastAssignedGemKeywordTendersLocked update: ${error}`);
-        return 0;
     });
-
-    return dueIds.length;
 }
 
+/**
+ * Past due + no assignee + no eligibility decision → unattended + locked.
+ * Never touches stage or assignee.
+ */
+export async function markUnattendedGemTenders({ as_of_datetime = null, lock_message }) {
+    const cutoff = toDbDateTime(as_of_datetime) || getIstDateTime();
+    return await lockDueTendersWithFlag({
+        label: "markUnattendedGemTenders",
+        flag: "unattended",
+        lock_message,
+        selectDueIds: (sql) => sql`
+            SELECT id
+            FROM GEM_TENDERS
+            WHERE assignee_user_id IS NULL
+              AND (locked IS NULL OR locked = 0)
+              AND missed = FALSE
+              AND unattended = FALSE
+              AND eligible = FALSE
+              AND ineligible = FALSE
+              AND out_of_scope = FALSE
+              AND end_date_time IS NOT NULL
+              AND end_date_time < ${cutoff}
+        `,
+    });
+}

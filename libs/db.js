@@ -569,7 +569,7 @@ export async function generateDBTables() {
                 ON DELETE RESTRICT
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDERS (
+        `CREATE TABLE IF NOT EXISTS GEM_TENDERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             category_group_id INT NULL,
             tender_category_id INT NULL,
@@ -594,91 +594,95 @@ export async function generateDBTables() {
             quantity INT NOT NULL DEFAULT 0,
             emd_amount DECIMAL(14, 2) NOT NULL DEFAULT 0,
             eligibility_reminder_sent_on DATETIME NULL,
-            eligible VARCHAR(32) NOT NULL DEFAULT 'need_to_check',
+            eligible BOOLEAN NOT NULL DEFAULT FALSE,
+            ineligible BOOLEAN NOT NULL DEFAULT FALSE,
+            out_of_scope BOOLEAN NOT NULL DEFAULT FALSE,
+            missed BOOLEAN NOT NULL DEFAULT FALSE,
+            unattended BOOLEAN NOT NULL DEFAULT FALSE,
             filed BOOLEAN NOT NULL DEFAULT FALSE,
             quote TEXT NULL,
             hidden BOOLEAN NOT NULL DEFAULT FALSE,
             locked TINYINT(1) NOT NULL DEFAULT 0,
             lock_message VARCHAR(255) NULL,
-            stage VARCHAR(64) NOT NULL DEFAULT 'new',
+            stage VARCHAR(64) NULL DEFAULT NULL,
             assignee_user_id INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_gem_keyword_tender (tender_id),
-            CONSTRAINT fk_gem_keyword_tenders_category_group
+            UNIQUE KEY unique_gem_tender (tender_id),
+            CONSTRAINT fk_gem_tenders_category_group
                 FOREIGN KEY (category_group_id)
                 REFERENCES GEM_CATEGORY_GROUPS(id)
                 ON DELETE SET NULL
                 ON UPDATE CASCADE,
-            CONSTRAINT fk_gem_keyword_tenders_tender_category
+            CONSTRAINT fk_gem_tenders_tender_category
                 FOREIGN KEY (tender_category_id)
                 REFERENCES GEM_TENDER_CATEGORIES(id)
                 ON DELETE SET NULL
                 ON UPDATE CASCADE,
-            CONSTRAINT fk_gem_keyword_tenders_assignee
+            CONSTRAINT fk_gem_tenders_assignee
                 FOREIGN KEY (assignee_user_id)
                 REFERENCES USERS(id)
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDER_ACTIVITIES (
+        `CREATE TABLE IF NOT EXISTS GEM_TENDER_ACTIVITIES (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            gem_keyword_tender_id INT NOT NULL,
+            gem_tender_id INT NOT NULL,
             user_id INT NOT NULL,
             activity VARCHAR(512) NOT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT fk_gem_keyword_tender_activities_tender
-                FOREIGN KEY (gem_keyword_tender_id)
-                REFERENCES GEM_KEYWORD_TENDERS(id)
+            CONSTRAINT fk_gem_tender_activities_tender
+                FOREIGN KEY (gem_tender_id)
+                REFERENCES GEM_TENDERS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE,
-            CONSTRAINT fk_gem_keyword_tender_activities_user
+            CONSTRAINT fk_gem_tender_activities_user
                 FOREIGN KEY (user_id)
                 REFERENCES USERS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDER_COMMENTS (
+        `CREATE TABLE IF NOT EXISTS GEM_TENDER_COMMENTS (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            gem_keyword_tender_id INT NOT NULL,
+            gem_tender_id INT NOT NULL,
             user_id INT NOT NULL,
             comment TEXT NOT NULL,
             media_id INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            CONSTRAINT fk_gem_keyword_tender_comments_tender
-                FOREIGN KEY (gem_keyword_tender_id)
-                REFERENCES GEM_KEYWORD_TENDERS(id)
+            CONSTRAINT fk_gem_tender_comments_tender
+                FOREIGN KEY (gem_tender_id)
+                REFERENCES GEM_TENDERS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE,
-            CONSTRAINT fk_gem_keyword_tender_comments_user
+            CONSTRAINT fk_gem_tender_comments_user
                 FOREIGN KEY (user_id)
                 REFERENCES USERS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE,
-            CONSTRAINT fk_gem_keyword_tender_comments_media
+            CONSTRAINT fk_gem_tender_comments_media
                 FOREIGN KEY (media_id)
                 REFERENCES MEDIA(id)
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS GEM_KEYWORD_TENDER_DOCUMENTS (
+        `CREATE TABLE IF NOT EXISTS GEM_TENDER_DOCUMENTS (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            gem_keyword_tender_id INT NOT NULL,
+            gem_tender_id INT NOT NULL,
             media_id INT NOT NULL,
             name VARCHAR(128) NOT NULL,
             created_by INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT fk_gem_keyword_tender_documents_tender
-                FOREIGN KEY (gem_keyword_tender_id)
-                REFERENCES GEM_KEYWORD_TENDERS(id)
+            CONSTRAINT fk_gem_tender_documents_tender
+                FOREIGN KEY (gem_tender_id)
+                REFERENCES GEM_TENDERS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE,
-            CONSTRAINT fk_gem_keyword_tender_documents_media
+            CONSTRAINT fk_gem_tender_documents_media
                 FOREIGN KEY (media_id)
                 REFERENCES MEDIA(id)
                 ON DELETE RESTRICT
                 ON UPDATE CASCADE,
-            CONSTRAINT fk_gem_keyword_tender_documents_created_by
+            CONSTRAINT fk_gem_tender_documents_created_by
                 FOREIGN KEY (created_by)
                 REFERENCES USERS(id)
                 ON DELETE SET NULL
