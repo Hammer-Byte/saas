@@ -9,6 +9,7 @@ import {
     bulkChangeGemTenderStages,
     bulkSetGemTenderEligibility,
     listGemTenders,
+    searchGemTenderList,
     startGemAdhocTenderScan,
     updateGemTender,
 } from "../../services/gem_tenders.js";
@@ -38,6 +39,15 @@ export default function (app) {
             detail: {
                 tags: ["GEM Tenders"],
                 summary: "List GEM tenders in an end-date range",
+            },
+        })
+        .get("/search", searchGemTenderList, {
+            query: t.Object({
+                q: t.String({ minLength: 2, maxLength: 128 }),
+            }),
+            detail: {
+                tags: ["GEM Tenders"],
+                summary: "Find GEM tenders by tender ID, buyer, category or assignee across all dates",
             },
         })
         .post("/bulk-change-stage", bulkChangeGemTenderStages, {

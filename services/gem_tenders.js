@@ -14,6 +14,7 @@ import {
     claimUnassignedGemTenderById,
     getAllGemTenders,
     getGemTenderById,
+    searchGemTenders,
     unlockGemTenderById,
     updateGemTenderById,
 } from "../db/gem_tenders.js";
@@ -284,6 +285,18 @@ export async function listGemTenders({ query, cookie, set }) {
     }
 
     const tenders = await getAllGemTenders({ from, to });
+    set.status = 200;
+    return { tenders };
+}
+
+export async function searchGemTenderList({ query, cookie, set }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+    }
+
+    const tenders = await searchGemTenders({ search: query?.q });
     set.status = 200;
     return { tenders };
 }

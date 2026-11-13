@@ -231,6 +231,46 @@ export async function getAllGemTenders({ from, to }) {
         });
 }
 
+/** Find tenders by tender ID, buyer, category or assignee name, regardless of end date. */
+export async function searchGemTenders({ search }) {
+    const term = String(search || "").trim().slice(0, 128);
+    if (term.length < 2) return [];
+    const like = `%${term.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                GEM_TENDERS.*,
+                GEM_CATEGORY_GROUPS.name AS category_group_name,
+                GEM_TENDER_CATEGORIES.name AS tender_category_name,
+                USERS.full_name AS assignee_full_name,
+                USERS.email AS assignee_email
+            FROM GEM_TENDERS
+            LEFT JOIN GEM_CATEGORY_GROUPS
+                ON GEM_CATEGORY_GROUPS.id = GEM_TENDERS.category_group_id
+            LEFT JOIN GEM_TENDER_CATEGORIES
+                ON GEM_TENDER_CATEGORIES.id = GEM_TENDERS.tender_category_id
+            LEFT JOIN USERS
+                ON USERS.id = GEM_TENDERS.assignee_user_id
+            WHERE GEM_TENDERS.tender_id LIKE ${like}
+               OR GEM_TENDERS.ministry LIKE ${like}
+               OR GEM_TENDERS.department LIKE ${like}
+               OR GEM_TENDERS.organization LIKE ${like}
+               OR GEM_TENDERS.office LIKE ${like}
+               OR GEM_TENDERS.buyer_name LIKE ${like}
+               OR GEM_TENDER_CATEGORIES.name LIKE ${like}
+               OR USERS.full_name LIKE ${like}
+            ORDER BY GEM_TENDERS.end_date_time DESC, GEM_TENDERS.id DESC
+            LIMIT 300
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`searchGemTenders: ${error}`);
+            return [];
+        });
+}
+
 /**
  * Per assignee: current open workload (no date filter) and tenders missed with a due date in the range.
  * Unassigned tenders that went unattended in the range come back as one row with assignee_user_id NULL.

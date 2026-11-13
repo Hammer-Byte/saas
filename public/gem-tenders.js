@@ -25,12 +25,24 @@
     const multiFilters = [categoryFilter, stageFilter, assigneeFilter].filter(Boolean);
     const includeHiddenFilter = document.getElementById("gem-filter-include-hidden");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
+    const lockedFilter = document.getElementById("gem-filter-locked");
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
-    const applyFiltersBtn = document.getElementById("gem-filters-apply-btn");
     const refreshBtn = document.getElementById("gem-tenders-refresh-btn");
     const reportLink = document.getElementById("gem-tenders-report-link");
-    const filtersPanel = document.getElementById("gem-tenders-filters-panel");
+    const filtersCard = document.getElementById("gem-tenders-filters");
     const searchInput = document.getElementById("gem-tenders-search");
+    const quickViewButtons = Array.from(document.querySelectorAll(".gem-quick-view"));
+    const filterChips = document.getElementById("gem-tenders-filter-chips");
+    const moreFiltersCount = document.getElementById("gem-more-filters-count");
+    const searchAllBtn = document.getElementById("gem-tenders-search-all-btn");
+    const searchModeBanner = document.getElementById("gem-tenders-search-mode");
+    const searchModeText = document.getElementById("gem-tenders-search-mode-text");
+    const searchModeBackBtn = document.getElementById("gem-tenders-search-back-btn");
+    const QUICK_VIEWS = new Set(quickViewButtons.map((button) => button.dataset.view));
+    const HIDDEN_VIEWS = new Set(["missed", "rejected"]);
+    const HIDDEN_STATUSES = new Set(["missed", "unattended", "ineligible", "out_of_scope"]);
+    /** When set, the table shows an all-dates search for this text instead of the date range. */
+    let searchMode = "";
     const tableEl = document.getElementById("gem-tenders-table");
     const tableBody = document.getElementById("gem-tenders-tbody");
     const tableWrap = document.getElementById("gem-tenders-table-wrap");
@@ -82,6 +94,8 @@
             search: "",
             includeHidden: false,
             quantityUpto: "",
+            locked: "",
+            view: "all",
             columns: {},
         };
     }
@@ -210,6 +224,8 @@
             search: String(searchInput?.value || "").trim(),
             includeHidden: !!includeHiddenFilter?.checked,
             quantityUpto: String(quantityUptoFilter?.value || "").trim(),
+            locked: String(lockedFilter?.value || ""),
+            view: appliedFilters.view || "all",
             columns,
         };
     }
@@ -228,6 +244,7 @@
             quantityUptoFilter.value =
                 Number.isFinite(qty) && qty > 0 ? String(qty) : "";
         }
+        if (lockedFilter) lockedFilter.value = filters.locked || "";
         const columns =
             filters.columns && typeof filters.columns === "object" ? filters.columns : {};
         for (const select of columnFilters) {
@@ -238,11 +255,6 @@
                 ? value
                 : "";
         }
-    }
-
-    function closeFiltersPanel() {
-        const instance = window.bootstrap?.Offcanvas?.getInstance?.(filtersPanel);
-        instance?.hide();
     }
 
     function syncRangeInUrlAndHeader(from, to) {
@@ -283,8 +295,6 @@
             refreshBtn.disabled = listLoading;
             refreshBtn.classList.toggle("is-loading", listLoading);
         }
-        if (applyFiltersBtn) applyFiltersBtn.disabled = listLoading;
-        if (resetFiltersBtn) resetFiltersBtn.disabled = listLoading;
         if (listLoading) {
             loadingState?.classList.remove("d-none");
             tableWrap?.classList.add("d-none");
@@ -296,20 +306,26 @@
         tableWrap?.setAttribute("aria-busy", listLoading ? "true" : "false");
     }
 
-    async function commitFilters() {
+    /** Applies the filter bar as it is now; only a date change needs a server reload. */
+    async function commitFilters({ forceReload = false } = {}) {
         const filters = readFiltersFromDom();
         const from = filters.from;
         const to = filters.to;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
-            window.alert("Select valid Ends from and Ends to dates.");
             return false;
         }
 
+        const rangeChanged = from !== appliedFilters.from || to !== appliedFilters.to;
+        const leftSearchMode = !!searchMode && !filters.search;
         appliedFilters = filters;
         writeStoredFilters(appliedFilters);
-        syncRangeInUrlAndHeader(from, to);
-        closeFiltersPanel();
-        await reloadTendersFromServer();
+        if (rangeChanged || forceReload || leftSearchMode) {
+            searchMode = "";
+            syncRangeInUrlAndHeader(from, to);
+            await reloadTendersFromServer();
+        } else {
+            applyFilters();
+        }
         return true;
     }
 
@@ -587,6 +603,8 @@
                     data-mse-turnover="${escapeHtml(mseTurnover === "-" ? "" : mseTurnover)}"
                     data-quantity="${escapeHtml(quantity)}"
                     data-end-at="${escapeHtml(endAt)}"
+                    data-buyer="${escapeHtml(buyerParts.concat(tender.buyer_name || []).join(" "))}"
+                    data-assignee-name="${escapeHtml(tender.assignee_full_name || "")}"
                 >
                     <td data-col="select">
                         <input
@@ -667,9 +685,16 @@
         setListLoading(true);
 
         try {
-            const url = new URL("/api/gem-tenders", window.location.origin);
-            url.searchParams.set("from", from);
-            url.searchParams.set("to", to);
+            const url = new URL(
+                searchMode ? "/api/gem-tenders/search" : "/api/gem-tenders",
+                window.location.origin,
+            );
+            if (searchMode) {
+                url.searchParams.set("q", searchMode);
+            } else {
+                url.searchParams.set("from", from);
+                url.searchParams.set("to", to);
+            }
             const response = await fetch(url.toString(), {
                 method: "GET",
                 credentials: "same-origin",
@@ -891,12 +916,177 @@
         return Number.isFinite(quantity) ? quantity : 0;
     }
 
+    function rowMatchesQuickView(row, view, nowMs) {
+        const status = String(row.dataset.stage || "unassigned");
+        switch (view) {
+            case "mine":
+                return currentUserId > 0 && Number(row.dataset.assigneeUserId || 0) === currentUserId;
+            case "needs_decision":
+                return status === "assigned" && row.dataset.locked !== "1";
+            case "in_progress":
+                return status === "eligible" || (PIPELINE_STAGES.has(status) && status !== "filed");
+            case "ending_soon": {
+                const endMs = parseEndAtMs(row.dataset.endAt);
+                return (
+                    endMs != null &&
+                    endMs >= nowMs &&
+                    endMs - nowMs <= 24 * 60 * 60 * 1000 &&
+                    row.dataset.locked !== "1" &&
+                    status !== "filed"
+                );
+            }
+            case "unassigned":
+                return status === "unassigned";
+            case "filed":
+                return status === "filed";
+            case "missed":
+                return status === "missed" || status === "unattended";
+            case "rejected":
+                return status === "ineligible" || status === "out_of_scope";
+            default:
+                return true;
+        }
+    }
+
+    function quickViewLabel(view) {
+        const button = quickViewButtons.find((item) => item.dataset.view === view);
+        return String(button?.firstChild?.textContent || view).trim();
+    }
+
+    function setQuickView(view) {
+        appliedFilters.view = QUICK_VIEWS.has(view) ? view : "all";
+        const url = new URL(window.location.href);
+        if (appliedFilters.view === "all") url.searchParams.delete("view");
+        else url.searchParams.set("view", appliedFilters.view);
+        window.history.replaceState({}, "", url.toString());
+        applyFilters();
+    }
+
+    function activeFilterChips() {
+        const chips = [];
+        const search = String(appliedFilters.search || "").trim();
+        if (search) {
+            chips.push({
+                label: `Find: "${search}"`,
+                clear: () => {
+                    if (searchInput) searchInput.value = "";
+                },
+            });
+        }
+        for (const root of multiFilters) {
+            const labels = selectedMultiLabels(root);
+            if (!labels.length) continue;
+            chips.push({
+                label: `${root.dataset.chipLabel || "Filter"}: ${labels.join(", ")}`,
+                clear: () => setSelectedMultiValues(root, []),
+            });
+        }
+        for (const select of columnFilters) {
+            if (!select.value) continue;
+            chips.push({
+                label: `${select.dataset.chipLabel || select.dataset.column}: ${select.value}`,
+                clear: () => {
+                    select.value = "";
+                },
+                advanced: true,
+            });
+        }
+        if (appliedFilters.quantityUpto) {
+            chips.push({
+                label: `Quantity ≤ ${appliedFilters.quantityUpto}`,
+                clear: () => {
+                    if (quantityUptoFilter) quantityUptoFilter.value = "";
+                },
+                advanced: true,
+            });
+        }
+        if (appliedFilters.locked) {
+            chips.push({
+                label: appliedFilters.locked === "locked" ? "Locked only" : "Not locked only",
+                clear: () => {
+                    if (lockedFilter) lockedFilter.value = "";
+                },
+                advanced: true,
+            });
+        }
+        if (appliedFilters.includeHidden) {
+            chips.push({
+                label: "Including hidden",
+                clear: () => {
+                    if (includeHiddenFilter) includeHiddenFilter.checked = false;
+                },
+                advanced: true,
+            });
+        }
+        if (appliedFilters.view && appliedFilters.view !== "all") {
+            chips.push({
+                label: `View: ${quickViewLabel(appliedFilters.view)}`,
+                clear: () => {
+                    appliedFilters.view = "all";
+                },
+            });
+        }
+        return chips;
+    }
+
+    function renderFilterChips(visibleCount) {
+        const chips = activeFilterChips();
+        if (filterChips) {
+            filterChips.replaceChildren(
+                ...chips.map((chip, index) => {
+                    const element = document.createElement("span");
+                    element.className = "gem-filter-chip";
+                    element.textContent = chip.label;
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.dataset.chipIndex = String(index);
+                    button.title = "Remove filter";
+                    button.setAttribute("aria-label", `Remove filter ${chip.label}`);
+                    button.textContent = "×";
+                    element.appendChild(button);
+                    return element;
+                }),
+            );
+            filterChips.chipClearers = chips.map((chip) => chip.clear);
+        }
+        resetFiltersBtn?.classList.toggle("d-none", !chips.length);
+
+        const advancedCount = chips.filter((chip) => chip.advanced).length;
+        if (moreFiltersCount) {
+            moreFiltersCount.textContent = String(advancedCount);
+            moreFiltersCount.classList.toggle("d-none", !advancedCount);
+        }
+
+        const search = String(appliedFilters.search || "").trim();
+        if (searchAllBtn) {
+            const offer = search.length >= 2 && search !== searchMode;
+            searchAllBtn.classList.toggle("d-none", !offer);
+            searchAllBtn.textContent = visibleCount
+                ? `Search all dates for "${search}"`
+                : `Not in these dates — search all dates for "${search}"`;
+        }
+        if (searchModeBanner) {
+            searchModeBanner.classList.toggle("d-none", !searchMode);
+            if (searchModeText) {
+                searchModeText.textContent = `Showing tenders matching "${searchMode}" across all end dates (newest first, up to 300).`;
+            }
+        }
+    }
+
+    let lastVisibleCount = 0;
+
     function applyFilters() {
-        const query = String(appliedFilters.search || "").trim().toLowerCase();
+        const tokens = String(appliedFilters.search || "")
+            .trim()
+            .toLowerCase()
+            .split(/\s+/)
+            .filter(Boolean);
         const selectedCategories = (appliedFilters.categories || []).map(String);
         const selectedStages = (appliedFilters.stages || []).map(String);
         const selectedAssignees = (appliedFilters.assignees || []).map(String);
-        const includeHidden = !!appliedFilters.includeHidden;
+        const includeHidden = !!appliedFilters.includeHidden || !!searchMode;
+        const lockedMode = String(appliedFilters.locked || "");
+        const view = QUICK_VIEWS.has(appliedFilters.view) ? appliedFilters.view : "all";
         const quantityUptoRaw = String(appliedFilters.quantityUpto ?? "").trim();
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
         const hasQuantityUpto =
@@ -911,18 +1101,15 @@
                 value: String(value || "").trim().toLowerCase(),
             }))
             .filter((filter) => filter.column && filter.value);
+        const nowMs = Date.now();
+        const viewCounts = Object.fromEntries([...QUICK_VIEWS].map((key) => [key, 0]));
 
         let visibleCount = 0;
 
         for (const row of rows) {
             const rowStage = String(row.dataset.stage || "unassigned");
-            const isHiddenRow = row.dataset.hidden === "1";
-            const matchesHidden = includeHidden || !isHiddenRow;
 
             const rowCategoryId = String(row.dataset.tenderCategoryId || "");
-            const rowCategoryName = String(row.dataset.tenderCategoryName || "")
-                .trim()
-                .toLowerCase();
             const matchesCategory =
                 !selectedCategories.length ||
                 selectedCategories.some((value) =>
@@ -939,16 +1126,15 @@
                     value === "unassigned" ? !rowAssigneeId : rowAssigneeId === value,
                 );
 
-            const tenderIdText = String(
-                row.querySelector("a")?.textContent || "",
-            )
-                .trim()
-                .toLowerCase();
-            const matchesSearch =
-                !query ||
-                tenderIdText.includes(query) ||
-                rowCategoryName.includes(query) ||
-                String(row.dataset.id || "") === query;
+            const haystack = [
+                row.querySelector("a")?.textContent,
+                row.dataset.tenderCategoryName,
+                row.dataset.buyer,
+                row.dataset.assigneeName,
+            ]
+                .map((value) => String(value || "").trim().toLowerCase())
+                .join(" ");
+            const matchesSearch = tokens.every((token) => haystack.includes(token));
 
             const matchesColumns = activeColumnFilters.every((filter) => {
                 const cellValue = (row.dataset[filter.column] || "").trim().toLowerCase();
@@ -960,14 +1146,34 @@
             const matchesQuantity =
                 !hasQuantityUpto || (rowQuantity > 0 && rowQuantity <= quantityUpto);
 
-            const visible =
-                matchesHidden &&
+            const matchesLocked =
+                !lockedMode || (lockedMode === "locked") === (row.dataset.locked === "1");
+
+            const matchesBase =
                 matchesCategory &&
                 matchesStage &&
                 matchesAssignee &&
                 matchesSearch &&
                 matchesColumns &&
-                matchesQuantity;
+                matchesQuantity &&
+                matchesLocked;
+
+            // Hidden (closed) tenders show when asked for explicitly: the checkbox, their status, or their quick view.
+            const isHiddenRow = row.dataset.hidden === "1";
+            const hiddenAllowed =
+                includeHidden ||
+                !isHiddenRow ||
+                (HIDDEN_STATUSES.has(rowStage) && selectedStages.includes(rowStage));
+            const showableIn = (key) =>
+                matchesBase &&
+                (hiddenAllowed || HIDDEN_VIEWS.has(key)) &&
+                rowMatchesQuickView(row, key, nowMs);
+
+            for (const key of QUICK_VIEWS) {
+                if (showableIn(key)) viewCounts[key] += 1;
+            }
+
+            const visible = showableIn(view);
             row.classList.toggle("d-none", !visible);
             if (!visible) {
                 const checkbox = row.querySelector(".gem-tender-select");
@@ -975,10 +1181,22 @@
             }
             if (visible) visibleCount += 1;
         }
+        lastVisibleCount = visibleCount;
+
+        for (const button of quickViewButtons) {
+            const key = button.dataset.view;
+            const count = viewCounts[key] || 0;
+            button.classList.toggle("active", key === view);
+            button.classList.toggle("is-empty", count === 0);
+            button.setAttribute("aria-pressed", key === view ? "true" : "false");
+            const badge = button.querySelector(".gem-quick-view-count");
+            if (badge) badge.textContent = String(count);
+        }
 
         if (filterStatus) {
             filterStatus.textContent = `Showing ${visibleCount} of ${rows.length} tenders`;
         }
+        renderFilterChips(visibleCount);
 
         const hasLoadedRows = rows.length > 0;
         const showEmpty = !hasLoadedRows || visibleCount === 0;
@@ -988,9 +1206,13 @@
             emptyState?.classList.toggle("d-none", !showEmpty);
         }
         if (emptyState) {
-            emptyState.textContent = !hasLoadedRows
-                ? "No tenders ending in this date range."
-                : "No tenders match the current filters.";
+            if (searchMode && !hasLoadedRows) {
+                emptyState.textContent = `No tenders found for "${searchMode}" in any date range.`;
+            } else if (!hasLoadedRows) {
+                emptyState.textContent = "No tenders ending in this date range.";
+            } else {
+                emptyState.textContent = "No tenders match the current filters.";
+            }
         }
         markEndsSoonRows();
         syncBulkBar();
@@ -1026,13 +1248,18 @@
             includeHidden: !!filters.includeHidden,
             quantityUpto:
                 Number.isFinite(quantity) && quantity > 0 ? String(quantity) : "",
+            locked: ["locked", "unlocked"].includes(filters.locked) ? filters.locked : "",
+            view: QUICK_VIEWS.has(filters.view) ? filters.view : "all",
             columns,
         };
     }
 
+    /** Clears every filter but keeps the date range. */
     function resetClientFilters() {
         writeFiltersToDom(emptyFilters(pageFrom, pageTo));
-        void commitFilters();
+        appliedFilters.view = "all";
+        setQuickView("all");
+        void commitFilters({ forceReload: !!searchMode });
     }
 
     for (const select of columnFilters) {
@@ -1044,6 +1271,7 @@
         root.addEventListener("change", (event) => {
             if (!event.target?.classList?.contains("gem-multi-filter-option")) return;
             updateMultiFilterLabel(root);
+            void commitFilters();
         });
     }
 
@@ -1053,11 +1281,9 @@
         from: pageFrom,
         to: pageTo,
     });
+    const urlView = new URL(window.location.href).searchParams.get("view");
+    if (QUICK_VIEWS.has(urlView)) appliedFilters.view = urlView;
     writeFiltersToDom(appliedFilters);
-
-    filtersPanel?.addEventListener("show.bs.offcanvas", () => {
-        writeFiltersToDom(appliedFilters);
-    });
 
     function startOfIndianQuarterKey(dateKey) {
         const year = Number(dateKey.slice(0, 4));
@@ -1147,39 +1373,75 @@
         applyColumnVisibility(DEFAULT_VISIBLE_COLUMNS);
     });
 
-    filtersPanel?.addEventListener("click", (event) => {
+    function enterSearchMode() {
+        const search = String(appliedFilters.search || "").trim();
+        if (search.length < 2) return;
+        searchMode = search;
+        void reloadTendersFromServer();
+    }
+
+    filtersCard?.addEventListener("click", (event) => {
         const quickBtn = event.target?.closest?.(".gem-date-quick-btn");
         if (quickBtn) {
             setQuickDateRange(quickBtn.dataset.range || "");
+            void commitFilters();
+            return;
+        }
+
+        const viewBtn = event.target?.closest?.(".gem-quick-view");
+        if (viewBtn) {
+            setQuickView(viewBtn.dataset.view || "all");
+            return;
+        }
+
+        const chipBtn = event.target?.closest?.("[data-chip-index]");
+        if (chipBtn) {
+            const clear = filterChips?.chipClearers?.[Number(chipBtn.dataset.chipIndex)];
+            if (clear) {
+                clear();
+                if (appliedFilters.view === "all") setQuickView("all");
+                void commitFilters();
+            }
             return;
         }
 
         const clearBtn = event.target?.closest?.(".gem-filter-clear-btn");
         if (!clearBtn) return;
 
-        const multiId = clearBtn.dataset.clearMulti;
-        if (multiId) {
-            setSelectedMultiValues(document.getElementById(multiId), []);
-            return;
-        }
-
-        const selectId = clearBtn.dataset.clearSelect;
-        if (selectId) {
-            const select = document.getElementById(selectId);
-            if (select) select.value = "";
-            return;
-        }
-
         const inputId = clearBtn.dataset.clearInput;
         if (inputId) {
             const input = document.getElementById(inputId);
             if (input) input.value = "";
+            void commitFilters();
         }
     });
 
-    applyFiltersBtn?.addEventListener("click", () => {
-        void commitFilters();
+    let searchDebounce = null;
+    searchInput?.addEventListener("input", () => {
+        window.clearTimeout(searchDebounce);
+        searchDebounce = window.setTimeout(() => void commitFilters(), 200);
     });
+    searchInput?.addEventListener("keydown", async (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        window.clearTimeout(searchDebounce);
+        await commitFilters();
+        const search = String(appliedFilters.search || "").trim();
+        if (searchMode ? search && search !== searchMode : !lastVisibleCount) enterSearchMode();
+    });
+
+    for (const input of [fromInput, toInput, includeHiddenFilter, lockedFilter, ...columnFilters]) {
+        input?.addEventListener("change", () => void commitFilters());
+    }
+    quantityUptoFilter?.addEventListener("input", () => void commitFilters());
+
+    searchAllBtn?.addEventListener("click", () => {
+        enterSearchMode();
+    });
+    searchModeBackBtn?.addEventListener("click", () => {
+        void commitFilters({ forceReload: true });
+    });
+
     resetFiltersBtn?.addEventListener("click", () => {
         resetClientFilters();
     });
