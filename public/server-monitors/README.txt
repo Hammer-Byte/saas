@@ -1,6 +1,6 @@
 HammerByte Windows agents (Server 2012+)
 ========================================
-Stable build: 0.2.4-ps-stable (drive-sync) / 0.3.6-ps-stable (monitor)
+Stable build: 0.2.4-ps-stable (drive-sync) / 0.3.7-ps-stable (monitor)
 
 DO NOT use supervisor.exe / agent.exe / drive-sync.exe on Server 2012.
 Those Bun builds need Windows 10 / Server 2016+ (ClosePseudoConsole error).

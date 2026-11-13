@@ -1,6 +1,6 @@
 HammerByte Windows agents - Server 2012 stable
 drive-sync=0.2.4-ps-stable
-monitor-agent=0.3.6-ps-stable
+monitor-agent=0.3.7-ps-stable
 
 Includes:
 - install-monitor.cmd + supervisor.ps1 + agent.ps1
@@ -23,6 +23,7 @@ Server 2012 notes fixed in this build:
 - Agent payload types: ping (60s alive), metrics (long interval), drive_sync (sync utility)
 - Metrics include desktop JPEG screenshot (best-effort; may be blank under SYSTEM)
 - Temperature max computed without Measure-Object on hashtables (PS3/4 safe)
+- Temperature zones stay as hashtables (not PSObject) so JavaScriptSerializer works
 - Supervisor backs off when antivirus blocks agent.ps1 instead of spinning
 - Installers + supervisor/drive-sync add Windows Defender ExclusionPath for
   %ProgramData%\HammerByte (and Unblock-File) so scripts are not quarantined
