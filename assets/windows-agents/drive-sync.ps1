@@ -3,7 +3,7 @@
 .SYNOPSIS
   HammerByte Drive Sync - Windows Server 2012+ (PowerShell 3/4 safe)
   Child pulls from source UNC shares onto local paths on an interval.
-  Version: 0.2.3-ps-stable
+  Version: 0.2.4-ps-stable
 
 .NOTES
   SOURCE SAFETY (live production):
@@ -36,7 +36,7 @@ $SharedTagFile = Join-Path $HammerByteRoot ".server-tag"
 $LegacyMonitorTagFile = Join-Path $HammerByteRoot "ServerMonitor\.server-tag"
 $LegacyDriveSyncTagFile = Join-Path $InstallDir ".server-tag"
 $ScriptFile = Join-Path $InstallDir "drive-sync.ps1"
-$AgentVersion = "0.2.3-ps-stable"
+$AgentVersion = "0.2.4-ps-stable"
 $DefaultInterval = 300
 $script:CycleEvents = New-Object System.Collections.ArrayList
 
@@ -176,10 +176,85 @@ function Escape-JsonString {
     return $s
 }
 
+function Set-HammerByteAntivirusAllowlist {
+    if (-not (Test-Path $HammerByteRoot)) {
+        New-Item -ItemType Directory -Path $HammerByteRoot -Force | Out-Null
+    }
+    if (-not (Test-Path $InstallDir)) {
+        New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    }
+
+    $paths = @(
+        $HammerByteRoot,
+        $InstallDir,
+        (Join-Path $HammerByteRoot "ServerMonitor")
+    )
+    $ok = $false
+
+    try { Import-Module Defender -ErrorAction SilentlyContinue | Out-Null } catch {}
+    if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
+        foreach ($p in $paths) {
+            if (-not $p) { continue }
+            if (-not (Test-Path $p)) {
+                try { New-Item -ItemType Directory -Path $p -Force | Out-Null } catch {}
+            }
+            try {
+                Add-MpPreference -ExclusionPath $p -ErrorAction Stop
+                $ok = $true
+            } catch {
+                try {
+                    $existing = @()
+                    try { $existing = @((Get-MpPreference -ErrorAction SilentlyContinue).ExclusionPath) } catch {}
+                    if ($existing | Where-Object { $_ -and $_.TrimEnd('\') -ieq $p.TrimEnd('\') }) {
+                        $ok = $true
+                    } else {
+                        Write-SyncLog ("Defender ExclusionPath failed for {0}: {1}" -f $p, $_.Exception.Message) -Level "warn"
+                    }
+                } catch {
+                    Write-SyncLog ("Defender ExclusionPath failed for {0}: {1}" -f $p, $_.Exception.Message) -Level "warn"
+                }
+            }
+        }
+    }
+
+    foreach ($regRoot in @(
+        "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths",
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions\Paths"
+    )) {
+        try {
+            if (-not (Test-Path $regRoot)) {
+                New-Item -Path $regRoot -Force | Out-Null
+            }
+            foreach ($p in $paths) {
+                if (-not $p) { continue }
+                $keyName = $p.TrimEnd('\') + '\'
+                New-ItemProperty -Path $regRoot -Name $keyName -Value 0 -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+                $ok = $true
+            }
+        } catch {}
+    }
+
+    if ($ScriptFile -and (Test-Path $ScriptFile)) {
+        try { Unblock-File -Path $ScriptFile -ErrorAction SilentlyContinue } catch {}
+        try {
+            $ads = $ScriptFile + ":Zone.Identifier"
+            if (Test-Path $ads) { Remove-Item -Path $ads -Force -ErrorAction SilentlyContinue }
+        } catch {}
+    }
+
+    if ($ok) {
+        Write-SyncLog ("antivirus allowlist OK for {0}" -f $HammerByteRoot)
+    } else {
+        Write-SyncLog ("antivirus allowlist: Defender unavailable - exclude {0} manually" -f $HammerByteRoot) -Level "warn"
+    }
+    return $ok
+}
+
 function Install-Self {
     if (-not (Test-Path $InstallDir)) {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     }
+    Set-HammerByteAntivirusAllowlist | Out-Null
     $sourceScript = Get-ThisScriptPath
     if ($sourceScript -and (Test-Path $sourceScript)) {
         $srcFull = [System.IO.Path]::GetFullPath($sourceScript)
@@ -188,6 +263,7 @@ function Install-Self {
             Copy-Item -Path $sourceScript -Destination $ScriptFile -Force
         }
     }
+    try { Unblock-File -Path $ScriptFile -ErrorAction SilentlyContinue } catch {}
     $tr = ("powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"{0}`"" -f $ScriptFile)
     & schtasks.exe /Create /TN $TaskName /SC ONSTART /RL HIGHEST /RU SYSTEM /F /TR $tr | Out-Null
     if ($LASTEXITCODE -eq 0) {

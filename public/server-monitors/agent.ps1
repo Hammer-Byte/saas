@@ -22,7 +22,7 @@ $MetricsUrl = "$HostUrl/api/servers/metrics"
 $PingIntervalSeconds = 60
 $MetricsIntervalSeconds = 900
 $MetricsPerRun = 2
-$AgentVersion = "0.3.4-ps-stable"
+$AgentVersion = "0.3.6-ps-stable"
 $InstallDir = Join-Path $env:ProgramData "HammerByte\ServerMonitor"
 $AgentLogFile = Join-Path $InstallDir "agent.log"
 
@@ -101,10 +101,11 @@ function Get-Temperatures {
             try {
                 $celsius = Get-Rounded (($item.CurrentTemperature / 10.0) - 273.15) 1
                 if ($null -eq $celsius) { continue }
-                $zones += @{
+                # PSCustomObject so property access works on PS 3/4 (hashtable keys do not).
+                $zones += (New-Object PSObject -Property @{
                     name = [string]$item.InstanceName
                     celsius = $celsius
-                }
+                })
             } catch {}
         }
     } catch {}
@@ -112,7 +113,10 @@ function Get-Temperatures {
     if ($zones.Count -eq 0) {
         return @{ available = $false; celsius_max = $null; zones = @() }
     }
-    $max = ($zones | Measure-Object -Property celsius -Maximum).Maximum
+    $max = $null
+    foreach ($z in $zones) {
+        if ($null -eq $max -or $z.celsius -gt $max) { $max = $z.celsius }
+    }
     return @{ available = $true; celsius_max = $max; zones = $zones }
 }
 

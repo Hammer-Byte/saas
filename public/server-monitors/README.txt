@@ -1,6 +1,6 @@
 HammerByte Windows agents (Server 2012+)
 ========================================
-Stable build: 0.2.3-ps-stable (drive-sync) / 0.3.4-ps-stable (monitor)
+Stable build: 0.2.4-ps-stable (drive-sync) / 0.3.6-ps-stable (monitor)
 
 DO NOT use supervisor.exe / agent.exe / drive-sync.exe on Server 2012.
 Those Bun builds need Windows 10 / Server 2016+ (ClosePseudoConsole error).
@@ -66,6 +66,19 @@ Tasks
 -----
   HammerByteServerMonitor
   HammerByteDriveSync
+
+Antivirus / Windows Defender
+----------------------------
+Installers (Run as administrator) automatically add Defender exclusions for:
+  %ProgramData%\HammerByte
+  %ProgramData%\HammerByte\ServerMonitor
+  %ProgramData%\HammerByte\DriveSync
+They also Unblock-File / clear Zone.Identifier on the .ps1 scripts.
+Supervisor re-applies the exclusion before every agent download/update.
+
+If a third-party AV still blocks scripts, exclude the same folder there.
+If supervisor.log still shows ScriptContainedMaliciousContent after reinstall,
+re-run install-monitor.cmd as Admin (exclusions are set before scripts start).
 
 If download fails
 -----------------
