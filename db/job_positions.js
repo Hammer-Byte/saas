@@ -1,23 +1,33 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createJobPosition({ title, description }) {
-    await executeSQLQuery(
+export async function createJobPosition({ title, description, experience, active = null }) {
+    const values = { title, description, experience };
+    const columns = ["title", "description", "experience"];
+    if (active != null) {
+        values.active = active;
+        columns.push("active");
+    }
+
+    return await executeSQLQuery(
         (sql) => sql`
-            INSERT INTO JOB_POSITIONS ${sql({ title, description }, "title", "description")}
+            INSERT INTO JOB_POSITIONS ${sql(values, ...columns)}
         `,
-    ).catch((error) => {
-        logger.error(`createJobPosition: ${error}`);
-    });
+    )
+        .then((result) => result.lastInsertRowid)
+        .catch((error) => {
+            logger.error(`createJobPosition: ${error}`);
+        });
 }
 
-export async function updateJobPositionById({ id, title, description, active }) {
+export async function updateJobPositionById({ id, title, description, experience, active }) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE JOB_POSITIONS
             SET
                 title = ${title},
                 description = ${description},
+                experience = ${experience},
                 active = ${active}
             WHERE id = ${id}
         `,
@@ -46,9 +56,15 @@ export async function getJobPositionById({ id }) {
 export async function getAllJobPositions() {
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT *
+            SELECT
+                JOB_POSITIONS.*,
+                (
+                    SELECT COUNT(*)
+                    FROM JOB_APPLICANTS
+                    WHERE JOB_APPLICANTS.job_position_id = JOB_POSITIONS.id
+                ) AS application_count
             FROM JOB_POSITIONS
-            ORDER BY created_on DESC
+            ORDER BY JOB_POSITIONS.created_on DESC
         `,
     )
         .then((result) => Array.from(result ?? []))

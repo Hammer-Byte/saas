@@ -4,6 +4,10 @@ import parseApplication from "../middlewares/parse_application.js";
 import mailer from "./apps/mailer.js";
 import bucketizer from "./apps/bucketizer.js";
 import inquiries from "./apps/inquiries.js";
+import jobApplications, {
+    publicJobApplications,
+} from "./apps/job_applications.js";
+import jobs from "./apps/jobs.js";
 import inquiryAdmin from "./apps/inquiry_admin.js";
 import inquiryNotes from "./apps/inquiry_notes.js";
 import inquiryFollowups from "./apps/inquiry_followups.js";
@@ -71,6 +75,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
     .group("/authentication", authentication)
     .group("/user-authentication-tokens", userAuthenticationTokens)
     .group("/inquiries", inquiries)
+    .group("/job-applications", publicJobApplications)
     .group("/contracts", contractsSign)
     .group("/servers", servers)
     .group("/agent", agent)
@@ -99,6 +104,8 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/media", media)
             .group("/project-documents", projectDocuments)
             .group("/internal-documents", internalDocuments)
+            .group("/jobs", jobs)
+            .group("/job-applications", jobApplications)
             .group("/contracts", contracts)
             .group("/contract-clauses", contractClauses)
             .group("/clause-subclauses", clauseSubclauses)

@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { filer } from "@hammerbyte/utils";
 import { createMedia, getMediaById } from "../db/media.js";
 import { getInternalDocumentByMediaId } from "../db/internal_documents.js";
+import { getJobApplicantByMediaId } from "../db/job_applicants.js";
 import { getCurrentUser } from "./authentication.js";
 import { canManageInternalDocuments } from "./internal_documents.js";
 
@@ -30,6 +31,12 @@ export async function getMedia({ params, cookie, set }) {
     if (!media) {
         set.status = 404;
         return { error: "Media not found" };
+    }
+
+    const jobApplicant = await getJobApplicantByMediaId({ media_id: media.id });
+    if (jobApplicant) {
+        set.status = 403;
+        return { error: "Use the job applications resume link to view this file" };
     }
 
     const internalDocument = await getInternalDocumentByMediaId({ media_id: media.id });

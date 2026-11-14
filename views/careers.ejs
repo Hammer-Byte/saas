@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title || "Careers — HammerByte" %></title>
+    <meta
+        name="description"
+        content="Open roles and internships at HammerByte in Nadiad. Apply online with your resume."
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://hammerbyte.co.in/careers" />
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+        crossorigin="anonymous"
+    />
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">HammerByte</a>
+            <div class="d-flex gap-2">
+                <a href="/" class="btn btn-sm btn-outline-light">Home</a>
+                <a href="/careers" class="btn btn-sm btn-warning">Careers</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container py-5">
+        <div class="mb-4">
+            <h1 class="h3 mb-1">Careers</h1>
+            <p class="text-secondary mb-0">
+                Open roles at HammerByte. Apply online with your resume.
+            </p>
+        </div>
+
+        <% if (!jobs || jobs.length === 0) { %>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4 text-center text-secondary">
+                    No open positions right now. Check back soon.
+                </div>
+            </div>
+        <% } else { %>
+            <div class="row g-3">
+                <% jobs.forEach(function (job) { %>
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-4">
+                                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                                    <div class="flex-grow-1">
+                                        <h2 class="h5 mb-1"><%= job.title %></h2>
+                                        <p class="text-secondary small mb-2">
+                                            Experience: <%= job.experience %>
+                                        </p>
+                                        <p class="mb-0 text-secondary" style="white-space: pre-wrap;"><%= job.description %></p>
+                                    </div>
+                                    <a
+                                        href="/careers/<%= job.id %>"
+                                        class="btn btn-primary"
+                                    >
+                                        Apply
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        <% } %>
+    </main>
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+        crossorigin="anonymous"
+    ></script>
+</body>
+</html>

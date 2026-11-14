@@ -73,6 +73,13 @@ import { buildGemTenderReport } from "../services/gem_tender_report.js";
 import { canManageTenderDocuments } from "../services/gem_tender_documents.js";
 import { relockStateOf } from "../services/gem_tenders.js";
 import { canManageInternalDocuments } from "../services/internal_documents.js";
+import { canUseJobs } from "../services/jobs.js";
+import {
+    getActiveJobPositions,
+    getAllJobPositions,
+    getJobPositionById,
+} from "../db/job_positions.js";
+import { getJobApplicantsByJobPositionId } from "../db/job_applicants.js";
 import { getMaxRequestBodySize } from "../libs/upload_limits.js";
 import {
     CONTRACT_BROKEN_BY,
@@ -158,6 +165,23 @@ async function getSharedAssetDataUri({ fileName, mimeType }) {
 
 export const uiRoutes = new Elysia()
     .get("/", ({ render }) => render("index"))
+    .get("/careers", async ({ render }) =>
+        render("careers", {
+            title: "Careers — HammerByte",
+            jobs: await getActiveJobPositions(),
+        }),
+    )
+    .get("/careers/:id", async ({ render, params, redirect }) => {
+        const job = await getJobPositionById({ id: Number(params.id) });
+        if (!job || !job.active) {
+            return redirect("/not-found");
+        }
+        return render("career", {
+            title: `${job.title} — Careers — HammerByte`,
+            job,
+            maxRequestBodySize: getMaxRequestBodySize(),
+        });
+    })
     .get("/products/your-institute", ({ render }) => render("products-your-institute"))
     .get("/robots.txt", () => Bun.file(join(import.meta.dir, "../public/robots.txt")))
     .get("/sitemap.xml", () => Bun.file(join(import.meta.dir, "../public/sitemap.xml")))
@@ -562,6 +586,49 @@ export const uiRoutes = new Elysia()
                         documents: await getAllInternalDocuments(
                             canManage ? {} : { visibility: "everyone" },
                         ),
+                    }),
+                );
+            })
+            .get("/app/jobs", async ({ render, session, redirect }) => {
+                if (
+                    !canUseJobs({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+                return render(
+                    "jobs",
+                    appPage(session, {
+                        title: "Jobs — HammerByte",
+                        jobs: await getAllJobPositions(),
+                    }),
+                );
+            })
+            .get("/app/jobs/:id", async ({ render, session, params, redirect }) => {
+                if (
+                    !canUseJobs({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+                const job = await getJobPositionById({ id: Number(params.id) });
+                if (!job) {
+                    return redirect("/not-found");
+                }
+                return render(
+                    "job",
+                    appPage(session, {
+                        title: `${job.title} — Jobs — HammerByte`,
+                        job,
+                        applicants: await getJobApplicantsByJobPositionId({
+                            job_position_id: job.id,
+                        }),
                     }),
                 );
             })

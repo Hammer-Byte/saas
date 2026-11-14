@@ -430,6 +430,7 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(128) NOT NULL,
             description TEXT NOT NULL,
+            experience VARCHAR(128) NOT NULL,
             active BOOLEAN NOT NULL DEFAULT TRUE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -440,11 +441,19 @@ export async function generateDBTables() {
             full_name VARCHAR(128) NOT NULL,
             phone VARCHAR(13) NOT NULL,
             email VARCHAR(255) NOT NULL,
+            state VARCHAR(64) NOT NULL,
+            city VARCHAR(64) NOT NULL,
+            country VARCHAR(64) NOT NULL DEFAULT 'India',
             cv INT NOT NULL,
-            viewed BOOLEAN NOT NULL DEFAULT FALSE,
-            selected BOOLEAN NOT NULL DEFAULT FALSE,
+            shortlisted BOOLEAN NOT NULL DEFAULT FALSE,
+            interview_at DATETIME NULL,
+            interview_meeting_link VARCHAR(512) NULL,
+            interview_outcome TEXT NULL,
+            decision VARCHAR(16) NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_job_applicants_job_email (job_position_id, email),
+            UNIQUE KEY uq_job_applicants_job_phone (job_position_id, phone),
             CONSTRAINT fk_job_applicants_job_position
                 FOREIGN KEY (job_position_id)
                 REFERENCES JOB_POSITIONS(id)
