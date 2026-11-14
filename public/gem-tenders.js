@@ -1,5 +1,6 @@
 (() => {
-    const FILTERS_STORAGE_KEY = "gem-tenders-filters";
+    // Bumped when a filter default changes so old saved filters don't override it.
+    const FILTERS_STORAGE_KEY = "gem-tenders-filters-v2";
     const COLUMNS_STORAGE_KEY = "gem-tenders-columns";
     const ALWAYS_VISIBLE_COLUMNS = new Set(["select", "tenderId"]);
     const DEFAULT_VISIBLE_COLUMNS = [
@@ -29,11 +30,12 @@
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
     const refreshBtn = document.getElementById("gem-tenders-refresh-btn");
     const reportLink = document.getElementById("gem-tenders-report-link");
-    const filtersCard = document.getElementById("gem-tenders-filters");
+    const filtersPage = document.querySelector(".gem-tenders-page");
+    const panelResetBtn = document.getElementById("gem-filters-panel-reset-btn");
     const searchInput = document.getElementById("gem-tenders-search");
     const quickViewButtons = Array.from(document.querySelectorAll(".gem-quick-view"));
     const filterChips = document.getElementById("gem-tenders-filter-chips");
-    const moreFiltersCount = document.getElementById("gem-more-filters-count");
+    const filtersCount = document.getElementById("gem-filters-count");
     const searchAllBtn = document.getElementById("gem-tenders-search-all-btn");
     const searchModeBanner = document.getElementById("gem-tenders-search-mode");
     const searchModeText = document.getElementById("gem-tenders-search-mode-text");
@@ -92,7 +94,7 @@
             stages: [],
             assignees: [],
             search: "",
-            includeHidden: false,
+            includeHidden: true,
             quantityUpto: "",
             locked: "",
             view: "all",
@@ -1174,7 +1176,6 @@
                 clear: () => {
                     select.value = "";
                 },
-                advanced: true,
             });
         }
         if (appliedFilters.quantityUpto) {
@@ -1183,7 +1184,6 @@
                 clear: () => {
                     if (quantityUptoFilter) quantityUptoFilter.value = "";
                 },
-                advanced: true,
             });
         }
         if (appliedFilters.locked) {
@@ -1192,16 +1192,14 @@
                 clear: () => {
                     if (lockedFilter) lockedFilter.value = "";
                 },
-                advanced: true,
             });
         }
-        if (appliedFilters.includeHidden) {
+        if (!appliedFilters.includeHidden) {
             chips.push({
-                label: "Including hidden",
+                label: "Hiding hidden tenders",
                 clear: () => {
-                    if (includeHiddenFilter) includeHiddenFilter.checked = false;
+                    if (includeHiddenFilter) includeHiddenFilter.checked = true;
                 },
-                advanced: true,
             });
         }
         if (appliedFilters.view && appliedFilters.view !== "all") {
@@ -1210,6 +1208,7 @@
                 clear: () => {
                     appliedFilters.view = "all";
                 },
+                quickView: true,
             });
         }
         return chips;
@@ -1237,10 +1236,10 @@
         }
         resetFiltersBtn?.classList.toggle("d-none", !chips.length);
 
-        const advancedCount = chips.filter((chip) => chip.advanced).length;
-        if (moreFiltersCount) {
-            moreFiltersCount.textContent = String(advancedCount);
-            moreFiltersCount.classList.toggle("d-none", !advancedCount);
+        const panelFilterCount = chips.filter((chip) => !chip.quickView).length;
+        if (filtersCount) {
+            filtersCount.textContent = String(panelFilterCount);
+            filtersCount.classList.toggle("d-none", !panelFilterCount);
         }
 
         const search = String(appliedFilters.search || "").trim();
@@ -1431,7 +1430,7 @@
             stages: stages.map(String).filter((stage) => !!stage && !!stageLabels[stage]),
             assignees: assignees.map(String).filter(Boolean),
             search: String(filters.search || "").trim(),
-            includeHidden: !!filters.includeHidden,
+            includeHidden: filters.includeHidden !== false,
             quantityUpto:
                 Number.isFinite(quantity) && quantity > 0 ? String(quantity) : "",
             locked: ["locked", "unlocked"].includes(filters.locked) ? filters.locked : "",
@@ -1566,7 +1565,7 @@
         void reloadTendersFromServer();
     }
 
-    filtersCard?.addEventListener("click", (event) => {
+    filtersPage?.addEventListener("click", (event) => {
         const quickBtn = event.target?.closest?.(".gem-date-quick-btn");
         if (quickBtn) {
             setQuickDateRange(quickBtn.dataset.range || "");
@@ -1628,9 +1627,11 @@
         void commitFilters({ forceReload: true });
     });
 
-    resetFiltersBtn?.addEventListener("click", () => {
-        resetClientFilters();
-    });
+    for (const button of [resetFiltersBtn, panelResetBtn]) {
+        button?.addEventListener("click", () => {
+            resetClientFilters();
+        });
+    }
     refreshBtn?.addEventListener("click", () => {
         void reloadTendersFromServer();
     });

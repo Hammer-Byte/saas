@@ -73,7 +73,7 @@
                         –
                         <span data-readable-date="<%= to %>" data-date-format="DD/MM/YYYY"><%= to %></span>
                     </span>.
-                    Filters apply as you change them; open a tender for details and actions.
+                    Open a tender for details and actions.
                 </p>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
@@ -105,12 +105,13 @@
                 <button
                     type="button"
                     class="btn btn-outline-secondary"
-                    id="gem-tenders-columns-toggle"
+                    id="gem-tenders-filters-toggle"
                     data-bs-toggle="offcanvas"
-                    data-bs-target="#gem-tenders-columns-panel"
-                    aria-controls="gem-tenders-columns-panel"
+                    data-bs-target="#gem-tenders-filters-panel"
+                    aria-controls="gem-tenders-filters-panel"
                 >
-                    Columns
+                    Filters &amp; Columns
+                    <span class="badge text-bg-primary ms-1 d-none" id="gem-filters-count"></span>
                 </button>
                 <button
                     type="button"
@@ -132,262 +133,9 @@
                 </a>
             </div>
         </div>
-        <div class="card border-0 shadow-sm mb-3 gem-tenders-filter-card" id="gem-tenders-filters" autocomplete="off">
-            <div class="card-body p-2 p-md-3">
-                <div class="d-flex flex-wrap align-items-end gap-2">
-                    <div class="gem-filter-search">
-                        <label for="gem-tenders-search" class="form-label">Find</label>
-                        <div class="input-group input-group-sm">
-                            <input
-                                type="search"
-                                class="form-control"
-                                id="gem-tenders-search"
-                                placeholder="Tender ID, buyer, category or assignee…"
-                                autocomplete="off"
-                            />
-                            <button
-                                type="button"
-                                class="btn btn-outline-secondary gem-filter-clear-btn gem-filter-clear-x"
-                                data-clear-input="gem-tenders-search"
-                                title="Clear search"
-                                aria-label="Clear search"
-                            >×</button>
-                        </div>
-                    </div>
-                    <div>
-                        <label for="gem-tenders-from" class="form-label">Ends between</label>
-                        <div class="input-group input-group-sm gem-filter-dates">
-                            <input
-                                type="date"
-                                class="form-control"
-                                id="gem-tenders-from"
-                                value="<%= from %>"
-                                data-page-from="<%= from %>"
-                                aria-label="Ends from"
-                            />
-                            <span class="input-group-text">–</span>
-                            <input
-                                type="date"
-                                class="form-control"
-                                id="gem-tenders-to"
-                                value="<%= to %>"
-                                data-page-to="<%= to %>"
-                                aria-label="Ends to"
-                            />
-                            <button
-                                class="btn btn-outline-secondary dropdown-toggle"
-                                type="button"
-                                data-bs-toggle="dropdown"
-                                aria-expanded="false"
-                                title="Quick date ranges"
-                            >Range</button>
-                            <ul class="dropdown-menu dropdown-menu-end shadow">
-                                <li><button type="button" class="dropdown-item gem-date-quick-btn" data-range="today">Today</button></li>
-                                <li><button type="button" class="dropdown-item gem-date-quick-btn" data-range="this-week">This week</button></li>
-                                <li><button type="button" class="dropdown-item gem-date-quick-btn" data-range="next-15-days">Next 15 days</button></li>
-                                <li><button type="button" class="dropdown-item gem-date-quick-btn" data-range="this-month">This month</button></li>
-                                <li><button type="button" class="dropdown-item gem-date-quick-btn" data-range="last-month">Last month</button></li>
-                                <li><button type="button" class="dropdown-item gem-date-quick-btn" data-range="this-quarter">This quarter</button></li>
-                                <li><button type="button" class="dropdown-item gem-date-quick-btn" data-range="last-quarter">Last quarter</button></li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="gem-filter-multi-wrap">
-                        <span class="form-label d-block">Status</span>
-                        <div class="dropdown gem-multi-filter" id="gem-filter-stage" data-empty-label="All statuses" data-chip-label="Status">
-                            <button
-                                class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
-                                type="button"
-                                data-bs-toggle="dropdown"
-                                data-bs-auto-close="outside"
-                                aria-expanded="false"
-                            >
-                                <span class="gem-multi-filter-label">All statuses</span>
-                            </button>
-                            <div class="dropdown-menu gem-multi-filter-menu p-2 shadow">
-                                <% stageValues.forEach(function (stage) { %>
-                                    <div class="form-check">
-                                        <input
-                                            class="form-check-input gem-multi-filter-option"
-                                            type="checkbox"
-                                            value="<%= stage %>"
-                                            id="gem-filter-stage-<%= stage %>"
-                                            data-label="<%= stageLabels[stage] %>"
-                                        />
-                                        <label class="form-check-label" for="gem-filter-stage-<%= stage %>">
-                                            <%= stageLabels[stage] %>
-                                        </label>
-                                    </div>
-                                <% }) %>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="gem-filter-multi-wrap">
-                        <span class="form-label d-block">Assignee</span>
-                        <div class="dropdown gem-multi-filter" id="gem-filter-assignee" data-empty-label="All assignees" data-chip-label="Assignee">
-                            <button
-                                class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
-                                type="button"
-                                data-bs-toggle="dropdown"
-                                data-bs-auto-close="outside"
-                                aria-expanded="false"
-                            >
-                                <span class="gem-multi-filter-label">All assignees</span>
-                            </button>
-                            <div class="dropdown-menu gem-multi-filter-menu p-2 shadow">
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input gem-multi-filter-option"
-                                        type="checkbox"
-                                        value="unassigned"
-                                        id="gem-filter-assignee-unassigned"
-                                        data-label="Unassigned"
-                                    />
-                                    <label class="form-check-label" for="gem-filter-assignee-unassigned">
-                                        Unassigned
-                                    </label>
-                                </div>
-                                <% (users || []).forEach(function (user) { %>
-                                    <div class="form-check">
-                                        <input
-                                            class="form-check-input gem-multi-filter-option"
-                                            type="checkbox"
-                                            value="<%= user.id %>"
-                                            id="gem-filter-assignee-<%= user.id %>"
-                                            data-label="<%= user.full_name %>"
-                                        />
-                                        <label class="form-check-label" for="gem-filter-assignee-<%= user.id %>">
-                                            <%= user.full_name %>
-                                        </label>
-                                    </div>
-                                <% }) %>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="gem-filter-multi-wrap">
-                        <span class="form-label d-block">Category</span>
-                        <div class="dropdown gem-multi-filter" id="gem-filter-category" data-empty-label="All categories" data-chip-label="Category">
-                            <button
-                                class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
-                                type="button"
-                                data-bs-toggle="dropdown"
-                                data-bs-auto-close="outside"
-                                aria-expanded="false"
-                            >
-                                <span class="gem-multi-filter-label">All categories</span>
-                            </button>
-                            <div class="dropdown-menu gem-multi-filter-menu p-2 shadow">
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input gem-multi-filter-option"
-                                        type="checkbox"
-                                        value="none"
-                                        id="gem-filter-category-none"
-                                        data-label="No category"
-                                    />
-                                    <label class="form-check-label" for="gem-filter-category-none">
-                                        No category
-                                    </label>
-                                </div>
-                                <% if ((tenderCategories || []).length) { %>
-                                    <hr class="dropdown-divider my-2" />
-                                <% } %>
-                                <% (tenderCategories || []).forEach(function (category) { %>
-                                    <div class="form-check">
-                                        <input
-                                            class="form-check-input gem-multi-filter-option"
-                                            type="checkbox"
-                                            value="<%= category.id %>"
-                                            id="gem-filter-category-<%= category.id %>"
-                                            data-label="<%= category.name %>"
-                                        />
-                                        <label class="form-check-label" for="gem-filter-category-<%= category.id %>">
-                                            <%= category.name %>
-                                        </label>
-                                    </div>
-                                <% }) %>
-                            </div>
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        class="btn btn-sm btn-outline-secondary"
-                        id="gem-more-filters-btn"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#gem-tenders-more-filters"
-                        aria-expanded="false"
-                        aria-controls="gem-tenders-more-filters"
-                    >
-                        More filters <span class="badge text-bg-primary d-none" id="gem-more-filters-count"></span>
-                    </button>
-                </div>
-
-                <div class="collapse" id="gem-tenders-more-filters">
-                    <div class="d-flex flex-wrap align-items-end gap-2 pt-2">
-                        <div class="gem-filter-small">
-                            <label for="gem-filter-past-experience" class="form-label">Past exp.</label>
-                            <select
-                                class="form-select form-select-sm gem-tender-column-filter"
-                                id="gem-filter-past-experience"
-                                data-column="pastExperience"
-                                data-chip-label="Past exp."
-                            >
-                                <option value="">All</option>
-                            </select>
-                        </div>
-                        <div class="gem-filter-small">
-                            <label for="gem-filter-mse-exp" class="form-label">Experience relaxation</label>
-                            <select
-                                class="form-select form-select-sm gem-tender-column-filter"
-                                id="gem-filter-mse-exp"
-                                data-column="mseExp"
-                                data-chip-label="Experience relaxation"
-                            >
-                                <option value="">All</option>
-                            </select>
-                        </div>
-                        <div class="gem-filter-small">
-                            <label for="gem-filter-mse-turnover" class="form-label">Turnover relaxation</label>
-                            <select
-                                class="form-select form-select-sm gem-tender-column-filter"
-                                id="gem-filter-mse-turnover"
-                                data-column="mseTurnover"
-                                data-chip-label="Turnover relaxation"
-                            >
-                                <option value="">All</option>
-                            </select>
-                        </div>
-                        <div class="gem-filter-small">
-                            <label for="gem-filter-quantity-upto" class="form-label">Quantity up to</label>
-                            <input
-                                type="number"
-                                class="form-control form-control-sm"
-                                id="gem-filter-quantity-upto"
-                                min="1"
-                                step="1"
-                                placeholder="e.g. 10"
-                                inputmode="numeric"
-                                autocomplete="off"
-                            />
-                        </div>
-                        <div class="gem-filter-small">
-                            <label for="gem-filter-locked" class="form-label">Locked</label>
-                            <select class="form-select form-select-sm" id="gem-filter-locked">
-                                <option value="">Any</option>
-                                <option value="locked">Locked</option>
-                                <option value="unlocked">Not locked</option>
-                            </select>
-                        </div>
-                        <div class="form-check mb-1">
-                            <input class="form-check-input" type="checkbox" id="gem-filter-include-hidden" />
-                            <label class="form-check-label small" for="gem-filter-include-hidden">
-                                Include hidden
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="d-flex flex-wrap gap-1 mt-2" id="gem-quick-views" role="group" aria-label="Quick views">
+        <div class="card border-0 shadow-sm mb-3 gem-tenders-filter-card" id="gem-tenders-tracking">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex flex-wrap gap-1" id="gem-quick-views" role="group" aria-label="Quick views">
                     <button type="button" class="btn btn-sm gem-quick-view" data-view="all" title="Every tender matching the filters">
                         All <span class="badge gem-quick-view-count"></span>
                     </button>
@@ -594,76 +342,392 @@
         </div>
 
         <div
-            class="offcanvas offcanvas-end gem-tenders-columns-panel"
+            class="offcanvas offcanvas-end gem-tenders-filters-panel"
             tabindex="-1"
-            id="gem-tenders-columns-panel"
-            aria-labelledby="gem-tenders-columns-panel-label"
+            id="gem-tenders-filters-panel"
+            aria-labelledby="gem-tenders-filters-panel-label"
         >
             <div class="offcanvas-header border-bottom">
-                <h2 class="offcanvas-title h5 mb-0" id="gem-tenders-columns-panel-label">Columns</h2>
+                <h2 class="offcanvas-title h5 mb-0" id="gem-tenders-filters-panel-label">Filters &amp; Columns</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
-            <div class="offcanvas-body">
-                <p class="text-secondary small mb-3">
-                    Choose which table columns to show. Selection is saved for this browser.
-                </p>
-                <div class="d-flex flex-wrap gap-1 mb-3">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="gem-columns-show-all-btn">
-                        Show all
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="gem-columns-reset-btn">
-                        Reset columns
-                    </button>
+            <div class="offcanvas-body d-flex flex-column p-0">
+                <ul class="nav nav-tabs px-3 pt-2 mb-0" id="gem-tenders-sidebar-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button
+                            class="nav-link active"
+                            id="gem-tenders-tab-filters"
+                            data-bs-toggle="tab"
+                            data-bs-target="#gem-tenders-pane-filters"
+                            type="button"
+                            role="tab"
+                            aria-controls="gem-tenders-pane-filters"
+                            aria-selected="true"
+                        >
+                            Filters
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button
+                            class="nav-link"
+                            id="gem-tenders-tab-columns"
+                            data-bs-toggle="tab"
+                            data-bs-target="#gem-tenders-pane-columns"
+                            type="button"
+                            role="tab"
+                            aria-controls="gem-tenders-pane-columns"
+                            aria-selected="false"
+                        >
+                            Columns
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content flex-grow-1 overflow-auto">
+                    <div
+                        class="tab-pane fade show active p-3 gem-tenders-filters-form"
+                        id="gem-tenders-pane-filters"
+                        role="tabpanel"
+                        aria-labelledby="gem-tenders-tab-filters"
+                        tabindex="0"
+                        autocomplete="off"
+                    >
+                        <p class="text-secondary small mb-3">Filters apply as you change them.</p>
+
+                        <div class="mb-3">
+                            <label for="gem-tenders-search" class="form-label">Find</label>
+                            <div class="input-group input-group-sm">
+                                <input
+                                    type="search"
+                                    class="form-control"
+                                    id="gem-tenders-search"
+                                    placeholder="Tender ID, buyer, category or assignee…"
+                                    autocomplete="off"
+                                />
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary gem-filter-clear-btn gem-filter-clear-x"
+                                    data-clear-input="gem-tenders-search"
+                                    title="Clear search"
+                                    aria-label="Clear search"
+                                >×</button>
+                            </div>
+                            <div class="form-text">Press Enter to search all dates when nothing matches here.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label for="gem-tenders-from" class="form-label">Ends from</label>
+                                    <input
+                                        type="date"
+                                        class="form-control form-control-sm"
+                                        id="gem-tenders-from"
+                                        value="<%= from %>"
+                                        data-page-from="<%= from %>"
+                                    />
+                                </div>
+                                <div class="col-6">
+                                    <label for="gem-tenders-to" class="form-label">Ends to</label>
+                                    <input
+                                        type="date"
+                                        class="form-control form-control-sm"
+                                        id="gem-tenders-to"
+                                        value="<%= to %>"
+                                        data-page-to="<%= to %>"
+                                    />
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1 mt-2">
+                                <% [
+                                    ["today", "Today"],
+                                    ["this-week", "This week"],
+                                    ["next-15-days", "Next 15 days"],
+                                    ["this-month", "This month"],
+                                    ["last-month", "Last month"],
+                                    ["this-quarter", "This quarter"],
+                                    ["last-quarter", "Last quarter"],
+                                ].forEach(function (range) { %>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm gem-date-quick-btn" data-range="<%= range[0] %>">
+                                        <%= range[1] %>
+                                    </button>
+                                <% }) %>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <span class="form-label d-block">Status</span>
+                                <div class="dropdown gem-multi-filter" id="gem-filter-stage" data-empty-label="All statuses" data-chip-label="Status">
+                                    <button
+                                        class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-auto-close="outside"
+                                        data-bs-display="static"
+                                        aria-expanded="false"
+                                    >
+                                        <span class="gem-multi-filter-label">All statuses</span>
+                                    </button>
+                                    <div class="dropdown-menu gem-multi-filter-menu gem-multi-filter-menu-wide p-2 shadow">
+                                        <% stageValues.forEach(function (stage) { %>
+                                            <div class="form-check">
+                                                <input
+                                                    class="form-check-input gem-multi-filter-option"
+                                                    type="checkbox"
+                                                    value="<%= stage %>"
+                                                    id="gem-filter-stage-<%= stage %>"
+                                                    data-label="<%= stageLabels[stage] %>"
+                                                />
+                                                <label class="form-check-label" for="gem-filter-stage-<%= stage %>">
+                                                    <%= stageLabels[stage] %>
+                                                </label>
+                                            </div>
+                                        <% }) %>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <span class="form-label d-block">Assignee</span>
+                                <div class="dropdown gem-multi-filter" id="gem-filter-assignee" data-empty-label="All assignees" data-chip-label="Assignee">
+                                    <button
+                                        class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-auto-close="outside"
+                                        data-bs-display="static"
+                                        aria-expanded="false"
+                                    >
+                                        <span class="gem-multi-filter-label">All assignees</span>
+                                    </button>
+                                    <div class="dropdown-menu gem-multi-filter-menu gem-multi-filter-menu-wide dropdown-menu-end p-2 shadow">
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input gem-multi-filter-option"
+                                                type="checkbox"
+                                                value="unassigned"
+                                                id="gem-filter-assignee-unassigned"
+                                                data-label="Unassigned"
+                                            />
+                                            <label class="form-check-label" for="gem-filter-assignee-unassigned">
+                                                Unassigned
+                                            </label>
+                                        </div>
+                                        <% (users || []).forEach(function (user) { %>
+                                            <div class="form-check">
+                                                <input
+                                                    class="form-check-input gem-multi-filter-option"
+                                                    type="checkbox"
+                                                    value="<%= user.id %>"
+                                                    id="gem-filter-assignee-<%= user.id %>"
+                                                    data-label="<%= user.full_name %>"
+                                                />
+                                                <label class="form-check-label" for="gem-filter-assignee-<%= user.id %>">
+                                                    <%= user.full_name %>
+                                                </label>
+                                            </div>
+                                        <% }) %>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <span class="form-label d-block">Category</span>
+                                <div class="dropdown gem-multi-filter" id="gem-filter-category" data-empty-label="All categories" data-chip-label="Category">
+                                    <button
+                                        class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-auto-close="outside"
+                                        data-bs-display="static"
+                                        aria-expanded="false"
+                                    >
+                                        <span class="gem-multi-filter-label">All categories</span>
+                                    </button>
+                                    <div class="dropdown-menu gem-multi-filter-menu gem-multi-filter-menu-wide p-2 shadow">
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input gem-multi-filter-option"
+                                                type="checkbox"
+                                                value="none"
+                                                id="gem-filter-category-none"
+                                                data-label="No category"
+                                            />
+                                            <label class="form-check-label" for="gem-filter-category-none">
+                                                No category
+                                            </label>
+                                        </div>
+                                        <% if ((tenderCategories || []).length) { %>
+                                            <hr class="dropdown-divider my-2" />
+                                        <% } %>
+                                        <% (tenderCategories || []).forEach(function (category) { %>
+                                            <div class="form-check">
+                                                <input
+                                                    class="form-check-input gem-multi-filter-option"
+                                                    type="checkbox"
+                                                    value="<%= category.id %>"
+                                                    id="gem-filter-category-<%= category.id %>"
+                                                    data-label="<%= category.name %>"
+                                                />
+                                                <label class="form-check-label" for="gem-filter-category-<%= category.id %>">
+                                                    <%= category.name %>
+                                                </label>
+                                            </div>
+                                        <% }) %>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <label for="gem-filter-quantity-upto" class="form-label">Quantity up to</label>
+                                <input
+                                    type="number"
+                                    class="form-control form-control-sm"
+                                    id="gem-filter-quantity-upto"
+                                    min="1"
+                                    step="1"
+                                    placeholder="e.g. 10"
+                                    inputmode="numeric"
+                                    autocomplete="off"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-4">
+                                <label for="gem-filter-past-experience" class="form-label" title="Required past experience">Past exp.</label>
+                                <select
+                                    class="form-select form-select-sm gem-tender-column-filter"
+                                    id="gem-filter-past-experience"
+                                    data-column="pastExperience"
+                                    data-chip-label="Past exp."
+                                >
+                                    <option value="">All</option>
+                                </select>
+                            </div>
+                            <div class="col-4">
+                                <label for="gem-filter-mse-exp" class="form-label text-nowrap" title="Experience relaxation">Exp. relaxation</label>
+                                <select
+                                    class="form-select form-select-sm gem-tender-column-filter"
+                                    id="gem-filter-mse-exp"
+                                    data-column="mseExp"
+                                    data-chip-label="Experience relaxation"
+                                >
+                                    <option value="">All</option>
+                                </select>
+                            </div>
+                            <div class="col-4">
+                                <label for="gem-filter-mse-turnover" class="form-label text-nowrap" title="Turnover relaxation">Turnover relax.</label>
+                                <select
+                                    class="form-select form-select-sm gem-tender-column-filter"
+                                    id="gem-filter-mse-turnover"
+                                    data-column="mseTurnover"
+                                    data-chip-label="Turnover relaxation"
+                                >
+                                    <option value="">All</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-1">
+                            <div class="col-6">
+                                <label for="gem-filter-locked" class="form-label">Locked</label>
+                                <select class="form-select form-select-sm" id="gem-filter-locked">
+                                    <option value="">Any</option>
+                                    <option value="locked">Locked</option>
+                                    <option value="unlocked">Not locked</option>
+                                </select>
+                            </div>
+                            <div class="col-6 d-flex align-items-end">
+                                <div
+                                    class="form-check mb-1"
+                                    title="Missed, unattended, not eligible and out of scope tenders"
+                                >
+                                    <input class="form-check-input" type="checkbox" id="gem-filter-include-hidden" checked />
+                                    <label class="form-check-label small" for="gem-filter-include-hidden">
+                                        Include hidden
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div
+                        class="tab-pane fade p-3"
+                        id="gem-tenders-pane-columns"
+                        role="tabpanel"
+                        aria-labelledby="gem-tenders-tab-columns"
+                        tabindex="0"
+                    >
+                        <p class="text-secondary small mb-3">
+                            Choose which table columns to show. Selection is saved for this browser.
+                        </p>
+                        <div class="d-flex flex-wrap gap-1 mb-3">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="gem-columns-show-all-btn">
+                                Show all
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="gem-columns-reset-btn">
+                                Reset columns
+                            </button>
+                        </div>
+                        <div class="d-grid gap-2" id="gem-tenders-column-checks">
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-tenderId" value="tenderId" checked disabled />
+                                <label class="form-check-label" for="gem-col-tenderId">Tender ID</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-endAt" value="endAt" checked />
+                                <label class="form-check-label" for="gem-col-endAt">Ends at</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-category" value="category" checked />
+                                <label class="form-check-label" for="gem-col-category">Category</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-buyer" value="buyer" checked />
+                                <label class="form-check-label" for="gem-col-buyer">Buyer</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-quantity" value="quantity" checked />
+                                <label class="form-check-label" for="gem-col-quantity">Quantity</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-emd" value="emd" checked />
+                                <label class="form-check-label" for="gem-col-emd">EMD</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-pastExp" value="pastExp" checked />
+                                <label class="form-check-label" for="gem-col-pastExp">Past exp.</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-mseExp" value="mseExp" checked />
+                                <label class="form-check-label" for="gem-col-mseExp">Experience Relaxation</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-mseTurnover" value="mseTurnover" checked />
+                                <label class="form-check-label" for="gem-col-mseTurnover">Turnover Relaxation</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-stage" value="stage" checked />
+                                <label class="form-check-label" for="gem-col-stage">Status</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-locked" value="locked" checked />
+                                <label class="form-check-label" for="gem-col-locked">Locked</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-assignee" value="assignee" checked />
+                                <label class="form-check-label" for="gem-col-assignee">Assignee</label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="d-grid gap-2" id="gem-tenders-column-checks">
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-tenderId" value="tenderId" checked disabled />
-                        <label class="form-check-label" for="gem-col-tenderId">Tender ID</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-endAt" value="endAt" checked />
-                        <label class="form-check-label" for="gem-col-endAt">Ends at</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-category" value="category" checked />
-                        <label class="form-check-label" for="gem-col-category">Category</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-buyer" value="buyer" checked />
-                        <label class="form-check-label" for="gem-col-buyer">Buyer</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-quantity" value="quantity" checked />
-                        <label class="form-check-label" for="gem-col-quantity">Quantity</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-emd" value="emd" checked />
-                        <label class="form-check-label" for="gem-col-emd">EMD</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-pastExp" value="pastExp" checked />
-                        <label class="form-check-label" for="gem-col-pastExp">Past exp.</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-mseExp" value="mseExp" checked />
-                        <label class="form-check-label" for="gem-col-mseExp">Experience Relaxation</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-mseTurnover" value="mseTurnover" checked />
-                        <label class="form-check-label" for="gem-col-mseTurnover">Turnover Relaxation</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-stage" value="stage" checked />
-                        <label class="form-check-label" for="gem-col-stage">Status</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-locked" value="locked" checked />
-                        <label class="form-check-label" for="gem-col-locked">Locked</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-assignee" value="assignee" checked />
-                        <label class="form-check-label" for="gem-col-assignee">Assignee</label>
-                    </div>
+                <div class="border-top p-3 d-grid gap-2 gem-tenders-filters-actions">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="offcanvas">
+                        Done
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="gem-filters-panel-reset-btn">
+                        Clear all filters
+                    </button>
                 </div>
             </div>
         </div>
@@ -860,28 +924,6 @@
     #gem-tenders-bulk-bar {
         flex: 0 0 auto;
     }
-    .gem-tenders-filter-card .form-label {
-        font-size: 0.75rem;
-        color: #6c757d;
-        margin-bottom: 0.2rem;
-    }
-    .gem-filter-search {
-        flex: 1 1 18rem;
-        min-width: 14rem;
-        max-width: 28rem;
-    }
-    .gem-filter-dates {
-        flex-wrap: nowrap;
-    }
-    .gem-filter-dates input[type="date"] {
-        width: 9.5rem;
-    }
-    .gem-filter-multi-wrap {
-        width: 11rem;
-    }
-    .gem-filter-small {
-        width: 10rem;
-    }
     .gem-quick-view {
         border: 1px solid #d1d5db;
         background: #fff;
@@ -953,8 +995,16 @@
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
     }
-    .gem-tenders-columns-panel {
-        width: min(22rem, 100vw);
+    .gem-tenders-filters-panel {
+        width: min(24rem, 100vw);
+    }
+    .gem-tenders-filters-form .form-label {
+        font-size: 0.8rem;
+        margin-bottom: 0.3rem;
+    }
+    .gem-tenders-filters-actions {
+        flex: 0 0 auto;
+        background: #fff;
     }
     .gem-filter-clear-x {
         width: 2rem;
@@ -1032,6 +1082,9 @@
         max-height: 240px;
         overflow: auto;
         min-width: 100%;
+    }
+    .gem-multi-filter-menu-wide {
+        min-width: 18rem;
     }
     .gem-multi-filter-menu .form-check {
         margin-bottom: 0.25rem;
