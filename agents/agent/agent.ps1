@@ -533,23 +533,26 @@ function Get-HbDesiredState {
         if (-not ($data -is [System.Collections.IDictionary])) {
             throw 'poll response is not a JSON object'
         }
+        $result = $null
+        if (Get-HbBool -Map $data -Key 'unchanged') {
+            if ($null -ne $script:Desired) {
+                $result = $script:Desired
+            } else {
+                # Server thinks we have a state we lost; ask for the full state next time.
+                $script:Etag = $null
+            }
+        } else {
+            $script:Desired = $data
+            $script:Etag = [string](Get-HbValue -Map $data -Key 'etag' -Default '')
+            Write-HbDesiredSummary -State $data
+            Save-HbCache -State $data
+            $result = $data
+        }
         if ($script:PollFailures -gt 0) {
             Write-HbLog ('poll recovered after ' + $script:PollFailures + ' failure(s)')
         }
         $script:PollFailures = 0
-        if (Get-HbBool -Map $data -Key 'unchanged') {
-            if ($null -ne $script:Desired) {
-                return ,$script:Desired
-            }
-            # Server thinks we have a state we lost; ask for the full state next time.
-            $script:Etag = $null
-            return $null
-        }
-        $script:Desired = $data
-        $script:Etag = [string](Get-HbValue -Map $data -Key 'etag' -Default '')
-        Write-HbDesiredSummary -State $data
-        Save-HbCache -State $data
-        return ,$data
+        return ,$result
     } catch {
         $script:PollFailures++
         if ($script:PollFailures -eq 1 -or ($script:PollFailures % 30) -eq 0) {
@@ -838,13 +841,61 @@ function Test-HbScriptFile {
     }
 }
 
+function Compare-HbVersion {
+    # Returns -1 if A < B, 0 if equal, 1 if A > B. Non-numeric parts count as 0.
+    param([string]$A, [string]$B)
+    $parse = {
+        param([string]$Text)
+        $parts = @()
+        foreach ($piece in @($Text.Split('.'))) {
+            $number = 0
+            if (-not [int]::TryParse($piece, [ref]$number)) {
+                $number = 0
+            }
+            $parts += $number
+        }
+        return ,$parts
+    }
+    $left = & $parse $A
+    $right = & $parse $B
+    $count = [Math]::Max($left.Count, $right.Count)
+    for ($i = 0; $i -lt $count; $i++) {
+        $x = 0
+        $y = 0
+        if ($i -lt $left.Count) {
+            $x = [int]$left[$i]
+        }
+        if ($i -lt $right.Count) {
+            $y = [int]$right[$i]
+        }
+        if ($x -lt $y) {
+            return -1
+        }
+        if ($x -gt $y) {
+            return 1
+        }
+    }
+    return 0
+}
+
 function Invoke-HbSelfUpdateCheck {
     param($AgentSpec)
     if ($null -eq $AgentSpec) {
         return
     }
     $latest = [string](Get-HbValue -Map $AgentSpec -Key 'latest_version' -Default '')
-    if (-not $latest -or $latest -eq $script:AgentVersion) {
+    if (-not $latest) {
+        return
+    }
+    $cmp = Compare-HbVersion -A $script:AgentVersion -B $latest
+    if ($cmp -gt 0) {
+        if ($script:LastUpdateSkipLog -ne ('downgrade:' + $latest)) {
+            $script:LastUpdateSkipLog = 'downgrade:' + $latest
+            Write-HbLog ('server latest is v' + $latest + ' but this agent is newer (v' + $script:AgentVersion + '); refusing downgrade') 'WARN'
+        }
+        return
+    }
+    if ($cmp -eq 0) {
         return
     }
     $state = Read-HbUpdateState

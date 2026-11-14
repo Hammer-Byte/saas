@@ -39,9 +39,31 @@ export async function getLatestReleaseMap() {
     return map;
 }
 
+function compareSemver(a, b) {
+    const parse = (value) =>
+        String(value || "")
+            .split(".")
+            .map((part) => {
+                const n = Number.parseInt(part, 10);
+                return Number.isFinite(n) ? n : 0;
+            });
+    const left = parse(a);
+    const right = parse(b);
+    const count = Math.max(left.length, right.length);
+    for (let i = 0; i < count; i++) {
+        const x = left[i] || 0;
+        const y = right[i] || 0;
+        if (x < y) return -1;
+        if (x > y) return 1;
+    }
+    return 0;
+}
+
 /**
  * Register artifacts produced by scripts/build-agents.js.
- * A component's first release becomes latest automatically; later ones wait for an admin.
+ * A newly inserted version becomes latest automatically (deploy = roll forward).
+ * Use the Agent Releases page to pin an older build; the next newer insert will
+ * promote again. Agents refuse downgrades even if latest points older.
  */
 export async function registerBuiltAgentReleases() {
     const file = Bun.file(MANIFEST_PATH);
@@ -75,12 +97,18 @@ export async function registerBuiltAgentReleases() {
         if (inserted) {
             logger.info(`agent release registered: ${component} ${version}`);
         }
-        if (!existingLatest[component]) {
+        const current = existingLatest[component];
+        // New row, or nothing marked latest yet. Do not re-promote on every boot
+        // (that would undo an admin pin to an older build).
+        if (inserted || !current) {
             const rows = await getAllAgentReleases();
             const row = rows.find((r) => r.component === component && r.version === version);
             if (row) {
                 await setLatestAgentRelease({ component, id: row.id });
-                existingLatest[component] = { id: row.id };
+                if (!current || compareSemver(version, current.version) !== 0) {
+                    logger.info(`agent release latest: ${component} ${version}`);
+                }
+                existingLatest[component] = { id: row.id, version };
             }
         }
     }
