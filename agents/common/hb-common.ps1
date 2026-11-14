@@ -189,20 +189,34 @@ function ConvertTo-HbJson {
 }
 
 function ConvertFrom-HbJson {
-    # Returns Dictionary[string,object] / object[]; both support $x['key'] and $x.key access.
+    # DeserializeObject returns Dictionary[string,object]; PowerShell cannot call .Contains on that
+    # type (explicit IDictionary only). Convert to hashtables / object[] so callers can use
+    # ContainsKey / foreach Keys / Get-HbValue uniformly.
     param([string]$Text)
     if ([string]::IsNullOrEmpty($Text)) {
         return $null
     }
     $serializer = New-HbSerializer
     $value = $serializer.DeserializeObject($Text)
-    return ,$value
+    return ,(ConvertTo-HbPlain -Value $value)
+}
+
+function Test-HbMapHasKey {
+    param($Map, [string]$Key)
+    if ($null -eq $Map -or -not ($Map -is [System.Collections.IDictionary])) {
+        return $false
+    }
+    # Hashtable has ContainsKey; Dictionary[string,*] only exposes Contains via IDictionary.
+    if ($Map -is [hashtable]) {
+        return $Map.ContainsKey($Key)
+    }
+    return ([System.Collections.IDictionary]$Map).Contains($Key)
 }
 
 function Get-HbValue {
     param($Map, [string]$Key, $Default = $null)
     $value = $Default
-    if ($null -ne $Map -and $Map -is [System.Collections.IDictionary] -and $Map.Contains($Key) -and $null -ne $Map[$Key]) {
+    if ((Test-HbMapHasKey -Map $Map -Key $Key) -and $null -ne $Map[$Key]) {
         $value = $Map[$Key]
     }
     # The leading comma stops PowerShell from unrolling arrays (empty arrays would become $null).
