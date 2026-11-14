@@ -16,6 +16,30 @@
         return suffix ? `${value}${suffix}` : String(value);
     }
 
+    function bytes(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number) || number <= 0) return "0 B";
+        const units = ["B", "KB", "MB", "GB", "TB"];
+        let index = 0;
+        let amount = number;
+        while (amount >= 1024 && index < units.length - 1) {
+            amount /= 1024;
+            index++;
+        }
+        return `${amount.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+    }
+
+    function duration(seconds) {
+        const number = Number(seconds);
+        if (!Number.isFinite(number)) return "—";
+        if (number < 60) return `${number}s`;
+        if (number < 3600) return `${Math.floor(number / 60)}m ${number % 60}s`;
+        const days = Math.floor(number / 86400);
+        const hours = Math.floor((number % 86400) / 3600);
+        const minutes = Math.floor((number % 3600) / 60);
+        return days ? `${days}d ${hours}h` : `${hours}h ${minutes}m`;
+    }
+
     function barClass(value) {
         const number = pct(value);
         if (number == null) return "bg-secondary";
@@ -24,33 +48,21 @@
         return "bg-success";
     }
 
-    const snap = latest && latest.data ? latest.data : null;
-    const sync = typeof latestSync !== "undefined" && latestSync && latestSync.data ? latestSync.data : null;
-    const processor = snap && snap.processor ? snap.processor : {};
-    const memory = snap && snap.memory ? snap.memory : {};
-    const processes = snap && snap.processes ? snap.processes : {};
-    const services = snap && snap.services ? snap.services : {};
-    const disks = snap && Array.isArray(snap.disks) ? snap.disks : [];
-    const temperatures = snap && snap.temperatures ? snap.temperatures : {};
-    const osInfo = snap && snap.os ? snap.os : {};
-    const hardware = snap && snap.hardware ? snap.hardware : {};
-    const topCpu = Array.isArray(processes.top_cpu) ? processes.top_cpu : [];
-    const topMemory = Array.isArray(processes.top_memory) ? processes.top_memory : [];
-    const cpuPct = pct(processor.usage_percent);
-    const ramPct = pct(memory.used_percent);
-    const syncStatus = sync ? String(sync.status || "").toLowerCase() : String(server.last_sync_status || "").toLowerCase();
-    const syncBadge =
-        syncStatus === "ok"
-            ? "text-bg-success"
-            : syncStatus === "partial"
-              ? "text-bg-warning"
-              : syncStatus === "error"
-                ? "text-bg-danger"
-                : "text-bg-secondary";
-    const syncPairs = sync && Array.isArray(sync.pairs) ? sync.pairs : [];
-    const syncErrors = sync && Array.isArray(sync.errors) ? sync.errors : [];
-    const syncEvents = sync && Array.isArray(sync.events) ? sync.events : [];
-    const syncTotals = sync && sync.totals ? sync.totals : {};
+    function stateBadge(row) {
+        if (!row.enabled) return "text-bg-light border";
+        if (row.state === "running") return "text-bg-success";
+        if (row.state === "backoff" || row.state === "error") return "text-bg-danger";
+        return "text-bg-warning";
+    }
+
+    function runBadge(status) {
+        if (status === "ok") return "text-bg-success";
+        if (status === "partial") return "text-bg-warning";
+        return "text-bg-danger";
+    }
+
+    const approval = server.approval_status || "pending";
+    const approvalBadge = approval === "approved" ? "text-bg-success" : approval === "rejected" ? "text-bg-danger" : "text-bg-warning";
 %>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -78,674 +90,576 @@
                         <a href="/app/projects/<%= server.project_id %>" class="text-decoration-none">Project</a>
                     <% } %>
                     /
-                    <%= server.name || server.tag %>
+                    <%= server.name || server.hostname || server.tag %>
                 </p>
                 <h1 class="h3 mb-1"><%= server.name || "Unnamed server" %></h1>
                 <p class="text-secondary mb-0">
+                    <% if (server.hostname) { %>Host <strong><%= server.hostname %></strong> · <% } %>
                     Tag <code><%= server.tag %></code>
-                    <% if (server.agent_version || (snap && snap.agent_version)) { %>
-                        · Agent <%= server.agent_version || snap.agent_version %>
-                    <% } %>
-                    <% if (snap && snap.hostname) { %> · Host <strong><%= snap.hostname %></strong><% } %>
+                    <% if (server.os_caption) { %> · <%= server.os_caption %><% } %>
                 </p>
             </div>
             <div class="d-flex flex-column align-items-end gap-2">
                 <a href="/app/servers" class="btn btn-sm btn-outline-secondary">Back to fleet</a>
+                <div class="d-flex gap-1">
+                    <span class="badge <%= approvalBadge %>"><%= approval %></span>
+                    <% if (!server.agent_active) { %><span class="badge text-bg-warning">paused</span><% } %>
+                    <span class="badge <%= server.online ? 'text-bg-success' : 'text-bg-secondary' %>"><%= server.online ? "online" : "offline" %></span>
+                </div>
             </div>
         </div>
 
-        <%
-            const alertCpuEnabled = Boolean(server.alert_cpu_enabled);
-            const alertMemoryEnabled = Boolean(
-                server.alert_memory_enabled != null ? server.alert_memory_enabled : server.alert,
-            );
-            const alertPingEnabled = Boolean(server.alert_ping_enabled);
-            const alertCpuPercent = Number(server.alert_cpu_percent);
-            const alertMemoryPercent = Number(server.alert_memory_percent);
-            const alertPingSeconds = Number(server.alert_ping_seconds);
-        %>
-        <div class="card border-0 shadow-sm mb-4" id="server-alerts-card" data-server-id="<%= server.id %>">
-            <div class="card-header bg-white border-0 pt-4 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <h2 class="h5 mb-0">Alerts</h2>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="server-alerts-edit-btn">Edit</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="server-alerts-cancel-btn">Cancel</button>
-                    <button type="button" class="btn btn-sm btn-primary d-none" id="server-alerts-save-btn">Save</button>
-                </div>
-            </div>
-            <div class="card-body px-4 pb-4">
-                <div class="row g-3 align-items-end mb-3">
-                    <div class="col-md-8">
-                        <label class="form-label small text-secondary mb-1" for="server-alert-name">Name</label>
-                        <input
-                            type="text"
-                            class="form-control"
-                            id="server-alert-name"
-                            value="<%= server.name || '' %>"
-                            maxlength="128"
-                            disabled
-                        />
-                        <div class="form-text">Tag is read-only: <code><%= server.tag %></code></div>
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th scope="col">Alert</th>
-                                <th scope="col">Threshold</th>
-                                <th scope="col">Enabled</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>CPU usage</td>
-                                <td>
-                                    <div class="input-group input-group-sm" style="max-width: 9rem;">
-                                        <input
-                                            type="number"
-                                            class="form-control"
-                                            id="alert-cpu-percent"
-                                            min="1"
-                                            max="100"
-                                            value="<%= Number.isFinite(alertCpuPercent) ? alertCpuPercent : 80 %>"
-                                            disabled
-                                        />
-                                        <span class="input-group-text">%</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <input
-                                        class="form-check-input"
-                                        type="checkbox"
-                                        id="alert-cpu-enabled"
-                                        <%= alertCpuEnabled ? "checked" : "" %>
-                                        disabled
-                                    />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Memory usage</td>
-                                <td>
-                                    <div class="input-group input-group-sm" style="max-width: 9rem;">
-                                        <input
-                                            type="number"
-                                            class="form-control"
-                                            id="alert-memory-percent"
-                                            min="1"
-                                            max="100"
-                                            value="<%= Number.isFinite(alertMemoryPercent) ? alertMemoryPercent : 80 %>"
-                                            disabled
-                                        />
-                                        <span class="input-group-text">%</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <input
-                                        class="form-check-input"
-                                        type="checkbox"
-                                        id="alert-memory-enabled"
-                                        <%= alertMemoryEnabled ? "checked" : "" %>
-                                        disabled
-                                    />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Ping check</td>
-                                <td>
-                                    <div class="input-group input-group-sm" style="max-width: 12rem;">
-                                        <input
-                                            type="number"
-                                            class="form-control"
-                                            id="alert-ping-seconds"
-                                            min="60"
-                                            max="604800"
-                                            value="<%= Number.isFinite(alertPingSeconds) ? alertPingSeconds : 180 %>"
-                                            disabled
-                                        />
-                                        <span class="input-group-text">seconds</span>
-                                    </div>
-                                    <div class="form-text">No alive ping for this long → email (agent pings every 60s; metrics are separate)</div>
-                                </td>
-                                <td>
-                                    <input
-                                        class="form-check-input"
-                                        type="checkbox"
-                                        id="alert-ping-enabled"
-                                        <%= alertPingEnabled ? "checked" : "" %>
-                                        disabled
-                                    />
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div id="server-alert-feedback" class="small text-secondary d-none mt-2" role="status"></div>
-            </div>
-        </div>
+        <div id="server-page-alert" class="alert d-none" role="alert"></div>
 
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 pt-4 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <h2 class="h5 mb-0">Drive sync</h2>
-                <% if (syncStatus) { %>
-                    <span class="badge <%= syncBadge %>"><%= syncStatus %></span>
-                <% } %>
-            </div>
-            <div class="card-body px-4 pb-4">
-                <% if (!sync && !server.last_sync_at) { %>
-                    <p class="text-secondary mb-0">No drive sync runs received yet. Download the Drive Sync zip from the Servers page and run the <code>.cmd</code> installer as Administrator.</p>
-                <% } else { %>
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-3">
-                            <div class="text-secondary small">Source</div>
-                            <div class="fw-semibold"><%= fmt(sync && sync.source_host) %></div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-secondary small">Last sync</div>
-                            <div
-                                class="fw-semibold"
-                                data-readable-date="<%= (latestSync && latestSync.collected_at) || server.last_sync_at || '' %>"
-                                data-date-format="DD/MM/YYYY HH:mm:ss"
-                            ></div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="text-secondary small">Totals</div>
-                            <div class="fw-semibold">
-                                copied <%= fmt(syncTotals.copied) %>
-                                · deleted <%= fmt(syncTotals.deleted) %>
-                                · skipped <%= fmt(syncTotals.skipped) %>
-                                · failed <%= fmt(syncTotals.failed) %>
-                            </div>
-                            <% if (server.last_sync_summary) { %>
-                                <div class="small text-secondary mt-1"><%= server.last_sync_summary %></div>
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm h-100" id="agent-card" data-server-id="<%= server.id %>">
+                    <div class="card-header bg-white border-0 pt-4 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h2 class="h5 mb-0">Agent</h2>
+                        <div class="d-flex gap-2">
+                            <% if (approval !== "approved") { %>
+                                <button type="button" class="btn btn-sm btn-success server-approval-btn" data-status="approved">Approve</button>
+                            <% } %>
+                            <% if (approval !== "rejected") { %>
+                                <button type="button" class="btn btn-sm btn-outline-danger server-approval-btn" data-status="rejected">Reject</button>
                             <% } %>
                         </div>
-                    </div>
-
-                    <% if (syncPairs.length) { %>
-                        <div class="table-responsive mb-3">
-                            <table class="table table-sm align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Source</th>
-                                        <th>Local</th>
-                                        <th>Status</th>
-                                        <th>Copied</th>
-                                        <th>Deleted</th>
-                                        <th>Skipped</th>
-                                        <th>Failed</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% syncPairs.forEach(function (pair) {
-                                        const pairStatus = String(pair.status || "").toLowerCase();
-                                        const pairBadge =
-                                            pairStatus === "ok"
-                                                ? "text-bg-success"
-                                                : pairStatus === "partial"
-                                                  ? "text-bg-warning"
-                                                  : "text-bg-danger";
-                                    %>
-                                        <tr>
-                                            <td class="small"><code><%= fmt(pair.source_unc) %></code></td>
-                                            <td class="small"><code><%= fmt(pair.local_path) %></code></td>
-                                            <td><span class="badge <%= pairBadge %>"><%= pairStatus || "—" %></span></td>
-                                            <td><%= fmt(pair.copied) %></td>
-                                            <td><%= fmt(pair.deleted) %></td>
-                                            <td><%= fmt(pair.skipped) %></td>
-                                            <td><%= fmt(pair.failed) %></td>
-                                        </tr>
-                                    <% }) %>
-                                </tbody>
-                            </table>
-                        </div>
-                    <% } %>
-
-                    <% if (syncErrors.length) { %>
-                        <div class="alert alert-danger py-2 small mb-3">
-                            <div class="fw-semibold mb-1">Errors</div>
-                            <ul class="mb-0 ps-3">
-                                <% syncErrors.slice(0, 20).forEach(function (err) { %>
-                                    <li><%= err %></li>
-                                <% }) %>
-                            </ul>
-                        </div>
-                    <% } %>
-
-                    <% if (syncEvents.length) { %>
-                        <details>
-                            <summary class="small text-secondary">Events (<%= syncEvents.length %>)</summary>
-                            <pre class="small mt-2 mb-0 text-break" style="white-space: pre-wrap; max-height: 14rem; overflow: auto"><%= syncEvents.map(function (ev) { return (ev.at || "") + " [" + (ev.level || "info") + "] " + (ev.message || ""); }).join("\n") %></pre>
-                        </details>
-                    <% } %>
-                <% } %>
-            </div>
-        </div>
-
-        <% if (!snap) { %>
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body p-4 text-center text-secondary">
-                    No monitoring metrics received yet.
-                </div>
-            </div>
-        <% } else { %>
-            <h2 class="h5 mb-3">Monitoring</h2>
-            <% if (snap.screenshot_media_id) { %>
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white border-0 pt-4 px-4">
-                        <h3 class="h6 mb-0">Desktop screenshot</h3>
                     </div>
                     <div class="card-body px-4 pb-4">
-                        <a href="/api/media/<%= snap.screenshot_media_id %>" target="_blank" rel="noopener">
-                            <img
-                                src="/api/media/<%= snap.screenshot_media_id %>"
-                                alt="Server desktop screenshot"
-                                class="img-fluid rounded border"
-                                style="max-height: 28rem;"
-                            />
-                        </a>
-                    </div>
-                </div>
-            <% } else if (snap.screenshot_error) { %>
-                <div class="alert alert-secondary py-2 small mb-4">
-                    Screenshot unavailable: <%= snap.screenshot_error %>
-                </div>
-            <% } %>
-            <div class="row g-3 mb-4">
-                <div class="col-md-6 col-xl-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="text-secondary small mb-1">CPU usage</div>
-                            <div class="h3 mb-2"><%= fmt(processor.usage_percent, "%") %></div>
-                            <div class="progress" style="height: 0.5rem">
-                                <div class="progress-bar <%= barClass(cpuPct) %>" style="width: <%= cpuPct == null ? 0 : cpuPct %>%"></div>
-                            </div>
-                            <div class="small text-secondary mt-2"><%= fmt(processor.name) %></div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="agent-active-toggle" <%= server.agent_active ? "checked" : "" %> />
+                            <label class="form-check-label" for="agent-active-toggle">
+                                Agent active
+                                <span class="text-secondary small d-block">Turn off to stop every service on this machine; the agent keeps polling and resumes when turned back on.</span>
+                            </label>
                         </div>
-                    </div>
-                </div>
-                <div class="col-md-6 col-xl-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="text-secondary small mb-1">Memory</div>
-                            <div class="h3 mb-2"><%= fmt(memory.used_percent, "%") %></div>
-                            <div class="progress" style="height: 0.5rem">
-                                <div class="progress-bar <%= barClass(ramPct) %>" style="width: <%= ramPct == null ? 0 : ramPct %>%"></div>
-                            </div>
-                            <div class="small text-secondary mt-2">
-                                <%= fmt(memory.used_mb) %> / <%= fmt(memory.total_mb) %> MB used
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 col-xl-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="text-secondary small mb-1">Processes / services</div>
-                            <div class="h3 mb-2"><%= fmt(processes.total) %></div>
-                            <div class="small text-secondary">
-                                <%= fmt(services.running) %> services running
-                                · <%= fmt(services.stopped) %> stopped
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 col-xl-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="text-secondary small mb-1">Temperature</div>
-                            <div class="h3 mb-2">
-                                <% if (temperatures.available) { %>
-                                    <%= fmt(temperatures.celsius_max, "°C") %>
-                                <% } else { %>
-                                    —
+                        <dl class="row small mb-0">
+                            <dt class="col-sm-4 text-secondary fw-normal">Approval</dt>
+                            <dd class="col-sm-8"><span class="badge <%= approvalBadge %>"><%= approval %></span></dd>
+
+                            <dt class="col-sm-4 text-secondary fw-normal">Last poll</dt>
+                            <dd class="col-sm-8">
+                                <span data-readable-date="<%= server.last_poll_at || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"><%= server.last_poll_at ? "" : "never" %></span>
+                                <% if (server.seconds_since_poll != null) { %>
+                                    <span class="text-secondary">(<%= duration(server.seconds_since_poll) %> ago)</span>
                                 <% } %>
-                            </div>
-                            <div class="small text-secondary">
-                                <% if (temperatures.available && Array.isArray(temperatures.zones)) { %>
-                                    <%= temperatures.zones.length %> zone(s)
-                                <% } else { %>
-                                    Not available on this host
+                            </dd>
+
+                            <dt class="col-sm-4 text-secondary fw-normal">Agent version</dt>
+                            <dd class="col-sm-8"><%= server.agent_version ? ("v" + server.agent_version) : "—" %></dd>
+
+                            <dt class="col-sm-4 text-secondary fw-normal">Self-update</dt>
+                            <dd class="col-sm-8">
+                                <%= server.agent_update_status || "—" %>
+                                <% if (server.agent_update_error) { %>
+                                    <div class="text-danger"><%= server.agent_update_error %></div>
                                 <% } %>
-                            </div>
-                        </div>
+                            </dd>
+
+                            <dt class="col-sm-4 text-secondary fw-normal">Platform</dt>
+                            <dd class="col-sm-8">
+                                <%= server.platform_family || "—" %>
+                                <% if (server.os_build) { %><span class="text-secondary">· build <%= server.os_build %></span><% } %>
+                                <% if (server.ps_version) { %><span class="text-secondary">· PowerShell <%= server.ps_version %></span><% } %>
+                            </dd>
+
+                            <dt class="col-sm-4 text-secondary fw-normal">Registered</dt>
+                            <dd class="col-sm-8" data-readable-date="<%= server.created_on || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></dd>
+                        </dl>
                     </div>
                 </div>
             </div>
 
-            <div class="row g-3 mb-4">
-                <div class="col-lg-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white border-0 pt-4 px-4">
-                            <h2 class="h6 mb-0">Processor</h2>
-                        </div>
-                        <div class="card-body pt-0 px-4 pb-4">
-                            <dl class="row mb-0 small">
-                                <dt class="col-sm-4 text-secondary">Name</dt>
-                                <dd class="col-sm-8"><%= fmt(processor.name) %></dd>
-                                <dt class="col-sm-4 text-secondary">Packages</dt>
-                                <dd class="col-sm-8"><%= fmt(processor.packages) %></dd>
-                                <dt class="col-sm-4 text-secondary">Cores</dt>
-                                <dd class="col-sm-8"><%= fmt(processor.core_count) %></dd>
-                                <dt class="col-sm-4 text-secondary">Logical CPUs</dt>
-                                <dd class="col-sm-8"><%= fmt(processor.logical_count || snap.cpu_count) %></dd>
-                                <dt class="col-sm-4 text-secondary">Max clock</dt>
-                                <dd class="col-sm-8"><%= processor.max_clock_mhz != null ? fmt(processor.max_clock_mhz, " MHz") : "—" %></dd>
-                                <dt class="col-sm-4 text-secondary">WMI load</dt>
-                                <dd class="col-sm-8"><%= fmt(processor.load_percent_wmi, "%") %></dd>
-                            </dl>
+            <div class="col-lg-6">
+                <%
+                    const alertCpuEnabled = Boolean(server.alert_cpu_enabled);
+                    const alertMemoryEnabled = Boolean(
+                        server.alert_memory_enabled != null ? server.alert_memory_enabled : server.alert,
+                    );
+                    const alertPingEnabled = Boolean(server.alert_ping_enabled);
+                    const alertCpuPercent = Number(server.alert_cpu_percent);
+                    const alertMemoryPercent = Number(server.alert_memory_percent);
+                    const alertPingSeconds = Number(server.alert_ping_seconds);
+                %>
+                <div class="card border-0 shadow-sm h-100" id="server-alerts-card" data-server-id="<%= server.id %>">
+                    <div class="card-header bg-white border-0 pt-4 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h2 class="h5 mb-0">Name &amp; alerts</h2>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="server-alerts-edit-btn">Edit</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="server-alerts-cancel-btn">Cancel</button>
+                            <button type="button" class="btn btn-sm btn-primary d-none" id="server-alerts-save-btn">Save</button>
                         </div>
                     </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white border-0 pt-4 px-4">
-                            <h2 class="h6 mb-0">Memory</h2>
+                    <div class="card-body px-4 pb-4">
+                        <div class="mb-3">
+                            <label class="form-label small text-secondary mb-1" for="server-alert-name">Name</label>
+                            <input type="text" class="form-control" id="server-alert-name" value="<%= server.name || '' %>" maxlength="128" disabled />
                         </div>
-                        <div class="card-body pt-0 px-4 pb-4">
-                            <dl class="row mb-0 small">
-                                <dt class="col-sm-4 text-secondary">Total</dt>
-                                <dd class="col-sm-8"><%= fmt(memory.total_mb, " MB") %></dd>
-                                <dt class="col-sm-4 text-secondary">Free</dt>
-                                <dd class="col-sm-8"><%= fmt(memory.free_mb, " MB") %></dd>
-                                <dt class="col-sm-4 text-secondary">Used</dt>
-                                <dd class="col-sm-8"><%= fmt(memory.used_mb, " MB") %> (<%= fmt(memory.used_percent, "%") %>)</dd>
-                                <dt class="col-sm-4 text-secondary">Available</dt>
-                                <dd class="col-sm-8"><%= fmt(memory.available_mb, " MB") %></dd>
-                                <dt class="col-sm-4 text-secondary">Committed</dt>
-                                <dd class="col-sm-8"><%= fmt(memory.committed_mb, " MB") %></dd>
-                                <dt class="col-sm-4 text-secondary">Pool</dt>
-                                <dd class="col-sm-8">
-                                    paged <%= fmt(memory.pool_paged_mb, " MB") %>
-                                    · nonpaged <%= fmt(memory.pool_nonpaged_mb, " MB") %>
-                                </dd>
-                            </dl>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white border-0 pt-4 px-4">
-                    <h2 class="h6 mb-0">Disks</h2>
-                </div>
-                <div class="card-body p-0">
-                    <% if (!disks.length) { %>
-                        <div class="p-4 text-secondary small">No disk data.</div>
-                    <% } else { %>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Drive</th>
-                                        <th>Label</th>
-                                        <th>Filesystem</th>
-                                        <th>Used</th>
-                                        <th>Free / Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% disks.forEach(function (disk) {
-                                        const used = pct(disk.used_percent);
-                                    %>
-                                        <tr>
-                                            <td><strong><%= fmt(disk.device) %></strong></td>
-                                            <td><%= disk.label || "—" %></td>
-                                            <td><%= fmt(disk.filesystem) %></td>
-                                            <td style="min-width: 10rem">
-                                                <div class="d-flex justify-content-between small mb-1">
-                                                    <span><%= fmt(disk.used_percent, "%") %></span>
-                                                </div>
-                                                <div class="progress" style="height: 0.45rem">
-                                                    <div class="progress-bar <%= barClass(used) %>" style="width: <%= used == null ? 0 : used %>%"></div>
-                                                </div>
-                                            </td>
-                                            <td class="small text-secondary">
-                                                <%= fmt(disk.free_mb) %> / <%= fmt(disk.total_mb) %> MB
-                                            </td>
-                                        </tr>
-                                    <% }) %>
-                                </tbody>
-                            </table>
-                        </div>
-                    <% } %>
-                </div>
-            </div>
-
-            <div class="row g-3 mb-4">
-                <div class="col-lg-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white border-0 pt-4 px-4">
-                            <h2 class="h6 mb-0">Top processes by CPU</h2>
-                        </div>
-                        <div class="card-body p-0">
-                            <% if (!topCpu.length) { %>
-                                <div class="p-4 text-secondary small">No process data.</div>
-                            <% } else { %>
-                                <div class="table-responsive">
-                                    <table class="table table-sm align-middle mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Name</th>
-                                                <th>PID</th>
-                                                <th>CPU sec</th>
-                                                <th>RAM</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <% topCpu.forEach(function (proc) { %>
-                                                <tr>
-                                                    <td><%= fmt(proc.name) %></td>
-                                                    <td class="text-secondary"><%= fmt(proc.pid) %></td>
-                                                    <td><%= fmt(proc.cpu_seconds) %></td>
-                                                    <td><%= fmt(proc.memory_mb, " MB") %></td>
-                                                </tr>
-                                            <% }) %>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            <% } %>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white border-0 pt-4 px-4">
-                            <h2 class="h6 mb-0">Top processes by memory</h2>
-                        </div>
-                        <div class="card-body p-0">
-                            <% if (!topMemory.length) { %>
-                                <div class="p-4 text-secondary small">No process data.</div>
-                            <% } else { %>
-                                <div class="table-responsive">
-                                    <table class="table table-sm align-middle mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Name</th>
-                                                <th>PID</th>
-                                                <th>RAM</th>
-                                                <th>CPU sec</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <% topMemory.forEach(function (proc) { %>
-                                                <tr>
-                                                    <td><%= fmt(proc.name) %></td>
-                                                    <td class="text-secondary"><%= fmt(proc.pid) %></td>
-                                                    <td><%= fmt(proc.memory_mb, " MB") %></td>
-                                                    <td><%= fmt(proc.cpu_seconds) %></td>
-                                                </tr>
-                                            <% }) %>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            <% } %>
-                        </div>
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Alert</th>
+                                    <th scope="col">Threshold</th>
+                                    <th scope="col">On</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>CPU usage</td>
+                                    <td>
+                                        <div class="input-group input-group-sm" style="max-width: 9rem;">
+                                            <input type="number" class="form-control" id="alert-cpu-percent" min="1" max="100" value="<%= Number.isFinite(alertCpuPercent) ? alertCpuPercent : 80 %>" disabled />
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                    </td>
+                                    <td><input class="form-check-input" type="checkbox" id="alert-cpu-enabled" <%= alertCpuEnabled ? "checked" : "" %> disabled /></td>
+                                </tr>
+                                <tr>
+                                    <td>Memory usage</td>
+                                    <td>
+                                        <div class="input-group input-group-sm" style="max-width: 9rem;">
+                                            <input type="number" class="form-control" id="alert-memory-percent" min="1" max="100" value="<%= Number.isFinite(alertMemoryPercent) ? alertMemoryPercent : 80 %>" disabled />
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                    </td>
+                                    <td><input class="form-check-input" type="checkbox" id="alert-memory-enabled" <%= alertMemoryEnabled ? "checked" : "" %> disabled /></td>
+                                </tr>
+                                <tr>
+                                    <td>Agent silent</td>
+                                    <td>
+                                        <div class="input-group input-group-sm" style="max-width: 12rem;">
+                                            <input type="number" class="form-control" id="alert-ping-seconds" min="60" max="604800" value="<%= Number.isFinite(alertPingSeconds) ? alertPingSeconds : 180 %>" disabled />
+                                            <span class="input-group-text">seconds</span>
+                                        </div>
+                                        <div class="form-text">Email when the agent has not polled for this long (it polls every 10s).</div>
+                                    </td>
+                                    <td><input class="form-check-input" type="checkbox" id="alert-ping-enabled" <%= alertPingEnabled ? "checked" : "" %> disabled /></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p class="form-text mb-0">CPU and memory alerts use the Monitoring service's metrics.</p>
+                        <div id="server-alert-feedback" class="small text-secondary d-none mt-2" role="status"></div>
                     </div>
                 </div>
             </div>
-
-            <div class="row g-3 mb-4">
-                <div class="col-lg-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white border-0 pt-4 px-4">
-                            <h2 class="h6 mb-0">Operating system</h2>
-                        </div>
-                        <div class="card-body pt-0 px-4 pb-4">
-                            <dl class="row mb-0 small">
-                                <dt class="col-sm-4 text-secondary">Caption</dt>
-                                <dd class="col-sm-8"><%= fmt(osInfo.caption) %></dd>
-                                <dt class="col-sm-4 text-secondary">Version</dt>
-                                <dd class="col-sm-8"><%= fmt(osInfo.version) %> (build <%= fmt(osInfo.build) %>)</dd>
-                                <dt class="col-sm-4 text-secondary">Architecture</dt>
-                                <dd class="col-sm-8"><%= fmt(osInfo.architecture || snap.arch) %></dd>
-                                <dt class="col-sm-4 text-secondary">Uptime</dt>
-                                <dd class="col-sm-8">
-                                    <% if (snap.uptime_seconds != null) {
-                                        const days = Math.floor(snap.uptime_seconds / 86400);
-                                        const hours = Math.floor((snap.uptime_seconds % 86400) / 3600);
-                                        const mins = Math.floor((snap.uptime_seconds % 3600) / 60);
-                                    %>
-                                        <%= days %>d <%= hours %>h <%= mins %>m
-                                    <% } else { %>—<% } %>
-                                </dd>
-                                <dt class="col-sm-4 text-secondary">Last boot</dt>
-                                <dd class="col-sm-8"><%= fmt(osInfo.last_boot) %></dd>
-                            </dl>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white border-0 pt-4 px-4">
-                            <h2 class="h6 mb-0">Hardware</h2>
-                        </div>
-                        <div class="card-body pt-0 px-4 pb-4">
-                            <dl class="row mb-0 small">
-                                <dt class="col-sm-4 text-secondary">Manufacturer</dt>
-                                <dd class="col-sm-8"><%= fmt(hardware.manufacturer) %></dd>
-                                <dt class="col-sm-4 text-secondary">Model</dt>
-                                <dd class="col-sm-8"><%= fmt(hardware.model) %></dd>
-                                <dt class="col-sm-4 text-secondary">Board</dt>
-                                <dd class="col-sm-8"><%= fmt(hardware.baseboard_product) %></dd>
-                                <dt class="col-sm-4 text-secondary">BIOS</dt>
-                                <dd class="col-sm-8"><%= fmt(hardware.bios_version) %></dd>
-                                <dt class="col-sm-4 text-secondary">Serial</dt>
-                                <dd class="col-sm-8"><%= fmt(hardware.serial_number) %></dd>
-                                <dt class="col-sm-4 text-secondary">Domain</dt>
-                                <dd class="col-sm-8"><%= fmt(hardware.domain) %></dd>
-                            </dl>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        <% } %>
+        </div>
 
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 pt-4 px-4">
-                <h2 class="h5 mb-0">History</h2>
-                <p class="text-secondary small mb-0 mt-1">Monitor snapshots and drive sync runs. Expand for errors/events and raw JSON.</p>
+                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                    <% serviceTabs.forEach(function (tab, index) { %>
+                        <li class="nav-item" role="presentation">
+                            <button
+                                class="nav-link <%= index === 0 ? 'active' : '' %>"
+                                id="tab-<%= tab.id %>"
+                                data-bs-toggle="tab"
+                                data-bs-target="#pane-<%= tab.id %>"
+                                type="button"
+                                role="tab"
+                                aria-controls="pane-<%= tab.id %>"
+                                aria-selected="<%= index === 0 ? 'true' : 'false' %>"
+                            >
+                                <%= tab.label %>
+                                <span class="badge <%= stateBadge(tab.row) %> ms-1"><%= tab.row.enabled ? (tab.row.state || "pending") : "off" %></span>
+                            </button>
+                        </li>
+                    <% }) %>
+                </ul>
             </div>
-            <div class="card-body p-0">
-                <% if (!metrics || metrics.length === 0) { %>
-                    <div class="p-4 text-center text-secondary">No logs received yet.</div>
-                <% } else { %>
-                    <div class="accordion accordion-flush" id="metrics-history">
-                        <% metrics.forEach(function (metric, index) {
-                            const data = metric.data || {};
-                            const isSync = metric.kind === "drive_sync";
-                            const proc = data.processor || {};
-                            const mem = data.memory || {};
-                            const collapseId = "metric-" + (metric.id || index);
-                            const rowStatus = String(data.status || "").toLowerCase();
-                            const rowBadge =
-                                rowStatus === "ok"
-                                    ? "text-bg-success"
-                                    : rowStatus === "partial"
-                                      ? "text-bg-warning"
-                                      : rowStatus === "error"
-                                        ? "text-bg-danger"
-                                        : "text-bg-light border";
-                        %>
-                            <div class="accordion-item">
-                                <h3 class="accordion-header">
-                                    <button
-                                        class="accordion-button <%= index === 0 ? '' : 'collapsed' %> py-3"
-                                        type="button"
-                                        data-bs-toggle="collapse"
-                                        data-bs-target="#<%= collapseId %>"
-                                        aria-expanded="<%= index === 0 ? 'true' : 'false' %>"
-                                    >
-                                        <div class="d-flex flex-wrap align-items-center gap-2 w-100 pe-3">
-                                            <span
-                                                class="text-nowrap fw-semibold"
-                                                data-readable-date="<%= metric.collected_at || '' %>"
-                                                data-date-format="DD/MM/YYYY HH:mm:ss"
-                                            ></span>
-                                            <% if (isSync) { %>
-                                                <span class="badge text-bg-primary">Drive sync</span>
-                                                <span class="badge <%= rowBadge %>"><%= rowStatus || "unknown" %></span>
-                                                <% if (data.totals) { %>
-                                                    <span class="badge text-bg-light border">copied <%= fmt(data.totals.copied) %></span>
-                                                    <span class="badge text-bg-light border">failed <%= fmt(data.totals.failed) %></span>
-                                                <% } %>
-                                            <% } else if (metric.data) { %>
-                                                <span class="badge text-bg-secondary">Monitor</span>
-                                                <span class="badge text-bg-light border">CPU <%= fmt(proc.usage_percent, "%") %></span>
-                                                <span class="badge text-bg-light border">RAM <%= fmt(mem.used_percent, "%") %></span>
-                                                <span class="badge text-bg-light border">Procs <%= fmt((data.processes || {}).total) %></span>
-                                                <% if (data.screenshot_media_id) { %>
-                                                    <span class="badge text-bg-info">Screenshot</span>
-                                                <% } %>
-                                            <% } else { %>
-                                                <span class="badge text-bg-warning">Unparsed payload</span>
-                                            <% } %>
+            <div class="card-body px-4 pb-4 tab-content">
+                <% serviceTabs.forEach(function (tab, index) {
+                    const row = tab.row;
+                    const config = row.config || {};
+                %>
+                    <div class="tab-pane fade <%= index === 0 ? 'show active' : '' %>" id="pane-<%= tab.id %>" role="tabpanel" aria-labelledby="tab-<%= tab.id %>">
+                        <p class="text-secondary small mt-2"><%= tab.description %></p>
+
+                        <div class="row g-3 small mb-4">
+                            <div class="col-6 col-md-2">
+                                <div class="text-secondary">State</div>
+                                <span class="badge <%= stateBadge(row) %>"><%= row.enabled ? (row.state || "waiting for agent") : "disabled" %></span>
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <div class="text-secondary">Process</div>
+                                <div><%= row.pid ? ("pid " + row.pid) : "—" %></div>
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <div class="text-secondary">Running</div>
+                                <div>
+                                    <%= row.running_script_version ? ("v" + row.running_script_version) : "—" %>
+                                    <% if (row.running_config_version != null) { %>· config v<%= row.running_config_version %><% } %>
+                                </div>
+                                <% if (row.enabled && row.running_config_version != null && Number(row.running_config_version) !== Number(row.config_version)) { %>
+                                    <div class="text-warning">config v<%= row.config_version %> pending</div>
+                                <% } %>
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <div class="text-secondary">Restarts</div>
+                                <div><%= row.restarts || 0 %></div>
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <div class="text-secondary">Status reported</div>
+                                <div data-readable-date="<%= row.last_status_at || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"><%= row.last_status_at ? "" : "—" %></div>
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <div class="text-secondary">Last result</div>
+                                <div data-readable-date="<%= row.last_result_at || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"><%= row.last_result_at ? "" : "—" %></div>
+                            </div>
+                            <% if (row.last_error) { %>
+                                <div class="col-12">
+                                    <div class="alert alert-danger py-2 mb-0"><strong>Last error:</strong> <%= row.last_error %></div>
+                                </div>
+                            <% } %>
+                        </div>
+
+                        <form class="service-form border rounded p-3 mb-4 bg-white" data-service="<%= tab.id %>" data-password-set="<%= config.password_set ? 'true' : 'false' %>" novalidate>
+                            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input service-enabled" type="checkbox" role="switch" id="enabled-<%= tab.id %>" <%= row.enabled ? "checked" : "" %> />
+                                    <label class="form-check-label fw-semibold" for="enabled-<%= tab.id %>">Enable <%= tab.label %></label>
+                                    <div class="form-text service-enable-hint d-none"></div>
+                                </div>
+                                <span class="small text-secondary">Config v<%= row.config_version || 0 %></span>
+                            </div>
+
+                            <div class="row g-3">
+                                <% tab.fields.forEach(function (field) {
+                                    const inputId = `${tab.id}-${field.key}`;
+                                    const value = config[field.key];
+                                %>
+                                    <% if (field.type === "int") { %>
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="<%= inputId %>"><%= field.label %></label>
+                                            <input type="number" class="form-control form-control-sm" id="<%= inputId %>" data-key="<%= field.key %>" data-type="int" data-label="<%= field.label %>" min="<%= field.min %>" max="<%= field.max %>" step="1" value="<%= value ?? '' %>" <%= field.required ? "required" : "" %> />
+                                            <div class="form-text"><%= field.min %>–<%= field.max %><%= field.help ? (". " + field.help) : "" %></div>
                                         </div>
-                                    </button>
-                                </h3>
-                                <div
-                                    id="<%= collapseId %>"
-                                    class="accordion-collapse collapse <%= index === 0 ? 'show' : '' %>"
-                                    data-bs-parent="#metrics-history"
-                                >
-                                    <div class="accordion-body bg-light">
-                                        <% if (isSync && Array.isArray(data.errors) && data.errors.length) { %>
-                                            <div class="alert alert-danger py-2 small mb-3">
-                                                <ul class="mb-0 ps-3">
-                                                    <% data.errors.slice(0, 30).forEach(function (err) { %>
-                                                        <li><%= err %></li>
-                                                    <% }) %>
-                                                </ul>
+                                    <% } else if (field.type === "text") { %>
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="<%= inputId %>"><%= field.label %></label>
+                                            <input type="text" class="form-control form-control-sm" id="<%= inputId %>" data-key="<%= field.key %>" data-type="text" data-label="<%= field.label %>" value="<%= value || '' %>" placeholder="<%= field.placeholder || '' %>" autocomplete="off" <%= field.required ? "required" : "" %> />
+                                            <% if (field.help) { %><div class="form-text"><%= field.help %></div><% } %>
+                                        </div>
+                                    <% } else if (field.type === "password") { %>
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="<%= inputId %>"><%= field.label %></label>
+                                            <input type="password" class="form-control form-control-sm" id="<%= inputId %>" data-key="<%= field.key %>" data-type="password" data-label="<%= field.label %>" value="" autocomplete="new-password" placeholder="<%= config.password_set ? 'Saved — leave blank to keep' : 'Required' %>" />
+                                            <div class="form-text"><%= config.password_set ? "A password is saved. Type a new one only to change it." : "No password saved yet." %></div>
+                                        </div>
+                                    <% } else if (field.type === "checklist") { %>
+                                        <div class="col-12">
+                                            <div class="form-label small"><%= field.label %></div>
+                                            <div class="d-flex flex-wrap gap-3" data-key="<%= field.key %>" data-type="checklist" data-label="<%= field.label %>">
+                                                <% field.options.forEach(function (option) { %>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="<%= inputId %>-<%= option.key %>" data-option="<%= option.key %>" <%= value && value[option.key] ? "checked" : "" %> />
+                                                        <label class="form-check-label small" for="<%= inputId %>-<%= option.key %>"><%= option.label %></label>
+                                                    </div>
+                                                <% }) %>
                                             </div>
-                                        <% } %>
-                                        <% if (!isSync && data.screenshot_media_id) { %>
-                                            <div class="mb-3">
-                                                <a href="/api/media/<%= data.screenshot_media_id %>" target="_blank" rel="noopener">
-                                                    <img
-                                                        src="/api/media/<%= data.screenshot_media_id %>"
-                                                        alt="Screenshot"
-                                                        class="img-fluid rounded border"
-                                                        style="max-height: 16rem;"
-                                                    />
-                                                </a>
+                                        </div>
+                                    <% } else if (field.type === "pairs") { %>
+                                        <div class="col-12">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <div class="form-label small mb-0"><%= field.label %></div>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary pair-add-btn">Add pair</button>
                                             </div>
-                                        <% } else if (!isSync && data.screenshot_error) { %>
-                                            <div class="small text-secondary mb-2">Screenshot: <%= data.screenshot_error %></div>
-                                        <% } %>
-                                        <pre class="small mb-0 text-break" style="white-space: pre-wrap; max-height: 24rem; overflow: auto"><%= metric.raw %></pre>
+                                            <% if (field.help) { %><div class="form-text mt-0 mb-2"><%= field.help %></div><% } %>
+                                            <div class="pairs-list d-flex flex-column gap-2" data-key="<%= field.key %>" data-type="pairs" data-label="<%= field.label %>" data-max="<%= field.max %>">
+                                                <% (Array.isArray(value) ? value : []).forEach(function (pair) { %>
+                                                    <div class="input-group input-group-sm pair-row">
+                                                        <span class="input-group-text">\\source\</span>
+                                                        <input type="text" class="form-control pair-share" placeholder="share, e.g. g" value="<%= pair.share %>" />
+                                                        <span class="input-group-text">→</span>
+                                                        <input type="text" class="form-control pair-local" placeholder="local path, e.g. G:\" value="<%= pair.local_path %>" />
+                                                        <button type="button" class="btn btn-outline-danger pair-remove-btn" aria-label="Remove pair">×</button>
+                                                    </div>
+                                                <% }) %>
+                                            </div>
+                                        </div>
+                                    <% } %>
+                                <% }) %>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3 mt-3">
+                                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                <div class="service-feedback small d-none" role="status"></div>
+                            </div>
+                        </form>
+
+                        <% if (tab.id === "monitor") {
+                            const metricsRows = tab.results.filter(function (r) { return r.type === "metrics"; });
+                            const snap = metricsRows.length ? metricsRows[0].data : null;
+                        %>
+                            <h3 class="h6 mb-3">Latest metrics
+                                <% if (metricsRows.length) { %>
+                                    <span class="text-secondary small fw-normal" data-readable-date="<%= metricsRows[0].collected_at || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></span>
+                                <% } %>
+                            </h3>
+                            <% if (!snap) { %>
+                                <p class="text-secondary">No metrics received yet.</p>
+                            <% } else {
+                                const processor = snap.processor || {};
+                                const memory = snap.memory || {};
+                                const disks = Array.isArray(snap.disks) ? snap.disks : [];
+                                const processes = snap.processes || {};
+                                const services = snap.services || {};
+                                const osInfo = snap.os || {};
+                                const hardware = snap.hardware || {};
+                                const network = Array.isArray(snap.network) ? snap.network : [];
+                                const temperatures = snap.temperatures || {};
+                                const errors = snap.collection_errors || {};
+                            %>
+                                <% if (Object.keys(errors).length) { %>
+                                    <div class="alert alert-warning py-2 small">
+                                        <strong>Sections that failed:</strong>
+                                        <% Object.keys(errors).forEach(function (key) { %><div><%= key %>: <%= errors[key] %></div><% }) %>
+                                    </div>
+                                <% } %>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <div class="border rounded p-3 h-100">
+                                            <div class="d-flex justify-content-between small"><span>CPU</span><strong><%= fmt(processor.usage_percent, "%") %></strong></div>
+                                            <div class="progress my-2" style="height: 8px">
+                                                <div class="progress-bar <%= barClass(processor.usage_percent) %>" style="width: <%= pct(processor.usage_percent) || 0 %>%"></div>
+                                            </div>
+                                            <div class="small text-secondary"><%= processor.name || "—" %> · <%= fmt(processor.core_count) %> cores / <%= fmt(processor.logical_count) %> threads</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="border rounded p-3 h-100">
+                                            <div class="d-flex justify-content-between small"><span>Memory</span><strong><%= fmt(memory.used_percent, "%") %></strong></div>
+                                            <div class="progress my-2" style="height: 8px">
+                                                <div class="progress-bar <%= barClass(memory.used_percent) %>" style="width: <%= pct(memory.used_percent) || 0 %>%"></div>
+                                            </div>
+                                            <div class="small text-secondary"><%= fmt(memory.used_mb, " MB") %> used of <%= fmt(memory.total_mb, " MB") %></div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        <% }) %>
+
+                                <% if (disks.length) { %>
+                                    <div class="table-responsive mb-3">
+                                        <table class="table table-sm align-middle small mb-0">
+                                            <thead class="table-light"><tr><th>Disk</th><th>Label</th><th>Used</th><th>Free</th><th>Size</th></tr></thead>
+                                            <tbody>
+                                                <% disks.forEach(function (disk) { %>
+                                                    <tr>
+                                                        <td><%= disk.name %></td>
+                                                        <td><%= disk.label || "—" %></td>
+                                                        <td style="min-width: 10rem">
+                                                            <div class="progress" style="height: 6px"><div class="progress-bar <%= barClass(disk.used_percent) %>" style="width: <%= pct(disk.used_percent) || 0 %>%"></div></div>
+                                                            <span class="text-secondary"><%= fmt(disk.used_percent, "%") %></span>
+                                                        </td>
+                                                        <td><%= fmt(disk.free_gb, " GB") %></td>
+                                                        <td><%= fmt(disk.size_gb, " GB") %></td>
+                                                    </tr>
+                                                <% }) %>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <% } %>
+
+                                <div class="row g-3 mb-3">
+                                    <% [["Top CPU", processes.top_cpu, "cpu_percent", "%"], ["Top memory", processes.top_memory, "working_set_mb", " MB"]].forEach(function (spec) {
+                                        const list = Array.isArray(spec[1]) ? spec[1] : [];
+                                        if (!list.length) return;
+                                    %>
+                                        <div class="col-md-6">
+                                            <div class="small fw-semibold mb-1"><%= spec[0] %> <span class="text-secondary fw-normal">(<%= fmt(processes.count) %> processes)</span></div>
+                                            <table class="table table-sm small mb-0">
+                                                <tbody>
+                                                    <% list.forEach(function (proc) { %>
+                                                        <tr><td><%= proc.name %></td><td class="text-secondary">pid <%= proc.pid %></td><td class="text-end"><%= fmt(proc[spec[2]], spec[3]) %></td></tr>
+                                                    <% }) %>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    <% }) %>
+                                </div>
+
+                                <div class="row g-3 mb-3 small">
+                                    <% if (Object.keys(osInfo).length) { %>
+                                        <div class="col-md-4">
+                                            <div class="fw-semibold mb-1">Operating system</div>
+                                            <div><%= osInfo.caption || "—" %> (<%= osInfo.build || "?" %>)</div>
+                                            <div class="text-secondary">Uptime <%= duration(osInfo.uptime_seconds) %> · booted <%= osInfo.last_boot_ist || "—" %></div>
+                                            <div class="text-secondary">Domain <%= osInfo.domain || "—" %> · user <%= osInfo.logged_in_user || "none" %></div>
+                                        </div>
+                                    <% } %>
+                                    <% if (Object.keys(hardware).length) { %>
+                                        <div class="col-md-4">
+                                            <div class="fw-semibold mb-1">Hardware</div>
+                                            <div><%= hardware.manufacturer || "—" %> <%= hardware.model || "" %></div>
+                                            <div class="text-secondary">Serial <%= hardware.bios_serial || "—" %> · BIOS <%= hardware.bios_version || "—" %></div>
+                                            <div class="text-secondary">RAM <%= fmt(hardware.total_physical_memory_gb, " GB") %></div>
+                                        </div>
+                                    <% } %>
+                                    <% if (Object.keys(services).length) { %>
+                                        <div class="col-md-4">
+                                            <div class="fw-semibold mb-1">Windows services</div>
+                                            <div><%= fmt(services.running) %> running of <%= fmt(services.total) %></div>
+                                            <% if (services.auto_not_running_count) { %>
+                                                <details>
+                                                    <summary class="text-warning"><%= services.auto_not_running_count %> automatic services not running</summary>
+                                                    <ul class="mb-0">
+                                                        <% (services.auto_not_running || []).forEach(function (svc) { %><li><%= svc.display_name || svc.name %> <span class="text-secondary">(<%= svc.state %>)</span></li><% }) %>
+                                                    </ul>
+                                                </details>
+                                            <% } %>
+                                        </div>
+                                    <% } %>
+                                </div>
+
+                                <% if (network.length) { %>
+                                    <div class="small mb-3">
+                                        <div class="fw-semibold mb-1">Network</div>
+                                        <% network.forEach(function (adapter) { %>
+                                            <div><%= adapter.description %> · <%= (adapter.ip_addresses || []).join(", ") %> <span class="text-secondary">· gw <%= (adapter.gateways || []).join(", ") || "—" %><%= adapter.speed_mbps ? (" · " + adapter.speed_mbps + " Mbps") : "" %></span></div>
+                                        <% }) %>
+                                    </div>
+                                <% } %>
+                                <% if (temperatures.max_celsius != null) { %>
+                                    <div class="small mb-3"><span class="fw-semibold">Temperature</span> max <%= fmt(temperatures.max_celsius, " °C") %></div>
+                                <% } %>
+                            <% } %>
+
+                            <% if (metricsRows.length) { %>
+                                <h3 class="h6 mt-4 mb-2">History</h3>
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle small mb-0">
+                                        <thead class="table-light"><tr><th>Received</th><th>CPU</th><th>Memory</th><th>Collected in</th><th>Section errors</th><th></th></tr></thead>
+                                        <tbody>
+                                            <% metricsRows.forEach(function (result) {
+                                                const data = result.data || {};
+                                                const errorCount = Object.keys(data.collection_errors || {}).length;
+                                            %>
+                                                <tr>
+                                                    <td data-readable-date="<%= result.collected_at || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></td>
+                                                    <td><%= fmt(data.processor && data.processor.usage_percent, "%") %></td>
+                                                    <td><%= fmt(data.memory && data.memory.used_percent, "%") %></td>
+                                                    <td><%= fmt(data.duration_ms, " ms") %></td>
+                                                    <td><%= errorCount || "—" %></td>
+                                                    <td>
+                                                        <details>
+                                                            <summary class="small">JSON</summary>
+                                                            <pre class="small mb-0" style="white-space: pre-wrap; max-height: 20rem; overflow: auto"><%= JSON.stringify(data, null, 2) %></pre>
+                                                        </details>
+                                                    </td>
+                                                </tr>
+                                            <% }) %>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <% } %>
+                        <% } else if (tab.id === "drivesync") {
+                            const runs = tab.results.filter(function (r) { return r.type === "sync_run"; });
+                        %>
+                            <h3 class="h6 mb-2">Sync runs</h3>
+                            <% if (!runs.length) { %>
+                                <p class="text-secondary">No sync runs received yet.</p>
+                            <% } else { %>
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle small mb-0">
+                                        <thead class="table-light">
+                                            <tr><th>Finished</th><th>Status</th><th>Copied</th><th>Skipped</th><th>Purged</th><th>Failed</th><th>Data</th><th>Duration</th><th></th></tr>
+                                        </thead>
+                                        <tbody>
+                                            <% runs.forEach(function (run) {
+                                                const data = run.data || {};
+                                                const totals = data.totals || {};
+                                                const pairs = Array.isArray(data.pairs) ? data.pairs : [];
+                                                const events = Array.isArray(data.events) ? data.events : [];
+                                            %>
+                                                <tr>
+                                                    <td><%= data.finished_at_ist || "" %><% if (!data.finished_at_ist) { %><span data-readable-date="<%= run.collected_at || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></span><% } %></td>
+                                                    <td><span class="badge <%= runBadge(data.status) %>"><%= data.status || "unknown" %></span></td>
+                                                    <td><%= fmt(totals.copied) %></td>
+                                                    <td><%= fmt(totals.skipped) %></td>
+                                                    <td><%= fmt(totals.purged) %></td>
+                                                    <td class="<%= totals.failed ? 'text-danger fw-semibold' : '' %>"><%= fmt(totals.failed) %></td>
+                                                    <td><%= bytes(totals.bytes_copied) %></td>
+                                                    <td><%= duration(data.duration_seconds) %></td>
+                                                    <td>
+                                                        <details>
+                                                            <summary class="small">Details</summary>
+                                                            <% if (data.error) { %><div class="text-danger my-1"><%= data.error %></div><% } %>
+                                                            <table class="table table-sm small my-2">
+                                                                <thead><tr><th>Pair</th><th>Status</th><th>Copied</th><th>Skipped</th><th>Purged</th><th>Failed</th><th>Robocopy</th></tr></thead>
+                                                                <tbody>
+                                                                    <% pairs.forEach(function (pair) { %>
+                                                                        <tr>
+                                                                            <td><code><%= pair.source %></code> → <code><%= pair.destination %></code></td>
+                                                                            <td><span class="badge <%= runBadge(pair.status) %>"><%= pair.status %></span></td>
+                                                                            <td><%= fmt(pair.copied) %></td>
+                                                                            <td><%= fmt(pair.skipped) %></td>
+                                                                            <td><%= fmt(pair.purged) %></td>
+                                                                            <td><%= fmt(pair.failed) %></td>
+                                                                            <td>
+                                                                                <%= pair.exit_code != null ? pair.exit_code : "—" %>
+                                                                                <span class="text-secondary"><%= pair.meaning || "" %></span>
+                                                                                <% if (pair.error) { %><div class="text-danger"><%= pair.error %></div><% } %>
+                                                                            </td>
+                                                                        </tr>
+                                                                    <% }) %>
+                                                                </tbody>
+                                                            </table>
+                                                            <% if (events.length) { %>
+                                                                <div class="fw-semibold">File events<% if (data.events_truncated) { %> <span class="text-secondary fw-normal">(first <%= events.length %> of <%= data.event_count %>; full list in the drivesync log on the machine)</span><% } %></div>
+                                                                <div style="max-height: 20rem; overflow: auto">
+                                                                    <table class="table table-sm small mb-0">
+                                                                        <tbody>
+                                                                            <% events.forEach(function (event) { %>
+                                                                                <tr>
+                                                                                    <td><span class="badge <%= event.action === 'failed' ? 'text-bg-danger' : event.action === 'purged' ? 'text-bg-warning' : 'text-bg-light border' %>"><%= event.action %></span></td>
+                                                                                    <td class="text-break"><%= event.path %></td>
+                                                                                    <td class="text-secondary"><%= event.size != null && event.size >= 0 ? bytes(event.size) : "" %></td>
+                                                                                    <td class="text-secondary"><%= event.detail || "" %></td>
+                                                                                </tr>
+                                                                            <% }) %>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            <% } %>
+                                                        </details>
+                                                    </td>
+                                                </tr>
+                                            <% }) %>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <% } %>
+                        <% } else { %>
+                            <h3 class="h6 mb-2">Results</h3>
+                            <% if (!tab.results.length) { %>
+                                <p class="text-secondary">No results received yet.</p>
+                            <% } else { %>
+                                <% tab.results.forEach(function (result) { %>
+                                    <details class="mb-2">
+                                        <summary class="small"><%= result.type %> · <span data-readable-date="<%= result.collected_at || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></span></summary>
+                                        <pre class="small mb-0" style="white-space: pre-wrap; max-height: 20rem; overflow: auto"><%= JSON.stringify(result.data, null, 2) %></pre>
+                                    </details>
+                                <% }) %>
+                            <% } %>
+                        <% } %>
                     </div>
-                <% } %>
+                <% }) %>
             </div>
         </div>
     </div>
 </main>
 
+<template id="pair-row-template">
+    <div class="input-group input-group-sm pair-row">
+        <span class="input-group-text">\\source\</span>
+        <input type="text" class="form-control pair-share" placeholder="share, e.g. g" />
+        <span class="input-group-text">→</span>
+        <input type="text" class="form-control pair-local" placeholder="local path, e.g. G:\" />
+        <button type="button" class="btn btn-outline-danger pair-remove-btn" aria-label="Remove pair">×</button>
+    </div>
+</template>
+
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
 <script src="/public/server.js" defer></script>
+<script src="/public/server-agent.js" defer></script>
 
 <%- include('common/footer') %>

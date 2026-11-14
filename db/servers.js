@@ -2,20 +2,55 @@ import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 import { getIstDateTime } from "../libs/date.js";
 
-export async function createServer({ tag }) {
+function truncate(value, max) {
+    if (value == null) {
+        return null;
+    }
+    const text = String(value).trim();
+    return text ? text.slice(0, max) : null;
+}
+
+export async function createServer({ tag, approval_status = "pending", host = {} }) {
+    const row = {
+        tag,
+        approval_status,
+        hostname: truncate(host.hostname, 128),
+        os_caption: truncate(host.os_caption, 128),
+        os_build: truncate(host.os_build, 32),
+        ps_version: truncate(host.ps_version, 16),
+        platform_family: truncate(host.platform_family, 32),
+    };
     return await executeSQLQuery(
         (sql) => sql`
-            INSERT INTO SERVERS ${sql({ tag }, "tag")}
+            INSERT INTO SERVERS ${sql(
+                row,
+                "tag",
+                "approval_status",
+                "hostname",
+                "os_caption",
+                "os_build",
+                "ps_version",
+                "platform_family",
+            )}
         `,
     )
         .then((result) => result.lastInsertRowid)
         .catch((error) => {
             logger.error(`createServer: ${error}`);
+            return null;
         });
 }
 
+// last_poll_at holds IST wall-clock time; the driver's DATETIME conversion differs between
+// parameterised and plain queries, so the age is computed by MySQL against IST "now".
 export async function getServerById({ id }) {
-    return await executeSQLQuery((sql) => sql`SELECT * FROM SERVERS WHERE id = ${id}`)
+    const now = getIstDateTime();
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *, TIMESTAMPDIFF(SECOND, last_poll_at, ${now}) AS seconds_since_poll
+            FROM SERVERS WHERE id = ${id}
+        `,
+    )
         .then((result) => (result.length ? result[0] : null))
         .catch((error) => {
             logger.error(`getServerById: ${error}`);
@@ -33,14 +68,16 @@ export async function getServerByTag({ tag }) {
 }
 
 export async function getAllServers() {
+    const now = getIstDateTime();
     return await executeSQLQuery(
         (sql) => sql`
             SELECT
                 SERVERS.*,
+                TIMESTAMPDIFF(SECOND, SERVERS.last_poll_at, ${now}) AS seconds_since_poll,
                 CUSTOMER_PROJECTS.title AS project_title
             FROM SERVERS
             LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = SERVERS.project_id
-            ORDER BY SERVERS.last_seen_at DESC, SERVERS.created_on DESC
+            ORDER BY SERVERS.last_poll_at DESC, SERVERS.created_on DESC
         `,
     )
         .then((result) => Array.from(result ?? []))
@@ -51,15 +88,17 @@ export async function getAllServers() {
 }
 
 export async function getServersByProjectId({ project_id }) {
+    const now = getIstDateTime();
     return await executeSQLQuery(
         (sql) => sql`
             SELECT
                 SERVERS.*,
+                TIMESTAMPDIFF(SECOND, SERVERS.last_poll_at, ${now}) AS seconds_since_poll,
                 CUSTOMER_PROJECTS.title AS project_title
             FROM SERVERS
             LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = SERVERS.project_id
             WHERE SERVERS.project_id = ${project_id}
-            ORDER BY SERVERS.last_seen_at DESC, SERVERS.created_on DESC
+            ORDER BY SERVERS.last_poll_at DESC, SERVERS.created_on DESC
         `,
     )
         .then((result) => Array.from(result ?? []))
@@ -69,53 +108,75 @@ export async function getServersByProjectId({ project_id }) {
         });
 }
 
-export async function updateServerLastSeenById({ id, agent_version = null }) {
-    const last_seen_at = getIstDateTime();
-
-    if (agent_version == null) {
-        await executeSQLQuery(
-            (sql) => sql`
-                UPDATE SERVERS
-                SET last_seen_at = ${last_seen_at}
-                WHERE id = ${id}
-            `,
-        ).catch((error) => {
-            logger.error(`updateServerLastSeenById: ${error}`);
-        });
-        return;
-    }
-
+export async function updateServerHostInfoById({ id, host = {} }) {
+    const hostname = truncate(host.hostname, 128);
+    const os_caption = truncate(host.os_caption, 128);
+    const os_build = truncate(host.os_build, 32);
+    const ps_version = truncate(host.ps_version, 16);
+    const platform_family = truncate(host.platform_family, 32);
     await executeSQLQuery(
         (sql) => sql`
             UPDATE SERVERS
             SET
-                last_seen_at = ${last_seen_at},
-                agent_version = ${agent_version}
+                hostname = COALESCE(${hostname}, hostname),
+                os_caption = COALESCE(${os_caption}, os_caption),
+                os_build = COALESCE(${os_build}, os_build),
+                ps_version = COALESCE(${ps_version}, ps_version),
+                platform_family = COALESCE(${platform_family}, platform_family)
             WHERE id = ${id}
         `,
     ).catch((error) => {
-        logger.error(`updateServerLastSeenById: ${error}`);
+        logger.error(`updateServerHostInfoById: ${error}`);
     });
 }
 
-export async function updateServerSyncStatusById({
+export async function updateServerPollById({
     id,
-    last_sync_status = null,
-    last_sync_summary = null,
+    agent_version = null,
+    agent_update_status = null,
+    agent_update_error = null,
 }) {
-    // Do not bump last_seen_at here — alive/ping alerts use agent ping (type=ping) only.
-    const last_sync_at = getIstDateTime();
+    const now = getIstDateTime();
+    const version = truncate(agent_version, 32);
+    const updateStatus = truncate(agent_update_status, 32);
+    const updateError = truncate(agent_update_error, 512);
     await executeSQLQuery(
         (sql) => sql`
             UPDATE SERVERS
             SET
-                last_sync_at = ${last_sync_at},
-                last_sync_status = ${last_sync_status},
-                last_sync_summary = ${last_sync_summary}
+                last_poll_at = ${now},
+                last_seen_at = ${now},
+                agent_version = COALESCE(${version}, agent_version),
+                agent_update_status = ${updateStatus},
+                agent_update_error = ${updateError}
             WHERE id = ${id}
         `,
     ).catch((error) => {
-        logger.error(`updateServerSyncStatusById: ${error}`);
+        logger.error(`updateServerPollById: ${error}`);
+    });
+}
+
+export async function updateServerApprovalById({ id, approval_status }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET approval_status = ${approval_status}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerApprovalById: ${error}`);
+    });
+}
+
+export async function updateServerAgentActiveById({ id, agent_active }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET agent_active = ${Boolean(agent_active)}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerAgentActiveById: ${error}`);
     });
 }
 
@@ -185,7 +246,7 @@ export async function updateServerAlertSettingsById({
     const pingEnabled = Boolean(alert_ping_enabled);
     const cpuPercent = clampPercent(alert_cpu_percent, 80);
     const memoryPercent = clampPercent(alert_memory_percent, 80);
-    const pingSeconds = clampPingSeconds(alert_ping_seconds, 2700);
+    const pingSeconds = clampPingSeconds(alert_ping_seconds, 180);
 
     await executeSQLQuery(
         (sql) => sql`
@@ -206,12 +267,15 @@ export async function updateServerAlertSettingsById({
 }
 
 export async function getServersWithPingAlertEnabled() {
+    const now = getIstDateTime();
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT *
+            SELECT *, TIMESTAMPDIFF(SECOND, last_poll_at, ${now}) AS seconds_since_poll
             FROM SERVERS
             WHERE alert_ping_enabled = TRUE
               AND active = TRUE
+              AND approval_status = 'approved'
+              AND agent_active = TRUE
         `,
     )
         .then((result) => Array.from(result ?? []))

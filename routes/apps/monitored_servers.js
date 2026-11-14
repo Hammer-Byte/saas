@@ -3,10 +3,49 @@ import {
     getMonitoredServer,
     getMonitoredServers,
     updateMonitoredServer,
+    updateServerAgent,
+    updateServerApproval,
+    updateServerServiceConfig,
 } from "../../services/servers.js";
 
 export default function (app) {
     return app
+        .patch("/:id/approval", updateServerApproval, {
+            params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
+            body: t.Object({
+                approval_status: t.Union([
+                    t.Literal("pending"),
+                    t.Literal("approved"),
+                    t.Literal("rejected"),
+                ]),
+            }),
+            detail: {
+                tags: ["Monitored Servers"],
+                summary: "Approve, reject or reset a server's agent",
+            },
+        })
+        .patch("/:id/agent", updateServerAgent, {
+            params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
+            body: t.Object({ agent_active: t.Boolean() }),
+            detail: {
+                tags: ["Monitored Servers"],
+                summary: "Activate or pause the agent (paused agents stop all services)",
+            },
+        })
+        .patch("/:id/services/:service", updateServerServiceConfig, {
+            params: t.Object({
+                id: t.Numeric({ minimum: 1 }),
+                service: t.String({ minLength: 1, maxLength: 32 }),
+            }),
+            body: t.Object({
+                enabled: t.Optional(t.Boolean()),
+                config: t.Optional(t.Object({}, { additionalProperties: true })),
+            }),
+            detail: {
+                tags: ["Monitored Servers"],
+                summary: "Enable/disable a service and save its config",
+            },
+        })
         .get("/", getMonitoredServers, {
             detail: {
                 tags: ["Monitored Servers"],

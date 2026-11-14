@@ -107,9 +107,7 @@ export async function notifyServerMetricAlertsIfNeeded({ server, body }) {
         if (!server?.id || !body || typeof body !== "object") {
             return;
         }
-        const payloadType = String(body.type || "").toLowerCase();
-        // CPU/memory alerts only on full metrics snapshots (not ping / drive_sync).
-        if (payloadType === "drive_sync" || payloadType === "ping") {
+        if (String(body.type || "").toLowerCase() !== "metrics") {
             return;
         }
 
@@ -202,46 +200,17 @@ export async function notifyServerMetricAlertsIfNeeded({ server, body }) {
     }
 }
 
-/** @deprecated use notifyServerMetricAlertsIfNeeded */
-export async function notifyServerHighMemoryAlertIfNeeded(args) {
-    return notifyServerMetricAlertsIfNeeded(args);
-}
-
-function parseMysqlDateTimeAsMs(value) {
-    if (!value) {
-        return null;
-    }
-    if (value instanceof Date) {
-        const ms = value.getTime();
-        return Number.isFinite(ms) ? ms : null;
-    }
-    const raw = String(value).trim();
-    if (!raw) {
-        return null;
-    }
-    // Stored as IST wall time without zone — treat as local/IST-ish parseable string.
-    const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
-    const ms = Date.parse(normalized);
-    if (Number.isFinite(ms)) {
-        return ms;
-    }
-    const fallback = Date.parse(`${normalized}+05:30`);
-    return Number.isFinite(fallback) ? fallback : null;
-}
-
 export async function checkServerPingAlerts() {
     try {
         const servers = await getServersWithPingAlertEnabled();
-        const now = Date.now();
 
         for (const server of servers) {
             const seconds = Number(server.alert_ping_seconds);
             const thresholdSeconds = Number.isFinite(seconds) ? seconds : 180;
-            const lastSeenMs = parseMysqlDateTimeAsMs(server.last_seen_at);
-            if (!lastSeenMs) {
+            if (server.seconds_since_poll == null) {
                 continue;
             }
-            const ageSeconds = Math.floor((now - lastSeenMs) / 1000);
+            const ageSeconds = Number(server.seconds_since_poll);
             if (ageSeconds < thresholdSeconds) {
                 continue;
             }
@@ -260,8 +229,8 @@ export async function checkServerPingAlerts() {
             const checkedAt =
                 getReadableDate("DD/MM/YYYY HH:mm:ss", getIstDateTime()) || "—";
             const lastSeenReadable =
-                getReadableDate("DD/MM/YYYY HH:mm:ss", server.last_seen_at) ||
-                String(server.last_seen_at || "—");
+                getReadableDate("DD/MM/YYYY HH:mm:ss", server.last_poll_at) ||
+                String(server.last_poll_at || "—");
 
             const html = filer.prepareTemplated("templates/server_ping_alert.html", {
                 server_name: serverName,
@@ -278,7 +247,7 @@ export async function checkServerPingAlerts() {
 
             queueAlertEmails({
                 recipients,
-                subject: `Server offline / no metrics — ${serverName} (>${thresholdSeconds}s)`,
+                subject: `Server offline / agent silent — ${serverName} (>${thresholdSeconds}s)`,
                 html,
                 serverId: server.id,
                 kind: "ping",

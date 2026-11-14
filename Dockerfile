@@ -7,9 +7,7 @@ RUN apt-get update \
         ca-certificates \
         wget \
         curl \
-        zip \
         unzip \
-        python3 \
         xfonts-75dpi \
         xfonts-base \
         fontconfig \
@@ -52,7 +50,7 @@ RUN bun install --frozen-lockfile
 
 COPY . .
 
-RUN bun run build:windows-agents
+RUN bun run build:agents
 
 VOLUME ["/app/media"]
 

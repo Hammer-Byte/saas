@@ -34,8 +34,12 @@ import {
 } from "../db/customer_projects.js";
 import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
 import { getAllInternalDocuments } from "../db/internal_documents.js";
-import { getAllServers, getServerById, getServersByProjectId } from "../db/servers.js";
-import { getServerMetricsByServerId } from "../db/server_metrics.js";
+import { getServerById, getServersByProjectId } from "../db/servers.js";
+import {
+    buildAgentReleasesPageData,
+    buildServerPageData,
+    buildServersPageData,
+} from "../libs/server_pages.js";
 import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
 import {
     getAllCustomerInvoices,
@@ -564,7 +568,7 @@ export const uiRoutes = new Elysia()
             .get("/app/servers", async ({ render, session }) =>
                 render("servers", appPage(session, {
                     title: "Servers — HammerByte",
-                    servers: await getAllServers(),
+                    ...(await buildServersPageData()),
                     projects: await getAllCustomerProjects(),
                 })),
             )
@@ -573,47 +577,17 @@ export const uiRoutes = new Elysia()
                 if (!server) {
                     return redirect("/not-found");
                 }
-                const metricRows = await getServerMetricsByServerId({ server_id: server.id });
-                const metrics = (metricRows || []).map((metric) => {
-                    let data = null;
-                    try {
-                        data =
-                            typeof metric.payload === "string"
-                                ? JSON.parse(metric.payload)
-                                : metric.payload && typeof metric.payload === "object"
-                                  ? metric.payload
-                                  : null;
-                    } catch {
-                        data = null;
-                    }
-                    const kind =
-                        data && String(data.type || "").toLowerCase() === "drive_sync"
-                            ? "drive_sync"
-                            : "metrics";
-                    let rawObj = data;
-                    if (rawObj && typeof rawObj === "object" && rawObj.screenshot_jpeg_base64) {
-                        rawObj = { ...rawObj, screenshot_jpeg_base64: "[omitted]" };
-                    }
-                    return {
-                        id: metric.id,
-                        collected_at: metric.collected_at,
-                        kind,
-                        data,
-                        raw: JSON.stringify(rawObj ?? {}, null, 2),
-                    };
-                });
-                const latestMonitor =
-                    metrics.find((metric) => metric.kind === "metrics" && metric.data) || null;
-                const latestSync =
-                    metrics.find((metric) => metric.kind === "drive_sync" && metric.data) || null;
                 return render("server", appPage(session, {
                     title: `${server.name || server.tag} — Servers — HammerByte`,
-                    server,
-                    metrics,
-                    latest: latestMonitor,
-                    latestSync,
+                    ...(await buildServerPageData(server)),
                 }));
             })
+            .get("/app/agent-releases", async ({ render, session }) =>
+                render("agent-releases", appPage(session, {
+                    title: "Agent Releases — HammerByte",
+                    ...(await buildAgentReleasesPageData()),
+                })),
+            )
             .get("/app/expenses", async ({ render, session, query }) => {
                 const monthBounds = getIstMonthBounds();
                 const defaultStart = monthBounds.from;

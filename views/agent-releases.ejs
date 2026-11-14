@@ -1,0 +1,102 @@
+<%- include('common/header') %>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div class="container py-5">
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/servers" class="text-decoration-none">Servers</a> / Agent releases
+                </p>
+                <h1 class="h3 mb-1">Agent releases</h1>
+                <p class="text-secondary mb-0">
+                    Built from the repository (<code>bun run build:agents</code>) and registered when the server starts.
+                    The release marked <strong>latest</strong> is what every approved agent runs; agents switch within about 10 seconds.
+                </p>
+            </div>
+            <div>
+                <% if (zipExists) { %>
+                    <a class="btn btn-sm btn-primary" href="/public/agents/hammerbyte-agent.zip">Download installer zip</a>
+                <% } else { %>
+                    <span class="badge text-bg-danger">Installer zip missing — run build:agents</span>
+                <% } %>
+            </div>
+        </div>
+
+        <div id="releases-alert" class="alert d-none" role="alert"></div>
+
+        <% if (!components.length) { %>
+            <div class="card border-0 shadow-sm"><div class="card-body text-secondary">No releases registered yet.</div></div>
+        <% } %>
+
+        <% components.forEach(function (group) { %>
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 pt-4 px-4">
+                    <h2 class="h5 mb-0"><%= group.component === "agent" ? "Agent (supervisor)" : group.component %></h2>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Version</th>
+                                    <th scope="col">Registered</th>
+                                    <th scope="col">Size</th>
+                                    <th scope="col">SHA-256</th>
+                                    <th scope="col" class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% group.releases.forEach(function (release) { %>
+                                    <tr>
+                                        <td>
+                                            <strong>v<%= release.version %></strong>
+                                            <% if (release.is_latest) { %><span class="badge text-bg-success ms-1">latest</span><% } %>
+                                            <% if (!release.file_exists) { %><span class="badge text-bg-danger ms-1">file missing</span><% } %>
+                                        </td>
+                                        <td data-readable-date="<%= release.created_on || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></td>
+                                        <td><%= (Number(release.size_bytes) / 1024).toFixed(1) %> KB</td>
+                                        <td><code class="small"><%= String(release.sha256).slice(0, 16) %>…</code></td>
+                                        <td class="text-end">
+                                            <% if (release.file_exists) { %>
+                                                <a class="btn btn-sm btn-outline-secondary" href="<%= release.file_path %>" download>Download</a>
+                                            <% } %>
+                                            <% if (!release.is_latest) { %>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-primary release-latest-btn"
+                                                    data-id="<%= release.id %>"
+                                                    data-label="<%= group.component %> v<%= release.version %>"
+                                                    <%= release.file_exists ? "" : "disabled" %>
+                                                >Set latest</button>
+                                            <% } %>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        <% }) %>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/agent-releases.js" defer></script>
+
+<%- include('common/footer') %>

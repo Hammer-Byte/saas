@@ -2,11 +2,18 @@ import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 import { getIstDateTime } from "../libs/date.js";
 
-export async function createServerMetric({ server_id, payload }) {
+export async function createServerMetric({ server_id, service = null, type = null, payload }) {
     const collected_at = getIstDateTime();
     await executeSQLQuery(
         (sql) => sql`
-            INSERT INTO SERVER_METRICS ${sql({ server_id, payload, collected_at }, "server_id", "payload", "collected_at")}
+            INSERT INTO SERVER_METRICS ${sql(
+                { server_id, service, type, payload, collected_at },
+                "server_id",
+                "service",
+                "type",
+                "payload",
+                "collected_at",
+            )}
         `,
     ).catch((error) => {
         logger.error(`createServerMetric: ${error}`);
@@ -18,13 +25,29 @@ export async function getServerMetricsByServerId({ server_id, limit = 200 }) {
         (sql) => sql`
             SELECT * FROM SERVER_METRICS
             WHERE server_id = ${server_id}
-            ORDER BY collected_at DESC
+            ORDER BY collected_at DESC, id DESC
             LIMIT ${limit}
         `,
     )
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
             logger.error(`getServerMetricsByServerId: ${error}`);
+            return [];
+        });
+}
+
+export async function getServerMetricsByService({ server_id, service, limit = 50 }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT * FROM SERVER_METRICS
+            WHERE server_id = ${server_id} AND service = ${service}
+            ORDER BY collected_at DESC, id DESC
+            LIMIT ${limit}
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getServerMetricsByService: ${error}`);
             return [];
         });
 }

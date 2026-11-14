@@ -907,6 +907,16 @@ export async function generateDBTables() {
             alert_ping_enabled BOOLEAN NOT NULL DEFAULT FALSE,
             alert_ping_seconds INT NOT NULL DEFAULT 180,
             active BOOLEAN NOT NULL DEFAULT TRUE,
+            approval_status VARCHAR(16) NOT NULL DEFAULT 'approved',
+            agent_active BOOLEAN NOT NULL DEFAULT TRUE,
+            last_poll_at DATETIME NULL,
+            hostname VARCHAR(128) NULL,
+            os_caption VARCHAR(128) NULL,
+            os_build VARCHAR(32) NULL,
+            ps_version VARCHAR(16) NULL,
+            platform_family VARCHAR(32) NULL,
+            agent_update_status VARCHAR(32) NULL,
+            agent_update_error VARCHAR(512) NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY unique_server_tag (tag),
@@ -919,14 +929,52 @@ export async function generateDBTables() {
         `CREATE TABLE IF NOT EXISTS SERVER_METRICS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             server_id INT NOT NULL,
-            payload TEXT NOT NULL,
+            service VARCHAR(32) NULL,
+            type VARCHAR(16) NULL,
+            payload MEDIUMTEXT NOT NULL,
             collected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT fk_server_metrics_server
                 FOREIGN KEY (server_id)
                 REFERENCES SERVERS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE,
-            INDEX idx_server_metrics_server_collected (server_id, collected_at)
+            INDEX idx_server_metrics_server_collected (server_id, collected_at),
+            INDEX idx_server_metrics_service_collected (server_id, service, collected_at)
+        )`,
+        `CREATE TABLE IF NOT EXISTS SERVER_SERVICES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            server_id INT NOT NULL,
+            service VARCHAR(32) NOT NULL,
+            enabled BOOLEAN NOT NULL DEFAULT FALSE,
+            config MEDIUMTEXT NOT NULL,
+            config_version INT NOT NULL DEFAULT 1,
+            state VARCHAR(16) NULL,
+            pid INT NULL,
+            running_script_version VARCHAR(32) NULL,
+            running_config_version INT NULL,
+            restarts INT NOT NULL DEFAULT 0,
+            last_error VARCHAR(512) NULL,
+            last_status_at DATETIME NULL,
+            last_result_at DATETIME NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_server_service (server_id, service),
+            CONSTRAINT fk_server_services_server
+                FOREIGN KEY (server_id)
+                REFERENCES SERVERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS AGENT_RELEASES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            component VARCHAR(32) NOT NULL,
+            version VARCHAR(32) NOT NULL,
+            file_path VARCHAR(256) NOT NULL,
+            sha256 CHAR(64) NOT NULL,
+            size_bytes INT NOT NULL,
+            is_latest BOOLEAN NOT NULL DEFAULT FALSE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_agent_release (component, version)
         )`,
         `CREATE TABLE IF NOT EXISTS TASKS (
             id INT AUTO_INCREMENT PRIMARY KEY,

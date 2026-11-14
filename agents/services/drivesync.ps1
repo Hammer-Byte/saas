@@ -1,0 +1,427 @@
+#Requires -Version 3.0
+<#
+    HammerByte Drive Sync service. Started and stopped by the HammerByte Agent; do not run by hand.
+
+    Pull-only mirror: for every pair, robocopy copies \\source_host\share onto a local folder.
+    The source is only ever read. /PURGE removes files from the LOCAL destination that no longer
+    exist at the source, so the local folder becomes an exact copy.
+#>
+param(
+    [Parameter(Mandatory = $true)][string]$ConfigFile,
+    [Parameter(Mandatory = $true)][int]$ParentPid
+)
+
+$ErrorActionPreference = 'Stop'
+$script:ServiceVersion = '__HB_VERSION__'
+
+# >>> HB-COMMON
+# <<< HB-COMMON
+
+$script:MaxReportEvents = 200
+$script:RobocopyExe = Join-Path $env:SystemRoot 'System32\robocopy.exe'
+$script:ExcludedDirs = @('System Volume Information', '$RECYCLE.BIN', 'RECYCLER')
+$script:ExcludedFiles = @('pagefile.sys', 'hiberfil.sys', 'swapfile.sys', 'DumpStack.log.tmp')
+
+# Robocopy per-file labels (English). Copied = transferred, skipped = identical at both ends,
+# purged = existed only locally and was deleted by /PURGE.
+$script:CopiedLabels = @('New File', 'Newer', 'Older', 'Changed', 'Modified', 'Tweaked')
+$script:SkippedLabels = @('same')
+$script:PurgedLabels = @('*EXTRA File', '*EXTRA Dir')
+$script:FileLineRegex = '^\s*(New File|Newer|Older|Changed|Modified|Tweaked|same|\*EXTRA File|\*EXTRA Dir|\*Mismatch|lonely|New Dir)\s+(-?\d*)\s*(.+?)\s*$'
+$script:ErrorLineRegex = 'ERROR\s+(\d+)\s+\(0x[0-9A-Fa-f]+\)\s+(.+?)\s+((?:\\\\|[A-Za-z]:\\).*)$'
+
+function Invoke-HbNet {
+    param([string[]]$Arguments)
+    $output = & net.exe @Arguments 2>&1
+    return @{ code = $LASTEXITCODE; output = ((@($output) | ForEach-Object { [string]$_ }) -join ' ').Trim() }
+}
+
+function Disconnect-HbSource {
+    param([string]$SourceHost)
+    $null = Invoke-HbNet -Arguments @('use', ('\\' + $SourceHost + '\IPC$'), '/delete', '/y')
+}
+
+function Connect-HbSource {
+    # One IPC$ session per cycle carries the credentials for every share on the host.
+    param([string]$SourceHost, [string]$User, [string]$Password)
+    $target = '\\' + $SourceHost + '\IPC$'
+    Disconnect-HbSource -SourceHost $SourceHost
+    $result = Invoke-HbNet -Arguments @('use', $target, $Password, ('/user:' + $User), '/persistent:no')
+    if ($result.code -eq 0) {
+        return
+    }
+    if ($result.output -match '1219') {
+        # Another session to the same host exists with different credentials; drop every session and retry once.
+        $null = Invoke-HbNet -Arguments @('use', ('\\' + $SourceHost), '/delete', '/y')
+        $result = Invoke-HbNet -Arguments @('use', $target, $Password, ('/user:' + $User), '/persistent:no')
+        if ($result.code -eq 0) {
+            return
+        }
+    }
+    $message = $result.output
+    if ($Password) {
+        $message = $message.Replace($Password, '***')
+    }
+    throw ('cannot connect to ' + $target + ' as ' + $User + ': ' + $message)
+}
+
+function Get-HbNormalizedLocalPath {
+    param([string]$Path)
+    $trimmed = $Path.Trim().TrimEnd('\')
+    if ($trimmed -match '^[A-Za-z]:$') {
+        return $trimmed + '\'
+    }
+    return $trimmed
+}
+
+function Test-HbLocalDestination {
+    # Returns an error string when mirroring into this path could destroy something important.
+    param([string]$Path)
+    if ($Path -notmatch '^[A-Za-z]:\\') {
+        return 'local path must start with a drive letter, e.g. G:\'
+    }
+    $driveRoot = $Path.Substring(0, 3)
+    if (-not [IO.Directory]::Exists($driveRoot)) {
+        return ('drive ' + $driveRoot + ' does not exist on this machine')
+    }
+    $full = [IO.Path]::GetFullPath($Path).TrimEnd('\').ToLowerInvariant()
+    $systemDrive = ([string]$env:SystemDrive).TrimEnd('\').ToLowerInvariant()
+    if ($full -eq $systemDrive) {
+        return 'refusing to mirror onto the root of the system drive'
+    }
+    $protected = @(
+        $env:SystemRoot,
+        $env:ProgramFiles,
+        ${env:ProgramFiles(x86)},
+        $env:ProgramData,
+        (Join-Path $env:SystemDrive 'Users')
+    )
+    foreach ($item in $protected) {
+        if (-not $item) {
+            continue
+        }
+        $protectedPath = ([string]$item).TrimEnd('\').ToLowerInvariant()
+        if ($full -eq $protectedPath -or $full.StartsWith($protectedPath + '\') -or $protectedPath.StartsWith($full + '\')) {
+            return ('refusing to mirror into or above protected folder ' + $item)
+        }
+    }
+    return $null
+}
+
+function Test-HbDirectoryHasEntries {
+    param([string]$Path)
+    try {
+        $enumerator = [IO.Directory]::EnumerateFileSystemEntries($Path).GetEnumerator()
+        try {
+            return $enumerator.MoveNext()
+        } finally {
+            $enumerator.Dispose()
+        }
+    } catch {
+        return $false
+    }
+}
+
+function Get-HbRobocopyMeaning {
+    param([int]$Code)
+    if ($Code -ge 16) { return 'fatal error: nothing copied (bad path, access denied to the share root, or out of space)' }
+    $parts = @()
+    if ($Code -band 1) { $parts += 'files copied' }
+    if ($Code -band 2) { $parts += 'extra files purged locally' }
+    if ($Code -band 4) { $parts += 'mismatched file/folder names' }
+    if ($Code -band 8) { $parts += 'some files failed to copy' }
+    if ($parts.Count -eq 0) { return 'no changes; destination already in sync' }
+    return ($parts -join ', ')
+}
+
+function New-HbPairResult {
+    param([string]$Share, [string]$Source, [string]$Destination)
+    return @{
+        share = $Share
+        source = $Source
+        destination = $Destination
+        status = 'failed'
+        exit_code = $null
+        meaning = $null
+        copied = 0
+        skipped = 0
+        purged = 0
+        failed = 0
+        mismatched = 0
+        bytes_copied = 0
+        dirs_created = 0
+        duration_seconds = 0
+        error = $null
+    }
+}
+
+function Add-HbEvent {
+    param($State, [string]$Share, [string]$Action, [string]$Path, $Size, [string]$Detail)
+    $State.event_count = $State.event_count + 1
+    if ($State.events.Count -lt $script:MaxReportEvents) {
+        [void]$State.events.Add(@{
+            share = $Share
+            action = $Action
+            path = $Path
+            size = $Size
+            detail = $Detail
+        })
+    }
+}
+
+function Read-HbRobocopyLog {
+    # Streams the robocopy log, writes per-file lines to our log, and fills the pair result.
+    param([string]$LogPath, $Result, $State, [int]$SkipLogMax)
+    $skippedLogged = 0
+    $summary = $null
+    $bytesSummary = $null
+    $pendingError = $null
+    $failedPaths = @{}
+    $reader = New-Object IO.StreamReader($LogPath, [Text.Encoding]::Unicode, $true)
+    try {
+        while ($null -ne ($line = $reader.ReadLine())) {
+            if ($null -ne $pendingError) {
+                $text = $line.Trim()
+                if ($text) {
+                    $pendingError.detail = $text
+                    if (-not $failedPaths.ContainsKey($pendingError.path)) {
+                        $failedPaths[$pendingError.path] = $true
+                        Write-HbLog ('FAILED ' + $pendingError.action + ' ' + $pendingError.path + ' - error ' + $pendingError.code + ': ' + $text) 'WARN'
+                        Add-HbEvent -State $State -Share $Result.share -Action 'failed' -Path $pendingError.path -Size $null -Detail ('error ' + $pendingError.code + ': ' + $text)
+                    }
+                    $pendingError = $null
+                }
+                continue
+            }
+            $errorMatch = [regex]::Match($line, $script:ErrorLineRegex)
+            if ($errorMatch.Success) {
+                $pendingError = @{ code = $errorMatch.Groups[1].Value; action = $errorMatch.Groups[2].Value; path = $errorMatch.Groups[3].Value.Trim(); detail = $null }
+                continue
+            }
+            if ($line -match '^\s*Files\s*:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)') {
+                $summary = @([long]$Matches[1], [long]$Matches[2], [long]$Matches[3], [long]$Matches[4], [long]$Matches[5], [long]$Matches[6])
+                continue
+            }
+            if ($line -match '^\s*Bytes\s*:\s+(\d+)\s+(\d+)\s+') {
+                $bytesSummary = [long]$Matches[2]
+                continue
+            }
+            $fileMatch = [regex]::Match($line, $script:FileLineRegex)
+            if (-not $fileMatch.Success) {
+                continue
+            }
+            $label = $fileMatch.Groups[1].Value
+            $size = $null
+            if ($fileMatch.Groups[2].Value) {
+                $size = [long]$fileMatch.Groups[2].Value
+            }
+            $path = $fileMatch.Groups[3].Value
+            if ($label -eq 'New Dir') {
+                $Result.dirs_created = $Result.dirs_created + 1
+                continue
+            }
+            if ($script:CopiedLabels -contains $label) {
+                $Result.copied = $Result.copied + 1
+                if ($null -ne $size) {
+                    $Result.bytes_copied += $size
+                }
+                Write-HbLog ('COPIED (' + $label + ', ' + $size + ' bytes) ' + $path)
+                Add-HbEvent -State $State -Share $Result.share -Action 'copied' -Path $path -Size $size -Detail $label
+            } elseif ($script:SkippedLabels -contains $label) {
+                $Result.skipped = $Result.skipped + 1
+                if ($skippedLogged -lt $SkipLogMax) {
+                    $skippedLogged++
+                    Write-HbLog ('SKIPPED (unchanged: same size and timestamp) ' + $path)
+                    if ($skippedLogged -eq $SkipLogMax) {
+                        Write-HbLog ('skip log limit of ' + $SkipLogMax + ' reached for ' + $Result.share + '; further unchanged files are counted only')
+                    }
+                }
+            } elseif ($script:PurgedLabels -contains $label) {
+                $Result.purged = $Result.purged + 1
+                Write-HbLog ('PURGED (not at source, removed locally) ' + $path)
+                Add-HbEvent -State $State -Share $Result.share -Action 'purged' -Path $path -Size $size -Detail $label
+            } elseif ($label -eq '*Mismatch') {
+                $Result.mismatched = $Result.mismatched + 1
+                Write-HbLog ('MISMATCH (file at one side, folder at the other) ' + $path) 'WARN'
+                Add-HbEvent -State $State -Share $Result.share -Action 'mismatch' -Path $path -Size $size -Detail $label
+            }
+        }
+    } finally {
+        $reader.Dispose()
+    }
+    $Result.failed = $failedPaths.Count
+    if ($null -ne $summary) {
+        # Robocopy's own totals are authoritative: Total, Copied, Skipped, Mismatch, FAILED, Extras.
+        $Result.copied = $summary[1]
+        $Result.skipped = $summary[2]
+        $Result.mismatched = $summary[3]
+        $Result.failed = [Math]::Max($Result.failed, $summary[4])
+    }
+    if ($null -ne $bytesSummary) {
+        $Result.bytes_copied = $bytesSummary
+    }
+}
+
+function Invoke-HbPairSync {
+    param([string]$SourceHost, $Pair, [int]$SkipLogMax, $State, [int]$Index)
+    $share = [string](Get-HbValue -Map $Pair -Key 'share' -Default '')
+    $destination = Get-HbNormalizedLocalPath -Path ([string](Get-HbValue -Map $Pair -Key 'local_path' -Default ''))
+    $source = '\\' + $SourceHost + '\' + $share
+    $result = New-HbPairResult -Share $share -Source $source -Destination $destination
+    $started = [DateTime]::UtcNow
+    Write-HbLog ('pair ' + ($Index + 1) + ': ' + $source + ' -> ' + $destination)
+
+    try {
+        $problem = Test-HbLocalDestination -Path $destination
+        if ($problem) {
+            throw $problem
+        }
+        if (-not [IO.Directory]::Exists($source)) {
+            throw ('source ' + $source + ' is not reachable; nothing copied and nothing removed locally')
+        }
+        if (-not (Test-HbDirectoryHasEntries -Path $source) -and (Test-HbDirectoryHasEntries -Path $destination)) {
+            throw ('source ' + $source + ' is empty but ' + $destination + ' is not; refusing to mirror an empty source (would delete local files)')
+        }
+
+        $logPath = Join-Path $script:HbRunDir ('drivesync-pair-' + $Index + '.log')
+        Remove-Item -LiteralPath $logPath -Force -ErrorAction SilentlyContinue
+        $arguments = @($source, $destination, '/E', '/PURGE', '/COPY:DAT', '/DCOPY:T', '/R:1', '/W:1', '/XJ', '/FFT', '/Z', '/V', '/FP', '/BYTES', '/NP', '/NJH', ('/UNILOG:' + $logPath))
+        $arguments += '/XD'
+        $arguments += $script:ExcludedDirs
+        $arguments += '/XF'
+        $arguments += $script:ExcludedFiles
+        $null = & $script:RobocopyExe @arguments 2>&1
+        $exitCode = $LASTEXITCODE
+        $result.exit_code = $exitCode
+        $result.meaning = Get-HbRobocopyMeaning -Code $exitCode
+
+        if ([IO.File]::Exists($logPath)) {
+            Read-HbRobocopyLog -LogPath $logPath -Result $result -State $State -SkipLogMax $SkipLogMax
+            Remove-Item -LiteralPath $logPath -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($exitCode -ge 16) {
+            $result.status = 'failed'
+            $result.error = $result.meaning
+        } elseif ($exitCode -ge 8 -or $result.failed -gt 0) {
+            $result.status = 'partial'
+            $result.error = ([string]$result.failed + ' file(s) failed to copy')
+        } else {
+            $result.status = 'ok'
+        }
+    } catch {
+        $result.status = 'failed'
+        $result.error = Get-HbErrorText $_
+        Write-HbLog ('pair ' + ($Index + 1) + ' failed: ' + $result.error) 'ERROR'
+    }
+
+    $result.duration_seconds = [int]([DateTime]::UtcNow - $started).TotalSeconds
+    Write-HbLog ('pair ' + ($Index + 1) + ' ' + $result.status + ': copied ' + $result.copied + ', skipped ' + $result.skipped + ', purged ' + $result.purged + ', failed ' + $result.failed + ', bytes ' + $result.bytes_copied + ', robocopy ' + $result.exit_code + ' (' + $result.meaning + '), ' + $result.duration_seconds + 's')
+    return $result
+}
+
+function Invoke-HbSyncCycle {
+    param($Config)
+    $sourceHost = [string](Get-HbValue -Map $Config -Key 'source_host' -Default '')
+    $user = [string](Get-HbValue -Map $Config -Key 'username' -Default '')
+    $password = [string](Get-HbValue -Map $Config -Key 'password' -Default '')
+    $pairs = Get-HbValue -Map $Config -Key 'pairs' -Default @()
+    $pairs = @($pairs)
+    $skipLogMax = Get-HbInt -Map $Config -Key 'skip_log_max' -Default 500 -Min 0 -Max 5000
+
+    $startedUtc = [DateTime]::UtcNow
+    $state = @{ events = (New-Object System.Collections.ArrayList); event_count = 0 }
+    $pairResults = @()
+    $cycleError = $null
+
+    Write-HbLog ('sync cycle started: ' + $pairs.Count + ' pair(s) from ' + $sourceHost)
+    $null = Send-HbResult -Type 'heartbeat' -Data @{}
+    try {
+        Connect-HbSource -SourceHost $sourceHost -User $user -Password $password
+        Write-HbLog ('connected to \\' + $sourceHost + ' as ' + $user)
+        for ($i = 0; $i -lt $pairs.Count; $i++) {
+            if (-not (Test-HbParentAlive)) {
+                throw 'agent stopped during sync'
+            }
+            $pairResults += (Invoke-HbPairSync -SourceHost $sourceHost -Pair $pairs[$i] -SkipLogMax $skipLogMax -State $state -Index $i)
+        }
+    } catch {
+        $cycleError = Get-HbErrorText $_
+        Write-HbLog ('sync cycle failed: ' + $cycleError) 'ERROR'
+    } finally {
+        Disconnect-HbSource -SourceHost $sourceHost
+    }
+
+    $totals = @{ copied = 0; skipped = 0; purged = 0; failed = 0; mismatched = 0; bytes_copied = 0 }
+    $okPairs = 0
+    foreach ($pairResult in $pairResults) {
+        foreach ($key in @('copied', 'skipped', 'purged', 'failed', 'mismatched', 'bytes_copied')) {
+            $totals[$key] += [long]$pairResult[$key]
+        }
+        if ($pairResult.status -eq 'ok') {
+            $okPairs++
+        }
+    }
+    $status = 'ok'
+    if ($cycleError -or $pairResults.Count -eq 0 -or $okPairs -eq 0) {
+        $status = 'failed'
+    } elseif ($okPairs -lt $pairResults.Count) {
+        $status = 'partial'
+    }
+    if ($pairs.Count -eq 0) {
+        $cycleError = 'no drive pairs configured'
+        $status = 'failed'
+    }
+
+    $finishedUtc = [DateTime]::UtcNow
+    $report = @{
+        status = $status
+        source_host = $sourceHost
+        started_at_ist = (Format-HbIst -Utc $startedUtc)
+        finished_at_ist = (Format-HbIst -Utc $finishedUtc)
+        duration_seconds = [int]($finishedUtc - $startedUtc).TotalSeconds
+        totals = $totals
+        pairs = $pairResults
+        events = $state.events.ToArray()
+        event_count = $state.event_count
+        events_truncated = ($state.event_count -gt $state.events.Count)
+        error = $cycleError
+    }
+    Write-HbLog ('sync cycle ' + $status + ': copied ' + $totals.copied + ', skipped ' + $totals.skipped + ', purged ' + $totals.purged + ', failed ' + $totals.failed + ', ' + $report.duration_seconds + 's')
+    if (-not (Send-HbResult -Type 'sync_run' -Data $report)) {
+        Write-HbLog 'sync report could not be delivered (details remain in this log)' 'WARN'
+    }
+}
+
+function Start-HbDriveSync {
+    Initialize-HbService -Name 'drivesync' -Version $script:ServiceVersion -ConfigFile $ConfigFile -ParentPid $ParentPid
+    $config = $script:HbConfig
+    $interval = Get-HbInt -Map $config -Key 'interval_seconds' -Default 900 -Min 60 -Max 86400
+    Write-HbLog ('interval ' + $interval + 's between cycles; source ' + [string](Get-HbValue -Map $config -Key 'source_host' -Default ''))
+    while ($true) {
+        if (-not (Test-HbParentAlive)) {
+            Write-HbLog 'agent is gone; exiting'
+            return
+        }
+        try {
+            Invoke-HbSyncCycle -Config $config
+        } catch {
+            Write-HbLog ('cycle crashed: ' + (Get-HbErrorText $_)) 'ERROR'
+        }
+        Write-HbLog ('next cycle in ' + $interval + 's')
+        if (-not (Wait-HbSeconds -Seconds $interval)) {
+            Write-HbLog 'agent is gone; exiting'
+            return
+        }
+    }
+}
+
+try {
+    Start-HbDriveSync
+    exit 0
+} catch {
+    try {
+        Write-HbLog ('fatal: ' + (Get-HbErrorText $_)) 'ERROR'
+    } catch {}
+    exit 1
+}

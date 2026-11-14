@@ -152,8 +152,8 @@
                                 <tr>
                                     <th scope="col">Name</th>
                                     <th scope="col">Tag</th>
-                                    <th scope="col">Last seen</th>
-                                    <th scope="col">Sync</th>
+                                    <th scope="col">Last poll</th>
+                                    <th scope="col">Status</th>
                                     <th scope="col"></th>
                                 </tr>
                             </thead>
@@ -163,19 +163,16 @@
                                         <td><%= server.name || "Unnamed server" %></td>
                                         <td><code><%= server.tag %></code></td>
                                         <td
-                                            data-readable-date="<%= server.last_seen_at || '' %>"
+                                            data-readable-date="<%= server.last_poll_at || '' %>"
                                             data-date-format="DD/MM/YYYY HH:mm:ss"
-                                        ><%= server.last_seen_at ? "" : "—" %></td>
+                                        ><%= server.last_poll_at ? "" : "—" %></td>
                                         <td>
-                                            <% const syncStatus = String(server.last_sync_status || "").toLowerCase(); %>
-                                            <% if (!syncStatus) { %>
-                                                <span class="text-secondary">—</span>
-                                            <% } else if (syncStatus === "ok") { %>
-                                                <span class="badge text-bg-success">ok</span>
-                                            <% } else if (syncStatus === "partial") { %>
-                                                <span class="badge text-bg-warning">partial</span>
+                                            <% if (server.approval_status === "approved" && server.agent_active) { %>
+                                                <span class="badge text-bg-success">active</span>
+                                            <% } else if (server.approval_status === "approved") { %>
+                                                <span class="badge text-bg-warning">paused</span>
                                             <% } else { %>
-                                                <span class="badge text-bg-danger"><%= syncStatus %></span>
+                                                <span class="badge text-bg-secondary"><%= server.approval_status || "pending" %></span>
                                             <% } %>
                                         </td>
                                         <td class="text-end">

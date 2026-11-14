@@ -21,15 +21,71 @@
                     <a href="/app" class="text-decoration-none">App</a> / Servers
                 </p>
                 <h1 class="h3 mb-1">Servers</h1>
-                <p class="text-secondary mb-0">Monitor + drive sync for Windows Server 2012+. Download a zip, unzip, then run the <strong>.cmd</strong> as Administrator (not .exe).</p>
+                <p class="text-secondary mb-0">
+                    HammerByte Agent for Windows Server 2012+ and Windows 10/11. Download, unzip, run
+                    <strong>install-agent.cmd</strong> as Administrator, then approve the machine here.
+                </p>
             </div>
             <div class="d-flex flex-wrap gap-2">
-                <a class="btn btn-sm btn-outline-secondary" href="/public/server-monitors/hammerbyte-monitor.zip">Download Monitor</a>
-                <a class="btn btn-sm btn-outline-secondary" href="/public/server-monitors/hammerbyte-drive-sync.zip">Download Drive Sync</a>
+                <a class="btn btn-sm btn-primary" href="/public/agents/hammerbyte-agent.zip">Download Agent</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/app/agent-releases">Agent releases</a>
             </div>
         </div>
 
         <div id="servers-alert" class="alert d-none" role="alert"></div>
+
+        <%
+            const stateBadge = function (service) {
+                if (!service.enabled) return "text-bg-light border";
+                if (service.state === "running") return "text-bg-success";
+                if (service.state === "backoff" || service.state === "error") return "text-bg-danger";
+                return "text-bg-warning";
+            };
+        %>
+
+        <% if (pendingServers && pendingServers.length) { %>
+            <div class="card border-0 shadow-sm mb-4 border-start border-warning border-4">
+                <div class="card-header bg-white border-0 pt-4 px-4">
+                    <h2 class="h5 mb-1">Pending approval</h2>
+                    <p class="text-secondary small mb-0">
+                        These machines installed the agent and are waiting. Nothing runs on them until you approve.
+                    </p>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Host</th>
+                                    <th scope="col">OS</th>
+                                    <th scope="col">Tag</th>
+                                    <th scope="col">Registered</th>
+                                    <th scope="col">Last poll</th>
+                                    <th scope="col" class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% pendingServers.forEach(function (server) { %>
+                                    <tr>
+                                        <td><strong><%= server.hostname || "—" %></strong></td>
+                                        <td class="small"><%= server.os_caption || "—" %><% if (server.os_build) { %> <span class="text-secondary">(<%= server.os_build %>)</span><% } %></td>
+                                        <td><code class="small"><%= server.tag %></code></td>
+                                        <td data-readable-date="<%= server.created_on || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></td>
+                                        <td>
+                                            <span class="badge <%= server.online ? 'text-bg-success' : 'text-bg-secondary' %>"><%= server.online ? "online" : "offline" %></span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-success server-approval-btn" data-id="<%= server.id %>" data-status="approved">Approve</button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger server-approval-btn" data-id="<%= server.id %>" data-status="rejected">Reject</button>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        <% } %>
 
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 pt-4 px-4">
@@ -42,7 +98,7 @@
             </div>
             <div class="card-body p-0">
                 <% if (!servers || servers.length === 0) { %>
-                    <div class="p-4 text-center text-secondary">No servers have checked in yet.</div>
+                    <div class="p-4 text-center text-secondary">No approved servers yet. Install the agent on a machine and approve it above.</div>
                 <% } else { %>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
@@ -55,23 +111,13 @@
                                     <th scope="col">Name</th>
                                     <th scope="col">Project</th>
                                     <th scope="col">Agent</th>
-                                    <th scope="col">Last seen</th>
-                                    <th scope="col">Sync</th>
+                                    <th scope="col">Last poll</th>
+                                    <th scope="col">Services</th>
                                     <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <% servers.forEach(function (server) {
-                                    const syncStatus = String(server.last_sync_status || "").toLowerCase();
-                                    const syncBadge =
-                                        syncStatus === "ok"
-                                            ? "text-bg-success"
-                                            : syncStatus === "partial"
-                                              ? "text-bg-warning"
-                                              : syncStatus === "error"
-                                                ? "text-bg-danger"
-                                                : "text-bg-light border";
-                                %>
+                                <% servers.forEach(function (server) { %>
                                     <tr data-id="<%= server.id %>">
                                         <td>
                                             <input
@@ -82,7 +128,10 @@
                                             />
                                         </td>
                                         <td><code class="small"><%= server.tag %></code></td>
-                                        <td><%= server.name || "—" %></td>
+                                        <td>
+                                            <%= server.name || "—" %>
+                                            <% if (server.hostname) { %><div class="small text-secondary"><%= server.hostname %></div><% } %>
+                                        </td>
                                         <td>
                                             <% if (server.project_id) { %>
                                                 <a href="/app/projects/<%= server.project_id %>" class="text-decoration-none">
@@ -92,24 +141,31 @@
                                                 —
                                             <% } %>
                                         </td>
-                                        <td><%= server.agent_version || "—" %></td>
-                                        <td
-                                            data-readable-date="<%= server.last_seen_at || '' %>"
-                                            data-date-format="DD/MM/YYYY HH:mm:ss"
-                                        ></td>
                                         <td>
-                                            <% if (server.last_sync_at) { %>
-                                                <div class="d-flex flex-column gap-1">
-                                                    <span class="badge <%= syncBadge %> align-self-start"><%= syncStatus || "unknown" %></span>
+                                            <div class="d-flex flex-column gap-1 align-items-start">
+                                                <% if (server.approval_status === "rejected") { %>
+                                                    <span class="badge text-bg-danger">rejected</span>
+                                                <% } else if (!server.agent_active) { %>
+                                                    <span class="badge text-bg-warning">paused</span>
+                                                <% } else { %>
+                                                    <span class="badge <%= server.online ? 'text-bg-success' : 'text-bg-secondary' %>"><%= server.online ? "online" : "offline" %></span>
+                                                <% } %>
+                                                <span class="small text-secondary"><%= server.agent_version ? ("v" + server.agent_version) : "no agent yet" %></span>
+                                            </div>
+                                        </td>
+                                        <td
+                                            data-readable-date="<%= server.last_poll_at || '' %>"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                                        ><%= server.last_poll_at ? "" : "—" %></td>
+                                        <td>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                <% server.services.forEach(function (service) { %>
                                                     <span
-                                                        class="small text-secondary"
-                                                        data-readable-date="<%= server.last_sync_at || '' %>"
-                                                        data-date-format="DD/MM/YYYY HH:mm:ss"
-                                                    ></span>
-                                                </div>
-                                            <% } else { %>
-                                                <span class="text-secondary">—</span>
-                                            <% } %>
+                                                        class="badge <%= stateBadge(service) %>"
+                                                        title="<%= service.last_error || '' %>"
+                                                    ><%= service.label %>: <%= service.enabled ? (service.state || "pending") : "off" %></span>
+                                                <% }) %>
+                                            </div>
                                         </td>
                                         <td>
                                             <div class="d-flex gap-2 flex-wrap">

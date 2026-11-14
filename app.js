@@ -5,6 +5,7 @@ import transporter from "./libs/transporter.js";
 import bucketizer from "./libs/bucketizer.js";
 import { allowTraffic } from "./server.js";
 import { startServerPingAlertWatcher } from "./libs/server_alert_notify.js";
+import { registerBuiltAgentReleases } from "./services/agent_releases.js";
 import { startGemTenderEligibilityReminderWatcher } from "./libs/gem_tender_eligibility_remind.js";
 import { startGemTenderUnattendedWatcher } from "./libs/gem_tender_unattended.js";
 import { startInquiryFollowupReminderWatcher } from "./libs/inquiry_followup_remind.js";
@@ -23,6 +24,8 @@ try {
     logger.success("Required Directories Ready");
     await generateDBTables();
     logger.success("Database Ready (Tables Verified)");
+    await registerBuiltAgentReleases();
+    logger.success("Agent Releases Registered");
     await initSeleniumPipeline();
     logger.success("Selenium Pipeline Ready");
     startServerPingAlertWatcher();

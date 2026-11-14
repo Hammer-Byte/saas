@@ -194,5 +194,36 @@
         }
     });
 
+    document.querySelectorAll(".server-approval-btn").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const id = Number(button.dataset.id || 0);
+            const status = button.dataset.status;
+            if (!id || !status) return;
+            if (status === "rejected" && !window.confirm("Reject this machine? Its agent will keep waiting but run nothing.")) {
+                return;
+            }
+            button.disabled = true;
+            try {
+                const response = await fetch(`/api/monitored-servers/${id}/approval`, {
+                    method: "PATCH",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ approval_status: status }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    showAlert(pageAlert, data.error || "Failed to update approval.", "danger");
+                    button.disabled = false;
+                    return;
+                }
+                window.location.reload();
+            } catch (error) {
+                console.error(error);
+                showAlert(pageAlert, "Failed to update approval.", "danger");
+                button.disabled = false;
+            }
+        });
+    });
+
     syncDeleteButton();
 })();

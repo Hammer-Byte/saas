@@ -1,152 +1,32 @@
-import { join } from "node:path";
-import { filer, logger } from "@hammerbyte/utils";
 import {
-    createServer,
     getAllServers,
     getServerById,
-    getServerByTag,
-    updateServerLastSeenById,
-    updateServerNameById,
-    updateServerProjectById,
+    updateServerAgentActiveById,
     updateServerAlertById,
     updateServerAlertSettingsById,
-    updateServerSyncStatusById,
+    updateServerApprovalById,
+    updateServerNameById,
+    updateServerProjectById,
 } from "../db/servers.js";
-import { createServerMetric, getServerMetricsByServerId } from "../db/server_metrics.js";
-import { createMedia } from "../db/media.js";
+import { getServerMetricsByServerId } from "../db/server_metrics.js";
+import {
+    ensureServerService,
+    getServerService,
+    getServerServicesByServerId,
+    updateServerServiceSettings,
+} from "../db/server_services.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
-import { notifyServerMetricAlertsIfNeeded } from "../libs/server_alert_notify.js";
+import { getAgentService, getDefaultConfig } from "../libs/agent_services/index.js";
 
-const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
+const APPROVAL_STATUSES = new Set(["pending", "approved", "rejected"]);
 
-async function persistMetricScreenshot(server, body) {
-    if (!body || typeof body !== "object") {
-        return body;
-    }
-
-    const raw = body.screenshot_jpeg_base64;
-    delete body.screenshot_jpeg_base64;
-
-    if (raw == null || raw === "") {
-        return body;
-    }
-
-    try {
-        const b64 = String(raw).replace(/\s+/g, "");
-        const buffer = Buffer.from(b64, "base64");
-        if (!buffer.length || buffer.length > MAX_SCREENSHOT_BYTES) {
-            body.screenshot_error = "screenshot rejected (empty or too large)";
-            return body;
-        }
-        // JPEG SOI marker
-        if (buffer[0] !== 0xff || buffer[1] !== 0xd8) {
-            body.screenshot_error = "screenshot rejected (not jpeg)";
-            return body;
-        }
-
-        const mediaFile = `${filer.generateRandomFileName()}.jpg`;
-        const mediaName = `server-${server.id}-screenshot.jpg`.slice(0, 64);
-        await Bun.write(join(Bun.env.DIRECTORY_MEDIA, mediaFile), buffer);
-        const mediaId = await createMedia({ name: mediaName, file: mediaFile });
-        if (!mediaId) {
-            body.screenshot_error = "failed to create media record";
-            return body;
-        }
-        body.screenshot_media_id = mediaId;
-        delete body.screenshot_error;
-    } catch (error) {
-        logger.error(`persistMetricScreenshot server #${server?.id}: ${error}`);
-        body.screenshot_error = String(error?.message || error).slice(0, 200);
-    }
-    return body;
-}
-
-export async function addServerMetrics({ request, body, set }) {
-    const tag = String(request.headers.get("x-server-tag") || "").trim();
-    if (!tag) {
-        set.status = 400;
-        return { error: "X-Server-Tag header is required" };
-    }
-
-    let server = await getServerByTag({ tag });
-    if (!server) {
-        const serverId = await createServer({ tag });
-        if (!serverId) {
-            set.status = 400;
-            return { error: "Failed to register server" };
-        }
-        server = await getServerByTag({ tag });
-        if (!server) {
-            set.status = 400;
-            return { error: "Failed to load registered server" };
-        }
-    }
-
-    const payloadType =
-        body && typeof body === "object"
-            ? String(body.type || "").toLowerCase()
-            : "";
-    // Three payload kinds: ping (alive), metrics (full snapshot), drive_sync.
-    const isPing = payloadType === "ping";
-    const isDriveSync = payloadType === "drive_sync";
-    const isMetrics = !isPing && !isDriveSync;
-
-    const agentVersion =
-        body && typeof body === "object" && body.agent_version != null
-            ? String(body.agent_version).slice(0, 32)
-            : null;
-
-    if (isDriveSync) {
-        const status = String(body.status || "error").slice(0, 16);
-        const totals = body.totals && typeof body.totals === "object" ? body.totals : {};
-        const summary = [
-            `status=${status}`,
-            `copied=${totals.copied ?? 0}`,
-            `deleted=${totals.deleted ?? 0}`,
-            `skipped=${totals.skipped ?? 0}`,
-            `failed=${totals.failed ?? 0}`,
-            body.source_host ? `source=${body.source_host}` : null,
-        ]
-            .filter(Boolean)
-            .join(" · ")
-            .slice(0, 512);
-
-        await updateServerSyncStatusById({
-            id: server.id,
-            last_sync_status: status,
-            last_sync_summary: summary,
-        });
-    } else if (isPing || isMetrics) {
-        // Ping keeps last_seen_at fresh for alive alerts; metrics also bump it.
-        await updateServerLastSeenById({
-            id: server.id,
-            agent_version: agentVersion,
-        });
-    }
-
-    // Do not store ping rows — they are high-frequency alive signals only.
-    if (!isPing) {
-        let storeBody = body ?? {};
-        if (isMetrics) {
-            storeBody = await persistMetricScreenshot(server, storeBody);
-        } else if (storeBody && typeof storeBody === "object") {
-            // Never persist raw base64 on non-metrics payloads.
-            delete storeBody.screenshot_jpeg_base64;
-        }
-        const payload = JSON.stringify(storeBody);
-        await createServerMetric({
-            server_id: server.id,
-            payload,
-        });
-        body = storeBody;
-    }
-
-    if (isMetrics) {
-        await notifyServerMetricAlertsIfNeeded({ server, body });
-    }
-
-    set.status = 200;
-    return { ok: true, server_id: server.id, type: payloadType || "metrics" };
+/** Service rows as the browser should see them (secrets masked). */
+export function maskServiceRow(row) {
+    const definition = getAgentService(row.service);
+    return {
+        ...row,
+        config: definition ? definition.maskForBrowser(row.config || {}) : {},
+    };
 }
 
 export async function getMonitoredServers({ set }) {
@@ -162,9 +42,100 @@ export async function getMonitoredServer({ params, set }) {
         return { error: "Server not found" };
     }
 
-    const metrics = await getServerMetricsByServerId({ server_id: server.id });
+    const [metrics, services] = await Promise.all([
+        getServerMetricsByServerId({ server_id: server.id }),
+        getServerServicesByServerId({ server_id: server.id }),
+    ]);
     set.status = 200;
-    return { server, metrics };
+    return { server, metrics, services: services.map(maskServiceRow) };
+}
+
+export async function updateServerApproval({ params, body, set }) {
+    const server = await getServerById({ id: params.id });
+    if (!server) {
+        set.status = 404;
+        return { error: "Server not found" };
+    }
+    const status = String(body.approval_status || "").toLowerCase();
+    if (!APPROVAL_STATUSES.has(status)) {
+        set.status = 400;
+        return { error: "approval_status must be pending, approved or rejected" };
+    }
+    await updateServerApprovalById({ id: server.id, approval_status: status });
+    set.status = 200;
+    return { message: `Server ${status}`, server: await getServerById({ id: server.id }) };
+}
+
+export async function updateServerAgent({ params, body, set }) {
+    const server = await getServerById({ id: params.id });
+    if (!server) {
+        set.status = 404;
+        return { error: "Server not found" };
+    }
+    await updateServerAgentActiveById({ id: server.id, agent_active: body.agent_active });
+    set.status = 200;
+    return {
+        message: body.agent_active ? "Agent activated" : "Agent paused",
+        server: await getServerById({ id: server.id }),
+    };
+}
+
+/**
+ * Save a service's config and/or enabled flag.
+ * The config version only bumps when the effective config changes, so the agent restarts only then.
+ */
+export async function updateServerServiceConfig({ params, body, set }) {
+    const server = await getServerById({ id: params.id });
+    if (!server) {
+        set.status = 404;
+        return { error: "Server not found" };
+    }
+    const definition = getAgentService(params.service);
+    if (!definition) {
+        set.status = 404;
+        return { error: "Unknown service" };
+    }
+
+    await ensureServerService({
+        server_id: server.id,
+        service: definition.id,
+        config: getDefaultConfig(definition.id),
+    });
+    const row = await getServerService({ server_id: server.id, service: definition.id });
+    if (!row) {
+        set.status = 500;
+        return { error: "Failed to load service" };
+    }
+
+    const enabled = body.enabled === undefined ? row.enabled : Boolean(body.enabled);
+    const source = body.config === undefined ? row.config : body.config;
+    const result = definition.validate(source, row.config);
+
+    if (!result.ok && (body.config !== undefined || enabled)) {
+        set.status = 400;
+        return {
+            error: enabled && body.config === undefined
+                ? "Complete the configuration before enabling this service"
+                : "Configuration is invalid",
+            errors: result.errors,
+        };
+    }
+
+    const nextConfig = result.ok ? result.config : row.config;
+    const changed = JSON.stringify(nextConfig) !== JSON.stringify(row.config);
+    await updateServerServiceSettings({
+        id: row.id,
+        enabled,
+        config: nextConfig,
+        bump_version: changed,
+    });
+
+    const saved = await getServerService({ server_id: server.id, service: definition.id });
+    set.status = 200;
+    return {
+        message: changed ? "Configuration saved - agent will restart the service" : "Saved",
+        service: maskServiceRow(saved),
+    };
 }
 
 export async function updateMonitoredServer({ body, set }) {
@@ -203,7 +174,7 @@ export async function updateMonitoredServer({ body, set }) {
                 alert_memory_enabled: body.alert,
                 alert_memory_percent: server.alert_memory_percent ?? 80,
                 alert_ping_enabled: server.alert_ping_enabled,
-                    alert_ping_seconds: server.alert_ping_seconds ?? 180,
+                alert_ping_seconds: server.alert_ping_seconds ?? 180,
             });
         }
     }
@@ -218,32 +189,15 @@ export async function updateMonitoredServer({ body, set }) {
 
     if (hasAlertSettings) {
         const latest = await getServerById({ id: server.id });
+        const pick = (key) => (body[key] !== undefined ? body[key] : latest?.[key]);
         await updateServerAlertSettingsById({
             id: server.id,
-            alert_cpu_enabled:
-                body.alert_cpu_enabled !== undefined
-                    ? body.alert_cpu_enabled
-                    : latest?.alert_cpu_enabled,
-            alert_cpu_percent:
-                body.alert_cpu_percent !== undefined
-                    ? body.alert_cpu_percent
-                    : latest?.alert_cpu_percent,
-            alert_memory_enabled:
-                body.alert_memory_enabled !== undefined
-                    ? body.alert_memory_enabled
-                    : latest?.alert_memory_enabled,
-            alert_memory_percent:
-                body.alert_memory_percent !== undefined
-                    ? body.alert_memory_percent
-                    : latest?.alert_memory_percent,
-            alert_ping_enabled:
-                body.alert_ping_enabled !== undefined
-                    ? body.alert_ping_enabled
-                    : latest?.alert_ping_enabled,
-            alert_ping_seconds:
-                body.alert_ping_seconds !== undefined
-                    ? body.alert_ping_seconds
-                    : latest?.alert_ping_seconds,
+            alert_cpu_enabled: pick("alert_cpu_enabled"),
+            alert_cpu_percent: pick("alert_cpu_percent"),
+            alert_memory_enabled: pick("alert_memory_enabled"),
+            alert_memory_percent: pick("alert_memory_percent"),
+            alert_ping_enabled: pick("alert_ping_enabled"),
+            alert_ping_seconds: pick("alert_ping_seconds"),
         });
     }
 

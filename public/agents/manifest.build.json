@@ -1,0 +1,26 @@
+{
+  "base_url": "https://hammerbyte.co.in",
+  "artifacts": [
+    {
+      "component": "agent",
+      "version": "1.0.0",
+      "file_path": "/public/agents/agent/1.0.0/agent.ps1",
+      "sha256": "51df04de897526fe097579b3df27f68ad7a4c091bb087ebaa0c8b205d70afe5c",
+      "size_bytes": 66020
+    },
+    {
+      "component": "monitor",
+      "version": "1.0.0",
+      "file_path": "/public/agents/monitor/1.0.0/monitor.ps1",
+      "sha256": "7c9fff971c900b7488797f2cfae8445089f855e38dc4118f439d3c684da14de8",
+      "size_bytes": 33826
+    },
+    {
+      "component": "drivesync",
+      "version": "1.0.0",
+      "file_path": "/public/agents/drivesync/1.0.0/drivesync.ps1",
+      "sha256": "bfafb9c6e1d7af471c554da1436336ec3ce2d6aa8805d53ad8b673157da18819",
+      "size_bytes": 37889
+    }
+  ]
+}
