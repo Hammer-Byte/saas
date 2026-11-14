@@ -442,9 +442,15 @@ function Stop-HbProcessTree {
     if ($Id -le 0) {
         return
     }
+    $exe = Join-Path $env:SystemRoot 'System32\taskkill.exe'
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     try {
-        $null = & taskkill.exe /PID $Id /T /F 2>&1
-    } catch {}
+        $null = & $exe /PID $Id /T /F 2>&1
+    } catch {
+    } finally {
+        $ErrorActionPreference = $previous
+    }
 }
 
 function Get-HbPlatformFamily {

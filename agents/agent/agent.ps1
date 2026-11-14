@@ -69,8 +69,19 @@ function Test-HbAdmin {
 
 function Invoke-HbSchtasks {
     param([string[]]$Arguments)
-    $output = & schtasks.exe @Arguments 2>&1
-    return @{ code = $LASTEXITCODE; output = (($output | ForEach-Object { [string]$_ }) -join ' ') }
+    # schtasks writes "ERROR: The system cannot find the file specified." to stderr when a
+    # task is missing. With $ErrorActionPreference Stop, capturing 2>&1 would throw, so
+    # soften for the native call only. Missing tasks are normal on first install.
+    $exe = Join-Path $env:SystemRoot 'System32\schtasks.exe'
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & $exe @Arguments 2>&1
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+    return @{ code = $code; output = (($output | ForEach-Object { [string]$_ }) -join ' ') }
 }
 
 function Get-HbHammerByteProcesses {
@@ -184,11 +195,18 @@ function Read-HbUpdateState {
 
 function Set-HbFolderAcl {
     # Only SYSTEM and Administrators: the config cache and drive-sync credentials live here.
-    $null = & icacls.exe $script:HbRoot /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /C /Q 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-HbConsole ('icacls on ' + $script:HbRoot + ' returned ' + $LASTEXITCODE) 'WARN'
+    $exe = Join-Path $env:SystemRoot 'System32\icacls.exe'
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $null = & $exe $script:HbRoot /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /C /Q 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-HbConsole ('icacls on ' + $script:HbRoot + ' returned ' + $LASTEXITCODE) 'WARN'
+        }
+        $null = & $exe (Join-Path $script:HbRoot '*') /reset /T /C /Q 2>&1
+    } finally {
+        $ErrorActionPreference = $previous
     }
-    $null = & icacls.exe (Join-Path $script:HbRoot '*') /reset /T /C /Q 2>&1
 }
 
 function Add-HbDefenderExclusion {

@@ -3,6 +3,13 @@
   "artifacts": [
     {
       "component": "agent",
+      "version": "1.0.2",
+      "file_path": "/public/agents/agent/1.0.2/agent.ps1",
+      "sha256": "05619343ec787b3791e746fc37bbdda309cc58b43d6bc16aa51bf50364b1e969",
+      "size_bytes": 67063
+    },
+    {
+      "component": "agent",
       "version": "1.0.0",
       "file_path": "/public/agents/agent/1.0.0/agent.ps1",
       "sha256": "51df04de897526fe097579b3df27f68ad7a4c091bb087ebaa0c8b205d70afe5c",
@@ -23,11 +30,25 @@
       "size_bytes": 33826
     },
     {
+      "component": "monitor",
+      "version": "1.0.1",
+      "file_path": "/public/agents/monitor/1.0.1/monitor.ps1",
+      "sha256": "042983ff21667d0bf9c781307ed905e32ca5723d1bca653aaf9a27ec1f5b6877",
+      "size_bytes": 34028
+    },
+    {
       "component": "drivesync",
       "version": "1.0.0",
       "file_path": "/public/agents/drivesync/1.0.0/drivesync.ps1",
       "sha256": "bfafb9c6e1d7af471c554da1436336ec3ce2d6aa8805d53ad8b673157da18819",
       "size_bytes": 37889
+    },
+    {
+      "component": "drivesync",
+      "version": "1.0.1",
+      "file_path": "/public/agents/drivesync/1.0.1/drivesync.ps1",
+      "sha256": "0d3cb23a49677e7d7558e1bf5c82c7c9e6d9b952ce8fa46c661db2eacf31ac10",
+      "size_bytes": 38091
     }
   ]
 }
