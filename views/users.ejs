@@ -53,6 +53,7 @@
                                 <th scope="col">ID</th>
                                 <th scope="col">Full name</th>
                                 <th scope="col">Email</th>
+                                <th scope="col">Phone</th>
                                 <th scope="col">Personal email</th>
                                 <th scope="col">Rate / hr</th>
                                 <th scope="col">Login method</th>
@@ -68,6 +69,7 @@
                                     data-id="<%= user.id %>"
                                     data-full-name="<%= user.full_name %>"
                                     data-email="<%= user.email %>"
+                                    data-phone="<%= user.phone || '' %>"
                                     data-personal-email="<%= user.personal_email || '' %>"
                                     data-hourly-rate="<%= user.hourly_rate != null ? user.hourly_rate : '' %>"
                                     data-login-method="<%= method %>"
@@ -76,6 +78,7 @@
                                     <td class="user-id"><%= user.id %></td>
                                     <td class="user-full-name"><%= user.full_name %></td>
                                     <td class="user-email"><%= user.email %></td>
+                                    <td class="user-phone"><%= user.phone || "-" %></td>
                                     <td class="user-personal-email"><%= user.personal_email || "-" %></td>
                                     <td class="user-hourly-rate">
                                         <%= user.hourly_rate != null ? Number(user.hourly_rate).toFixed(2) : "—" %>
@@ -127,6 +130,18 @@
                     <div class="mb-3">
                         <label for="user-email" class="form-label">Email</label>
                         <input type="email" class="form-control" id="user-email" name="email" maxlength="48" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="user-phone" class="form-label">Phone</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="user-phone"
+                            name="phone"
+                            maxlength="13"
+                            placeholder="+919876543210"
+                        />
+                        <div class="form-text">Optional. 10–13 digits, optional leading +.</div>
                     </div>
                     <div class="mb-3">
                         <label for="user-personal-email" class="form-label">Personal email</label>

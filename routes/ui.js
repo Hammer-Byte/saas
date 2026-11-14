@@ -171,6 +171,17 @@ export const uiRoutes = new Elysia()
             jobs: await getActiveJobPositions(),
         }),
     )
+    .get("/careers/:id/apply", async ({ render, params, redirect }) => {
+        const job = await getJobPositionById({ id: Number(params.id) });
+        if (!job || !job.active) {
+            return redirect("/not-found");
+        }
+        return render("career-apply", {
+            title: `Apply — ${job.title} — HammerByte`,
+            job,
+            maxRequestBodySize: getMaxRequestBodySize(),
+        });
+    })
     .get("/careers/:id", async ({ render, params, redirect }) => {
         const job = await getJobPositionById({ id: Number(params.id) });
         if (!job || !job.active) {
@@ -179,7 +190,6 @@ export const uiRoutes = new Elysia()
         return render("career", {
             title: `${job.title} — Careers — HammerByte`,
             job,
-            maxRequestBodySize: getMaxRequestBodySize(),
         });
     })
     .get("/products/your-institute", ({ render }) => render("products-your-institute"))

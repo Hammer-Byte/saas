@@ -40,10 +40,22 @@ function normalizeHourlyRate(value) {
     return { rate: Math.round(rate * 100) / 100 };
 }
 
+function normalizePhone(value) {
+    const phone = String(value || "").trim();
+    if (!phone) {
+        return { phone: null };
+    }
+    if (!/^\+?[0-9]{10,13}$/.test(phone)) {
+        return { error: "Valid phone is required" };
+    }
+    return { phone };
+}
+
 export async function createUserFromInput({
     full_name,
     email,
     personal_email,
+    phone,
     login_method,
     password,
     hourly_rate,
@@ -74,6 +86,10 @@ export async function createUserFromInput({
     }
 
     const personalEmail = String(personal_email || "").trim().toLowerCase() || null;
+    const phoneResult = normalizePhone(phone);
+    if (phoneResult.error) {
+        return { status: 400, error: phoneResult.error };
+    }
     const hourlyRateResult = normalizeHourlyRate(hourly_rate);
     if (hourlyRateResult.error) {
         return { status: 400, error: hourlyRateResult.error };
@@ -88,6 +104,7 @@ export async function createUserFromInput({
         full_name: normalizedFullName,
         email: normalizedEmail,
         personal_email: personalEmail,
+        phone: phoneResult.phone,
         login_method: loginMethod,
         password_hash: passwordHash,
         hourly_rate: hourlyRateResult.rate,
@@ -107,6 +124,7 @@ export async function addUser({ body, set }) {
         full_name: body.full_name,
         email: body.email,
         personal_email: body.personal_email,
+        phone: body.phone,
         login_method: body.login_method,
         password: body.password,
         hourly_rate: body.hourly_rate,
@@ -166,6 +184,11 @@ export async function updateUser({ body, set }) {
     }
 
     const personalEmail = String(body.personal_email || "").trim().toLowerCase() || null;
+    const phoneResult = normalizePhone(body.phone);
+    if (phoneResult.error) {
+        set.status = 400;
+        return { error: phoneResult.error };
+    }
     const hourlyRateResult = normalizeHourlyRate(body.hourly_rate);
     if (hourlyRateResult.error) {
         set.status = 400;
@@ -177,6 +200,7 @@ export async function updateUser({ body, set }) {
         full_name: body.full_name.trim(),
         email,
         personal_email: personalEmail,
+        phone: phoneResult.phone,
         login_method: loginMethod,
         password_hash: passwordHash,
         hourly_rate: hourlyRateResult.rate,

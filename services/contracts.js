@@ -599,6 +599,7 @@ export async function transferContractToUser({ params, body, set }) {
         full_name: existingContract.full_name,
         email,
         personal_email: body.personal_email,
+        phone: existingContract.phone,
         login_method: body.login_method,
         password: body.password,
         hourly_rate: body.hourly_rate,

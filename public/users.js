@@ -20,6 +20,7 @@
     const idInput = form.elements.namedItem("id");
     const fullNameInput = form.elements.namedItem("full_name");
     const emailInput = form.elements.namedItem("email");
+    const phoneInput = form.elements.namedItem("phone");
     const personalEmailInput = form.elements.namedItem("personal_email");
     const hourlyRateInput = form.elements.namedItem("hourly_rate");
     const userRoleIds = new Map();
@@ -119,6 +120,7 @@
         idInput.value = row.dataset.id || "";
         fullNameInput.value = row.dataset.fullName || "";
         emailInput.value = row.dataset.email || "";
+        if (phoneInput) phoneInput.value = row.dataset.phone || "";
         if (personalEmailInput) personalEmailInput.value = row.dataset.personalEmail || "";
         if (hourlyRateInput) hourlyRateInput.value = row.dataset.hourlyRate || "";
         if (loginMethodSelect) loginMethodSelect.value = row.dataset.loginMethod || "otp";
@@ -287,10 +289,12 @@
         const id = idInput.value ? Number(idInput.value) : null;
         const loginMethod = loginMethodSelect?.value || "otp";
         const password = passwordInput?.value || "";
+        const phone = (phoneInput?.value || "").trim();
         const hourlyRateRaw = (hourlyRateInput?.value || "").trim();
         const payload = {
             full_name: fullNameInput.value.trim(),
             email: emailInput.value.trim(),
+            phone: phone || null,
             personal_email: (personalEmailInput?.value || "").trim() || null,
             login_method: loginMethod,
             hourly_rate: null,
@@ -298,6 +302,11 @@
 
         if (!payload.full_name || !payload.email) {
             showAlert(formAlert, "Please fill in full name and email.", "danger");
+            return;
+        }
+
+        if (phone && !/^\+?[0-9]{10,13}$/.test(phone)) {
+            showAlert(formAlert, "Enter a valid phone number.", "danger");
             return;
         }
 

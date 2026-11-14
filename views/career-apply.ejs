@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title || "Apply — HammerByte" %></title>
+    <meta name="robots" content="index, follow" />
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+        crossorigin="anonymous"
+    />
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">HammerByte</a>
+            <div class="d-flex gap-2">
+                <a href="/" class="btn btn-sm btn-outline-light">Home</a>
+                <a href="/careers" class="btn btn-sm btn-warning">Careers</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container py-5">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/careers" class="text-decoration-none">Careers</a> /
+                <a href="/careers/<%= job.id %>" class="text-decoration-none"><%= job.title %></a>
+                / Apply
+            </p>
+            <h1 class="h3 mb-2">Apply for <%= job.title %></h1>
+            <p class="text-secondary mb-1">Experience: <%= job.experience %></p>
+            <p class="text-secondary mb-0">
+                Published:
+                <span
+                    data-readable-date="<%= job.created_on || '' %>"
+                    data-date-format="DD/MM/YYYY"
+                ></span>
+            </p>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-12 col-lg-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <div id="career-alert" class="alert d-none" role="alert"></div>
+                        <form
+                            id="career-apply-form"
+                            novalidate
+                            data-job-id="<%= job.id %>"
+                        >
+                            <div class="mb-3">
+                                <label for="career-full-name" class="form-label">Full name</label>
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    id="career-full-name"
+                                    name="full_name"
+                                    maxlength="128"
+                                    required
+                                    autocomplete="name"
+                                />
+                            </div>
+                            <div class="mb-3">
+                                <label for="career-email" class="form-label">Email</label>
+                                <input
+                                    type="email"
+                                    class="form-control"
+                                    id="career-email"
+                                    name="email"
+                                    maxlength="255"
+                                    required
+                                    autocomplete="email"
+                                />
+                            </div>
+                            <div class="mb-3">
+                                <label for="career-phone" class="form-label">Phone</label>
+                                <input
+                                    type="tel"
+                                    class="form-control"
+                                    id="career-phone"
+                                    name="phone"
+                                    maxlength="13"
+                                    required
+                                    autocomplete="tel"
+                                    placeholder="10-digit mobile number"
+                                />
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label for="career-state" class="form-label">State</label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="career-state"
+                                        name="state"
+                                        maxlength="64"
+                                        required
+                                    />
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="career-city" class="form-label">City</label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="career-city"
+                                        name="city"
+                                        maxlength="64"
+                                        required
+                                    />
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="career-country" class="form-label">Country</label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="career-country"
+                                        name="country"
+                                        value="India"
+                                        disabled
+                                    />
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label for="career-resume" class="form-label">Resume (PDF, max 15 MB)</label>
+                                <input
+                                    type="file"
+                                    class="form-control"
+                                    id="career-resume"
+                                    name="resume"
+                                    accept="application/pdf,.pdf"
+                                    required
+                                />
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="submit" class="btn btn-primary" id="career-submit-btn">
+                                    Submit application
+                                </button>
+                                <a href="/careers/<%= job.id %>" class="btn btn-outline-secondary">
+                                    Back to details
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        window.__MAX_REQUEST_BODY_SIZE__ = <%=
+            typeof maxRequestBodySize !== "undefined" && Number(maxRequestBodySize) > 0
+                ? Number(maxRequestBodySize)
+                : 1536 * 1024 * 1024
+        %>;
+    </script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+        crossorigin="anonymous"
+    ></script>
+    <script src="/public/utils.js" defer></script>
+    <script src="/public/career.js" defer></script>
+</body>
+</html>

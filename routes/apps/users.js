@@ -30,6 +30,16 @@ export default function (app) {
                         t.Null(),
                     ]),
                 ),
+                phone: t.Optional(
+                    t.Union([
+                        t.String({
+                            pattern: "^\\+?[0-9]{10,13}$",
+                            error: "Valid phone is required",
+                        }),
+                        t.Literal(""),
+                        t.Null(),
+                    ]),
+                ),
                 login_method: loginMethodSchema,
                 password: t.Optional(t.String({ maxLength: 128 })),
                 hourly_rate: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
@@ -56,6 +66,16 @@ export default function (app) {
                 personal_email: t.Optional(
                     t.Union([
                         t.String({ maxLength: 128 }),
+                        t.Null(),
+                    ]),
+                ),
+                phone: t.Optional(
+                    t.Union([
+                        t.String({
+                            pattern: "^\\+?[0-9]{10,13}$",
+                            error: "Valid phone is required",
+                        }),
+                        t.Literal(""),
                         t.Null(),
                     ]),
                 ),

@@ -299,11 +299,15 @@
             transferUserForm.reset();
             const fullNameInput = transferUserForm.elements.namedItem("full_name");
             const emailInput = transferUserForm.elements.namedItem("email");
+            const phoneInput = transferUserForm.elements.namedItem("phone");
             if (fullNameInput) {
                 fullNameInput.value = fullNameInput.defaultValue || fullNameInput.value;
             }
             if (emailInput) {
                 emailInput.value = emailInput.defaultValue || emailInput.value;
+            }
+            if (phoneInput) {
+                phoneInput.value = phoneInput.defaultValue || phoneInput.value;
             }
             if (transferLoginMethodSelect) {
                 transferLoginMethodSelect.value = "otp";
