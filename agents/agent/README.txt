@@ -12,10 +12,11 @@ INSTALL
      The agent picks up changes within about 10 seconds.
 
 WHAT THE INSTALLER DOES
-  - Copies the agent to C:\ProgramData\HammerByte\agent\agent.ps1 (folder readable by
-    Administrators and SYSTEM only).
-  - Adds a Microsoft Defender exclusion for C:\ProgramData\HammerByte.
+  - Adds a Microsoft Defender exclusion for C:\ProgramData\HammerByte FIRST (so antivirus does
+    not block the script when run from Downloads), then copies the agent into that folder.
+  - Folder is readable by Administrators and SYSTEM only.
   - Reuses the existing server tag (C:\ProgramData\HammerByte\.server-tag) or creates one.
+
   - Removes the old HammerByteServerMonitor / HammerByteDriveSync tasks and folders.
   - Registers the scheduled task "HammerByteAgent" (SYSTEM, at boot, watchdog every 5 minutes,
     restarts on failure).

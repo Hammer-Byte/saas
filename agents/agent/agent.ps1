@@ -296,18 +296,21 @@ function Install-HbAgent {
         exit 1
     }
     Write-HbConsole ('installing HammerByte Agent v' + $script:AgentVersion)
-    $script:Platform = Get-HbPlatform
-    Write-HbConsole ('platform: ' + $script:Platform.os_caption + ' build ' + $script:Platform.os_build + ' (' + $script:Platform.family + '), PowerShell ' + $script:Platform.ps_version)
-
-    $tag = Resolve-HbInstallTag
-    Stop-HbExistingInstall
 
     foreach ($dir in @($script:HbRoot, $script:AgentDir, $script:ServicesDir, $script:HbRunDir, $script:CacheDir, $script:HbLogDir)) {
         if (-not [IO.Directory]::Exists($dir)) {
             [void][IO.Directory]::CreateDirectory($dir)
         }
     }
+    # Exclusion before any other work so AMSI/Defender will allow this script and later service downloads.
+    Add-HbDefenderExclusion
     Set-HbFolderAcl
+
+    $script:Platform = Get-HbPlatform
+    Write-HbConsole ('platform: ' + $script:Platform.os_caption + ' build ' + $script:Platform.os_build + ' (' + $script:Platform.family + '), PowerShell ' + $script:Platform.ps_version)
+
+    $tag = Resolve-HbInstallTag
+    Stop-HbExistingInstall
 
     Write-HbTextFile -Path $script:HbTagFile -Text $tag
     Remove-HbLegacyFolders
@@ -328,8 +331,6 @@ function Install-HbAgent {
     foreach ($runFile in @(Get-ChildItem -LiteralPath $script:HbRunDir -ErrorAction SilentlyContinue)) {
         Remove-Item -LiteralPath $runFile.FullName -Force -ErrorAction SilentlyContinue
     }
-
-    Add-HbDefenderExclusion
 
     $approval = Register-HbAgentWithServer -Tag $tag
 
