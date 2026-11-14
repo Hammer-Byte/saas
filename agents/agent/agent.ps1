@@ -534,12 +534,15 @@ function Get-HbDesiredState {
             throw 'poll response is not a JSON object'
         }
         $result = $null
+        $pollKind = 'updated'
         if (Get-HbBool -Map $data -Key 'unchanged') {
+            $pollKind = 'unchanged'
             if ($null -ne $script:Desired) {
                 $result = $script:Desired
             } else {
                 # Server thinks we have a state we lost; ask for the full state next time.
                 $script:Etag = $null
+                $pollKind = 'unchanged (local state missing; will refetch)'
             }
         } else {
             $script:Desired = $data
@@ -552,11 +555,14 @@ function Get-HbDesiredState {
             Write-HbLog ('poll recovered after ' + $script:PollFailures + ' failure(s)')
         }
         $script:PollFailures = 0
+        Write-HbLog ('poll ok (' + $pollKind + ')')
         return ,$result
     } catch {
         $script:PollFailures++
         if ($script:PollFailures -eq 1 -or ($script:PollFailures % 30) -eq 0) {
             Write-HbLog ('poll failed (' + $script:PollFailures + ' in a row), using last known state: ' + (Get-HbErrorText $_)) 'WARN'
+        } else {
+            Write-HbLog ('poll failed (' + $script:PollFailures + ' in a row)') 'WARN'
         }
         return ,$script:Desired
     }

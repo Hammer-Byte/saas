@@ -340,16 +340,17 @@ function Start-HbMonitor {
                 $snapshot = Get-HbMetricsSnapshot -Config $config
                 $summary = 'metrics collected in ' + $snapshot['duration_ms'] + 'ms'
                 if ($snapshot.ContainsKey('processor')) {
-                    $summary += ', cpu ' + $snapshot['processor'].usage_percent + '%'
+                    $summary += ', cpu ' + $snapshot['processor']['usage_percent'] + '%'
                 }
                 if ($snapshot.ContainsKey('memory')) {
-                    $summary += ', memory ' + $snapshot['memory'].used_percent + '%'
+                    $summary += ', memory ' + $snapshot['memory']['used_percent'] + '%'
                 }
                 if ($snapshot['collection_errors'].Count -gt 0) {
                     $summary += ', section errors: ' + (($snapshot['collection_errors'].Keys | ForEach-Object { $_ + '=' + $snapshot['collection_errors'][$_] }) -join '; ')
                 }
                 if (Send-HbResult -Type 'metrics' -Data $snapshot) {
                     Write-HbLog ($summary + ', sent')
+                    Write-HbLog 'heartbeat ok (covered by metrics)'
                 } else {
                     Write-HbLog ($summary + ', NOT sent') 'WARN'
                 }
@@ -358,15 +359,19 @@ function Start-HbMonitor {
             }
             # A metrics post also proves liveness.
             $nextHeartbeat = [DateTime]::UtcNow.AddSeconds($heartbeatSeconds)
+            $heartbeatFailures = 0
         } elseif ($now -ge $nextHeartbeat) {
             $nextHeartbeat = $now.AddSeconds($heartbeatSeconds)
             if (Send-HbResult -Type 'heartbeat' -Data @{}) {
                 if ($heartbeatFailures -gt 0) {
                     Write-HbLog ('heartbeat recovered after ' + $heartbeatFailures + ' failure(s)')
+                } else {
+                    Write-HbLog 'heartbeat sent'
                 }
                 $heartbeatFailures = 0
             } else {
                 $heartbeatFailures++
+                Write-HbLog ('heartbeat NOT sent (failure ' + $heartbeatFailures + ')') 'WARN'
             }
         }
         $wakeAt = $nextHeartbeat

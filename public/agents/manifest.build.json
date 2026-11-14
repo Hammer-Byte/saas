@@ -31,6 +31,13 @@
     },
     {
       "component": "agent",
+      "version": "1.0.5",
+      "file_path": "/public/agents/agent/1.0.5/agent.ps1",
+      "sha256": "0cf8169fc7086dc2d37962b776a19246fffbd7b51a8f4f35a6457409c0226275",
+      "size_bytes": 69379
+    },
+    {
+      "component": "agent",
       "version": "1.0.4",
       "file_path": "/public/agents/agent/1.0.4/agent.ps1",
       "sha256": "db9592dffc2e0d2fc51792c9e05237095ccd4006db4af5a391eacc35ce83e346",
@@ -49,6 +56,13 @@
       "file_path": "/public/agents/monitor/1.0.0/monitor.ps1",
       "sha256": "7c9fff971c900b7488797f2cfae8445089f855e38dc4118f439d3c684da14de8",
       "size_bytes": 33826
+    },
+    {
+      "component": "monitor",
+      "version": "1.0.3",
+      "file_path": "/public/agents/monitor/1.0.3/monitor.ps1",
+      "sha256": "eb0ccb2598c2894565ed2388e2966d6e753a0fbf241fc589765df9d29526ef33",
+      "size_bytes": 34862
     },
     {
       "component": "monitor",
