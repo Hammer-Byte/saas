@@ -266,6 +266,13 @@ export async function updateServerAlertSettingsById({
     });
 }
 
+/** Cascades to SERVER_METRICS and SERVER_SERVICES via FK. */
+export async function deleteServerById({ id }) {
+    await executeSQLQuery((sql) => sql`DELETE FROM SERVERS WHERE id = ${id}`).catch((error) => {
+        logger.error(`deleteServerById: ${error}`);
+    });
+}
+
 export async function getServersWithPingAlertEnabled() {
     const now = getIstDateTime();
     return await executeSQLQuery(

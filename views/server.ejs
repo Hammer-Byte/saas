@@ -171,74 +171,29 @@
             </div>
 
             <div class="col-lg-6">
-                <%
-                    const alertCpuEnabled = Boolean(server.alert_cpu_enabled);
-                    const alertMemoryEnabled = Boolean(
-                        server.alert_memory_enabled != null ? server.alert_memory_enabled : server.alert,
-                    );
-                    const alertPingEnabled = Boolean(server.alert_ping_enabled);
-                    const alertCpuPercent = Number(server.alert_cpu_percent);
-                    const alertMemoryPercent = Number(server.alert_memory_percent);
-                    const alertPingSeconds = Number(server.alert_ping_seconds);
-                %>
-                <div class="card border-0 shadow-sm h-100" id="server-alerts-card" data-server-id="<%= server.id %>">
+                <div class="card border-0 shadow-sm h-100" id="server-name-card" data-server-id="<%= server.id %>" data-server-label="<%= server.name || server.hostname || server.tag %>">
                     <div class="card-header bg-white border-0 pt-4 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
-                        <h2 class="h5 mb-0">Name &amp; alerts</h2>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="server-alerts-edit-btn">Edit</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="server-alerts-cancel-btn">Cancel</button>
-                            <button type="button" class="btn btn-sm btn-primary d-none" id="server-alerts-save-btn">Save</button>
+                        <h2 class="h5 mb-0">Name</h2>
+                        <div class="d-flex gap-2 align-items-center">
+                            <button type="button" class="btn btn-sm btn-outline-secondary server-icon-btn" id="server-name-edit-btn" title="Edit name" aria-label="Edit name">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger server-icon-btn" id="server-delete-btn" title="Delete server" aria-label="Delete server">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="server-name-cancel-btn">Cancel</button>
+                            <button type="button" class="btn btn-sm btn-primary d-none" id="server-name-save-btn">Save</button>
                         </div>
                     </div>
                     <div class="card-body px-4 pb-4">
-                        <div class="mb-3">
-                            <label class="form-label small text-secondary mb-1" for="server-alert-name">Name</label>
-                            <input type="text" class="form-control" id="server-alert-name" value="<%= server.name || '' %>" maxlength="128" disabled />
-                        </div>
-                        <table class="table table-sm align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Alert</th>
-                                    <th scope="col">Threshold</th>
-                                    <th scope="col">On</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>CPU usage</td>
-                                    <td>
-                                        <div class="input-group input-group-sm" style="max-width: 9rem;">
-                                            <input type="number" class="form-control" id="alert-cpu-percent" min="1" max="100" value="<%= Number.isFinite(alertCpuPercent) ? alertCpuPercent : 80 %>" disabled />
-                                            <span class="input-group-text">%</span>
-                                        </div>
-                                    </td>
-                                    <td><input class="form-check-input" type="checkbox" id="alert-cpu-enabled" <%= alertCpuEnabled ? "checked" : "" %> disabled /></td>
-                                </tr>
-                                <tr>
-                                    <td>Memory usage</td>
-                                    <td>
-                                        <div class="input-group input-group-sm" style="max-width: 9rem;">
-                                            <input type="number" class="form-control" id="alert-memory-percent" min="1" max="100" value="<%= Number.isFinite(alertMemoryPercent) ? alertMemoryPercent : 80 %>" disabled />
-                                            <span class="input-group-text">%</span>
-                                        </div>
-                                    </td>
-                                    <td><input class="form-check-input" type="checkbox" id="alert-memory-enabled" <%= alertMemoryEnabled ? "checked" : "" %> disabled /></td>
-                                </tr>
-                                <tr>
-                                    <td>Agent silent</td>
-                                    <td>
-                                        <div class="input-group input-group-sm" style="max-width: 12rem;">
-                                            <input type="number" class="form-control" id="alert-ping-seconds" min="60" max="604800" value="<%= Number.isFinite(alertPingSeconds) ? alertPingSeconds : 180 %>" disabled />
-                                            <span class="input-group-text">seconds</span>
-                                        </div>
-                                        <div class="form-text">Email when the agent has not polled for this long (it polls every 10s).</div>
-                                    </td>
-                                    <td><input class="form-check-input" type="checkbox" id="alert-ping-enabled" <%= alertPingEnabled ? "checked" : "" %> disabled /></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <p class="form-text mb-0">CPU and memory alerts use the Monitoring service's metrics.</p>
-                        <div id="server-alert-feedback" class="small text-secondary d-none mt-2" role="status"></div>
+                        <label class="form-label small text-secondary mb-1" for="server-alert-name">Display name</label>
+                        <input type="text" class="form-control" id="server-alert-name" value="<%= server.name || '' %>" maxlength="128" disabled />
+                        <div id="server-name-feedback" class="small text-secondary d-none mt-2" role="status"></div>
                     </div>
                 </div>
             </div>
@@ -389,7 +344,81 @@
                         <% if (tab.id === "monitor") {
                             const metricsRows = tab.results.filter(function (r) { return r.type === "metrics"; });
                             const snap = metricsRows.length ? metricsRows[0].data : null;
+                            const monitorRunning = Boolean(row.enabled && row.state === "running");
+                            const alertCpuEnabled = Boolean(server.alert_cpu_enabled);
+                            const alertMemoryEnabled = Boolean(
+                                server.alert_memory_enabled != null ? server.alert_memory_enabled : server.alert,
+                            );
+                            const alertPingEnabled = Boolean(server.alert_ping_enabled);
+                            const alertCpuPercent = Number(server.alert_cpu_percent);
+                            const alertMemoryPercent = Number(server.alert_memory_percent);
+                            const alertPingSeconds = Number(server.alert_ping_seconds);
                         %>
+                            <% if (monitorRunning) { %>
+                                <div class="border rounded p-3 mb-4 bg-white" id="server-alerts-card" data-server-id="<%= server.id %>">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                        <h3 class="h6 mb-0">Alerts</h3>
+                                        <div class="d-flex gap-2 align-items-center">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary server-icon-btn" id="server-alerts-edit-btn" title="Edit alerts" aria-label="Edit alerts">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>
+                                                </svg>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="server-alerts-cancel-btn">Cancel</button>
+                                            <button type="button" class="btn btn-sm btn-primary d-none" id="server-alerts-save-btn">Save</button>
+                                        </div>
+                                    </div>
+                                    <p class="form-text mt-0 mb-3">Email when CPU or memory from this service exceeds the limit, or when the agent stops polling (heartbeat).</p>
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Alert</th>
+                                                <th scope="col">Threshold</th>
+                                                <th scope="col">On</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>CPU usage</td>
+                                                <td>
+                                                    <div class="input-group input-group-sm" style="max-width: 9rem;">
+                                                        <input type="number" class="form-control" id="alert-cpu-percent" min="1" max="100" value="<%= Number.isFinite(alertCpuPercent) ? alertCpuPercent : 80 %>" disabled />
+                                                        <span class="input-group-text">%</span>
+                                                    </div>
+                                                </td>
+                                                <td><input class="form-check-input" type="checkbox" id="alert-cpu-enabled" <%= alertCpuEnabled ? "checked" : "" %> disabled /></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Memory usage</td>
+                                                <td>
+                                                    <div class="input-group input-group-sm" style="max-width: 9rem;">
+                                                        <input type="number" class="form-control" id="alert-memory-percent" min="1" max="100" value="<%= Number.isFinite(alertMemoryPercent) ? alertMemoryPercent : 80 %>" disabled />
+                                                        <span class="input-group-text">%</span>
+                                                    </div>
+                                                </td>
+                                                <td><input class="form-check-input" type="checkbox" id="alert-memory-enabled" <%= alertMemoryEnabled ? "checked" : "" %> disabled /></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Agent silent</td>
+                                                <td>
+                                                    <div class="input-group input-group-sm" style="max-width: 12rem;">
+                                                        <input type="number" class="form-control" id="alert-ping-seconds" min="60" max="604800" value="<%= Number.isFinite(alertPingSeconds) ? alertPingSeconds : 180 %>" disabled />
+                                                        <span class="input-group-text">seconds</span>
+                                                    </div>
+                                                    <div class="form-text">Email when the agent has not polled for this long (it polls every 10s).</div>
+                                                </td>
+                                                <td><input class="form-check-input" type="checkbox" id="alert-ping-enabled" <%= alertPingEnabled ? "checked" : "" %> disabled /></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div id="server-alert-feedback" class="small text-secondary d-none mt-2" role="status"></div>
+                                </div>
+                            <% } else if (row.enabled) { %>
+                                <p class="text-secondary small mb-4">Alerts appear here once Monitoring is running on the machine.</p>
+                            <% } else { %>
+                                <p class="text-secondary small mb-4">Enable Monitoring to configure CPU, memory, and agent-silent alerts.</p>
+                            <% } %>
+
                             <h3 class="h6 mb-3">Latest metrics
                                 <% if (metricsRows.length) { %>
                                     <span class="text-secondary small fw-normal" data-readable-date="<%= metricsRows[0].collected_at || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></span>
@@ -656,6 +685,17 @@
         <button type="button" class="btn btn-outline-danger pair-remove-btn" aria-label="Remove pair">×</button>
     </div>
 </template>
+
+<style>
+    .server-icon-btn {
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>

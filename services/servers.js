@@ -1,4 +1,5 @@
 import {
+    deleteServerById,
     getAllServers,
     getServerById,
     updateServerAgentActiveById,
@@ -204,4 +205,17 @@ export async function updateMonitoredServer({ body, set }) {
     const updatedServer = await getServerById({ id: server.id });
     set.status = 200;
     return { message: "Server updated", server: updatedServer };
+}
+
+/** Removes the server row; metrics and service rows cascade via FK. */
+export async function deleteMonitoredServer({ params, set }) {
+    const server = await getServerById({ id: params.id });
+    if (!server) {
+        set.status = 404;
+        return { error: "Server not found" };
+    }
+
+    await deleteServerById({ id: server.id });
+    set.status = 200;
+    return { message: "Server deleted" };
 }

@@ -1,5 +1,6 @@
 import { t } from "elysia";
 import {
+    deleteMonitoredServer,
     getMonitoredServer,
     getMonitoredServers,
     updateMonitoredServer,
@@ -10,6 +11,13 @@ import {
 
 export default function (app) {
     return app
+        .delete("/:id", deleteMonitoredServer, {
+            params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
+            detail: {
+                tags: ["Monitored Servers"],
+                summary: "Delete a server and all of its metrics and service rows",
+            },
+        })
         .patch("/:id/approval", updateServerApproval, {
             params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
             body: t.Object({
