@@ -3,9 +3,17 @@ import { logger } from "@hammerbyte/utils";
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const OPENAI_FILES_URL = "https://api.openai.com/v1/files";
 
-/** Reasoning models reject temperature; only send it for gpt-* chat models. */
+/**
+ * Only send temperature for classic gpt-4 / gpt-5 chat models.
+ * GPT-6 (luna/sol/terra/astra), *-pro, and o* reasoning models reject it.
+ */
 function supportsTemperature(modelName) {
-    return /^gpt-/i.test(String(modelName || "").trim());
+    const name = String(modelName || "").trim();
+    if (!name) return false;
+    if (/^o\d/i.test(name)) return false;
+    if (/^gpt-6/i.test(name)) return false;
+    if (/-pro$/i.test(name)) return false;
+    return /^gpt-/i.test(name);
 }
 
 function isImageMimeType(mimeType) {
