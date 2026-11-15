@@ -638,7 +638,23 @@
                                     <option value="unlocked">Not locked</option>
                                 </select>
                             </div>
-                            <div class="col-6 d-flex align-items-end">
+                            <div class="col-6">
+                                <label for="gem-filter-ai-scope" class="form-label">AI scope</label>
+                                <select
+                                    class="form-select form-select-sm"
+                                    id="gem-filter-ai-scope"
+                                    title="Tenders decided by inline AI scope analysis"
+                                >
+                                    <option value="">Any</option>
+                                    <option value="ai_out_of_scope">Out of scope by AI</option>
+                                    <option value="ai_in_scope">Kept open by AI</option>
+                                    <option value="ai_analyzed">Any AI-analyzed</option>
+                                    <option value="not_ai_analyzed">Not AI-analyzed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-1">
+                            <div class="col-12 d-flex align-items-end">
                                 <div
                                     class="form-check mb-1"
                                     title="Missed, unattended, not eligible and out of scope tenders"
@@ -821,6 +837,7 @@
                                         const stageLabel = stageLabels[stage] || stage;
                                         const isLocked = !!Number(tender.locked);
                                         const isHidden = !!Number(tender.hidden) || tender.hidden === true;
+                                        const isAiAnalyzed = !!Number(tender.ai_analyzed);
                                     %>
                                     <tr
                                         data-id="<%= tender.id %>"
@@ -828,6 +845,7 @@
                                         data-tender-category-name="<%= tender.tender_category_name || '' %>"
                                         data-locked="<%= isLocked ? '1' : '0' %>"
                                         data-hidden="<%= isHidden ? '1' : '0' %>"
+                                        data-ai-analyzed="<%= isAiAnalyzed ? '1' : '0' %>"
                                         data-assignee-user-id="<%= tender.assignee_user_id != null ? tender.assignee_user_id : '' %>"
                                         data-stage="<%= stage %>"
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"

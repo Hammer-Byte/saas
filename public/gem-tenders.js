@@ -27,6 +27,19 @@
     const includeHiddenFilter = document.getElementById("gem-filter-include-hidden");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
     const lockedFilter = document.getElementById("gem-filter-locked");
+    const aiScopeFilter = document.getElementById("gem-filter-ai-scope");
+    const AI_SCOPE_FILTERS = new Set([
+        "ai_out_of_scope",
+        "ai_in_scope",
+        "ai_analyzed",
+        "not_ai_analyzed",
+    ]);
+    const AI_SCOPE_LABELS = {
+        ai_out_of_scope: "Out of scope by AI",
+        ai_in_scope: "Kept open by AI",
+        ai_analyzed: "Any AI-analyzed",
+        not_ai_analyzed: "Not AI-analyzed",
+    };
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
     const refreshBtn = document.getElementById("gem-tenders-refresh-btn");
     const reportLink = document.getElementById("gem-tenders-report-link");
@@ -97,6 +110,7 @@
             includeHidden: true,
             quantityUpto: "",
             locked: "",
+            aiScope: "",
             view: "all",
             columns: {},
         };
@@ -222,6 +236,7 @@
             includeHidden: !!includeHiddenFilter?.checked,
             quantityUpto: String(quantityUptoFilter?.value || "").trim(),
             locked: String(lockedFilter?.value || ""),
+            aiScope: String(aiScopeFilter?.value || ""),
             view: appliedFilters.view || "all",
             columns,
         };
@@ -242,6 +257,11 @@
                 Number.isFinite(qty) && qty > 0 ? String(qty) : "";
         }
         if (lockedFilter) lockedFilter.value = filters.locked || "";
+        if (aiScopeFilter) {
+            aiScopeFilter.value = AI_SCOPE_FILTERS.has(filters.aiScope)
+                ? filters.aiScope
+                : "";
+        }
         const columns =
             filters.columns && typeof filters.columns === "object" ? filters.columns : {};
         for (const select of columnFilters) {
@@ -575,6 +595,7 @@
                 const isLocked = !!Number(tender.locked);
                 const isHidden =
                     !!Number(tender.hidden) || tender.hidden === true;
+                const isAiAnalyzed = !!Number(tender.ai_analyzed);
                 const lockMessage = tender.lock_message || "";
                 const assigneeUserId =
                     tender.assignee_user_id != null
@@ -593,6 +614,7 @@
                     data-tender-category-name="${escapeHtml(tenderCategoryName)}"
                     data-locked="${isLocked ? "1" : "0"}"
                     data-hidden="${isHidden ? "1" : "0"}"
+                    data-ai-analyzed="${isAiAnalyzed ? "1" : "0"}"
                     data-assignee-user-id="${escapeHtml(assigneeUserId)}"
                     data-stage="${escapeHtml(stage)}"
                     data-past-experience="${escapeHtml(pastExperience)}"
@@ -1194,6 +1216,14 @@
                 },
             });
         }
+        if (AI_SCOPE_FILTERS.has(appliedFilters.aiScope)) {
+            chips.push({
+                label: AI_SCOPE_LABELS[appliedFilters.aiScope] || "AI scope",
+                clear: () => {
+                    if (aiScopeFilter) aiScopeFilter.value = "";
+                },
+            });
+        }
         if (!appliedFilters.includeHidden) {
             chips.push({
                 label: "Hiding hidden tenders",
@@ -1271,6 +1301,9 @@
         const selectedAssignees = (appliedFilters.assignees || []).map(String);
         const includeHidden = !!appliedFilters.includeHidden || !!searchMode;
         const lockedMode = String(appliedFilters.locked || "");
+        const aiScopeMode = AI_SCOPE_FILTERS.has(appliedFilters.aiScope)
+            ? appliedFilters.aiScope
+            : "";
         const view = QUICK_VIEWS.has(appliedFilters.view) ? appliedFilters.view : "all";
         const quantityUptoRaw = String(appliedFilters.quantityUpto ?? "").trim();
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
@@ -1293,6 +1326,9 @@
 
         for (const row of rows) {
             const rowStage = String(row.dataset.stage || "unassigned");
+            const rowAiAnalyzed = row.dataset.aiAnalyzed === "1";
+            const rowAiOutOfScope = rowAiAnalyzed && rowStage === "out_of_scope";
+            const rowAiInScope = rowAiAnalyzed && rowStage !== "out_of_scope";
 
             const rowCategoryId = String(row.dataset.tenderCategoryId || "");
             const matchesCategory =
@@ -1334,6 +1370,13 @@
             const matchesLocked =
                 !lockedMode || (lockedMode === "locked") === (row.dataset.locked === "1");
 
+            const matchesAiScope =
+                !aiScopeMode ||
+                (aiScopeMode === "ai_out_of_scope" && rowAiOutOfScope) ||
+                (aiScopeMode === "ai_in_scope" && rowAiInScope) ||
+                (aiScopeMode === "ai_analyzed" && rowAiAnalyzed) ||
+                (aiScopeMode === "not_ai_analyzed" && !rowAiAnalyzed);
+
             const matchesBase =
                 matchesCategory &&
                 matchesStage &&
@@ -1341,14 +1384,17 @@
                 matchesSearch &&
                 matchesColumns &&
                 matchesQuantity &&
-                matchesLocked;
+                matchesLocked &&
+                matchesAiScope;
 
             // Hidden (closed) tenders show when asked for explicitly: the checkbox, their status, or their quick view.
             const isHiddenRow = row.dataset.hidden === "1";
             const hiddenAllowed =
                 includeHidden ||
                 !isHiddenRow ||
-                (HIDDEN_STATUSES.has(rowStage) && selectedStages.includes(rowStage));
+                (HIDDEN_STATUSES.has(rowStage) && selectedStages.includes(rowStage)) ||
+                (aiScopeMode === "ai_out_of_scope" && rowAiOutOfScope) ||
+                (aiScopeMode === "ai_analyzed" && rowAiOutOfScope);
             const showableIn = (key) =>
                 matchesBase &&
                 (hiddenAllowed || HIDDEN_VIEWS.has(key)) &&
@@ -1434,6 +1480,7 @@
             quantityUpto:
                 Number.isFinite(quantity) && quantity > 0 ? String(quantity) : "",
             locked: ["locked", "unlocked"].includes(filters.locked) ? filters.locked : "",
+            aiScope: AI_SCOPE_FILTERS.has(filters.aiScope) ? filters.aiScope : "",
             view: QUICK_VIEWS.has(filters.view) ? filters.view : "all",
             columns,
         };
@@ -1615,7 +1662,14 @@
         if (searchMode ? search && search !== searchMode : !lastVisibleCount) enterSearchMode();
     });
 
-    for (const input of [fromInput, toInput, includeHiddenFilter, lockedFilter, ...columnFilters]) {
+    for (const input of [
+        fromInput,
+        toInput,
+        includeHiddenFilter,
+        lockedFilter,
+        aiScopeFilter,
+        ...columnFilters,
+    ]) {
         input?.addEventListener("change", () => void commitFilters());
     }
     quantityUptoFilter?.addEventListener("input", () => void commitFilters());

@@ -1066,6 +1066,80 @@ function scanDetailsDiffer(existingTender, nextDetails) {
     return false;
 }
 
+/** Completely untouched row — safe for inline AI scope (no human/system touch yet). */
+function isGemTenderUntouchedForAi(tender) {
+    if (!tender) return false;
+    const stage = String(tender.stage || "").trim();
+    return (
+        tender.assignee_user_id == null &&
+        !Number(tender.eligible) &&
+        !Number(tender.ineligible) &&
+        !Number(tender.out_of_scope) &&
+        !Number(tender.missed) &&
+        !Number(tender.unattended) &&
+        !Number(tender.filed) &&
+        !Number(tender.locked) &&
+        !stage &&
+        !Number(tender.ai_analyzed)
+    );
+}
+
+/** Download SoW with GeM session, upload to OpenAI, delete local copy. */
+async function runInlineAiScopeIfNeeded({
+    driver,
+    gemTenderId,
+    tenderId,
+    specification_links,
+}) {
+    let sowFile = null;
+    try {
+        const sowUrl = findScopeOfWorkUrl(specification_links);
+        if (!sowUrl) {
+            logger.info(`AI scope skip: tender ${tenderId} → no Scope of Work URL`);
+            return;
+        }
+        if (!driver) {
+            logger.error(
+                `AI scope skip: tender ${tenderId} → no browser session for SoW download`,
+            );
+            return;
+        }
+        const sow = await downloadScopeOfWorkFile(driver, sowUrl, tenderId);
+        if (!sow?.buffer) {
+            logger.info(`AI scope skip: tender ${tenderId} → skipped_sow_download`);
+            return;
+        }
+        sowFile = sow.sowFile;
+        const result = await analyzeGemTenderAiScope({
+            gemTenderId,
+            tenderId,
+            buffer: sow.buffer,
+            mimeType: sow.mimeType,
+            filename: sow.filename,
+        });
+        logger.info(
+            `AI scope finished inline: tender ${tenderId} → ${result?.status || "unknown"}`,
+        );
+    } catch (error) {
+        logger.error(`AI scope failed inline for tender ${tenderId}: ${error}`);
+    } finally {
+        if (sowFile) {
+            try {
+                await unlink(sowFile);
+                logger.info(
+                    `AI scope SoW local deleted: tender ${tenderId} path=${sowFile}`,
+                );
+            } catch (error) {
+                if (error?.code !== "ENOENT") {
+                    logger.error(
+                        `AI scope SoW local delete failed: tender ${tenderId} path=${sowFile} → ${error}`,
+                    );
+                }
+            }
+        }
+    }
+}
+
 export const processTender = async ({
     driver = null,
     tenderFile,
@@ -1106,54 +1180,12 @@ export const processTender = async ({
 
             logger.info(`Stored tender details: ${tender_id}`);
 
-            // Inline AI scope: download SoW with GeM session, upload file to OpenAI, then delete local copy.
-            let sowFile = null;
-            try {
-                const sowUrl = findScopeOfWorkUrl(gemTenderDetails?.specification_links);
-                if (!sowUrl) {
-                    logger.info(`AI scope skip: tender ${tender_id} → no Scope of Work URL`);
-                } else if (!driver) {
-                    logger.error(
-                        `AI scope skip: tender ${tender_id} → no browser session for SoW download`,
-                    );
-                } else {
-                    const sow = await downloadScopeOfWorkFile(driver, sowUrl, tender_id);
-                    if (!sow?.buffer) {
-                        logger.info(
-                            `AI scope skip: tender ${tender_id} → skipped_sow_download`,
-                        );
-                    } else {
-                        sowFile = sow.sowFile;
-                        const result = await analyzeGemTenderAiScope({
-                            gemTenderId: tenderRowId,
-                            tenderId: tender_id,
-                            buffer: sow.buffer,
-                            mimeType: sow.mimeType,
-                            filename: sow.filename,
-                        });
-                        logger.info(
-                            `AI scope finished inline: tender ${tender_id} → ${result?.status || "unknown"}`,
-                        );
-                    }
-                }
-            } catch (error) {
-                logger.error(`AI scope failed inline for tender ${tender_id}: ${error}`);
-            } finally {
-                if (sowFile) {
-                    try {
-                        await unlink(sowFile);
-                        logger.info(
-                            `AI scope SoW local deleted: tender ${tender_id} path=${sowFile}`,
-                        );
-                    } catch (error) {
-                        if (error?.code !== "ENOENT") {
-                            logger.error(
-                                `AI scope SoW local delete failed: tender ${tender_id} path=${sowFile} → ${error}`,
-                            );
-                        }
-                    }
-                }
-            }
+            await runInlineAiScopeIfNeeded({
+                driver,
+                gemTenderId: tenderRowId,
+                tenderId: tender_id,
+                specification_links: gemTenderDetails?.specification_links,
+            });
 
             return true;
         }
@@ -1164,18 +1196,33 @@ export const processTender = async ({
             existingTender,
         });
 
+        let changed = false;
         if (!scanDetailsDiffer(existingTender, nextDetails)) {
             logger.info(`Tender unchanged, skipping update: ${tender_id}`);
-            return false;
+        } else {
+            await updateGemTenderScanDetailsById({
+                id: existingTender.id,
+                ...nextDetails,
+            });
+            logger.info(`Updated tender scan details: ${tender_id}`);
+            changed = true;
         }
 
-        await updateGemTenderScanDetailsById({
-            id: existingTender.id,
-            ...nextDetails,
-        });
+        // Re-scan: AI only for completely untouched rows (no assignee/stage/flags/ai yet).
+        if (isGemTenderUntouchedForAi(existingTender)) {
+            await runInlineAiScopeIfNeeded({
+                driver,
+                gemTenderId: existingTender.id,
+                tenderId: tender_id,
+                specification_links: gemTenderDetails?.specification_links,
+            });
+        } else {
+            logger.info(
+                `AI scope skip: tender ${tender_id} → already touched or analyzed`,
+            );
+        }
 
-        logger.info(`Updated tender scan details: ${tender_id}`);
-        return true;
+        return changed;
     } catch (error) {
         logger.error(`Failed to process tender ${tender_id}: ${error}`);
         return false;
