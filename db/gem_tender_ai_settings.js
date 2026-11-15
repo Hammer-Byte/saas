@@ -15,13 +15,13 @@ export const GEM_TENDER_AI_MODEL_OPTIONS = [
 
 export const DEFAULT_GEM_TENDER_AI_PROMPT = `You help HammerByte decide if a GeM tender is in our service scope.
 
-Our service categories:
+Our scan keywords and GeM categories (the Scope of Work should fall under or be associated with at least one of these):
 {{categories}}
 
 Scope of work document URL:
 {{scope_of_work_url}}
 
-Use the scope-of-work document text provided with this request. Decide if the tender falls under our services.
+Use the scope-of-work document text provided with this request. Mark in_scope true only if the work clearly matches or is associated with at least one keyword or GeM category above; otherwise false.
 Respond with JSON only: {"in_scope": true|false, "reason": "short explanation"}`;
 
 export async function getGemTenderAiSettings() {

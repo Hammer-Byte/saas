@@ -714,7 +714,7 @@ export async function generateDBTables() {
         )`,
         `INSERT IGNORE INTO GEM_TENDER_AI_SETTINGS (id, prompt_template, openai_model) VALUES (
             1,
-            'You help HammerByte decide if a GeM tender is in our service scope.\n\nOur service categories:\n{{categories}}\n\nScope of work document URL:\n{{scope_of_work_url}}\n\nUse the scope-of-work document text provided with this request. Decide if the tender falls under our services.\nRespond with JSON only: {\"in_scope\": true|false, \"reason\": \"short explanation\"}',
+            'You help HammerByte decide if a GeM tender is in our service scope.\n\nOur scan keywords and GeM categories (the Scope of Work should fall under or be associated with at least one of these):\n{{categories}}\n\nScope of work document URL:\n{{scope_of_work_url}}\n\nUse the scope-of-work document text provided with this request. Mark in_scope true only if the work clearly matches or is associated with at least one keyword or GeM category above; otherwise false.\nRespond with JSON only: {\"in_scope\": true|false, \"reason\": \"short explanation\"}',
             'gpt-4o-mini'
         );`,
         `CREATE TABLE IF NOT EXISTS GEM_TENDER_SCAN_RUNS (

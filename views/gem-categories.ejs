@@ -205,8 +205,10 @@
                             <p class="text-secondary small mb-0">
                                 Configure OpenAI key and model here (stored in
                                 <code>GEM_TENDER_AI_SETTINGS</code>). On new tender insert with a Scope of Work URL,
-                                the prompt below is sent with extracted SoW text. Required placeholders:
-                                <code>{{scope_of_work_url}}</code> and <code>{{categories}}</code>.
+                                the prompt below is sent with extracted SoW text.
+                                <code>{{categories}}</code> is filled with scan keywords plus all GeM categories —
+                                SoW must match or associate with at least one. Also required:
+                                <code>{{scope_of_work_url}}</code>.
                             </p>
                         </div>
                         <div id="gem-ai-scope-status" class="small text-secondary mb-3"></div>

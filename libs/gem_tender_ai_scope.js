@@ -7,7 +7,8 @@ import {
     DEFAULT_GEM_TENDER_AI_PROMPT,
     getGemTenderAiSettings,
 } from "../db/gem_tender_ai_settings.js";
-import { getAllGemTenderCategories } from "../db/gem_tender_categories.js";
+import { getAllGemCategories } from "../db/gem_categories.js";
+import { getAllGemScanKeywords } from "../db/gem_scan_keywords.js";
 import {
     getGemTenderById,
     updateGemTenderById,
@@ -45,6 +46,29 @@ export function fillAiScopePrompt(template, { scopeOfWorkUrl, categories }) {
     return String(template || DEFAULT_GEM_TENDER_AI_PROMPT)
         .replaceAll("{{scope_of_work_url}}", String(scopeOfWorkUrl || "").trim())
         .replaceAll("{{categories}}", categoriesText || "- (none configured)");
+}
+
+/** Labels for {{categories}}: scan keywords + all GeM categories. */
+export async function loadAiScopeMatchLabels() {
+    const [keywords, gemCategories] = await Promise.all([
+        getAllGemScanKeywords(),
+        getAllGemCategories(),
+    ]);
+
+    const labels = [];
+    for (const row of keywords || []) {
+        const keyword = String(row?.keyword || "").trim();
+        if (keyword) {
+            labels.push(`Keyword: ${keyword}`);
+        }
+    }
+    for (const row of gemCategories || []) {
+        const name = String(row?.name || "").trim();
+        if (!name) continue;
+        const group = String(row?.group_name || "").trim();
+        labels.push(group ? `GeM category: ${group} › ${name}` : `GeM category: ${name}`);
+    }
+    return labels;
 }
 
 async function readPdfTextFromFile(filePath) {
@@ -165,9 +189,11 @@ export async function analyzeGemTenderAiScope({ gemTenderId }) {
         return { status: "skipped_bad_prompt" };
     }
 
-    const categories = (await getAllGemTenderCategories()).map(
-        (row) => row.name || `Category #${row.id}`,
-    );
+    const categories = await loadAiScopeMatchLabels();
+    if (!categories.length) {
+        logger.info(`gem_tender_ai_scope: no keywords or GeM categories configured, skip tender ${id}`);
+        return { status: "skipped_no_match_labels" };
+    }
     const filledPrompt = fillAiScopePrompt(template, {
         scopeOfWorkUrl,
         categories,
