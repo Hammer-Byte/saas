@@ -594,6 +594,30 @@
                         </div>
 
                         <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label for="gem-filter-emd-upto" class="form-label">EMD up to</label>
+                                <input
+                                    type="number"
+                                    class="form-control form-control-sm"
+                                    id="gem-filter-emd-upto"
+                                    min="1"
+                                    step="1"
+                                    placeholder="e.g. 5000"
+                                    inputmode="numeric"
+                                    autocomplete="off"
+                                />
+                            </div>
+                            <div class="col-6">
+                                <label for="gem-filter-ai-analyzed" class="form-label">AI analyzed</label>
+                                <select class="form-select form-select-sm" id="gem-filter-ai-analyzed">
+                                    <option value="">Any</option>
+                                    <option value="analyzed">Analyzed</option>
+                                    <option value="not_analyzed">Not analyzed</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
                             <div class="col-4">
                                 <label for="gem-filter-past-experience" class="form-label" title="Required past experience">Past exp.</label>
                                 <select
@@ -638,23 +662,7 @@
                                     <option value="unlocked">Not locked</option>
                                 </select>
                             </div>
-                            <div class="col-6">
-                                <label for="gem-filter-ai-scope" class="form-label">AI scope</label>
-                                <select
-                                    class="form-select form-select-sm"
-                                    id="gem-filter-ai-scope"
-                                    title="Tenders decided by inline AI scope analysis"
-                                >
-                                    <option value="">Any</option>
-                                    <option value="ai_out_of_scope">Out of scope by AI</option>
-                                    <option value="ai_in_scope">Kept open by AI</option>
-                                    <option value="ai_analyzed">Any AI-analyzed</option>
-                                    <option value="not_ai_analyzed">Not AI-analyzed</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="row g-2 mb-1">
-                            <div class="col-12 d-flex align-items-end">
+                            <div class="col-6 d-flex align-items-end">
                                 <div
                                     class="form-check mb-1"
                                     title="Missed, unattended, not eligible and out of scope tenders"
@@ -729,6 +737,10 @@
                             <div class="form-check">
                                 <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-locked" value="locked" checked />
                                 <label class="form-check-label" for="gem-col-locked">Locked</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-aiAnalyzed" value="aiAnalyzed" checked />
+                                <label class="form-check-label" for="gem-col-aiAnalyzed">AI analyzed</label>
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-assignee" value="assignee" checked />
@@ -818,6 +830,7 @@
                                 <th scope="col" data-col="mseTurnover">Turnover Relaxation</th>
                                 <th scope="col" data-col="stage">Status</th>
                                 <th scope="col" data-col="locked" class="text-center" style="width: 4.5rem;">Locked</th>
+                                <th scope="col" data-col="aiAnalyzed" class="text-center" style="width: 5.5rem;">AI</th>
                                 <th scope="col" data-col="assignee">Assignee</th>
                             </tr>
                         </thead>
@@ -852,6 +865,7 @@
                                         data-mse-exp="<%= mseDisplay(tender.mse_experience_relaxation) === '-' ? '' : mseDisplay(tender.mse_experience_relaxation) %>"
                                         data-mse-turnover="<%= mseDisplay(tender.mse_turnover_relaxation) === '-' ? '' : mseDisplay(tender.mse_turnover_relaxation) %>"
                                         data-quantity="<%= Number(tender.quantity || 0) %>"
+                                        data-emd="<%= emdAmount > 0 ? emdAmount : 0 %>"
                                         data-end-at="<%= tender.end_date_time || '' %>"
                                         data-buyer="<%= buyerParts.concat(tender.buyer_name || []).join(' ') %>"
                                         data-assignee-name="<%= tender.assignee_full_name || '' %>"
@@ -908,6 +922,9 @@
                                             aria-label="<%= isLocked ? (tender.lock_message || 'Locked') : 'Not locked' %>"
                                             title="<%= isLocked ? (tender.lock_message || 'Locked') : 'Not locked' %>"
                                         />
+                                    </td>
+                                    <td data-col="aiAnalyzed" class="text-center">
+                                        <%= isAiAnalyzed ? "Yes" : "No" %>
                                     </td>
                                     <td data-col="assignee">
                                         <span class="gem-tender-tag gem-tender-assignee-tag<%= tender.assignee_user_id ? '' : ' gem-tender-assignee-empty' %>">

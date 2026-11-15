@@ -20,65 +20,132 @@ const TENDERS_DIRECTORY = "downloaded_tenders";
 const GEM_BID_NUMBER = /^GEM\/\d{4}\/B\/\d+$/i;
 const GEM_RA_NUMBER = /^GEM\/\d{4}\/R\/\d+$/i;
 
+/**
+ * Per-property ordered regex lists. Scan tries each pattern in order and stops
+ * at the first capture (group 1 unless noted). More patterns = higher hit rate.
+ */
+const PROPERTY_REGEXES = {
+    end_date_time: [
+        /Bid End Date\/Time\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/,
+        /RA End Date\/Time\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/,
+    ],
+    start_date_time: [
+        // Most common GeM layout: date sits between "Bid Opening" and "Date/Time".
+        /Bid Opening[\s\S]{0,80}?(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})[\s\S]{0,40}?Date\/Time/i,
+        /Bid Opening[\s\S]{0,40}?Date\/Time\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/i,
+        /Bid Opening[\s\S]{0,120}?(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/i,
+        /RA Start Date\/Time\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/,
+    ],
+    hod_email: [
+        /HOD\s*Email\s*id\s*:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+        /HOD[\s\S]{0,40}?Email\s*(?:id|ID)\s*:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+    ],
+    buyer_email: [
+        /Buyer\s*Email\s*id\s*:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+        /Buyer[\s\S]{0,40}?Email\s*(?:id|ID)\s*:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+        /Email\s*ID\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+    ],
+    buyer_name: [
+        /(?:Buyer\s*Name|Name\s*of\s*(?:the\s*)?Buyer)\s*:?\s*([^\n|;]+)/i,
+        /(?:^|\||\n)\s*(?:पद\s*\|)?Designation\s*:\s*([^\n|;]+)/i,
+    ],
+    buyer_phone: [
+        /Contact\s*No\.?\s*:\s*([0-9][0-9\-\s/]{6,24})/i,
+        /(?:Mobile|Phone)\s*(?:No\.?|Number)?\s*:?\s*([0-9][0-9\-\s+/]{6,24})/i,
+    ],
+    required_minimum_average_turnover: [
+        /Minimum Average Annual Turnover[\s\S]{0,120}?(\d+(?:\.\d+)?\s*Lakh\s*\(s\))/i,
+        // OEM turnover value often appears on the line above the English label.
+        /(\d+(?:\.\d+)?\s*Lakh\s*\(s\))[\s\S]{0,100}?OEM Average Turnover\s*\(Last 3 Years\)/i,
+        /OEM Average Turnover\s*\(Last 3 Years\)[\s\S]{0,100}?(\d+(?:\.\d+)?\s*Lakh\s*\(s\))/i,
+        /Minimum Average Annual Turnover[\s\S]{0,120}?(\d+(?:\.\d+)?\s*Crore\s*\(s\))/i,
+    ],
+    required_past_experice_years: [
+        /Years of Past Experience Required[\s\S]{0,80}?(\d+\s*Year\s*\(s\))/i,
+        /Years of Past Experience Required for[\s\S]{0,40}?(\d+\s*Year\s*\(s\))/i,
+        /Years of Past Experience Required[\s\S]{0,100}?(\d+)\s*Year/i,
+    ],
+    // Global + last match: GeM often repeats the row; final Bid Details hit wins.
+    mse_experience_relaxation: [
+        /MSE Relaxation for Years Of Experience[\s\S]{0,40}?(?<![A-Za-z])((?:Yes|No)(?:\s*\|\s*(?:Complete|All|Partial))?)(?![A-Za-z])/gi,
+        /(?:MSE|\u090F\u092E\u090F\u0938\u0908|\u090F\u092E\s*\u090F\u0938\s*\u0908)(?!\s+Purchase)[\s\S]{0,120}?(?<![A-Za-z])((?:Yes|No)(?:\s*\|\s*(?:Complete|All|Partial))?)(?![A-Za-z])/gi,
+    ],
+    mse_turnover_relaxation: [
+        /Startup Relaxation for Years Of[\s\S]{0,60}?(?<![A-Za-z])((?:Yes|No)(?:\s*\|\s*(?:Complete|All|Partial))?)(?![A-Za-z])/gi,
+        /(?:Startup|Start-up|\u0938\u094D\u091F\u093E\u0930\u094D\u091F\u0905\u092A|\u0938\u094D\u091F\u093E\u0930\u094D\u091F[\s-]*\u0905\u092A)[\s\S]{0,120}?(?<![A-Za-z])((?:Yes|No)(?:\s*\|\s*(?:Complete|All|Partial))?)(?![A-Za-z])/gi,
+    ],
+    scope_of_work_file: [
+        /Scope\s+of\s+Work\s*:?\s*([0-9]+\.pdf)/gi,
+        /Scope\s*Of\s*Work\s*\(?SOW\)?\s*:?\s*([0-9]+\.pdf)/gi,
+        /Scope\s+of\s+Work\s*:?\s*([A-Za-z0-9._-]+\.pdf)/gi,
+        /(?:SOW|S\.O\.W\.?)\s*:?\s*([0-9]+\.pdf)/gi,
+        /(?:Additional\s+)?(?:Scope|Specification)\s+(?:of\s+Work\s+)?Document\s*:?\s*([0-9A-Za-z._-]+\.pdf)/gi,
+    ],
+    /** URI path / query snippets matched against embedded GeM links (order = preference). */
+    specification_document_uri: [
+        /SpecificationDocument/i,
+        /downloadBuyerDoc/i,
+        /\/swspec_/i,
+        /\/BoqDocument\/[^?\s]+\.pdf/i,
+        /AdditionalSpecification/i,
+        /BuyerDoc/i,
+        /catalogueDocs/i,
+        /downloadFile/i,
+    ],
+    quantity: [
+        /Total\s*(?:Quantity|Qty)\s*[:=\u00a0\-]*([\d,]+(?:\.\d+)?)/i,
+        /Total\s*(?:Quantity|Qty)[^\d\n]{0,80}\n[^\d\n]{0,40}([\d,]+(?:\.\d+)?)/i,
+        /\bBid\s*(?:Quantity|Qty)\s*[:=\-]?\s*([\d,]+(?:\.\d+)?)/i,
+        /Total\s*Qty\.?\s*[:=\-]?\s*([\d,]+(?:\.\d+)?)/i,
+        /Quantity\s*\(Nos\.?\)\s*[:=\-]?\s*([\d,]+(?:\.\d+)?)/i,
+        /\bQty\.?\s*[:=\-]\s*([\d,]+(?:\.\d+)?)/i,
+        /मा\s*ा\s*\/\s*Quantity[^\d]{0,40}([\d,]+(?:\.\d+)?)/i,
+    ],
+    /** Direct EMD amount captures (tried before section-window logic). */
+    emd_amount: [
+        /EMD\s*Amount\s*[:=\-]?\s*([\d,]+(?:\.\d+)?)/i,
+        /\/\s*EMD\s*[:=\-]?\s*([\d,]+(?:\.\d+)?)/i,
+        /EMD\s*AMOUNT\s+IS\s+([\d,]+(?:\.\d+)?)\s*INR/i,
+        /Earnest\s+Money\s+Deposit\s*[:=\-]?\s*(?:Rs\.?|INR)?\s*([\d,]+(?:\.\d+)?)/i,
+        /ईएमड[^\n\/]{0,12}\/\s*EMD\s*Amount\s*[:=\-]?\s*([\d,]+(?:\.\d+)?)/i,
+    ],
+    emd_detail: [/EMD\s*Detail/i, /ईएमड\s*ववरण\s*\/\s*EMD\s*Detail/i],
+    emd_section_end: [
+        /ePBG\s*Detail/i,
+        /ईपीबीजी\s*ववरण\s*\/\s*ePBG\s*Detail/i,
+        /Bid\s+splitting/i,
+        /MII\s+Purchase/i,
+        /MSE\s+Purchase/i,
+    ],
+    emd_required_no: [/Required\s+No/i, /आव\s*यकता\s*\/\s*Required\s+No/i],
+    emd_amount_label: [
+        /EMD\s*Amount/gi,
+        /\/\s*EMD\b/gi,
+        /ईएमड[^\n\/]{0,12}\/\s*EMD\s*Amount/gi,
+    ],
+};
+
+/** Structural / multi-step helpers (not simple first-capture properties). */
 const TENDER_DETAIL_REGEXES = {
     EMAIL: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
-    BID_END_DATE_TIME: /Bid End Date\/Time\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/,
-    RA_END_DATE_TIME: /RA End Date\/Time\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/,
-    BID_OPENING_DATE_TIME:
-        /Bid Opening[\s\S]{0,40}?Date\/Time\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/i,
-    BID_OPENING_DATE_TIME_FALLBACK: /Bid Opening[\s\S]{0,80}?(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/,
-    RA_START_DATE_TIME: /RA Start Date\/Time\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/,
     /** GeM list card with Bid No → RA No — skip whole card. */
     RA_CARD_NO: /RA\s*NO\s*:/i,
     BID_CARD_NO: /Bid\s*No\.?\s*:/i,
-    // Bid docs: "HOD Email id :x@y" / "Buyer Email id: x@y" (colon optional; may wrap).
-    HOD_EMAIL:
-        /HOD\s*Email\s*id\s*:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
-    BUYER_EMAIL:
-        /Buyer\s*Email\s*id\s*:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
-    // Contract (GEMC) Buyer Details block: Designation / Contact No. / Email ID.
     BUYER_DETAILS_SECTION:
         /Buyer\s*Details([\s\S]{0,5000}?)(?:Seller\s*Details|Product\s*Details|$)/i,
-    BUYER_NAME_LABEL:
-        /(?:Buyer\s*Name|Name\s*of\s*(?:the\s*)?Buyer)\s*:?\s*([^\n|;]+)/i,
-    BUYER_DESIGNATION:
-        /(?:^|\||\n)\s*(?:पद\s*\|)?Designation\s*:\s*([^\n|;]+)/i,
-    BUYER_CONTACT_NO:
-        /Contact\s*No\.?\s*:\s*([0-9][0-9\-\s/]{6,24})/i,
-    BUYER_MOBILE_NO:
-        /(?:Mobile|Phone)\s*(?:No\.?|Number)?\s*:?\s*([0-9][0-9\-\s+/]{6,24})/i,
-    BUYER_EMAIL_ID_LABEL:
-        /Email\s*ID\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
-    MINIMUM_AVG_TURNOVER: /Minimum Average Annual Turnover[\s\S]{0,120}?(\d+\s*Lakh\s*\(s\))/i,
-    PAST_EXPERIENCE_YEARS: /Years of Past Experience Required[\s\S]{0,80}?(\d+\s*Year\s*\(s\))/i,
-    // Capture the whole flag ("Yes | Complete", "Yes | All", "Yes | Partial", "Yes", "No", "No | …").
-    // Prefixes cover English + Hindi labels; "MSE Purchase …" rows are excluded.
-    MSE_EXP_RELAXATION:
-        /(?:MSE|\u090F\u092E\u090F\u0938\u0908|\u090F\u092E\s*\u090F\u0938\s*\u0908)(?!\s+Purchase)[\s\S]{0,120}?(?<![A-Za-z])((?:Yes|No)(?:\s*\|\s*(?:Complete|All|Partial))?)(?![A-Za-z])/gi,
-    MSE_TURNOVER_RELAXATION:
-        /(?:Startup|Start-up|\u0938\u094D\u091F\u093E\u0930\u094D\u091F\u0905\u092A|\u0938\u094D\u091F\u093E\u0930\u094D\u091F[\s-]*\u0905\u092A)[\s\S]{0,120}?(?<![A-Za-z])((?:Yes|No)(?:\s*\|\s*(?:Complete|All|Partial))?)(?![A-Za-z])/gi,
     YES_FLAG: /^\s*Yes/i,
     NO_FLAG: /^\s*No/i,
     DOCUMENT_REQUIRED: /Document required/i,
     ASKED_DOCUMENTS:
-        /((?:Experience Criteria|Bidder Turnover|Certificate \(Requested in ATC\)|OEM Authorization Certificate|Additional Doc \d+ \(Requested in ATC\))(?:,\s*(?:Experience Criteria|Bidder Turnover|Certificate \(Requested in ATC\)|OEM Authorization Certificate|Additional Doc \d+ \(Requested in ATC\)))*)/,
+        /((?:Experience Criteria|Bidder Turnover|Certificate \(Requested in ATC\)|OEM Authorization Certificate|Additional Doc \d+ \(Requested in ATC\)|OEM Annual Turnover)(?:,\s*(?:Experience Criteria|Bidder Turnover|Certificate \(Requested in ATC\)|OEM Authorization Certificate|Additional Doc \d+ \(Requested in ATC\)|OEM Annual Turnover))*)/,
     SKIP_VALUE: /Years of Past Experience|MSE|Startup|Document required/i,
     DEVANAGARI_START: /^[\u0900-\u097F]/,
-    SCOPE_OF_WORK_FILE: /Scope\s+of\s+Work\s*:?\s*([0-9]+\.pdf)/gi,
-    // Quantity extractors (tried in order by extractQuantity).
-    // Captured numbers may include western/Indian thousand separators; stripped in parseQuantityNumber.
-    TOTAL_QUANTITY_SAME:
-        /Total\s*(?:Quantity|Qty)[\s:\u00a0\-]*([\d,]+(?:\.\d+)?)/i,
-    TOTAL_QUANTITY_MULTILINE:
-        /Total\s*(?:Quantity|Qty)[^\d\n]{0,80}\n[^\d\n]{0,40}([\d,]+(?:\.\d+)?)/i,
+    // Complex quantity layouts (summing / table strategies after PROPERTY_REGEXES.quantity).
     ITEM_PIECES_LINE: /^.{0,160}?\(\s*([\d,]+)\s*(?:pieces?|units?)\s*\)\s*$/i,
     ITEM_PIECES_ONLY: /^\(\s*([\d,]+)\s*(?:pieces?|units?)\s*\)$/i,
-    BID_QUANTITY: /\bBid\s*(?:Quantity|Qty)\s*[:=\-]?\s*([\d,]+(?:\.\d+)?)/i,
     CONSIGNEES_SECTION: /Consignees\/Reporting Officer(?:\s+and\s+Quantity)?/gi,
     CONSIGNEE_QTY_ROW: /^\s*\d+\s+.+\s+(\d{1,7})\s+(\d{1,4})\s*$/gm,
     CONSIGNEE_QTY_DAYS_ONLY: /^\s*(\d{1,7})\s+(\d{1,4})\s*$/gm,
-    // AMC / service consignee columns: "Number of each Asset", "Number of Devices",
-    // "Quantity of Data Center Assets", etc. (not goods qty+delivery-days tables).
     SERVICE_CONSIGNEE_COLUMN:
         /\/\s*Number of|\/\s*Quantity of|each\s+Asset|for\s+AMC|Number of Devices|Resources\s+to/i,
     SERVICE_CONSIGNEE_QTY_ROW:
@@ -93,16 +160,60 @@ const TENDER_DETAIL_REGEXES = {
     SERVICE_ITEM_PAREN_OPEN: /\(\s*$/,
     SERVICE_ITEM_PAREN_CLOSE: /^([\d,]+)\s*\)$/,
     ATC_QTY_NOS: /\b([\d,]+(?:\.\d+)?)\s*Nos\.?\b/gi,
-    // EMD amount (GeM "EMD Detail" block).
-    EMD_DETAIL: /EMD\s*Detail/i,
-    EMD_SECTION_END:
-        /ePBG\s*Detail|Bid\s+splitting|MII\s+Purchase|MSE\s+Purchase/i,
-    EMD_REQUIRED_NO: /Required\s+No/i,
-    EMD_AMOUNT_LABEL: /(?:\/\s*EMD\b|EMD\s*Amount)/gi,
-    EMD_AMOUNT_IS: /EMD\s*AMOUNT\s+IS\s+([\d,]+(?:\.\d+)?)\s*INR/gi,
     EMD_MONEY_NUMBER: /([\d,]{2,}(?:\.\d+)?)/g,
     EMD_APPLICABLE_PROSE: /will\s+be\s+applicable/i,
 };
+
+/** Try each regex in order; return first non-empty capture (default group 1). */
+function firstCaptureFromRegexList(text, patterns, { group = 1, pick = "first" } = {}) {
+    const source = String(text || "");
+    if (!Array.isArray(patterns) || !patterns.length) {
+        return null;
+    }
+    for (const pattern of patterns) {
+        if (!pattern) continue;
+        if (pick === "last" || pattern.global) {
+            const flags = pattern.flags.includes("g")
+                ? pattern.flags
+                : `${pattern.flags}g`;
+            const globalRe = new RegExp(pattern.source, flags);
+            const matches = [...source.matchAll(globalRe)];
+            const chosen = pick === "last" ? matches.at(-1) : matches[0];
+            const value = chosen?.[group];
+            if (value != null && String(value).trim()) {
+                return String(value).replace(/\s+/g, " ").trim();
+            }
+            continue;
+        }
+        const match = source.match(pattern);
+        const value = match?.[group];
+        if (value != null && String(value).trim()) {
+            return String(value).replace(/\s+/g, " ").trim();
+        }
+    }
+    return null;
+}
+
+/** Collect all non-empty captures across every pattern (for multi-file SoW labels). */
+function allCapturesFromRegexList(text, patterns, { group = 1 } = {}) {
+    const source = String(text || "");
+    const values = [];
+    const seen = new Set();
+    for (const pattern of patterns || []) {
+        if (!pattern) continue;
+        const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+        const globalRe = new RegExp(pattern.source, flags);
+        for (const match of source.matchAll(globalRe)) {
+            const value = match?.[group];
+            if (value == null) continue;
+            const normalized = String(value).replace(/\s+/g, " ").trim();
+            if (!normalized || seen.has(normalized.toLowerCase())) continue;
+            seen.add(normalized.toLowerCase());
+            values.push(normalized);
+        }
+    }
+    return values;
+}
 
 const sleep = (driver, ms) => driver.sleep(ms);
 
@@ -329,23 +440,23 @@ function extractBuyerContactFields(text) {
     const buyerBlock = buyerDetailsBlock(source);
 
     const hod_email =
-        cleanValue(source.match(TENDER_DETAIL_REGEXES.HOD_EMAIL)?.[1]) || null;
+        firstCaptureFromRegexList(source, PROPERTY_REGEXES.hod_email) || null;
 
     const buyer_email =
-        cleanValue(source.match(TENDER_DETAIL_REGEXES.BUYER_EMAIL)?.[1]) ||
-        cleanValue(buyerBlock.match(TENDER_DETAIL_REGEXES.BUYER_EMAIL_ID_LABEL)?.[1]) ||
+        firstCaptureFromRegexList(source, PROPERTY_REGEXES.buyer_email) ||
+        firstCaptureFromRegexList(buyerBlock, PROPERTY_REGEXES.buyer_email) ||
         null;
 
     // Only read phones from Buyer Details so Seller / consignee numbers are ignored.
     const buyer_phone =
-        normalizePhoneValue(buyerBlock.match(TENDER_DETAIL_REGEXES.BUYER_CONTACT_NO)?.[1]) ||
-        normalizePhoneValue(buyerBlock.match(TENDER_DETAIL_REGEXES.BUYER_MOBILE_NO)?.[1]) ||
-        null;
+        normalizePhoneValue(
+            firstCaptureFromRegexList(buyerBlock, PROPERTY_REGEXES.buyer_phone),
+        ) || null;
 
     // Prefer explicit buyer name; contract PDFs usually only expose Designation.
     const buyer_name =
-        cleanValue(source.match(TENDER_DETAIL_REGEXES.BUYER_NAME_LABEL)?.[1]) ||
-        cleanValue(buyerBlock.match(TENDER_DETAIL_REGEXES.BUYER_DESIGNATION)?.[1]) ||
+        firstCaptureFromRegexList(source, PROPERTY_REGEXES.buyer_name) ||
+        firstCaptureFromRegexList(buyerBlock, PROPERTY_REGEXES.buyer_name) ||
         null;
 
     return { hod_email, buyer_email, buyer_phone, buyer_name };
@@ -378,6 +489,16 @@ function extractUrisFromPdfBuffer(buffer) {
     return [...uris];
 }
 
+function uriMatchesSpecificationPatterns(uri) {
+    const value = String(uri || "");
+    for (const pattern of PROPERTY_REGEXES.specification_document_uri || []) {
+        if (pattern.test(value)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function extractSpecificationLinks({ buffer, pdfText }) {
     const uris = extractUrisFromPdfBuffer(buffer);
     const links = [];
@@ -389,25 +510,32 @@ function extractSpecificationLinks({ buffer, pdfText }) {
         links.push({ label, url });
     };
 
-    const scopeFiles = [
-        ...pdfText.matchAll(TENDER_DETAIL_REGEXES.SCOPE_OF_WORK_FILE),
-    ].map((match) => match[1]);
+    const scopeFiles = allCapturesFromRegexList(
+        pdfText,
+        PROPERTY_REGEXES.scope_of_work_file,
+    );
 
     for (const fileName of scopeFiles) {
-        const matchedUri = uris.find((uri) => uri.toLowerCase().includes(fileName.toLowerCase()));
+        const matchedUri = uris.find((uri) =>
+            uri.toLowerCase().includes(String(fileName).toLowerCase()),
+        );
         if (matchedUri) {
             pushLink(`Scope of Work: ${fileName}`, matchedUri);
         }
     }
 
+    // Ordered URI patterns from PROPERTY_REGEXES — first matching pattern family still
+    // collects every matching URI (deduped) so AI can open a real SoW/spec file.
     for (const uri of uris) {
-        if (/SpecificationDocument/i.test(uri) || /downloadBuyerDoc/i.test(uri)) {
-            pushLink("Buyer Specification Document", uri);
+        if (!uriMatchesSpecificationPatterns(uri)) {
             continue;
         }
-        if (/\/swspec_/i.test(uri) || /\/BoqDocument\/[^?]+\.pdf/i.test(uri)) {
-            pushLink("Specification Document", uri);
-        }
+        pushLink(
+            scopeFiles.length
+                ? "Buyer Specification Document"
+                : "Scope of Work / Specification Document",
+            uri,
+        );
     }
 
     return links.length ? links : null;
@@ -445,14 +573,6 @@ function firstPositiveQuantity(...candidates) {
         }
     }
     return 0;
-}
-
-/** Way 1: Bid Details "Total Quantity/Qty N" (same line or nearby next line). */
-function extractQuantityFromTotalLabel(text) {
-    return firstPositiveQuantity(
-        text.match(TENDER_DETAIL_REGEXES.TOTAL_QUANTITY_SAME)?.[1],
-        text.match(TENDER_DETAIL_REGEXES.TOTAL_QUANTITY_MULTILINE)?.[1],
-    );
 }
 
 /**
@@ -504,11 +624,6 @@ function extractQuantityFromItemPieces(text) {
     }
 
     return matched ? total : 0;
-}
-
-/** Way 3: Explicit "Bid Quantity: N". */
-function extractQuantityFromBidQuantity(text) {
-    return firstPositiveQuantity(text.match(TENDER_DETAIL_REGEXES.BID_QUANTITY)?.[1]);
 }
 
 /**
@@ -717,15 +832,22 @@ function extractQuantityFromNosTable(text) {
 }
 
 /**
- * Sequential quantity extraction — first positive hit wins.
- * Falls back to 0 when none of the layouts match (e.g. lumpsum services).
+ * Sequential quantity extraction — PROPERTY_REGEXES.quantity first (first hit wins),
+ * then complex table/summing strategies. Falls back to 0 when none match.
  */
 function extractQuantity(text) {
     const normalized = String(text || "").replace(/\u00a0/g, " ");
+
+    for (const pattern of PROPERTY_REGEXES.quantity || []) {
+        const match = normalized.match(pattern);
+        const quantity = parseQuantityNumber(match?.[1]);
+        if (quantity > 0) {
+            return quantity;
+        }
+    }
+
     const strategies = [
-        extractQuantityFromTotalLabel,
         extractQuantityFromItemPieces,
-        extractQuantityFromBidQuantity,
         extractQuantityFromConsignees,
         extractQuantityFromResources,
         extractQuantityFromServiceConsignees,
@@ -756,57 +878,86 @@ function firstMoneyInWindow(window, { fromEnd = false } = {}) {
     return 0;
 }
 
+function firstMatchingPattern(text, patterns) {
+    const source = String(text || "");
+    for (const pattern of patterns || []) {
+        const match = source.match(pattern);
+        if (match) {
+            return match;
+        }
+    }
+    return null;
+}
+
 /**
- * EMD amount from the GeM "EMD Detail" block.
- * - Required No → 0
- * - Single "EMD Amount N" → N
- * - Multi-schedule rows → sum of schedule amounts
- * Handles split layouts where the number sits before or after the label.
+ * EMD amount — PROPERTY_REGEXES.emd_amount first (direct captures), then EMD Detail
+ * section label-window logic with ordered label regexes.
  */
 function extractEmdAmount(text) {
     const normalized = String(text || "")
         .replace(/\u00a0/g, " ")
         .replace(/\f/g, "\n");
 
-    const detailMatch = normalized.match(TENDER_DETAIL_REGEXES.EMD_DETAIL);
+    const detailMatch = firstMatchingPattern(normalized, PROPERTY_REGEXES.emd_detail);
     let section = normalized;
     if (detailMatch?.index != null) {
         const start = detailMatch.index + detailMatch[0].length;
         const rest = normalized.slice(start);
-        const endMatch = rest.match(TENDER_DETAIL_REGEXES.EMD_SECTION_END);
+        const endMatch = firstMatchingPattern(rest, PROPERTY_REGEXES.emd_section_end);
         const end = endMatch?.index != null ? start + endMatch.index : start + 3000;
         section = normalized.slice(start, end);
     }
 
-    const hasAmountLabel =
-        /\/\s*EMD\b/i.test(section) || /EMD\s*Amount/i.test(section);
-    if (TENDER_DETAIL_REGEXES.EMD_REQUIRED_NO.test(section) && !hasAmountLabel) {
+    const hasAmountLabel = (PROPERTY_REGEXES.emd_amount_label || []).some((pattern) => {
+        const re = new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`);
+        re.lastIndex = 0;
+        return re.test(section);
+    });
+    const requiredNo = (PROPERTY_REGEXES.emd_required_no || []).some((pattern) =>
+        pattern.test(section),
+    );
+    if (requiredNo && !hasAmountLabel) {
         return 0;
     }
 
-    const amounts = [];
-    for (const match of section.matchAll(TENDER_DETAIL_REGEXES.EMD_AMOUNT_LABEL)) {
-        const labelStart = match.index ?? 0;
-        const windowStart = Math.max(0, labelStart);
-        if (
-            TENDER_DETAIL_REGEXES.EMD_APPLICABLE_PROSE.test(
-                section.slice(windowStart, windowStart + 80),
-            )
-        ) {
-            continue;
+    // Direct captures first (ordered list).
+    for (const pattern of PROPERTY_REGEXES.emd_amount || []) {
+        const match = section.match(pattern) || normalized.match(pattern);
+        const amount = parseMoneyAmount(match?.[1]);
+        if (amount >= 100) {
+            return amount;
         }
-        const after = section.slice(labelStart + match[0].length, labelStart + match[0].length + 120);
-        const before = section.slice(Math.max(0, labelStart - 100), labelStart);
-        const amount = firstMoneyInWindow(after) || firstMoneyInWindow(before, { fromEnd: true });
-        if (amount > 0) {
-            amounts.push(amount);
+        if (amount > 0 && amount < 100) {
+            // Tiny amounts are rare; keep looking via label windows.
+            continue;
         }
     }
 
-    for (const match of normalized.matchAll(TENDER_DETAIL_REGEXES.EMD_AMOUNT_IS)) {
-        const amount = parseMoneyAmount(match[1]);
-        if (amount > 0) {
-            amounts.push(amount);
+    const amounts = [];
+    for (const labelPattern of PROPERTY_REGEXES.emd_amount_label || []) {
+        const flags = labelPattern.flags.includes("g")
+            ? labelPattern.flags
+            : `${labelPattern.flags}g`;
+        const globalLabel = new RegExp(labelPattern.source, flags);
+        for (const match of section.matchAll(globalLabel)) {
+            const labelStart = match.index ?? 0;
+            if (
+                TENDER_DETAIL_REGEXES.EMD_APPLICABLE_PROSE.test(
+                    section.slice(labelStart, labelStart + 80),
+                )
+            ) {
+                continue;
+            }
+            const after = section.slice(
+                labelStart + match[0].length,
+                labelStart + match[0].length + 120,
+            );
+            const before = section.slice(Math.max(0, labelStart - 100), labelStart);
+            const amount =
+                firstMoneyInWindow(after) || firstMoneyInWindow(before, { fromEnd: true });
+            if (amount > 0) {
+                amounts.push(amount);
+            }
         }
     }
 
@@ -814,7 +965,7 @@ function extractEmdAmount(text) {
         return 0;
     }
 
-    // Collapse consecutive duplicate hits from overlapping "/EMD" + "EMD Amount" labels.
+    // Collapse consecutive duplicate hits from overlapping labels.
     const collapsed = [];
     for (const amount of amounts) {
         if (!collapsed.length || collapsed[collapsed.length - 1] !== amount) {
@@ -842,17 +993,15 @@ export function isReverseAuctionCard(cardText) {
     );
 }
 
-const extractTenderDetails = (text, buffer) => {
-    const end_date_time =
-        text.match(TENDER_DETAIL_REGEXES.BID_END_DATE_TIME)?.[1] ||
-        text.match(TENDER_DETAIL_REGEXES.RA_END_DATE_TIME)?.[1] ||
-        null;
-
-    const start_date_time =
-        text.match(TENDER_DETAIL_REGEXES.BID_OPENING_DATE_TIME)?.[1] ||
-        text.match(TENDER_DETAIL_REGEXES.BID_OPENING_DATE_TIME_FALLBACK)?.[1] ||
-        text.match(TENDER_DETAIL_REGEXES.RA_START_DATE_TIME)?.[1] ||
-        null;
+export const extractTenderDetails = (text, buffer) => {
+    const end_date_time = firstCaptureFromRegexList(
+        text,
+        PROPERTY_REGEXES.end_date_time,
+    );
+    const start_date_time = firstCaptureFromRegexList(
+        text,
+        PROPERTY_REGEXES.start_date_time,
+    );
 
     return {
         start_date_time,
@@ -862,15 +1011,23 @@ const extractTenderDetails = (text, buffer) => {
         organization: valueAfterLabel(text, "Organisation Name"),
         office: valueAfterLabel(text, "Office Name"),
         ...extractBuyerContactFields(text),
-        required_minimum_average_turnover:
-            text.match(TENDER_DETAIL_REGEXES.MINIMUM_AVG_TURNOVER)?.[1] || null,
-        required_past_experice_years:
-            text.match(TENDER_DETAIL_REGEXES.PAST_EXPERIENCE_YEARS)?.[1] || null,
+        required_minimum_average_turnover: firstCaptureFromRegexList(
+            text,
+            PROPERTY_REGEXES.required_minimum_average_turnover,
+        ),
+        required_past_experice_years: firstCaptureFromRegexList(
+            text,
+            PROPERTY_REGEXES.required_past_experice_years,
+        ),
         mse_experience_relaxation: parseYesNoFlag(
-            [...text.matchAll(TENDER_DETAIL_REGEXES.MSE_EXP_RELAXATION)].at(-1)?.[1],
+            firstCaptureFromRegexList(text, PROPERTY_REGEXES.mse_experience_relaxation, {
+                pick: "last",
+            }),
         ),
         mse_turnover_relaxation: parseYesNoFlag(
-            [...text.matchAll(TENDER_DETAIL_REGEXES.MSE_TURNOVER_RELAXATION)].at(-1)?.[1],
+            firstCaptureFromRegexList(text, PROPERTY_REGEXES.mse_turnover_relaxation, {
+                pick: "last",
+            }),
         ),
         asked_documents: extractDocumentsRequired(text),
         specification_links: extractSpecificationLinks({ buffer, pdfText: text }),
