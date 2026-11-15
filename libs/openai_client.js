@@ -1,35 +1,84 @@
 import { logger } from "@hammerbyte/utils";
 
-const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+
+function isLikelyImageUrl(url) {
+    return /\.(png|jpe?g|gif|webp|bmp)(\?|#|$)/i.test(String(url || ""));
+}
+
+function extractOutputText(payload) {
+    if (typeof payload?.output_text === "string" && payload.output_text.trim()) {
+        return payload.output_text.trim();
+    }
+    const chunks = [];
+    for (const item of payload?.output || []) {
+        if (item?.type !== "message") continue;
+        for (const part of item?.content || []) {
+            if (part?.type === "output_text" && part.text) {
+                chunks.push(String(part.text));
+            }
+        }
+    }
+    return chunks.join("\n").trim();
+}
 
 /**
- * Chat Completions with JSON object response.
- * apiKey and model must be provided by the caller (from DB settings).
- * @returns {Promise<object|null>}
+ * Responses API with JSON object output.
+ * Pass fileUrl so OpenAI fetches the SoW (PDF / image / etc.) — we do not download it.
+ * @returns {Promise<object>}
  */
 export async function openAiChatJson({
     apiKey,
     model,
     system = "",
     user,
+    fileUrl = null,
     temperature = 0,
 }) {
     const key = String(apiKey || "").trim();
     const modelName = String(model || "").trim();
+    const prompt = String(user || "").trim();
+    const remoteUrl = String(fileUrl || "").trim();
+
     if (!key) {
         throw new Error("OpenAI API key is not configured");
     }
     if (!modelName) {
         throw new Error("OpenAI model is not configured");
     }
-
-    const messages = [];
-    if (String(system || "").trim()) {
-        messages.push({ role: "system", content: String(system).trim() });
+    if (!prompt) {
+        throw new Error("OpenAI prompt is empty");
     }
-    messages.push({ role: "user", content: String(user || "") });
 
-    const response = await fetch(OPENAI_CHAT_URL, {
+    const userContent = [{ type: "input_text", text: prompt }];
+    if (remoteUrl) {
+        if (isLikelyImageUrl(remoteUrl)) {
+            userContent.push({
+                type: "input_image",
+                image_url: remoteUrl,
+            });
+        } else {
+            // PDFs and other supported docs — OpenAI fetches the URL.
+            userContent.push({
+                type: "input_file",
+                file_url: remoteUrl,
+            });
+        }
+    }
+
+    const input = [];
+    if (String(system || "").trim()) {
+        input.push({
+            role: "system",
+            content: String(system).trim(),
+        });
+    }
+    input.push({
+        role: "user",
+        content: userContent,
+    });
+
+    const response = await fetch(OPENAI_RESPONSES_URL, {
         method: "POST",
         headers: {
             Authorization: `Bearer ${key}`,
@@ -38,8 +87,8 @@ export async function openAiChatJson({
         body: JSON.stringify({
             model: modelName,
             temperature,
-            response_format: { type: "json_object" },
-            messages,
+            text: { format: { type: "json_object" } },
+            input,
         }),
     });
 
@@ -53,7 +102,7 @@ export async function openAiChatJson({
         throw new Error(String(detail));
     }
 
-    const content = payload?.choices?.[0]?.message?.content;
+    const content = extractOutputText(payload);
     if (!content) {
         throw new Error("OpenAI returned an empty response");
     }

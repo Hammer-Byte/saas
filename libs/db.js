@@ -704,6 +704,7 @@ export async function generateDBTables() {
             prompt_template TEXT NOT NULL,
             openai_api_key VARCHAR(512) NULL,
             openai_model VARCHAR(64) NOT NULL DEFAULT 'gpt-4o-mini',
+            confidence_threshold TINYINT UNSIGNED NOT NULL DEFAULT 80,
             updated_by INT NULL,
             updated_on DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             CONSTRAINT fk_gem_tender_ai_settings_user
@@ -712,10 +713,11 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
-        `INSERT IGNORE INTO GEM_TENDER_AI_SETTINGS (id, prompt_template, openai_model) VALUES (
+        `INSERT IGNORE INTO GEM_TENDER_AI_SETTINGS (id, prompt_template, openai_model, confidence_threshold) VALUES (
             1,
-            'You help HammerByte decide if a GeM tender is in our service scope.\n\nOur scan keywords and GeM categories (the Scope of Work should fall under or be associated with at least one of these):\n{{categories}}\n\nScope of work document URL:\n{{scope_of_work_url}}\n\nUse the scope-of-work document text provided with this request. Mark in_scope true only if the work clearly matches or is associated with at least one keyword or GeM category above; otherwise false.\nRespond with JSON only: {\"in_scope\": true|false, \"reason\": \"short explanation\"}',
-            'gpt-4o-mini'
+            'You help HammerByte decide if a GeM tender is in our service scope.\n\nOur scan keywords and GeM categories (the Scope of Work should fall under or be associated with at least one of these):\n{{categories}}\n\nScope of work document URL (also attached for you to inspect — PDF, scanned/image PDF, or image):\n{{scope_of_work_url}}\n\nInspect the attached Scope of Work document. Mark in_scope true only if the work clearly matches or is associated with at least one keyword or GeM category above; otherwise false.\nAlso give confidence from 0 to 100 for how sure you are that you understood the document and that your in_scope decision is correct. If you cannot read or understand the document, set confidence below {{confidence_threshold}} and explain why.\nRespond with JSON only: {\"in_scope\": true|false, \"confidence\": 0-100, \"reason\": \"short explanation\"}',
+            'gpt-4o-mini',
+            80
         );`,
         `CREATE TABLE IF NOT EXISTS GEM_TENDER_SCAN_RUNS (
             id INT AUTO_INCREMENT PRIMARY KEY,

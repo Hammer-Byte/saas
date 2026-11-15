@@ -1,8 +1,10 @@
 import {
+    DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
     DEFAULT_GEM_TENDER_AI_MODEL,
     DEFAULT_GEM_TENDER_AI_PROMPT,
     GEM_TENDER_AI_MODEL_OPTIONS,
     getGemTenderAiSettings,
+    normalizeConfidenceThreshold,
     upsertGemTenderAiSettings,
 } from "../db/gem_tender_ai_settings.js";
 import { canUseGemCategories } from "./gem_categories.js";
@@ -42,15 +44,7 @@ function validatePromptTemplate(template) {
     return { template: text };
 }
 
-function maskApiKey(key) {
-    const raw = String(key || "").trim();
-    if (!raw) return "";
-    if (raw.length <= 8) return "••••••••";
-    return `${raw.slice(0, 3)}…${raw.slice(-4)}`;
-}
-
 function publicSettings(settings) {
-    const key = String(settings?.openai_api_key || "").trim();
     const model =
         String(settings?.openai_model || "").trim() || DEFAULT_GEM_TENDER_AI_MODEL;
     return {
@@ -58,11 +52,17 @@ function publicSettings(settings) {
         prompt_template: settings?.prompt_template || DEFAULT_GEM_TENDER_AI_PROMPT,
         openai_model: model,
         openai_model_options: GEM_TENDER_AI_MODEL_OPTIONS,
-        openai_configured: !!key,
-        openai_api_key_masked: key ? maskApiKey(key) : "",
+        openai_api_key: String(settings?.openai_api_key || "").trim(),
+        confidence_threshold: normalizeConfidenceThreshold(
+            settings?.confidence_threshold ?? DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
+        ),
         updated_on: settings?.updated_on || null,
         updated_by: settings?.updated_by || null,
-        placeholders: ["{{scope_of_work_url}}", "{{categories}}"],
+        placeholders: [
+            "{{scope_of_work_url}}",
+            "{{categories}}",
+            "{{confidence_threshold}}",
+        ],
     };
 }
 
@@ -76,6 +76,8 @@ export async function getGemTenderAiSettingsApi({ cookie, set }) {
         settings = await upsertGemTenderAiSettings({
             prompt_template: DEFAULT_GEM_TENDER_AI_PROMPT,
             openai_model: DEFAULT_GEM_TENDER_AI_MODEL,
+            openai_api_key: null,
+            confidence_threshold: DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
             updated_by: null,
         });
     }
@@ -102,26 +104,17 @@ export async function updateGemTenderAiSettingsApi({ body, cookie, set }) {
         return { error: "Invalid OpenAI model" };
     }
 
-    // Only update the key when the client sends a new non-masked value.
-    // Empty string clears the key. Omit / masked value keeps the existing key.
-    const rawKey = body?.openai_api_key;
-    let openai_api_key = undefined;
-    if (rawKey !== undefined && rawKey !== null) {
-        const trimmed = String(rawKey).trim();
-        if (!trimmed) {
-            openai_api_key = null;
-        } else if (trimmed.includes("…") || trimmed.includes("•")) {
-            openai_api_key = undefined;
-        } else {
-            openai_api_key = trimmed;
-        }
-    }
+    const openai_api_key = String(body?.openai_api_key || "").trim() || null;
+    const confidence_threshold = normalizeConfidenceThreshold(
+        body?.confidence_threshold ?? DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
+    );
 
     try {
         const settings = await upsertGemTenderAiSettings({
             prompt_template: checked.template,
             openai_model: model,
             openai_api_key,
+            confidence_threshold,
             updated_by: currentUser.id,
         });
         set.status = 200;

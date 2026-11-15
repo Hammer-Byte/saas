@@ -205,39 +205,46 @@
                             <p class="text-secondary small mb-0">
                                 Configure OpenAI key and model here (stored in
                                 <code>GEM_TENDER_AI_SETTINGS</code>). On new tender insert with a Scope of Work URL,
-                                the prompt below is sent with extracted SoW text.
+                                that URL is sent to OpenAI as a file (no local PDF text extract) along with the prompt.
                                 <code>{{categories}}</code> is filled with scan keywords plus all GeM categories —
-                                SoW must match or associate with at least one. Also required:
-                                <code>{{scope_of_work_url}}</code>.
+                                SoW must match or associate with at least one. Decisions apply only when the model
+                                returns confidence ≥ the threshold below; otherwise the tender stays not AI-analyzed.
+                                Placeholders: <code>{{scope_of_work_url}}</code>, <code>{{categories}}</code>,
+                                optional <code>{{confidence_threshold}}</code>.
                             </p>
                         </div>
                         <div id="gem-ai-scope-status" class="small text-secondary mb-3"></div>
                         <div id="gem-ai-scope-form-alert" class="alert d-none" role="alert"></div>
                         <form id="gem-ai-scope-form" novalidate>
                             <div class="row g-3 mb-3">
-                                <div class="col-md-8">
+                                <div class="col-md-6">
                                     <label for="gem-ai-scope-api-key" class="form-label">OpenAI API key</label>
                                     <input
-                                        type="password"
+                                        type="text"
                                         class="form-control font-monospace"
                                         id="gem-ai-scope-api-key"
                                         maxlength="512"
                                         autocomplete="off"
                                         placeholder="sk-…"
+                                        spellcheck="false"
                                     />
-                                    <div class="form-text">
-                                        Stored in the database. Leave blank to keep the existing key.
-                                    </div>
-                                    <div class="form-check mt-2 d-none" id="gem-ai-scope-clear-key-wrap">
-                                        <input class="form-check-input" type="checkbox" id="gem-ai-scope-clear-key" />
-                                        <label class="form-check-label" for="gem-ai-scope-clear-key">
-                                            Clear saved API key
-                                        </label>
-                                    </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label for="gem-ai-scope-model" class="form-label">Model</label>
                                     <select class="form-select" id="gem-ai-scope-model" required></select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="gem-ai-scope-confidence" class="form-label">Min confidence %</label>
+                                    <input
+                                        type="number"
+                                        class="form-control"
+                                        id="gem-ai-scope-confidence"
+                                        min="1"
+                                        max="100"
+                                        step="1"
+                                        value="80"
+                                        required
+                                    />
                                 </div>
                             </div>
                             <div class="mb-3">

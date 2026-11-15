@@ -749,12 +749,10 @@
     const aiScopePrompt = document.getElementById("gem-ai-scope-prompt");
     const aiScopeApiKey = document.getElementById("gem-ai-scope-api-key");
     const aiScopeModel = document.getElementById("gem-ai-scope-model");
-    const aiScopeClearKey = document.getElementById("gem-ai-scope-clear-key");
-    const aiScopeClearKeyWrap = document.getElementById("gem-ai-scope-clear-key-wrap");
+    const aiScopeConfidence = document.getElementById("gem-ai-scope-confidence");
     const aiScopeStatus = document.getElementById("gem-ai-scope-status");
     const aiScopeFormAlert = document.getElementById("gem-ai-scope-form-alert");
     const aiScopeSaveButton = document.getElementById("gem-ai-scope-save-btn");
-    let aiScopeKeyConfigured = false;
 
     function fillAiScopeModelOptions(options, selected) {
         if (!aiScopeModel) return;
@@ -783,19 +781,18 @@
             const settings = data.settings || {};
             aiScopePrompt.value = settings.prompt_template || "";
             fillAiScopeModelOptions(settings.openai_model_options, settings.openai_model);
-            aiScopeKeyConfigured = !!settings.openai_configured;
             if (aiScopeApiKey) {
-                aiScopeApiKey.value = "";
-                aiScopeApiKey.placeholder = settings.openai_configured
-                    ? `Saved: ${settings.openai_api_key_masked || "••••"}`
-                    : "sk-…";
+                aiScopeApiKey.value = settings.openai_api_key || "";
             }
-            if (aiScopeClearKey) aiScopeClearKey.checked = false;
-            aiScopeClearKeyWrap?.classList.toggle("d-none", !settings.openai_configured);
+            if (aiScopeConfidence) {
+                const threshold = Number(settings.confidence_threshold);
+                aiScopeConfidence.value = Number.isFinite(threshold) ? threshold : 80;
+            }
             if (aiScopeStatus) {
-                aiScopeStatus.textContent = settings.openai_configured
-                    ? `API key saved. Model: ${settings.openai_model || "gpt-4o-mini"}`
-                    : "No API key saved yet — paste your OpenAI key below.";
+                const threshold = Number(settings.confidence_threshold) || 80;
+                aiScopeStatus.textContent = settings.openai_api_key
+                    ? `Model: ${settings.openai_model || "gpt-4o-mini"} · Min confidence: ${threshold}%`
+                    : `No API key saved yet. Min confidence: ${threshold}%`;
             }
             aiScopeFormAlert?.classList.add("d-none");
         } catch (error) {
@@ -804,18 +801,12 @@
         }
     }
 
-    aiScopeApiKey?.addEventListener("input", () => {
-        if (aiScopeClearKey && aiScopeApiKey.value.trim()) {
-            aiScopeClearKey.checked = false;
-        }
-    });
-
     aiScopeForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
         const prompt_template = (aiScopePrompt?.value || "").trim();
         const openai_model = (aiScopeModel?.value || "").trim();
-        const typedKey = (aiScopeApiKey?.value || "").trim();
-        const clearKey = !!aiScopeClearKey?.checked;
+        const openai_api_key = (aiScopeApiKey?.value || "").trim();
+        const confidence_threshold = Number(aiScopeConfidence?.value);
         if (!prompt_template) {
             showFormAlert(aiScopeFormAlert, "Prompt template is required.");
             return;
@@ -831,18 +822,23 @@
             showFormAlert(aiScopeFormAlert, "Select an OpenAI model.");
             return;
         }
-
-        const body = { prompt_template, openai_model };
-        // Typed key wins; clear checkbox sends empty; otherwise omit to keep existing.
-        if (typedKey) {
-            body.openai_api_key = typedKey;
-        } else if (clearKey) {
-            body.openai_api_key = "";
+        if (
+            !Number.isFinite(confidence_threshold) ||
+            confidence_threshold < 1 ||
+            confidence_threshold > 100
+        ) {
+            showFormAlert(aiScopeFormAlert, "Min confidence must be between 1 and 100.");
+            return;
         }
 
         if (aiScopeSaveButton) aiScopeSaveButton.disabled = true;
         try {
-            const { ok, data } = await apiRequest("/api/gem-tender-ai-settings", "PUT", body);
+            const { ok, data } = await apiRequest("/api/gem-tender-ai-settings", "PUT", {
+                prompt_template,
+                openai_model,
+                openai_api_key,
+                confidence_threshold,
+            });
             if (!ok) {
                 showFormAlert(aiScopeFormAlert, data.error || "Failed to save settings.");
                 return;

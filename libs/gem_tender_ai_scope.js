@@ -1,11 +1,11 @@
-import { mkdir, unlink, writeFile } from "fs/promises";
-import { join } from "path";
 import { logger } from "@hammerbyte/utils";
 import { GEM_TENDER_LOCK_MESSAGES } from "../constants.js";
 import {
+    DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
     DEFAULT_GEM_TENDER_AI_MODEL,
     DEFAULT_GEM_TENDER_AI_PROMPT,
     getGemTenderAiSettings,
+    normalizeConfidenceThreshold,
 } from "../db/gem_tender_ai_settings.js";
 import { getAllGemCategories } from "../db/gem_categories.js";
 import { getAllGemScanKeywords } from "../db/gem_scan_keywords.js";
@@ -14,9 +14,6 @@ import {
     updateGemTenderById,
 } from "../db/gem_tenders.js";
 import { openAiChatJson } from "./openai_client.js";
-
-const SOW_TEMP_DIR = "downloaded_tenders/ai_scope";
-const MAX_SOW_TEXT_CHARS = 24000;
 
 function parseSpecificationLinks(raw) {
     if (!raw) return [];
@@ -39,13 +36,20 @@ export function findScopeOfWorkUrl(specification_links) {
     return null;
 }
 
-export function fillAiScopePrompt(template, { scopeOfWorkUrl, categories }) {
+export function fillAiScopePrompt(
+    template,
+    { scopeOfWorkUrl, categories, confidenceThreshold },
+) {
     const categoriesText = Array.isArray(categories)
         ? categories.map((name) => `- ${name}`).join("\n")
         : String(categories || "").trim();
+    const threshold = normalizeConfidenceThreshold(
+        confidenceThreshold ?? DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
+    );
     return String(template || DEFAULT_GEM_TENDER_AI_PROMPT)
         .replaceAll("{{scope_of_work_url}}", String(scopeOfWorkUrl || "").trim())
-        .replaceAll("{{categories}}", categoriesText || "- (none configured)");
+        .replaceAll("{{categories}}", categoriesText || "- (none configured)")
+        .replaceAll("{{confidence_threshold}}", String(threshold));
 }
 
 /** Labels for {{categories}}: scan keywords + all GeM categories. */
@@ -71,51 +75,6 @@ export async function loadAiScopeMatchLabels() {
     return labels;
 }
 
-async function readPdfTextFromFile(filePath) {
-    const process = Bun.spawn(["pdftotext", "-layout", filePath, "-"], {
-        stdout: "pipe",
-        stderr: "pipe",
-    });
-    const exitCode = await process.exited;
-    const text = await new Response(process.stdout).text();
-    if (exitCode !== 0) {
-        const errorText = await new Response(process.stderr).text();
-        throw new Error(errorText.trim() || `pdftotext failed for ${filePath}`);
-    }
-    return text;
-}
-
-export async function downloadAndExtractScopeOfWorkText(url) {
-    const response = await fetch(url, {
-        method: "GET",
-        redirect: "follow",
-        headers: {
-            "User-Agent":
-                "Mozilla/5.0 (compatible; HammerByteGEMBot/1.0; +https://hammerbyte.co.in)",
-        },
-    });
-    if (!response.ok) {
-        throw new Error(`SoW download failed HTTP ${response.status}`);
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (!buffer.length) {
-        throw new Error("SoW download returned an empty file");
-    }
-
-    await mkdir(SOW_TEMP_DIR, { recursive: true });
-    const filePath = join(
-        SOW_TEMP_DIR,
-        `sow_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.pdf`,
-    );
-    try {
-        await writeFile(filePath, buffer);
-        const text = await readPdfTextFromFile(filePath);
-        return String(text || "").trim();
-    } finally {
-        await unlink(filePath).catch(() => {});
-    }
-}
-
 export async function applySystemOutOfScope({ id, reason = null }) {
     const lockMessage = reason
         ? `${GEM_TENDER_LOCK_MESSAGES.OUT_OF_SCOPE}: ${String(reason).trim().slice(0, 180)}`
@@ -136,6 +95,7 @@ export async function applySystemOutOfScope({ id, reason = null }) {
 
 /**
  * Analyze one tender. Safe to call from a background job.
+ * Passes the SoW URL to OpenAI (no local download / pdftotext).
  * @returns {Promise<{status: string, reason?: string}>}
  */
 export async function analyzeGemTenderAiScope({ gemTenderId }) {
@@ -159,6 +119,9 @@ export async function analyzeGemTenderAiScope({ gemTenderId }) {
     const apiKey = String(settings?.openai_api_key || "").trim();
     const model =
         String(settings?.openai_model || "").trim() || DEFAULT_GEM_TENDER_AI_MODEL;
+    const confidenceThreshold = normalizeConfidenceThreshold(
+        settings?.confidence_threshold ?? DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
+    );
     if (!apiKey) {
         logger.info(`gem_tender_ai_scope: OpenAI API key missing in settings, skip tender ${id}`);
         return { status: "skipped_no_api_key" };
@@ -167,17 +130,6 @@ export async function analyzeGemTenderAiScope({ gemTenderId }) {
     const scopeOfWorkUrl = findScopeOfWorkUrl(tender.specification_links);
     if (!scopeOfWorkUrl) {
         return { status: "skipped_no_sow" };
-    }
-
-    let sowText = "";
-    try {
-        sowText = await downloadAndExtractScopeOfWorkText(scopeOfWorkUrl);
-    } catch (error) {
-        logger.error(`gem_tender_ai_scope SoW extract tender=${id}: ${error}`);
-        return { status: "skipped_sow_download_failed", reason: String(error) };
-    }
-    if (!sowText) {
-        return { status: "skipped_sow_empty" };
     }
 
     const template = settings?.prompt_template || DEFAULT_GEM_TENDER_AI_PROMPT;
@@ -197,51 +149,78 @@ export async function analyzeGemTenderAiScope({ gemTenderId }) {
     const filledPrompt = fillAiScopePrompt(template, {
         scopeOfWorkUrl,
         categories,
+        confidenceThreshold,
     });
-    const truncatedSow =
-        sowText.length > MAX_SOW_TEXT_CHARS
-            ? `${sowText.slice(0, MAX_SOW_TEXT_CHARS)}\n\n[truncated]`
-            : sowText;
 
     let parsed;
     try {
         parsed = await openAiChatJson({
             apiKey,
             model,
-            system:
-                "You are a careful tender triage assistant. Reply with JSON only.",
-            user: `${filledPrompt}\n\n--- Scope of work document text ---\n${truncatedSow}`,
+            system: `You are a careful tender triage assistant. Inspect the attached Scope of Work document (PDF or image). Reply with JSON only, including confidence 0-100. Decisions below ${confidenceThreshold}% confidence will be ignored.`,
+            user: filledPrompt,
+            fileUrl: scopeOfWorkUrl,
         });
     } catch (error) {
         logger.error(`gem_tender_ai_scope OpenAI tender=${id}: ${error}`);
         return { status: "skipped_openai_error", reason: String(error) };
     }
 
-    const inScope = parsed?.in_scope === true;
     const reason = String(parsed?.reason || "").trim();
+    const tenderLabel = tender.tender_id || `#${id}`;
 
     if (parsed?.in_scope !== true && parsed?.in_scope !== false) {
         logger.error(`gem_tender_ai_scope unclear response tender=${id}: ${JSON.stringify(parsed)}`);
-        return { status: "skipped_unclear_response" };
+        logger.info(
+            `AI scope outcome: tender ${tenderLabel} → NO DECISION (unclear response; ai_analyzed left false)`,
+        );
+        return { status: "skipped_unclear_response", reason };
     }
 
-    const tenderLabel = tender.tender_id || `#${id}`;
+    const confidence = normalizeAiScopeConfidence(parsed?.confidence);
+    if (confidence == null || confidence < confidenceThreshold) {
+        const confLabel = confidence == null ? "missing" : `${confidence}%`;
+        logger.info(
+            `AI scope outcome: tender ${tenderLabel} → NO DECISION (confidence ${confLabel}, need ≥${confidenceThreshold}%; ai_analyzed left false)${
+                reason ? ` — ${reason}` : ""
+            }`,
+        );
+        return {
+            status: "skipped_low_confidence",
+            reason,
+            confidence: confidence == null ? null : confidence,
+        };
+    }
+
+    const inScope = parsed.in_scope === true;
 
     if (inScope) {
         await updateGemTenderById({ id, ai_analyzed: true });
         logger.info(
-            `AI scope outcome: tender ${tenderLabel} → IN SCOPE${
+            `AI scope outcome: tender ${tenderLabel} → IN SCOPE (${confidence}%)${
                 reason ? ` — ${reason}` : ""
             }`,
         );
-        return { status: "in_scope", reason };
+        return { status: "in_scope", reason, confidence };
     }
 
     await applySystemOutOfScope({ id, reason });
     logger.info(
-        `AI scope outcome: tender ${tenderLabel} → OUT OF SCOPE${
+        `AI scope outcome: tender ${tenderLabel} → OUT OF SCOPE (${confidence}%)${
             reason ? ` — ${reason}` : ""
         }`,
     );
-    return { status: "out_of_scope", reason };
+    return { status: "out_of_scope", reason, confidence };
+}
+
+/** Accept 0–100, or fractional 0–1 (exclusive of 0/1 so `1` stays 1%). */
+function normalizeAiScopeConfidence(raw) {
+    if (raw == null || raw === "") return null;
+    const num = Number(raw);
+    if (!Number.isFinite(num)) return null;
+    if (num > 0 && num < 1) {
+        return Math.round(num * 100);
+    }
+    if (num < 0 || num > 100) return null;
+    return Math.round(num);
 }
