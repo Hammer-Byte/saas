@@ -152,6 +152,8 @@ export async function analyzeGemTenderAiScope({ gemTenderId }) {
         confidenceThreshold,
     });
 
+    const tenderLabel = tender.tender_id || `#${id}`;
+
     let parsed;
     try {
         parsed = await openAiChatJson({
@@ -166,11 +168,13 @@ export async function analyzeGemTenderAiScope({ gemTenderId }) {
         return { status: "skipped_openai_error", reason: String(error) };
     }
 
+    logger.info(
+        `AI scope response: tender ${tenderLabel} → ${JSON.stringify(parsed)}`,
+    );
+
     const reason = String(parsed?.reason || "").trim();
-    const tenderLabel = tender.tender_id || `#${id}`;
 
     if (parsed?.in_scope !== true && parsed?.in_scope !== false) {
-        logger.error(`gem_tender_ai_scope unclear response tender=${id}: ${JSON.stringify(parsed)}`);
         logger.info(
             `AI scope outcome: tender ${tenderLabel} → NO DECISION (unclear response; ai_analyzed left false)`,
         );
@@ -181,7 +185,7 @@ export async function analyzeGemTenderAiScope({ gemTenderId }) {
     if (confidence == null || confidence < confidenceThreshold) {
         const confLabel = confidence == null ? "missing" : `${confidence}%`;
         logger.info(
-            `AI scope outcome: tender ${tenderLabel} → NO DECISION (confidence ${confLabel}, need ≥${confidenceThreshold}%; ai_analyzed left false)${
+            `AI scope outcome: tender ${tenderLabel} → NO DECISION (confidence ${confLabel}, need ≥${confidenceThreshold}%; ai_analyzed left false; nothing stored)${
                 reason ? ` — ${reason}` : ""
             }`,
         );
@@ -197,7 +201,7 @@ export async function analyzeGemTenderAiScope({ gemTenderId }) {
     if (inScope) {
         await updateGemTenderById({ id, ai_analyzed: true });
         logger.info(
-            `AI scope outcome: tender ${tenderLabel} → IN SCOPE (${confidence}%)${
+            `AI scope stored: tender ${tenderLabel} → ai_analyzed=1, out_of_scope=0 (IN SCOPE ${confidence}%)${
                 reason ? ` — ${reason}` : ""
             }`,
         );
@@ -206,7 +210,7 @@ export async function analyzeGemTenderAiScope({ gemTenderId }) {
 
     await applySystemOutOfScope({ id, reason });
     logger.info(
-        `AI scope outcome: tender ${tenderLabel} → OUT OF SCOPE (${confidence}%)${
+        `AI scope stored: tender ${tenderLabel} → ai_analyzed=1, out_of_scope=1, locked=1, hidden=1 (OUT OF SCOPE ${confidence}%)${
             reason ? ` — ${reason}` : ""
         }`,
     );
