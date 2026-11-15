@@ -199,13 +199,23 @@ export async function analyzeGemTenderAiScope({ gemTenderId }) {
         return { status: "skipped_unclear_response" };
     }
 
+    const tenderLabel = tender.tender_id || `#${id}`;
+
     if (inScope) {
         await updateGemTenderById({ id, ai_analyzed: true });
-        logger.info(`gem_tender_ai_scope in-scope tender=${id}`);
+        logger.info(
+            `AI scope outcome: tender ${tenderLabel} → IN SCOPE${
+                reason ? ` — ${reason}` : ""
+            }`,
+        );
         return { status: "in_scope", reason };
     }
 
     await applySystemOutOfScope({ id, reason });
-    logger.info(`gem_tender_ai_scope out-of-scope tender=${id}`);
+    logger.info(
+        `AI scope outcome: tender ${tenderLabel} → OUT OF SCOPE${
+            reason ? ` — ${reason}` : ""
+        }`,
+    );
     return { status: "out_of_scope", reason };
 }

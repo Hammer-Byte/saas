@@ -1035,9 +1035,12 @@ export const processTender = async ({
                         gemTenderId: tenderRowId,
                         tenderId: tender_id,
                     });
+                    logger.info(`AI scope queued for tender ${tender_id}`);
                 } catch (error) {
                     logger.error(`enqueue AI scope for ${tender_id}: ${error}`);
                 }
+            } else {
+                logger.info(`AI scope skipped for tender ${tender_id} (no Scope of Work URL)`);
             }
 
             return true;

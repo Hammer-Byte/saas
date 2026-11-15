@@ -20,9 +20,14 @@ async function perform(ctx) {
 
     const result = await analyzeGemTenderAiScope({ gemTenderId });
     const status = result?.status || "unknown";
-    const reason = result?.reason ? `: ${result.reason}` : "";
-    ctx.setResultSummary(`${status}${reason}`);
-    logger.info(`gem_tender_ai_scope job tender=${gemTenderId} → ${status}`);
+    const reason = result?.reason ? String(result.reason).trim() : "";
+    const tenderLabel = ctx.payload?.tenderId || `#${gemTenderId}`;
+    const summary = reason ? `${status}: ${reason}` : status;
+    ctx.setResultSummary(summary);
+    // Decision outcomes are logged inside analyzeGemTenderAiScope; log skips/errors here.
+    if (status !== "in_scope" && status !== "out_of_scope") {
+        logger.info(`AI scope outcome: tender ${tenderLabel} → ${summary}`);
+    }
 }
 
 async function finish(_ctx) {
