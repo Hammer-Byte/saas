@@ -78,7 +78,11 @@ export async function loadAiScopeMatchLabels() {
     return labels;
 }
 
-export async function applySystemOutOfScope({ id, reason = null }) {
+export async function applySystemOutOfScope({
+    id,
+    reason = null,
+    confidence = null,
+}) {
     const lockMessage = reason
         ? `${GEM_TENDER_LOCK_MESSAGES.OUT_OF_SCOPE}: ${String(reason).trim().slice(0, 180)}`
         : GEM_TENDER_LOCK_MESSAGES.OUT_OF_SCOPE;
@@ -93,6 +97,7 @@ export async function applySystemOutOfScope({ id, reason = null }) {
         lock_message: lockMessage,
         hidden: true,
         ai_analyzed: true,
+        ai_confidence: confidence,
     });
 }
 
@@ -123,26 +128,40 @@ export async function analyzeGemTenderAiScope({
     const id = Number(gemTenderId);
     const tenderLabel = tenderId ? String(tenderId) : `#${id}`;
     if (!(id >= 1)) {
-        logger.info(`AI scope skip: tender ${tenderLabel} → invalid_id`);
+        logger.info(
+            `AI scope skip: tender ${tenderLabel} → invalid_id (gem tender id missing or invalid)`,
+        );
         return { status: "invalid_id" };
     }
 
     if (!Buffer.isBuffer(buffer) || !buffer.length) {
-        logger.info(`AI scope skip: tender ${tenderLabel} → skipped_no_sow`);
+        logger.info(
+            `AI scope skip: tender ${tenderLabel} → skipped_no_sow (no Scope of Work file buffer)`,
+        );
         return { status: "skipped_no_sow" };
     }
 
     const tender = await getGemTenderById({ id });
     if (!tender) {
-        logger.info(`AI scope skip: tender ${tenderLabel} → not_found`);
+        logger.info(
+            `AI scope skip: tender ${tenderLabel} → not_found (row missing in GEM_TENDERS)`,
+        );
         return { status: "not_found" };
     }
     if (Number(tender.ai_analyzed)) {
-        logger.info(`AI scope skip: tender ${tenderLabel} → already_analyzed`);
+        logger.info(
+            `AI scope skip: tender ${tenderLabel} → already_analyzed (ai_analyzed already set)`,
+        );
         return { status: "already_analyzed" };
     }
     if (Number(tender.locked) || Number(tender.out_of_scope) || Number(tender.ineligible)) {
-        logger.info(`AI scope skip: tender ${tenderLabel} → already_closed`);
+        const closed = [];
+        if (Number(tender.locked)) closed.push("locked");
+        if (Number(tender.out_of_scope)) closed.push("out_of_scope");
+        if (Number(tender.ineligible)) closed.push("ineligible");
+        logger.info(
+            `AI scope skip: tender ${tenderLabel} → already_closed (${closed.join(", ")})`,
+        );
         return { status: "already_closed" };
     }
 
@@ -154,21 +173,25 @@ export async function analyzeGemTenderAiScope({
         settings?.confidence_threshold ?? DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
     );
     if (!apiKey) {
-        logger.info(`AI scope skip: tender ${tenderLabel} → skipped_no_api_key`);
+        logger.info(
+            `AI scope skip: tender ${tenderLabel} → skipped_no_api_key (OpenAI API key not configured)`,
+        );
         return { status: "skipped_no_api_key" };
     }
 
     const template = settings?.prompt_template || DEFAULT_GEM_TENDER_AI_PROMPT;
     if (!template.includes("{{categories}}")) {
         logger.error(
-            `AI scope skip: tender ${tenderLabel} → skipped_bad_prompt (need {{categories}})`,
+            `AI scope skip: tender ${tenderLabel} → skipped_bad_prompt (prompt template must include {{categories}})`,
         );
         return { status: "skipped_bad_prompt" };
     }
 
     const categories = await loadAiScopeMatchLabels();
     if (!categories.length) {
-        logger.info(`AI scope skip: tender ${tenderLabel} → skipped_no_match_labels`);
+        logger.info(
+            `AI scope skip: tender ${tenderLabel} → skipped_no_match_labels (no AI match category labels configured)`,
+        );
         return { status: "skipped_no_match_labels" };
     }
 
@@ -233,18 +256,22 @@ export async function analyzeGemTenderAiScope({
     const inScope = parsed.in_scope === true;
 
     if (inScope) {
-        await updateGemTenderById({ id, ai_analyzed: true });
+        await updateGemTenderById({
+            id,
+            ai_analyzed: true,
+            ai_confidence: confidence,
+        });
         logger.info(
-            `AI scope outcome: tender ${tenderLabel} → IN_SCOPE (${confidence}%) ai_analyzed=1${
+            `AI scope outcome: tender ${tenderLabel} → IN_SCOPE (${confidence}%) ai_analyzed=1 ai_confidence=${confidence}${
                 reason ? ` — ${reason}` : ""
             }`,
         );
         return { status: "in_scope", reason, confidence };
     }
 
-    await applySystemOutOfScope({ id, reason });
+    await applySystemOutOfScope({ id, reason, confidence });
     logger.info(
-        `AI scope outcome: tender ${tenderLabel} → OUT_OF_SCOPE (${confidence}%) locked=1 hidden=1 ai_analyzed=1${
+        `AI scope outcome: tender ${tenderLabel} → OUT_OF_SCOPE (${confidence}%) locked=1 hidden=1 ai_analyzed=1 ai_confidence=${confidence}${
             reason ? ` — ${reason}` : ""
         }`,
     );

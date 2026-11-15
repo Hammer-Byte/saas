@@ -617,6 +617,7 @@ export async function generateDBTables() {
             stage VARCHAR(64) NULL DEFAULT NULL,
             assignee_user_id INT NULL,
             ai_analyzed TINYINT(1) NOT NULL DEFAULT 0,
+            ai_confidence TINYINT UNSIGNED NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_gem_tender (tender_id),
             CONSTRAINT fk_gem_tenders_category_group
@@ -713,6 +714,8 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
+        `ALTER TABLE GEM_TENDERS
+            ADD COLUMN ai_confidence TINYINT UNSIGNED NULL AFTER ai_analyzed`,
         `INSERT IGNORE INTO GEM_TENDER_AI_SETTINGS (id, prompt_template, openai_model, confidence_threshold) VALUES (
             1,
             'You help HammerByte decide if a GeM tender is in our service scope.\n\nOur scan keywords and GeM categories (the Scope of Work should fall under or be associated with at least one of these):\n{{categories}}\n\nInspect the attached Scope of Work document (PDF, scanned/image PDF, image, or other supported file). Mark in_scope true only if the work clearly matches or is associated with at least one keyword or GeM category above; otherwise false.\nAlso give confidence from 0 to 100 for how sure you are that you understood the document and that your in_scope decision is correct. If you cannot read or understand the document, set confidence below {{confidence_threshold}} and explain why.\nRespond with JSON only: {\"in_scope\": true|false, \"confidence\": 0-100, \"reason\": \"short explanation\"}',
@@ -1231,7 +1234,9 @@ export async function generateDBTables() {
             const message = error instanceof Error ? error.message : String(error);
             // Ignore idempotent noise (e.g. duplicate key name on fresh vs existing).
             if (
-                !/duplicate (foreign )?key|already exists/i.test(message)
+                !/duplicate (foreign )?key|already exists|duplicate column/i.test(
+                    message,
+                )
             ) {
                 throw error;
             }

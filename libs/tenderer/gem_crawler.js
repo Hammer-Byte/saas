@@ -1247,22 +1247,29 @@ function scanDetailsDiffer(existingTender, nextDetails) {
     return false;
 }
 
+/** Why this row is not safe for inline AI (empty ⇒ untouched). */
+function getGemTenderAiSkipReasons(tender) {
+    if (!tender) return ["tender missing"];
+    const reasons = [];
+    if (tender.assignee_user_id != null) {
+        reasons.push(`assignee_user_id=${tender.assignee_user_id}`);
+    }
+    if (Number(tender.eligible)) reasons.push("eligible");
+    if (Number(tender.ineligible)) reasons.push("ineligible");
+    if (Number(tender.out_of_scope)) reasons.push("out_of_scope");
+    if (Number(tender.missed)) reasons.push("missed");
+    if (Number(tender.unattended)) reasons.push("unattended");
+    if (Number(tender.filed)) reasons.push("filed");
+    if (Number(tender.locked)) reasons.push("locked");
+    const stage = String(tender.stage || "").trim();
+    if (stage) reasons.push(`stage=${stage}`);
+    if (Number(tender.ai_analyzed)) reasons.push("ai_analyzed");
+    return reasons;
+}
+
 /** Completely untouched row — safe for inline AI scope (no human/system touch yet). */
 function isGemTenderUntouchedForAi(tender) {
-    if (!tender) return false;
-    const stage = String(tender.stage || "").trim();
-    return (
-        tender.assignee_user_id == null &&
-        !Number(tender.eligible) &&
-        !Number(tender.ineligible) &&
-        !Number(tender.out_of_scope) &&
-        !Number(tender.missed) &&
-        !Number(tender.unattended) &&
-        !Number(tender.filed) &&
-        !Number(tender.locked) &&
-        !stage &&
-        !Number(tender.ai_analyzed)
-    );
+    return getGemTenderAiSkipReasons(tender).length === 0;
 }
 
 /** Download SoW with GeM session, upload to OpenAI, delete local copy. */
@@ -1287,7 +1294,9 @@ async function runInlineAiScopeIfNeeded({
         }
         const sow = await downloadScopeOfWorkFile(driver, sowUrl, tenderId);
         if (!sow?.buffer) {
-            logger.info(`AI scope skip: tender ${tenderId} → skipped_sow_download`);
+            logger.info(
+                `AI scope skip: tender ${tenderId} → skipped_sow_download (SoW download failed or empty file)`,
+            );
             return;
         }
         sowFile = sow.sowFile;
@@ -1398,8 +1407,9 @@ export const processTender = async ({
                 specification_links: gemTenderDetails?.specification_links,
             });
         } else {
+            const skipReasons = getGemTenderAiSkipReasons(existingTender);
             logger.info(
-                `AI scope skip: tender ${tender_id} → already touched or analyzed`,
+                `AI scope skip: tender ${tender_id} → already touched or analyzed (${skipReasons.join(", ")})`,
             );
         }
 

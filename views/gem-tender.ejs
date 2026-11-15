@@ -39,8 +39,17 @@
     if (Number(tender.ineligible)) statusBadges.push({ label: "Not eligible", variant: "secondary" });
     if (Number(tender.out_of_scope)) statusBadges.push({ label: "Out of scope", variant: "secondary" });
     if (isEligible) statusBadges.push({ label: "Eligible", variant: "success" });
+    const aiConfidence =
+        tender.ai_confidence != null && tender.ai_confidence !== ""
+            ? Number(tender.ai_confidence)
+            : null;
+    const aiConfidenceLabel =
+        Number.isFinite(aiConfidence) ? ` (${Math.round(aiConfidence)}%)` : "";
     if (Number(tender.ai_analyzed)) {
-        statusBadges.push({ label: "AI analyzed", variant: "info" });
+        statusBadges.push({
+            label: `AI analyzed${aiConfidenceLabel}`,
+            variant: "info",
+        });
     } else {
         statusBadges.push({ label: "Not AI analyzed", variant: "light text-dark border" });
     }
@@ -357,6 +366,10 @@
                     <div class="col-md-4">
                         <strong>AI analyzed</strong><br />
                         <%= Number(tender.ai_analyzed) ? "Yes" : "No" %>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>AI confidence</strong><br />
+                        <%= Number.isFinite(aiConfidence) ? (Math.round(aiConfidence) + "%") : "-" %>
                     </div>
                     <div class="col-md-4"><strong>Asked documents</strong><br /><%= tender.asked_documents || "-" %></div>
                     <div class="col-md-4"><strong>HOD email</strong><br /><%= tender.hod_email || "-" %></div>
