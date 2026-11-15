@@ -39,6 +39,7 @@
     if (Number(tender.ineligible)) statusBadges.push({ label: "Not eligible", variant: "secondary" });
     if (Number(tender.out_of_scope)) statusBadges.push({ label: "Out of scope", variant: "secondary" });
     if (isEligible) statusBadges.push({ label: "Eligible", variant: "success" });
+    if (Number(tender.ai_analyzed)) statusBadges.push({ label: "AI analyzed", variant: "info" });
     if (!assigneeUserId) statusBadges.push({ label: "Unassigned", variant: "light text-dark border" });
 
     const mseDisplay = function (value) {

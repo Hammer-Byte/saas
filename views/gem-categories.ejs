@@ -91,6 +91,20 @@
                     Categories
                 </button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link"
+                    id="gem-ai-scope-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#gem-ai-scope-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="gem-ai-scope-pane"
+                    aria-selected="false"
+                >
+                    AI Scope
+                </button>
+            </li>
         </ul>
 
         <div class="tab-content">
@@ -178,6 +192,67 @@
                                 <tbody id="gem-tender-categories-tbody"></tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <%# AI Scope %>
+            <div class="tab-pane fade" id="gem-ai-scope-pane" role="tabpanel" aria-labelledby="gem-ai-scope-tab" tabindex="0">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <h2 class="h5 mb-1">AI Scope</h2>
+                            <p class="text-secondary small mb-0">
+                                Configure OpenAI key and model here (stored in
+                                <code>GEM_TENDER_AI_SETTINGS</code>). On new tender insert with a Scope of Work URL,
+                                the prompt below is sent with extracted SoW text. Required placeholders:
+                                <code>{{scope_of_work_url}}</code> and <code>{{categories}}</code>.
+                            </p>
+                        </div>
+                        <div id="gem-ai-scope-status" class="small text-secondary mb-3"></div>
+                        <div id="gem-ai-scope-form-alert" class="alert d-none" role="alert"></div>
+                        <form id="gem-ai-scope-form" novalidate>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-8">
+                                    <label for="gem-ai-scope-api-key" class="form-label">OpenAI API key</label>
+                                    <input
+                                        type="password"
+                                        class="form-control font-monospace"
+                                        id="gem-ai-scope-api-key"
+                                        maxlength="512"
+                                        autocomplete="off"
+                                        placeholder="sk-…"
+                                    />
+                                    <div class="form-text">
+                                        Stored in the database. Leave blank to keep the existing key.
+                                    </div>
+                                    <div class="form-check mt-2 d-none" id="gem-ai-scope-clear-key-wrap">
+                                        <input class="form-check-input" type="checkbox" id="gem-ai-scope-clear-key" />
+                                        <label class="form-check-label" for="gem-ai-scope-clear-key">
+                                            Clear saved API key
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="gem-ai-scope-model" class="form-label">Model</label>
+                                    <select class="form-select" id="gem-ai-scope-model" required></select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="gem-ai-scope-prompt" class="form-label">Prompt template</label>
+                                <textarea
+                                    class="form-control font-monospace"
+                                    id="gem-ai-scope-prompt"
+                                    rows="14"
+                                    required
+                                    maxlength="20000"
+                                    spellcheck="false"
+                                ></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="gem-ai-scope-save-btn">
+                                Save settings
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>

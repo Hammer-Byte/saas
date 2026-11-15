@@ -33,6 +33,7 @@ import clauseSubclauses from "./apps/clause_subclauses.js";
 import gemCategoryGroups from "./apps/gem_category_groups.js";
 import gemCategories from "./apps/gem_categories.js";
 import gemTenderCategories from "./apps/gem_tender_categories.js";
+import gemTenderAiSettings from "./apps/gem_tender_ai_settings.js";
 import gemScanKeywords from "./apps/gem_scan_keywords.js";
 import gemScanner from "./apps/gem_scanner.js";
 import gemTenders from "./apps/gem_tenders.js";
@@ -112,6 +113,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/gem-category-groups", gemCategoryGroups)
             .group("/gem-categories", gemCategories)
             .group("/gem-tender-categories", gemTenderCategories)
+            .group("/gem-tender-ai-settings", gemTenderAiSettings)
             .group("/gem-scan-keywords", gemScanKeywords)
             .group("/gem-scanner", gemScanner)
             .group("/gem-tenders", gemTenders)

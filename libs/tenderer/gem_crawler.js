@@ -8,6 +8,8 @@ import {
     getGemTenderByTenderId,
     updateGemTenderScanDetailsById,
 } from "../../db/gem_tenders.js";
+import { enqueueGemTenderAiScopeJob } from "../selenium/enqueue_gem_ai_scope.js";
+import { findScopeOfWorkUrl } from "../gem_tender_ai_scope.js";
 
 const DELAY_SHORT = 1000;
 
@@ -1023,7 +1025,21 @@ export const processTender = async ({
                 return false;
             }
 
-        logger.info(`Stored tender details: ${tender_id}`);
+            logger.info(`Stored tender details: ${tender_id}`);
+
+            // Insert-only AI scope check (async). Skip when no Scope of Work URL.
+            const sowUrl = findScopeOfWorkUrl(gemTenderDetails?.specification_links);
+            if (sowUrl) {
+                try {
+                    await enqueueGemTenderAiScopeJob({
+                        gemTenderId: tenderRowId,
+                        tenderId: tender_id,
+                    });
+                } catch (error) {
+                    logger.error(`enqueue AI scope for ${tender_id}: ${error}`);
+                }
+            }
+
             return true;
         }
 

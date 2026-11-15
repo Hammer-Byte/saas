@@ -380,7 +380,14 @@ export async function updateGemTenderById(patch = {}) {
     if (has("hidden")) {
         pushAssignment("hidden", !!patch.hidden);
     }
-    for (const flag of ["eligible", "ineligible", "out_of_scope", "missed", "unattended"]) {
+    for (const flag of [
+        "eligible",
+        "ineligible",
+        "out_of_scope",
+        "missed",
+        "unattended",
+        "ai_analyzed",
+    ]) {
         if (has(flag)) {
             pushAssignment(flag, !!patch[flag]);
         }
@@ -460,6 +467,8 @@ export async function updateGemTenderById(patch = {}) {
                         return sql`UPDATE GEM_TENDERS SET missed = ${value} WHERE id = ${id}`;
                     case "unattended":
                         return sql`UPDATE GEM_TENDERS SET unattended = ${value} WHERE id = ${id}`;
+                    case "ai_analyzed":
+                        return sql`UPDATE GEM_TENDERS SET ai_analyzed = ${value} WHERE id = ${id}`;
                     case "filed":
                         return sql`UPDATE GEM_TENDERS SET filed = ${value} WHERE id = ${id}`;
                     case "quote":

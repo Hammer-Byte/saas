@@ -129,10 +129,11 @@
         const keywordCount = selectedKeywordIds.size;
         const categoryCount = selectedCategoryIds.size;
         const totalSelected = keywordCount + categoryCount;
-        const onCategoriesTab = activeScannerTab === "categories";
+        const hideScan =
+            activeScannerTab === "categories" || activeScannerTab === "ai-scope";
 
-        scannerScanButton.classList.toggle("d-none", onCategoriesTab);
-        scannerScanButton.disabled = totalSelected === 0 || onCategoriesTab;
+        scannerScanButton.classList.toggle("d-none", hideScan);
+        scannerScanButton.disabled = totalSelected === 0 || hideScan;
 
         if (!totalSelected) {
             scannerScanButton.textContent = "Scan";
@@ -729,7 +730,10 @@
 
     scannerTabs?.addEventListener("shown.bs.tab", (event) => {
         const target = event.target?.getAttribute("data-bs-target") || "";
-        if (target.includes("categories")) {
+        if (target.includes("ai-scope")) {
+            activeScannerTab = "ai-scope";
+            void loadAiScopeSettings();
+        } else if (target.includes("categories")) {
             activeScannerTab = "categories";
         } else if (target.includes("advance")) {
             activeScannerTab = "advance";
@@ -737,6 +741,121 @@
             activeScannerTab = "direct";
         }
         syncSharedScanControls();
+    });
+
+    // ---------- AI Scope ----------
+
+    const aiScopeForm = document.getElementById("gem-ai-scope-form");
+    const aiScopePrompt = document.getElementById("gem-ai-scope-prompt");
+    const aiScopeApiKey = document.getElementById("gem-ai-scope-api-key");
+    const aiScopeModel = document.getElementById("gem-ai-scope-model");
+    const aiScopeClearKey = document.getElementById("gem-ai-scope-clear-key");
+    const aiScopeClearKeyWrap = document.getElementById("gem-ai-scope-clear-key-wrap");
+    const aiScopeStatus = document.getElementById("gem-ai-scope-status");
+    const aiScopeFormAlert = document.getElementById("gem-ai-scope-form-alert");
+    const aiScopeSaveButton = document.getElementById("gem-ai-scope-save-btn");
+    let aiScopeKeyConfigured = false;
+
+    function fillAiScopeModelOptions(options, selected) {
+        if (!aiScopeModel) return;
+        const list = Array.isArray(options) && options.length ? options : ["gpt-4o-mini"];
+        const current = selected && list.includes(selected) ? selected : list[0];
+        aiScopeModel.innerHTML = list
+            .map(
+                (model) =>
+                    `<option value="${escapeHtml(model)}" ${
+                        model === current ? "selected" : ""
+                    }>${escapeHtml(model)}</option>`,
+            )
+            .join("");
+    }
+
+    async function loadAiScopeSettings() {
+        if (!aiScopePrompt) return;
+        try {
+            const { ok, data } = await apiRequest("/api/gem-tender-ai-settings");
+            if (!ok) {
+                if (aiScopeStatus) {
+                    aiScopeStatus.textContent = data.error || "Failed to load AI settings.";
+                }
+                return;
+            }
+            const settings = data.settings || {};
+            aiScopePrompt.value = settings.prompt_template || "";
+            fillAiScopeModelOptions(settings.openai_model_options, settings.openai_model);
+            aiScopeKeyConfigured = !!settings.openai_configured;
+            if (aiScopeApiKey) {
+                aiScopeApiKey.value = "";
+                aiScopeApiKey.placeholder = settings.openai_configured
+                    ? `Saved: ${settings.openai_api_key_masked || "••••"}`
+                    : "sk-…";
+            }
+            if (aiScopeClearKey) aiScopeClearKey.checked = false;
+            aiScopeClearKeyWrap?.classList.toggle("d-none", !settings.openai_configured);
+            if (aiScopeStatus) {
+                aiScopeStatus.textContent = settings.openai_configured
+                    ? `API key saved. Model: ${settings.openai_model || "gpt-4o-mini"}`
+                    : "No API key saved yet — paste your OpenAI key below.";
+            }
+            aiScopeFormAlert?.classList.add("d-none");
+        } catch (error) {
+            console.error(error);
+            if (aiScopeStatus) aiScopeStatus.textContent = "Failed to load AI settings.";
+        }
+    }
+
+    aiScopeApiKey?.addEventListener("input", () => {
+        if (aiScopeClearKey && aiScopeApiKey.value.trim()) {
+            aiScopeClearKey.checked = false;
+        }
+    });
+
+    aiScopeForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const prompt_template = (aiScopePrompt?.value || "").trim();
+        const openai_model = (aiScopeModel?.value || "").trim();
+        const typedKey = (aiScopeApiKey?.value || "").trim();
+        const clearKey = !!aiScopeClearKey?.checked;
+        if (!prompt_template) {
+            showFormAlert(aiScopeFormAlert, "Prompt template is required.");
+            return;
+        }
+        if (!prompt_template.includes("{{scope_of_work_url}}") || !prompt_template.includes("{{categories}}")) {
+            showFormAlert(
+                aiScopeFormAlert,
+                "Prompt must include {{scope_of_work_url}} and {{categories}}.",
+            );
+            return;
+        }
+        if (!openai_model) {
+            showFormAlert(aiScopeFormAlert, "Select an OpenAI model.");
+            return;
+        }
+
+        const body = { prompt_template, openai_model };
+        // Typed key wins; clear checkbox sends empty; otherwise omit to keep existing.
+        if (typedKey) {
+            body.openai_api_key = typedKey;
+        } else if (clearKey) {
+            body.openai_api_key = "";
+        }
+
+        if (aiScopeSaveButton) aiScopeSaveButton.disabled = true;
+        try {
+            const { ok, data } = await apiRequest("/api/gem-tender-ai-settings", "PUT", body);
+            if (!ok) {
+                showFormAlert(aiScopeFormAlert, data.error || "Failed to save settings.");
+                return;
+            }
+            aiScopeFormAlert?.classList.add("d-none");
+            showAlert(data.message || "AI scope settings saved.", "success");
+            await loadAiScopeSettings();
+        } catch (error) {
+            console.error(error);
+            showFormAlert(aiScopeFormAlert, "Failed to save settings.");
+        } finally {
+            if (aiScopeSaveButton) aiScopeSaveButton.disabled = false;
+        }
     });
 
     // ---------- Categories (HammerByte) ----------
