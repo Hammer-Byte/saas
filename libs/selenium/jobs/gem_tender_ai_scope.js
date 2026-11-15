@@ -18,10 +18,12 @@ async function perform(ctx) {
         return;
     }
 
+    const tenderLabel = ctx.payload?.tenderId || `#${gemTenderId}`;
+    logger.info(`AI scope starting for tender ${tenderLabel} (selenium job)`);
+
     const result = await analyzeGemTenderAiScope({ gemTenderId });
     const status = result?.status || "unknown";
     const reason = result?.reason ? String(result.reason).trim() : "";
-    const tenderLabel = ctx.payload?.tenderId || `#${gemTenderId}`;
     const summary = reason ? `${status}: ${reason}` : status;
     ctx.setResultSummary(summary);
     // Decision outcomes are logged inside analyzeGemTenderAiScope; log skips/errors here.

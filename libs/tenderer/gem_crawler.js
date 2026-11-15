@@ -8,7 +8,7 @@ import {
     getGemTenderByTenderId,
     updateGemTenderScanDetailsById,
 } from "../../db/gem_tenders.js";
-import { enqueueGemTenderAiScopeJob } from "../selenium/enqueue_gem_ai_scope.js";
+import { scheduleGemTenderAiScope } from "../selenium/enqueue_gem_ai_scope.js";
 import { findScopeOfWorkUrl } from "../gem_tender_ai_scope.js";
 
 const DELAY_SHORT = 1000;
@@ -1027,18 +1027,14 @@ export const processTender = async ({
 
             logger.info(`Stored tender details: ${tender_id}`);
 
-            // Insert-only AI scope check (async). Skip when no Scope of Work URL.
+            // Insert-only AI scope check. Runs in-process (not selenium queue) so it
+            // is not blocked behind the long-running gem_scan worker.
             const sowUrl = findScopeOfWorkUrl(gemTenderDetails?.specification_links);
             if (sowUrl) {
-                try {
-                    await enqueueGemTenderAiScopeJob({
-                        gemTenderId: tenderRowId,
-                        tenderId: tender_id,
-                    });
-                    logger.info(`AI scope queued for tender ${tender_id}`);
-                } catch (error) {
-                    logger.error(`enqueue AI scope for ${tender_id}: ${error}`);
-                }
+                scheduleGemTenderAiScope({
+                    gemTenderId: tenderRowId,
+                    tenderId: tender_id,
+                });
             } else {
                 logger.info(`AI scope skipped for tender ${tender_id} (no Scope of Work URL)`);
             }
