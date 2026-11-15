@@ -15,6 +15,7 @@
     const titleInput = form?.elements.namedItem("title");
     const experienceInput = form?.elements.namedItem("experience");
     const descriptionInput = form?.elements.namedItem("description");
+    const replyEmailInput = form?.elements.namedItem("reply_email");
     const activeInput = form?.elements.namedItem("active");
 
     function showAlert(target, message, type) {
@@ -51,6 +52,7 @@
         if (titleInput) titleInput.value = row.dataset.title || "";
         if (experienceInput) experienceInput.value = row.dataset.experience || "";
         if (descriptionInput) descriptionInput.value = row.dataset.description || "";
+        if (replyEmailInput) replyEmailInput.value = row.dataset.replyEmail || "";
         if (activeInput) activeInput.checked = row.dataset.active === "1";
     }
 
@@ -144,14 +146,25 @@
         const title = String(titleInput?.value || "").trim();
         const experience = String(experienceInput?.value || "").trim();
         const description = String(descriptionInput?.value || "").trim();
+        const replyEmail = String(replyEmailInput?.value || "").trim();
         const active = !!activeInput?.checked;
 
-        if (!title || !experience || !description) {
-            showAlert(formAlert, "Title, experience, and description are required.", "danger");
+        if (!title || !experience || !description || !replyEmail) {
+            showAlert(
+                formAlert,
+                "Title, experience, description, and reply email are required.",
+                "danger",
+            );
             return;
         }
 
-        const payload = { title, experience, description, active };
+        const payload = {
+            title,
+            experience,
+            description,
+            reply_email: replyEmail,
+            active,
+        };
         const isEdit = id > 0;
         if (isEdit) {
             payload.id = id;

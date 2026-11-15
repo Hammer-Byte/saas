@@ -10,23 +10,6 @@
     const bulkShortlistBtn = document.getElementById("applicants-bulk-shortlist-btn");
     const bulkClearBtn = document.getElementById("applicants-bulk-clear-btn");
 
-    const interviewModalElement = document.getElementById("interview-modal");
-    const interviewForm = document.getElementById("interview-form");
-    const interviewFormAlert = document.getElementById("interview-form-alert");
-    const interviewApplicantId = document.getElementById("interview-applicant-id");
-    const interviewApplicantLabel = document.getElementById("interview-applicant-label");
-    const interviewDate = document.getElementById("interview-date");
-    const interviewTime = document.getElementById("interview-time");
-    const interviewMeetingLink = document.getElementById("interview-meeting-link");
-    const interviewSubmitBtn = document.getElementById("interview-submit-btn");
-
-    const outcomeModalElement = document.getElementById("outcome-modal");
-    const outcomeForm = document.getElementById("outcome-form");
-    const outcomeFormAlert = document.getElementById("outcome-form-alert");
-    const outcomeApplicantId = document.getElementById("outcome-applicant-id");
-    const outcomeNotes = document.getElementById("outcome-notes");
-    const outcomeSubmitBtn = document.getElementById("outcome-submit-btn");
-
     function showAlert(target, message, type) {
         if (!target) return;
         target.textContent = message;
@@ -86,8 +69,6 @@
                 row.dataset.name || "",
                 row.dataset.email || "",
                 row.dataset.phone || "",
-                row.dataset.city || "",
-                row.dataset.state || "",
             ]
                 .join(" ")
                 .toLowerCase();
@@ -102,30 +83,6 @@
         emptyState?.classList.toggle("d-none", visibleCount > 0);
         tableWrap?.classList.toggle("d-none", visibleCount === 0 && !!query);
         syncBulkBar();
-    }
-
-    function fillInterviewForm(row) {
-        hideAlert(interviewFormAlert);
-        if (interviewApplicantId) interviewApplicantId.value = row.dataset.id || "";
-        if (interviewApplicantLabel) {
-            interviewApplicantLabel.textContent = `${row.dataset.name || ""} · ${row.dataset.email || ""}`;
-        }
-        if (interviewMeetingLink) {
-            interviewMeetingLink.value = row.dataset.meetingLink || "";
-        }
-
-        const existing = row.dataset.interviewAt || "";
-        if (existing && window.getReadableDate) {
-            if (interviewDate) {
-                interviewDate.value = window.getReadableDate("YYYY-MM-DD", existing) || "";
-            }
-            if (interviewTime) {
-                interviewTime.value = window.getReadableDate("HH:mm", existing) || "";
-            }
-        } else {
-            if (interviewDate) interviewDate.value = "";
-            if (interviewTime) interviewTime.value = "";
-        }
     }
 
     searchInput?.addEventListener("input", applySearch);
@@ -189,155 +146,13 @@
         }
     });
 
-    tableBody?.addEventListener("click", async (event) => {
+    tableBody?.addEventListener("click", (event) => {
+        if (event.target.closest("button, a, input, label")) {
+            return;
+        }
         const row = event.target.closest("tr[data-id]");
-        if (!row) return;
-
-        const interviewButton = event.target.closest(".applicant-interview-btn");
-        const outcomeButton = event.target.closest(".applicant-outcome-btn");
-        const selectButton = event.target.closest(".applicant-select-btn");
-        const rejectButton = event.target.closest(".applicant-reject-btn");
-
-        if (interviewButton) {
-            fillInterviewForm(row);
-            if (interviewModalElement && window.bootstrap?.Modal) {
-                window.bootstrap.Modal.getOrCreateInstance(interviewModalElement).show();
-            }
-            return;
-        }
-
-        if (outcomeButton) {
-            hideAlert(outcomeFormAlert);
-            if (outcomeApplicantId) outcomeApplicantId.value = row.dataset.id || "";
-            if (outcomeNotes) outcomeNotes.value = row.dataset.outcome || "";
-            if (outcomeModalElement && window.bootstrap?.Modal) {
-                window.bootstrap.Modal.getOrCreateInstance(outcomeModalElement).show();
-            }
-            return;
-        }
-
-        if (selectButton || rejectButton) {
-            const decision = selectButton ? "selected" : "rejected";
-            const confirmed = await window.showConfirm({
-                title: decision === "selected" ? "Mark selected?" : "Mark rejected?",
-                description: `Set this application as ${decision}.`,
-                choices: [
-                    { label: "Cancel", value: false, className: "btn-outline-secondary" },
-                    {
-                        label: decision === "selected" ? "Selected" : "Reject",
-                        value: true,
-                        className: decision === "selected" ? "btn-success" : "btn-danger",
-                    },
-                ],
-            });
-            if (!confirmed) return;
-
-            hideAlert(pageAlert);
-            try {
-                const response = await fetch("/api/job-applications", {
-                    method: "PATCH",
-                    credentials: "same-origin",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        id: Number(row.dataset.id),
-                        decision,
-                    }),
-                });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    showAlert(pageAlert, data.error || "Failed to update decision.", "danger");
-                    return;
-                }
-                window.location.reload();
-            } catch (error) {
-                showAlert(pageAlert, error?.message || "Failed to update decision.", "danger");
-            }
-        }
-    });
-
-    interviewForm?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        hideAlert(interviewFormAlert);
-
-        const id = Number(interviewApplicantId?.value || 0);
-        const date = String(interviewDate?.value || "").trim();
-        const time = String(interviewTime?.value || "").trim();
-        const meetingLink = String(interviewMeetingLink?.value || "").trim();
-
-        if (!id || !date || !time || !meetingLink) {
-            showAlert(interviewFormAlert, "Date, time, and meeting link are required.", "danger");
-            return;
-        }
-
-        const interviewAt = window.getWritableDate
-            ? window.getWritableDate("YYYY-MM-DD HH:mm:ss", `${date} ${time}:00`)
-            : `${date} ${time}:00`;
-
-        if (interviewSubmitBtn) interviewSubmitBtn.disabled = true;
-        try {
-            const response = await fetch("/api/job-applications/interview", {
-                method: "POST",
-                credentials: "same-origin",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    id,
-                    interview_at: interviewAt,
-                    meeting_link: meetingLink,
-                }),
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                showAlert(
-                    interviewFormAlert,
-                    data.error || "Failed to send interview email.",
-                    "danger",
-                );
-                return;
-            }
-            window.location.reload();
-        } catch (error) {
-            showAlert(
-                interviewFormAlert,
-                error?.message || "Failed to send interview email.",
-                "danger",
-            );
-        } finally {
-            if (interviewSubmitBtn) interviewSubmitBtn.disabled = false;
-        }
-    });
-
-    outcomeForm?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        hideAlert(outcomeFormAlert);
-
-        const id = Number(outcomeApplicantId?.value || 0);
-        if (!id) {
-            showAlert(outcomeFormAlert, "Application not found.", "danger");
-            return;
-        }
-
-        if (outcomeSubmitBtn) outcomeSubmitBtn.disabled = true;
-        try {
-            const response = await fetch("/api/job-applications", {
-                method: "PATCH",
-                credentials: "same-origin",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    id,
-                    interview_outcome: String(outcomeNotes?.value || "").trim() || null,
-                }),
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                showAlert(outcomeFormAlert, data.error || "Failed to save outcome.", "danger");
-                return;
-            }
-            window.location.reload();
-        } catch (error) {
-            showAlert(outcomeFormAlert, error?.message || "Failed to save outcome.", "danger");
-        } finally {
-            if (outcomeSubmitBtn) outcomeSubmitBtn.disabled = false;
-        }
+        if (!row?.dataset.href) return;
+        window.location.href = row.dataset.href;
     });
 
     syncBulkBar();

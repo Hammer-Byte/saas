@@ -57,12 +57,21 @@ export async function addJob({ body, cookie, set }) {
     const title = body.title.trim();
     const description = body.description.trim();
     const experience = body.experience.trim();
+    const replyEmail = String(body.reply_email || "")
+        .trim()
+        .toLowerCase();
     const active = body.active === undefined ? null : !!body.active;
+
+    if (!replyEmail) {
+        set.status = 400;
+        return { error: "Reply email is required" };
+    }
 
     const id = await createJobPosition({
         title,
         description,
         experience,
+        reply_email: replyEmail,
         active,
     });
     if (!id) {
@@ -87,11 +96,20 @@ export async function updateJob({ body, cookie, set }) {
         return { error: "Job not found" };
     }
 
+    const replyEmail = String(body.reply_email || "")
+        .trim()
+        .toLowerCase();
+    if (!replyEmail) {
+        set.status = 400;
+        return { error: "Reply email is required" };
+    }
+
     await updateJobPositionById({
         id: body.id,
         title: body.title.trim(),
         description: body.description.trim(),
         experience: body.experience.trim(),
+        reply_email: replyEmail,
         active: !!body.active,
     });
 

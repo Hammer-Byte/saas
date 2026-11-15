@@ -1,9 +1,15 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createJobPosition({ title, description, experience, active = null }) {
-    const values = { title, description, experience };
-    const columns = ["title", "description", "experience"];
+export async function createJobPosition({
+    title,
+    description,
+    experience,
+    reply_email,
+    active = null,
+}) {
+    const values = { title, description, experience, reply_email };
+    const columns = ["title", "description", "experience", "reply_email"];
     if (active != null) {
         values.active = active;
         columns.push("active");
@@ -20,7 +26,14 @@ export async function createJobPosition({ title, description, experience, active
         });
 }
 
-export async function updateJobPositionById({ id, title, description, experience, active }) {
+export async function updateJobPositionById({
+    id,
+    title,
+    description,
+    experience,
+    reply_email,
+    active,
+}) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE JOB_POSITIONS
@@ -28,6 +41,7 @@ export async function updateJobPositionById({ id, title, description, experience
                 title = ${title},
                 description = ${description},
                 experience = ${experience},
+                reply_email = ${reply_email},
                 active = ${active}
             WHERE id = ${id}
         `,

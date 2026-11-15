@@ -756,14 +756,26 @@
 
     function fillAiScopeModelOptions(options, selected) {
         if (!aiScopeModel) return;
-        const list = Array.isArray(options) && options.length ? options : ["gpt-4o-mini"];
-        const current = selected && list.includes(selected) ? selected : list[0];
+        const raw = Array.isArray(options) && options.length ? options : ["gpt-4o-mini"];
+        const list = raw.map((entry) => {
+            if (entry && typeof entry === "object") {
+                const id = String(entry.id || "").trim();
+                return {
+                    id,
+                    label: String(entry.label || id).trim() || id,
+                };
+            }
+            const id = String(entry || "").trim();
+            return { id, label: id };
+        }).filter((entry) => entry.id);
+        const ids = list.map((entry) => entry.id);
+        const current = selected && ids.includes(selected) ? selected : ids[0];
         aiScopeModel.innerHTML = list
             .map(
-                (model) =>
-                    `<option value="${escapeHtml(model)}" ${
-                        model === current ? "selected" : ""
-                    }>${escapeHtml(model)}</option>`,
+                (entry) =>
+                    `<option value="${escapeHtml(entry.id)}" ${
+                        entry.id === current ? "selected" : ""
+                    }>${escapeHtml(entry.label)}</option>`,
             )
             .join("");
     }
@@ -793,6 +805,10 @@
                 aiScopeStatus.textContent = settings.openai_api_key
                     ? `Model: ${settings.openai_model || "gpt-4o-mini"} · Min confidence: ${threshold}%`
                     : `No API key saved yet. Min confidence: ${threshold}%`;
+            }
+            const pricingNote = document.getElementById("gem-ai-scope-pricing-note");
+            if (pricingNote && settings.pricing_note) {
+                pricingNote.textContent = settings.pricing_note;
             }
             aiScopeFormAlert?.classList.add("d-none");
         } catch (error) {

@@ -218,7 +218,7 @@
                         <div id="gem-ai-scope-form-alert" class="alert d-none" role="alert"></div>
                         <form id="gem-ai-scope-form" novalidate>
                             <div class="row g-3 mb-3">
-                                <div class="col-md-6">
+                                <div class="col-md-8">
                                     <label for="gem-ai-scope-api-key" class="form-label">OpenAI API key</label>
                                     <input
                                         type="text"
@@ -230,11 +230,7 @@
                                         spellcheck="false"
                                     />
                                 </div>
-                                <div class="col-md-3">
-                                    <label for="gem-ai-scope-model" class="form-label">Model</label>
-                                    <select class="form-select" id="gem-ai-scope-model" required></select>
-                                </div>
-                                <div class="col-md-3">
+                                <div class="col-md-4">
                                     <label for="gem-ai-scope-confidence" class="form-label">Min confidence %</label>
                                     <input
                                         type="number"
@@ -246,6 +242,15 @@
                                         value="80"
                                         required
                                     />
+                                </div>
+                                <div class="col-12">
+                                    <label for="gem-ai-scope-model" class="form-label">Model</label>
+                                    <select class="form-select" id="gem-ai-scope-model" required></select>
+                                    <div class="form-text" id="gem-ai-scope-pricing-note">
+                                        GPT-4 / GPT-5 / GPT-6 models ready to select, with USD per 1M tokens (input / output), cheapest first.
+                                        SoW triage is input-heavy (attached file); JSON output is tiny — input rate dominates.
+                                        We can pick the best cost/volume model together later (e.g. gpt-6-luna).
+                                    </div>
                                 </div>
                             </div>
                             <div class="mb-3">

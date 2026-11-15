@@ -30,19 +30,20 @@ class Transporter {
         this.transporter = transporter;
     }
 
-    transport({ recipient, subject, body, html_enabled = false, attachments } = {}) {
+    transport({ recipient, subject, body, html_enabled = false, attachments, cc } = {}) {
         this.transporter.sendMail({
             from: this.smtp.auth.user,
-            to:recipient,
+            to: recipient,
             subject,
             ...(html_enabled ? { html: body } : { text: body }),
             attachments,
+            ...(cc ? { cc } : {}),
         }, (error, info) => {
-            if (error) 
+            if (error)
                 logger.error(error)
-             else 
+             else
                 logger.success(`Email Sent -> ${recipient}`);
-            
+
         });
     }
 }

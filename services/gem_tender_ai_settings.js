@@ -2,6 +2,7 @@ import {
     DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
     DEFAULT_GEM_TENDER_AI_MODEL,
     DEFAULT_GEM_TENDER_AI_PROMPT,
+    GEM_TENDER_AI_MODEL_IDS,
     GEM_TENDER_AI_MODEL_OPTIONS,
     getGemTenderAiSettings,
     normalizeConfidenceThreshold,
@@ -47,12 +48,16 @@ function publicSettings(settings) {
     return {
         id: settings?.id || 1,
         prompt_template: settings?.prompt_template || DEFAULT_GEM_TENDER_AI_PROMPT,
-        openai_model: model,
+        openai_model: GEM_TENDER_AI_MODEL_IDS.includes(model)
+            ? model
+            : DEFAULT_GEM_TENDER_AI_MODEL,
         openai_model_options: GEM_TENDER_AI_MODEL_OPTIONS,
         openai_api_key: String(settings?.openai_api_key || "").trim(),
         confidence_threshold: normalizeConfidenceThreshold(
             settings?.confidence_threshold ?? DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
         ),
+        pricing_note:
+            "GPT-4, GPT-5, and GPT-6 chat models are selectable (plus common reasoning models), with OpenAI standard USD per 1M tokens (input / output), cheapest first. SoW triage is mostly input tokens from the attached file; JSON output is tiny. We can pick the best cost/volume model later.",
         updated_on: settings?.updated_on || null,
         updated_by: settings?.updated_by || null,
         placeholders: [
@@ -95,7 +100,7 @@ export async function updateGemTenderAiSettingsApi({ body, cookie, set }) {
     }
 
     const model = String(body?.openai_model || "").trim() || DEFAULT_GEM_TENDER_AI_MODEL;
-    if (!GEM_TENDER_AI_MODEL_OPTIONS.includes(model)) {
+    if (!GEM_TENDER_AI_MODEL_IDS.includes(model)) {
         set.status = 400;
         return { error: "Invalid OpenAI model" };
     }

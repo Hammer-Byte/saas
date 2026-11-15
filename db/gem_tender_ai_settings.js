@@ -7,13 +7,70 @@ export const DEFAULT_GEM_TENDER_AI_MODEL = "gpt-4o-mini";
 
 export const DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD = 80;
 
+/**
+ * Models for GeM SoW triage (Responses API + attached file).
+ * Full GPT-4 / GPT-5 / GPT-6 chat lineup + common reasoning models.
+ * Prices: OpenAI standard USD per 1M tokens (input / output), cheapest → costliest.
+ * Source: https://developers.openai.com/api/docs/pricing (approx. Nov 2026).
+ * Image / audio / embedding / Cyber / Rosalind omitted.
+ */
+function gemAiModelOption(id, inputPerMillion, outputPerMillion, note = "") {
+    const fmt = (n) => {
+        const num = Number(n);
+        if (!Number.isFinite(num)) return String(n);
+        return Number.isInteger(num) ? String(num) : String(num);
+    };
+    const cost = `$${fmt(inputPerMillion)} / $${fmt(outputPerMillion)} per 1M in/out`;
+    return {
+        id,
+        label: note ? `${id} — ${cost} · ${note}` : `${id} — ${cost}`,
+        input_per_million: inputPerMillion,
+        output_per_million: outputPerMillion,
+    };
+}
+
 export const GEM_TENDER_AI_MODEL_OPTIONS = [
-    "gpt-4o-mini",
-    "gpt-4o",
-    "gpt-4.1-mini",
-    "gpt-4.1",
-    "o4-mini",
+    // ——— cheapest / volume ———
+    gemAiModelOption("gpt-5-nano", 0.05, 0.4, "GPT-5 · lowest cost"),
+    gemAiModelOption("gpt-4.1-nano", 0.1, 0.4, "GPT-4.1 · cheap"),
+    gemAiModelOption("gpt-6-luna", 0.1, 0.5, "GPT-6 · volume / planned"),
+    gemAiModelOption("gpt-4o-mini", 0.15, 0.6, "GPT-4o · default"),
+    gemAiModelOption("gpt-5.4-nano", 0.2, 1.25, "GPT-5.4"),
+    gemAiModelOption("gpt-5.6-luna", 0.2, 1.2, "GPT-5.6 · cheap"),
+    gemAiModelOption("gpt-5-mini", 0.25, 2, "GPT-5"),
+    gemAiModelOption("gpt-4.1-mini", 0.4, 1.6, "GPT-4.1"),
+    gemAiModelOption("gpt-5.4-mini", 0.75, 4.5, "GPT-5.4"),
+    // ——— mid ———
+    gemAiModelOption("gpt-6.1-terra", 1, 5, "GPT-6.1 · mid"),
+    gemAiModelOption("o4-mini", 1.1, 4.4, "reasoning mini"),
+    gemAiModelOption("o3-mini", 1.1, 4.4, "reasoning mini"),
+    gemAiModelOption("gpt-5", 1.25, 10, "GPT-5"),
+    gemAiModelOption("gpt-5.1", 1.25, 10, "GPT-5.1"),
+    gemAiModelOption("gpt-5.2", 1.75, 14, "GPT-5.2"),
+    gemAiModelOption("gpt-4.1", 2, 8, "GPT-4.1"),
+    gemAiModelOption("o3", 2, 8, "reasoning"),
+    gemAiModelOption("gpt-6-sol", 2, 10, "GPT-6 · stronger"),
+    gemAiModelOption("gpt-6.1-sol", 2, 10, "GPT-6.1 · stronger"),
+    gemAiModelOption("gpt-5.6-terra", 2, 12, "GPT-5.6 · mid"),
+    gemAiModelOption("gpt-4o", 2.5, 10, "GPT-4o"),
+    gemAiModelOption("gpt-5.4", 2.5, 15, "GPT-5.4"),
+    gemAiModelOption("gpt-5.6-sol", 4, 20, "GPT-5.6 · stronger"),
+    gemAiModelOption("gpt-5.5", 5, 30, "GPT-5.5"),
+    // ——— legacy GPT-4 ———
+    gemAiModelOption("gpt-4-turbo", 10, 30, "GPT-4 Turbo · legacy"),
+    gemAiModelOption("gpt-6-astra", 10, 50, "GPT-6 · top"),
+    // ——— pro / expensive ———
+    gemAiModelOption("gpt-5-pro", 15, 120, "GPT-5 pro"),
+    gemAiModelOption("o3-pro", 20, 80, "reasoning pro"),
+    gemAiModelOption("gpt-5.2-pro", 21, 168, "GPT-5.2 pro"),
+    gemAiModelOption("gpt-4", 30, 60, "GPT-4 · legacy"),
+    gemAiModelOption("gpt-5.4-pro", 30, 180, "GPT-5.4 pro"),
+    gemAiModelOption("gpt-5.5-pro", 30, 180, "GPT-5.5 pro"),
 ];
+
+export const GEM_TENDER_AI_MODEL_IDS = GEM_TENDER_AI_MODEL_OPTIONS.map(
+    (option) => option.id,
+);
 
 export const DEFAULT_GEM_TENDER_AI_PROMPT = `You help HammerByte decide if a GeM tender is in our service scope.
 

@@ -7,6 +7,7 @@ import inquiries from "./apps/inquiries.js";
 import jobApplications, {
     publicJobApplications,
 } from "./apps/job_applications.js";
+import jobApplicantInterviews from "./apps/job_applicant_interviews.js";
 import jobs from "./apps/jobs.js";
 import inquiryAdmin from "./apps/inquiry_admin.js";
 import inquiryNotes from "./apps/inquiry_notes.js";
@@ -107,6 +108,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/internal-documents", internalDocuments)
             .group("/jobs", jobs)
             .group("/job-applications", jobApplications)
+            .group("/job-applicant-interviews", jobApplicantInterviews)
             .group("/contracts", contracts)
             .group("/contract-clauses", contractClauses)
             .group("/clause-subclauses", clauseSubclauses)

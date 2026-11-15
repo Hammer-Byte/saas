@@ -7,10 +7,13 @@ import {
     getJobApplicantByJobPositionIdAndEmail,
     getJobApplicantByJobPositionIdAndPhone,
     updateJobApplicantDecisionById,
-    updateJobApplicantInterviewById,
-    updateJobApplicantOutcomeById,
     updateJobApplicantShortlistedById,
 } from "../db/job_applicants.js";
+import {
+    createJobApplicantInterview,
+    getJobApplicantInterviewById,
+    updateJobApplicantInterviewOutcomeById,
+} from "../db/job_applicant_interviews.js";
 import { getJobPositionById } from "../db/job_positions.js";
 import { getWritableDate } from "../libs/date.js";
 import transporter from "../libs/transporter.js";
@@ -80,7 +83,13 @@ function sendShortlistEmail({ applicant, jobTitle }) {
     }
 }
 
-function sendInterviewEmail({ applicant, jobTitle, interviewAt, meetingLink }) {
+function sendInterviewEmail({
+    applicant,
+    jobTitle,
+    interviewAt,
+    meetingLink,
+    replyEmail,
+}) {
     try {
         const interviewDate =
             getWritableDate("DD/MM/YYYY", interviewAt) || String(interviewAt);
@@ -92,6 +101,7 @@ function sendInterviewEmail({ applicant, jobTitle, interviewAt, meetingLink }) {
             interview_date: interviewDate,
             interview_time: interviewTime,
             meeting_link: meetingLink,
+            reply_email: replyEmail,
             app_name: "HammerByte",
         });
         transporter.transport({
@@ -99,6 +109,7 @@ function sendInterviewEmail({ applicant, jobTitle, interviewAt, meetingLink }) {
             subject: `Interview scheduled for ${jobTitle}`,
             body: html,
             html_enabled: true,
+            cc: replyEmail,
         });
     } catch (error) {
         logger.error(`sendInterviewEmail: ${error}`);
@@ -229,6 +240,14 @@ export async function scheduleJobApplicationInterview({ body, cookie, set }) {
         return { error: "Only shortlisted applicants can be invited to interview" };
     }
 
+    const replyEmail = String(applicant.job_reply_email || "")
+        .trim()
+        .toLowerCase();
+    if (!replyEmail) {
+        set.status = 400;
+        return { error: "Job reply email is missing. Edit the job and set a reply email." };
+    }
+
     const interviewAt = getWritableDate("YYYY-MM-DD HH:mm:ss", body.interview_at);
     if (!interviewAt) {
         set.status = 400;
@@ -241,22 +260,27 @@ export async function scheduleJobApplicationInterview({ body, cookie, set }) {
         return { error: "Meeting link is required" };
     }
 
-    await updateJobApplicantInterviewById({
-        id: applicant.id,
+    const interviewId = await createJobApplicantInterview({
+        job_applicant_id: applicant.id,
         interview_at: interviewAt,
-        interview_meeting_link: meetingLink.slice(0, 512),
+        meeting_link: meetingLink.slice(0, 512),
     });
+    if (!interviewId) {
+        set.status = 400;
+        return { error: "Failed to schedule interview" };
+    }
 
     sendInterviewEmail({
         applicant,
         jobTitle: applicant.job_title,
         interviewAt,
         meetingLink,
+        replyEmail,
     });
 
-    const updatedApplicant = await getJobApplicantById({ id: applicant.id });
-    set.status = 200;
-    return { message: "Interview invite sent", applicant: updatedApplicant };
+    const interview = await getJobApplicantInterviewById({ id: interviewId });
+    set.status = 201;
+    return { message: "Interview invite sent", interview };
 }
 
 export async function updateJobApplication({ body, cookie, set }) {
@@ -271,37 +295,61 @@ export async function updateJobApplication({ body, cookie, set }) {
         return { error: "Application not found" };
     }
 
-    if (body.interview_outcome !== undefined) {
-        const interviewOutcome =
-            body.interview_outcome == null
-                ? null
-                : String(body.interview_outcome).trim() || null;
-        await updateJobApplicantOutcomeById({
-            id: applicant.id,
-            interview_outcome: interviewOutcome,
-        });
+    if (body.decision === undefined) {
+        set.status = 400;
+        return { error: "Decision is required" };
     }
 
-    if (body.decision !== undefined) {
-        let decision = body.decision;
-        if (decision === null || decision === "") {
-            decision = null;
-        } else {
-            decision = String(decision).trim().toLowerCase();
-            if (!DECISION_VALUES.has(decision)) {
-                set.status = 400;
-                return { error: "Decision must be selected or rejected" };
-            }
+    let decision = body.decision;
+    if (decision === null || decision === "") {
+        decision = null;
+    } else {
+        decision = String(decision).trim().toLowerCase();
+        if (!DECISION_VALUES.has(decision)) {
+            set.status = 400;
+            return { error: "Decision must be selected or rejected" };
         }
-        await updateJobApplicantDecisionById({
-            id: applicant.id,
-            decision,
-        });
     }
+
+    await updateJobApplicantDecisionById({
+        id: applicant.id,
+        decision,
+    });
 
     const updatedApplicant = await getJobApplicantById({ id: applicant.id });
     set.status = 200;
     return { message: "Application updated", applicant: updatedApplicant };
+}
+
+export async function updateJobApplicantInterview({ body, cookie, set }) {
+    const gate = await requireJobsUser({ cookie, set });
+    if (gate.error) {
+        return { error: gate.error };
+    }
+
+    const interview = await getJobApplicantInterviewById({ id: body.id });
+    if (!interview) {
+        set.status = 404;
+        return { error: "Interview not found" };
+    }
+
+    const applicant = await getJobApplicantById({ id: interview.job_applicant_id });
+    if (!applicant) {
+        set.status = 404;
+        return { error: "Application not found" };
+    }
+
+    const outcome =
+        body.outcome == null ? null : String(body.outcome).trim() || null;
+
+    await updateJobApplicantInterviewOutcomeById({
+        id: interview.id,
+        outcome,
+    });
+
+    const updatedInterview = await getJobApplicantInterviewById({ id: interview.id });
+    set.status = 200;
+    return { message: "Interview outcome saved", interview: updatedInterview };
 }
 
 export async function getJobApplicationResume({ params, cookie, set }) {

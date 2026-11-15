@@ -79,7 +79,11 @@ import {
     getAllJobPositions,
     getJobPositionById,
 } from "../db/job_positions.js";
-import { getJobApplicantsByJobPositionId } from "../db/job_applicants.js";
+import {
+    getJobApplicantById,
+    getJobApplicantsByJobPositionId,
+} from "../db/job_applicants.js";
+import { getJobApplicantInterviewsByApplicantId } from "../db/job_applicant_interviews.js";
 import { getMaxRequestBodySize } from "../libs/upload_limits.js";
 import {
     CONTRACT_BROKEN_BY,
@@ -638,6 +642,31 @@ export const uiRoutes = new Elysia()
                         job,
                         applicants: await getJobApplicantsByJobPositionId({
                             job_position_id: job.id,
+                        }),
+                    }),
+                );
+            })
+            .get("/app/job-applications/:id", async ({ render, session, params, redirect }) => {
+                if (
+                    !canUseJobs({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+                const applicant = await getJobApplicantById({ id: Number(params.id) });
+                if (!applicant) {
+                    return redirect("/not-found");
+                }
+                return render(
+                    "job-application",
+                    appPage(session, {
+                        title: `${applicant.full_name} — Jobs — HammerByte`,
+                        applicant,
+                        interviews: await getJobApplicantInterviewsByApplicantId({
+                            job_applicant_id: applicant.id,
                         }),
                     }),
                 );

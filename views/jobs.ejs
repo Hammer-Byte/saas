@@ -78,6 +78,7 @@
                                         data-title="<%= job.title || '' %>"
                                         data-description="<%= job.description || '' %>"
                                         data-experience="<%= job.experience || '' %>"
+                                        data-reply-email="<%= job.reply_email || '' %>"
                                         data-active="<%= job.active ? '1' : '0' %>"
                                         data-href="/app/jobs/<%= job.id %>"
                                         class="job-row"
@@ -169,6 +170,21 @@
                             rows="8"
                             required
                         ></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="job-reply-email" class="form-label">Reply email</label>
+                        <input
+                            type="email"
+                            class="form-control"
+                            id="job-reply-email"
+                            name="reply_email"
+                            maxlength="255"
+                            required
+                            placeholder="CC on interview invites for reschedule replies"
+                        />
+                        <div class="form-text">
+                            Interview invites CC this address so applicants can reply to reschedule.
+                        </div>
                     </div>
                     <div class="form-check">
                         <input

@@ -56,21 +56,16 @@ export default function (app) {
         .patch("/", updateJobApplication, {
             body: t.Object({
                 id: t.Numeric({ minimum: 1 }),
-                interview_outcome: t.Optional(
-                    t.Union([t.String({ maxLength: 65535 }), t.Null()]),
-                ),
-                decision: t.Optional(
-                    t.Union([
-                        t.Literal("selected"),
-                        t.Literal("rejected"),
-                        t.Null(),
-                        t.Literal(""),
-                    ]),
-                ),
+                decision: t.Union([
+                    t.Literal("selected"),
+                    t.Literal("rejected"),
+                    t.Null(),
+                    t.Literal(""),
+                ]),
             }),
             detail: {
                 tags: ["Job Applications"],
-                summary: "Update interview outcome or decision",
+                summary: "Update application decision",
             },
         })
         .get("/:id/resume", getJobApplicationResume, {

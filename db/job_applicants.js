@@ -57,36 +57,6 @@ export async function updateJobApplicantShortlistedById({ id, shortlisted }) {
     });
 }
 
-export async function updateJobApplicantInterviewById({
-    id,
-    interview_at,
-    interview_meeting_link,
-}) {
-    await executeSQLQuery(
-        (sql) => sql`
-            UPDATE JOB_APPLICANTS
-            SET
-                interview_at = ${interview_at},
-                interview_meeting_link = ${interview_meeting_link}
-            WHERE id = ${id}
-        `,
-    ).catch((error) => {
-        logger.error(`updateJobApplicantInterviewById: ${error}`);
-    });
-}
-
-export async function updateJobApplicantOutcomeById({ id, interview_outcome }) {
-    await executeSQLQuery(
-        (sql) => sql`
-            UPDATE JOB_APPLICANTS
-            SET interview_outcome = ${interview_outcome}
-            WHERE id = ${id}
-        `,
-    ).catch((error) => {
-        logger.error(`updateJobApplicantOutcomeById: ${error}`);
-    });
-}
-
 export async function updateJobApplicantDecisionById({ id, decision }) {
     await executeSQLQuery(
         (sql) => sql`
@@ -114,7 +84,8 @@ export async function getJobApplicantById({ id }) {
                 JOB_APPLICANTS.*,
                 MEDIA.name AS cv_name,
                 MEDIA.file AS cv_file,
-                JOB_POSITIONS.title AS job_title
+                JOB_POSITIONS.title AS job_title,
+                JOB_POSITIONS.reply_email AS job_reply_email
             FROM JOB_APPLICANTS
             INNER JOIN MEDIA ON MEDIA.id = JOB_APPLICANTS.cv
             INNER JOIN JOB_POSITIONS ON JOB_POSITIONS.id = JOB_APPLICANTS.job_position_id

@@ -1,0 +1,261 @@
+<%- include('common/header') %>
+
+<%
+    const shortlisted = !!applicant.shortlisted;
+    const decision = applicant.decision || "";
+%>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/app">HammerByte App</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white-50 small">
+                Signed in as <strong class="text-white"><%= username || "user" %></strong>
+            </span>
+            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
+            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
+        </div>
+    </div>
+</nav>
+
+<main class="bg-light min-vh-100">
+    <div
+        class="container py-5"
+        id="job-application-page"
+        data-applicant-id="<%= applicant.id %>"
+        data-shortlisted="<%= shortlisted ? '1' : '0' %>"
+    >
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/jobs" class="text-decoration-none">Jobs</a> /
+                <a href="/app/jobs/<%= applicant.job_position_id %>" class="text-decoration-none">
+                    <%= applicant.job_title %>
+                </a>
+                / <%= applicant.full_name %>
+            </p>
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                <div>
+                    <h1 class="h3 mb-1"><%= applicant.full_name %></h1>
+                    <p class="text-secondary mb-0">
+                        Applied for
+                        <a href="/app/jobs/<%= applicant.job_position_id %>" class="text-decoration-none">
+                            <%= applicant.job_title %>
+                        </a>
+                    </p>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <% if (shortlisted) { %>
+                        <span class="badge text-bg-success align-self-center">Shortlisted</span>
+                    <% } else { %>
+                        <span class="badge text-bg-secondary align-self-center">Not shortlisted</span>
+                    <% } %>
+                    <% if (decision === "selected") { %>
+                        <span class="badge text-bg-success align-self-center">Selected</span>
+                    <% } else if (decision === "rejected") { %>
+                        <span class="badge text-bg-danger align-self-center">Rejected</span>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <div id="job-application-alert" class="alert d-none" role="alert"></div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-12 col-lg-7">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <h2 class="h5 mb-3">Applicant details</h2>
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4 text-secondary">Email</dt>
+                            <dd class="col-sm-8"><%= applicant.email %></dd>
+                            <dt class="col-sm-4 text-secondary">Phone</dt>
+                            <dd class="col-sm-8"><%= applicant.phone %></dd>
+                            <dt class="col-sm-4 text-secondary">City</dt>
+                            <dd class="col-sm-8"><%= applicant.city %></dd>
+                            <dt class="col-sm-4 text-secondary">State</dt>
+                            <dd class="col-sm-8"><%= applicant.state %></dd>
+                            <dt class="col-sm-4 text-secondary">Country</dt>
+                            <dd class="col-sm-8"><%= applicant.country || "India" %></dd>
+                            <dt class="col-sm-4 text-secondary">Resume</dt>
+                            <dd class="col-sm-8">
+                                <a
+                                    href="/api/job-applications/<%= applicant.id %>/resume"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <%= applicant.cv_name || "Resume" %>
+                                </a>
+                            </dd>
+                            <dt class="col-sm-4 text-secondary">Applied on</dt>
+                            <dd
+                                class="col-sm-8"
+                                data-readable-date="<%= applicant.created_on || '' %>"
+                                data-date-format="DD/MM/YYYY HH:mm:ss"
+                            ></dd>
+                            <dt class="col-sm-4 text-secondary">Reply email</dt>
+                            <dd class="col-sm-8"><%= applicant.job_reply_email || "—" %></dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-5">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <h2 class="h5 mb-3">Actions</h2>
+                        <div class="d-flex flex-wrap gap-2">
+                            <% if (!shortlisted) { %>
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary"
+                                id="shortlist-applicant-btn"
+                            >
+                                Mark shortlisted
+                            </button>
+                            <% } %>
+                            <button
+                                type="button"
+                                class="btn btn-outline-success"
+                                id="select-applicant-btn"
+                            >
+                                Mark selected
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-outline-danger"
+                                id="reject-applicant-btn"
+                            >
+                                Mark rejected
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <h2 class="h5 mb-0">Interviews</h2>
+                    <% if (shortlisted) { %>
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-primary"
+                        id="open-interview-modal-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#interview-modal"
+                    >
+                        Schedule interview
+                    </button>
+                    <% } else { %>
+                    <p class="small text-secondary mb-0">Shortlist the applicant to schedule interviews.</p>
+                    <% } %>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <% if (!interviews || interviews.length === 0) { %>
+                    <div class="p-4 text-center text-secondary">No interviews scheduled yet.</div>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">When</th>
+                                    <th scope="col">Meeting link</th>
+                                    <th scope="col">Outcome</th>
+                                    <th scope="col" class="text-end">Save</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% interviews.forEach(function (interview) { %>
+                                    <tr data-interview-id="<%= interview.id %>">
+                                        <td
+                                            data-readable-date="<%= interview.interview_at || '' %>"
+                                            data-date-format="DD/MM/YYYY HH:mm"
+                                        ></td>
+                                        <td>
+                                            <a
+                                                href="<%= interview.meeting_link %>"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="small"
+                                            >
+                                                Open link
+                                            </a>
+                                        </td>
+                                        <td style="min-width: 16rem;">
+                                            <textarea
+                                                class="form-control form-control-sm interview-outcome-input"
+                                                rows="2"
+                                                placeholder="Interview notes…"
+                                            ><%= interview.outcome || "" %></textarea>
+                                        </td>
+                                        <td class="text-end">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary save-interview-outcome-btn"
+                                            >
+                                                Save
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</main>
+
+<% if (shortlisted) { %>
+<div class="modal fade" id="interview-modal" tabindex="-1" aria-labelledby="interview-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="interview-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="interview-modal-label">Schedule interview</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="interview-form-alert" class="alert d-none" role="alert"></div>
+                    <p class="small text-secondary">
+                        Invite will CC <strong><%= applicant.job_reply_email || "—" %></strong>
+                        so the applicant can reply to reschedule.
+                    </p>
+                    <div class="mb-3">
+                        <label for="interview-date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="interview-date" name="date" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="interview-time" class="form-label">Time</label>
+                        <input type="time" class="form-control" id="interview-time" name="time" required />
+                    </div>
+                    <div class="mb-0">
+                        <label for="interview-meeting-link" class="form-label">Meeting link</label>
+                        <input
+                            type="url"
+                            class="form-control"
+                            id="interview-meeting-link"
+                            name="meeting_link"
+                            maxlength="512"
+                            required
+                            placeholder="https://"
+                        />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="interview-submit-btn">Send invite</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<% } %>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/job-application.js" defer></script>
+<%- include('common/footer') %>

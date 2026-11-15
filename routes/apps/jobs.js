@@ -1,5 +1,6 @@
 import { t } from "elysia";
 import { addJob, deleteJob, updateJob } from "../../services/jobs.js";
+import { ERRORS } from "../../constants.js";
 
 export default function (app) {
     return app
@@ -8,6 +9,11 @@ export default function (app) {
                 title: t.String({ minLength: 1, maxLength: 128 }),
                 description: t.String({ minLength: 1 }),
                 experience: t.String({ minLength: 1, maxLength: 128 }),
+                reply_email: t.String({
+                    format: "email",
+                    maxLength: 255,
+                    error: ERRORS.EMAIL_INVALID,
+                }),
                 active: t.Optional(t.Boolean()),
             }),
             detail: {
@@ -21,6 +27,11 @@ export default function (app) {
                 title: t.String({ minLength: 1, maxLength: 128 }),
                 description: t.String({ minLength: 1 }),
                 experience: t.String({ minLength: 1, maxLength: 128 }),
+                reply_email: t.String({
+                    format: "email",
+                    maxLength: 255,
+                    error: ERRORS.EMAIL_INVALID,
+                }),
                 active: t.Boolean(),
             }),
             detail: {
