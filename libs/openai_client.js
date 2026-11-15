@@ -6,6 +6,11 @@ function isLikelyImageUrl(url) {
     return /\.(png|jpe?g|gif|webp|bmp)(\?|#|$)/i.test(String(url || ""));
 }
 
+/** Reasoning models reject temperature; only send it for gpt-* chat models. */
+function supportsTemperature(modelName) {
+    return /^gpt-/i.test(String(modelName || "").trim());
+}
+
 function extractOutputText(payload) {
     if (typeof payload?.output_text === "string" && payload.output_text.trim()) {
         return payload.output_text.trim();
@@ -24,7 +29,8 @@ function extractOutputText(payload) {
 
 /**
  * Responses API with JSON object output.
- * Pass fileUrl so OpenAI fetches the SoW (PDF / image / etc.) — we do not download it.
+ * Prefer text-only prompts. fileUrl is optional and usually unused for GeM SoW
+ * (those URLs are not publicly fetchable by OpenAI).
  * @returns {Promise<object>}
  */
 export async function openAiChatJson({
@@ -58,7 +64,6 @@ export async function openAiChatJson({
                 image_url: remoteUrl,
             });
         } else {
-            // PDFs and other supported docs — OpenAI fetches the URL.
             userContent.push({
                 type: "input_file",
                 file_url: remoteUrl,
@@ -78,18 +83,28 @@ export async function openAiChatJson({
         content: userContent,
     });
 
+    const body = {
+        model: modelName,
+        text: { format: { type: "json_object" } },
+        input,
+    };
+    if (supportsTemperature(modelName)) {
+        body.temperature = temperature;
+    }
+
+    logger.info(
+        `openAiChatJson: model=${modelName} fileAttached=${!!remoteUrl} temperature=${
+            supportsTemperature(modelName) ? temperature : "omitted"
+        }`,
+    );
+
     const response = await fetch(OPENAI_RESPONSES_URL, {
         method: "POST",
         headers: {
             Authorization: `Bearer ${key}`,
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-            model: modelName,
-            temperature,
-            text: { format: { type: "json_object" } },
-            input,
-        }),
+        body: JSON.stringify(body),
     });
 
     const payload = await response.json().catch(() => ({}));

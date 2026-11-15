@@ -8,8 +8,10 @@ import {
     getGemTenderByTenderId,
     updateGemTenderScanDetailsById,
 } from "../../db/gem_tenders.js";
-import { scheduleGemTenderAiScope } from "../selenium/enqueue_gem_ai_scope.js";
-import { findScopeOfWorkUrl } from "../gem_tender_ai_scope.js";
+import {
+    analyzeGemTenderAiScope,
+    findScopeOfWorkUrl,
+} from "../gem_tender_ai_scope.js";
 
 const DELAY_SHORT = 1000;
 
@@ -161,6 +163,61 @@ const downloadTender = async (driver, tender) => {
     await writeFile(tenderFile, buffer);
     logger.info(`Saved tender PDF: ${tenderId}`);
     return { tenderFile, document, buffer };
+};
+
+/** Download Scope of Work using the same GeM session cookies as the tender PDF. */
+const downloadScopeOfWorkText = async (driver, sowUrl, tenderId) => {
+    const url = String(sowUrl || "").trim();
+    if (!url) {
+        return null;
+    }
+
+    const cookies = await driver.manage().getCookies();
+    const cookieHeader = cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
+    logger.info(`AI scope SoW download start: tender ${tenderId} url=${url}`);
+
+    const response = await fetch(url, {
+        headers: {
+            Cookie: cookieHeader,
+            "User-Agent": "Mozilla/5.0",
+            Referer: GEM_URL,
+        },
+    });
+
+    if (!response.ok) {
+        logger.error(
+            `AI scope SoW download failed: tender ${tenderId} HTTP ${response.status} url=${url}`,
+        );
+        return null;
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    const header = buffer.subarray(0, 5).toString("latin1");
+    logger.info(
+        `AI scope SoW download: tender ${tenderId} bytes=${buffer.length} content-type=${contentType || "unknown"} pdfHeader=${header === "%PDF-"}`,
+    );
+    if (header !== "%PDF-") {
+        logger.error(
+            `AI scope SoW not a PDF: tender ${tenderId} (content-type: ${contentType || "unknown"}, header: ${JSON.stringify(header)})`,
+        );
+        return null;
+    }
+
+    const safeId = String(tenderId || "unknown").replace(/[^\w.-]+/g, "_");
+    const sowFile = join(TENDERS_DIRECTORY, `sow_${safeId}_${Date.now()}.pdf`);
+    await mkdir(TENDERS_DIRECTORY, { recursive: true });
+    await writeFile(sowFile, buffer);
+    try {
+        const text = await readTenderText(sowFile);
+        const trimmed = String(text || "").trim();
+        logger.info(
+            `AI scope SoW text extracted: tender ${tenderId} chars=${trimmed.length}`,
+        );
+        return trimmed || null;
+    } finally {
+        await unlink(sowFile).catch(() => {});
+    }
 };
 
 const goToNextPage = async (driver, page) => {
@@ -989,6 +1046,7 @@ function scanDetailsDiffer(existingTender, nextDetails) {
 }
 
 export const processTender = async ({
+    driver = null,
     tenderFile,
     category_group_id = null,
     tender_category_id = null,
@@ -1016,10 +1074,10 @@ export const processTender = async ({
             const tenderRowId = await createGemTender({
                 category_group_id: resolvedCategoryGroupId,
                 tender_category_id: resolvedTenderCategoryId,
-            tender_id,
-            document,
-            ...gemTenderDetails,
-        });
+                tender_id,
+                document,
+                ...gemTenderDetails,
+            });
 
             if (!tenderRowId) {
                 return false;
@@ -1027,16 +1085,30 @@ export const processTender = async ({
 
             logger.info(`Stored tender details: ${tender_id}`);
 
-            // Insert-only AI scope check. Runs in-process (not selenium queue) so it
-            // is not blocked behind the long-running gem_scan worker.
-            const sowUrl = findScopeOfWorkUrl(gemTenderDetails?.specification_links);
-            if (sowUrl) {
-                scheduleGemTenderAiScope({
-                    gemTenderId: tenderRowId,
-                    tenderId: tender_id,
-                });
-            } else {
-                logger.info(`AI scope skipped for tender ${tender_id} (no Scope of Work URL)`);
+            // Inline AI scope: download SoW with GeM session, extract text, decide now.
+            try {
+                const sowUrl = findScopeOfWorkUrl(gemTenderDetails?.specification_links);
+                if (!sowUrl) {
+                    logger.info(`AI scope skip: tender ${tender_id} → no Scope of Work URL`);
+                } else if (!driver) {
+                    logger.error(`AI scope skip: tender ${tender_id} → no browser session for SoW download`);
+                } else {
+                    const sowText = await downloadScopeOfWorkText(driver, sowUrl, tender_id);
+                    if (!sowText) {
+                        logger.info(`AI scope skip: tender ${tender_id} → SoW download/extract failed`);
+                    } else {
+                        const result = await analyzeGemTenderAiScope({
+                            gemTenderId: tenderRowId,
+                            tenderId: tender_id,
+                            sowText,
+                        });
+                        logger.info(
+                            `AI scope finished inline: tender ${tender_id} → ${result?.status || "unknown"}`,
+                        );
+                    }
+                }
+            } catch (error) {
+                logger.error(`AI scope failed inline for tender ${tender_id}: ${error}`);
             }
 
             return true;
@@ -1213,6 +1285,7 @@ export const searchTendersByKeyword = async (
                         tender,
                     );
                     const changed = await processTender({
+                        driver,
                         tenderFile,
                         category_group_id: resolvedCategoryGroupId,
                         tender_category_id: resolvedTenderCategoryId,
