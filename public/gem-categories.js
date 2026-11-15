@@ -811,10 +811,10 @@
             showFormAlert(aiScopeFormAlert, "Prompt template is required.");
             return;
         }
-        if (!prompt_template.includes("{{scope_of_work_text}}") || !prompt_template.includes("{{categories}}")) {
+        if (!prompt_template.includes("{{scope_of_work_url}}") || !prompt_template.includes("{{categories}}")) {
             showFormAlert(
                 aiScopeFormAlert,
-                "Prompt must include {{scope_of_work_text}} and {{categories}}.",
+                "Prompt must include {{scope_of_work_url}} and {{categories}}.",
             );
             return;
         }

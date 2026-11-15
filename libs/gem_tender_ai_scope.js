@@ -15,9 +15,6 @@ import {
 } from "../db/gem_tenders.js";
 import { openAiChatJson } from "./openai_client.js";
 
-/** Keep prompts inside a safe size for the Responses API. */
-const MAX_SOW_TEXT_CHARS = 100_000;
-
 function parseSpecificationLinks(raw) {
     if (!raw) return [];
     try {
@@ -39,21 +36,9 @@ export function findScopeOfWorkUrl(specification_links) {
     return null;
 }
 
-export function truncateSowText(raw) {
-    const text = String(raw || "").trim();
-    if (text.length <= MAX_SOW_TEXT_CHARS) {
-        return { text, truncated: false };
-    }
-    return {
-        text: text.slice(0, MAX_SOW_TEXT_CHARS),
-        truncated: true,
-        originalLength: text.length,
-    };
-}
-
 export function fillAiScopePrompt(
     template,
-    { scopeOfWorkText, categories, confidenceThreshold },
+    { scopeOfWorkUrl, categories, confidenceThreshold },
 ) {
     const categoriesText = Array.isArray(categories)
         ? categories.map((name) => `- ${name}`).join("\n")
@@ -61,10 +46,11 @@ export function fillAiScopePrompt(
     const threshold = normalizeConfidenceThreshold(
         confidenceThreshold ?? DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
     );
+    const url = String(scopeOfWorkUrl || "").trim();
     return String(template || DEFAULT_GEM_TENDER_AI_PROMPT)
-        .replaceAll("{{scope_of_work_text}}", String(scopeOfWorkText || "").trim())
-        // Older saved prompts may still use the URL placeholder; treat it as text.
-        .replaceAll("{{scope_of_work_url}}", String(scopeOfWorkText || "").trim())
+        .replaceAll("{{scope_of_work_url}}", url)
+        // Older saved prompts may still use the text placeholder; fill with the URL.
+        .replaceAll("{{scope_of_work_text}}", url)
         .replaceAll("{{categories}}", categoriesText || "- (none configured)")
         .replaceAll("{{confidence_threshold}}", String(threshold));
 }
@@ -123,14 +109,14 @@ function normalizeAiScopeConfidence(raw) {
 }
 
 /**
- * Analyze one tender using already-extracted Scope of Work text.
+ * Analyze one tender by sending the Scope of Work URL to OpenAI (PDF / image / etc.).
  * Called inline from the GEM scan insert path.
  * @returns {Promise<{status: string, reason?: string, confidence?: number|null}>}
  */
 export async function analyzeGemTenderAiScope({
     gemTenderId,
     tenderId = null,
-    sowText = "",
+    sowUrl = "",
 }) {
     const id = Number(gemTenderId);
     const tenderLabel = tenderId ? String(tenderId) : `#${id}`;
@@ -139,15 +125,10 @@ export async function analyzeGemTenderAiScope({
         return { status: "invalid_id" };
     }
 
-    const { text: scopeText, truncated, originalLength } = truncateSowText(sowText);
-    if (!scopeText) {
-        logger.info(`AI scope skip: tender ${tenderLabel} → skipped_empty_sow`);
-        return { status: "skipped_empty_sow" };
-    }
-    if (truncated) {
-        logger.info(
-            `AI scope: tender ${tenderLabel} SoW truncated from ${originalLength} to ${MAX_SOW_TEXT_CHARS} chars`,
-        );
+    const scopeOfWorkUrl = String(sowUrl || "").trim();
+    if (!scopeOfWorkUrl) {
+        logger.info(`AI scope skip: tender ${tenderLabel} → skipped_no_sow`);
+        return { status: "skipped_no_sow" };
     }
 
     const tender = await getGemTenderById({ id });
@@ -177,12 +158,12 @@ export async function analyzeGemTenderAiScope({
     }
 
     const template = settings?.prompt_template || DEFAULT_GEM_TENDER_AI_PROMPT;
-    const hasTextPlaceholder =
-        template.includes("{{scope_of_work_text}}") ||
-        template.includes("{{scope_of_work_url}}");
-    if (!hasTextPlaceholder || !template.includes("{{categories}}")) {
+    const hasUrlPlaceholder =
+        template.includes("{{scope_of_work_url}}") ||
+        template.includes("{{scope_of_work_text}}");
+    if (!hasUrlPlaceholder || !template.includes("{{categories}}")) {
         logger.error(
-            `AI scope skip: tender ${tenderLabel} → skipped_bad_prompt (need {{scope_of_work_text}} and {{categories}})`,
+            `AI scope skip: tender ${tenderLabel} → skipped_bad_prompt (need {{scope_of_work_url}} and {{categories}})`,
         );
         return { status: "skipped_bad_prompt" };
     }
@@ -194,23 +175,25 @@ export async function analyzeGemTenderAiScope({
     }
 
     const filledPrompt = fillAiScopePrompt(template, {
-        scopeOfWorkText: scopeText,
+        scopeOfWorkUrl,
         categories,
         confidenceThreshold,
     });
 
     logger.info(
-        `AI scope start: tender ${tenderLabel} model=${model} threshold=${confidenceThreshold}% sowChars=${scopeText.length} labels=${categories.length}`,
+        `AI scope start: tender ${tenderLabel} model=${model} threshold=${confidenceThreshold}% sowUrl=${scopeOfWorkUrl} labels=${categories.length}`,
     );
 
     const startedAt = Date.now();
     let parsed;
     try {
+        // Attach the SoW URL so OpenAI fetches PDF / image / other supported docs itself.
         parsed = await openAiChatJson({
             apiKey,
             model,
-            system: `You are a careful tender triage assistant. Inspect the Scope of Work text. Reply with JSON only, including confidence 0-100. Decisions below ${confidenceThreshold}% confidence will be ignored.`,
+            system: `You are a careful tender triage assistant. Inspect the attached Scope of Work document (PDF, image, or other supported file). Reply with JSON only, including confidence 0-100. Decisions below ${confidenceThreshold}% confidence will be ignored.`,
             user: filledPrompt,
+            fileUrl: scopeOfWorkUrl,
         });
     } catch (error) {
         logger.error(

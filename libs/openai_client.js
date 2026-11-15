@@ -29,8 +29,7 @@ function extractOutputText(payload) {
 
 /**
  * Responses API with JSON object output.
- * Prefer text-only prompts. fileUrl is optional and usually unused for GeM SoW
- * (those URLs are not publicly fetchable by OpenAI).
+ * Pass fileUrl so OpenAI fetches the SoW (PDF / image / etc.).
  * @returns {Promise<object>}
  */
 export async function openAiChatJson({
