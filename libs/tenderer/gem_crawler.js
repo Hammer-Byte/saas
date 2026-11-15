@@ -55,15 +55,22 @@ const PROPERTY_REGEXES = {
     ],
     required_minimum_average_turnover: [
         /Minimum Average Annual Turnover[\s\S]{0,120}?(\d+(?:\.\d+)?\s*Lakh\s*\(s\))/i,
+        // GeM often puts the value between "Annual" and "Turnover of the bidder".
+        /Minimum Average Annual\s+(\d+(?:\.\d+)?\s*Lakh\s*\(s\))\s*Turnover/i,
+        /Minimum Average Annual[\s\S]{0,60}?(\d+(?:\.\d+)?\s*Lakh\s*\(s\))[\s\S]{0,60}?Turnover of the bidder/i,
+        /Minimum Average Annual\s+(\d+(?:\.\d+)?\s*Crore\s*\(s\))\s*Turnover/i,
+        /Minimum Average Annual Turnover[\s\S]{0,120}?(\d+(?:\.\d+)?\s*Crore\s*\(s\))/i,
         // OEM turnover value often appears on the line above the English label.
         /(\d+(?:\.\d+)?\s*Lakh\s*\(s\))[\s\S]{0,100}?OEM Average Turnover\s*\(Last 3 Years\)/i,
         /OEM Average Turnover\s*\(Last 3 Years\)[\s\S]{0,100}?(\d+(?:\.\d+)?\s*Lakh\s*\(s\))/i,
-        /Minimum Average Annual Turnover[\s\S]{0,120}?(\d+(?:\.\d+)?\s*Crore\s*\(s\))/i,
+        /(\d+(?:\.\d+)?\s*Crore\s*\(s\))[\s\S]{0,100}?OEM Average Turnover\s*\(Last 3 Years\)/i,
     ],
     required_past_experice_years: [
         /Years of Past Experience Required[\s\S]{0,80}?(\d+\s*Year\s*\(s\))/i,
         /Years of Past Experience Required for[\s\S]{0,40}?(\d+\s*Year\s*\(s\))/i,
+        /Past Experience Required for[\s\S]{0,40}?(\d+\s*Year\s*\(s\))/i,
         /Years of Past Experience Required[\s\S]{0,100}?(\d+)\s*Year/i,
+        /Years of Past Experience required[\s\S]{0,80}?(\d+)\s*(?:years?|Year)/i,
     ],
     // Global + last match: GeM often repeats the row; final Bid Details hit wins.
     mse_experience_relaxation: [
@@ -80,9 +87,14 @@ const PROPERTY_REGEXES = {
         /Scope\s+of\s+Work\s*:?\s*([A-Za-z0-9._-]+\.pdf)/gi,
         /(?:SOW|S\.O\.W\.?)\s*:?\s*([0-9]+\.pdf)/gi,
         /(?:Additional\s+)?(?:Scope|Specification)\s+(?:of\s+Work\s+)?Document\s*:?\s*([0-9A-Za-z._-]+\.pdf)/gi,
+        /Scope\s+of\s+Work\s*:?\s*([0-9A-Za-z._-]+\.(?:docx?|pdf))/gi,
     ],
     /** URI path / query snippets matched against embedded GeM links (order = preference). */
     specification_document_uri: [
+        /Scopework_/i,
+        /\/SOW_/i,
+        /SCOPE_ATC_/i,
+        /fileDownloadPath=/i,
         /SpecificationDocument/i,
         /downloadBuyerDoc/i,
         /\/swspec_/i,
@@ -90,6 +102,8 @@ const PROPERTY_REGEXES = {
         /AdditionalSpecification/i,
         /BuyerDoc/i,
         /catalogueDocs/i,
+        /upload_nas\/[^?\s]+\/biddoc\//i,
+        /slafds\?/i,
         /downloadFile/i,
     ],
     quantity: [
@@ -100,6 +114,8 @@ const PROPERTY_REGEXES = {
         /Quantity\s*\(Nos\.?\)\s*[:=\-]?\s*([\d,]+(?:\.\d+)?)/i,
         /\bQty\.?\s*[:=\-]\s*([\d,]+(?:\.\d+)?)/i,
         /मा\s*ा\s*\/\s*Quantity[^\d]{0,40}([\d,]+(?:\.\d+)?)/i,
+        /\(\s*([\d,]+)\s*Nos\.?\s*\)/i,
+        /\(\s*([\d,]+)\s*(?:pieces?|units?)\s*\)/i,
     ],
     /** Direct EMD amount captures (tried before section-window logic). */
     emd_amount: [
@@ -108,6 +124,8 @@ const PROPERTY_REGEXES = {
         /EMD\s*AMOUNT\s+IS\s+([\d,]+(?:\.\d+)?)\s*INR/i,
         /Earnest\s+Money\s+Deposit\s*[:=\-]?\s*(?:Rs\.?|INR)?\s*([\d,]+(?:\.\d+)?)/i,
         /ईएमड[^\n\/]{0,12}\/\s*EMD\s*Amount\s*[:=\-]?\s*([\d,]+(?:\.\d+)?)/i,
+        /EMD\s*Amount\s*[:=\-]?\s*Rs\.?\s*([\d,]+(?:\.\d+)?)/i,
+        /EMD\s*\(INR\)\s*[:=\-]?\s*([\d,]+(?:\.\d+)?)/i,
     ],
     emd_detail: [/EMD\s*Detail/i, /ईएमड\s*ववरण\s*\/\s*EMD\s*Detail/i],
     emd_section_end: [
@@ -154,7 +172,7 @@ const TENDER_DETAIL_REGEXES = {
     RESOURCE_QTY_ROW:
         /^\s*\d+\s+[^\n]*?\*{3,}[^\n]*?\*{3,}[^\n]*?\s+(\d{1,6})\b/gm,
     SERVICE_ITEM_DOC_MARKERS:
-        /Annual Maintenance|Maintenance Contract|each\s+Asset|for\s+AMC|Networking Devices/i,
+        /Annual Maintenance|Maintenance Contract|each\s+Asset|for\s+AMC|Networking Devices|Custom Bid for Services|Hiring of Agency|Milestone basis|SLA Based|OFC Maintenance|GlobalTenderCategory|Ambulance|Systems\/Equipments/i,
     SERVICE_ITEM_PAREN_SAME: /\(\s*([\d,]+)\s*\)\s*$/,
     SERVICE_ITEM_PAREN_ONLY: /^\(\s*([\d,]+)\s*\)$/,
     SERVICE_ITEM_PAREN_OPEN: /\(\s*$/,
@@ -524,18 +542,24 @@ function extractSpecificationLinks({ buffer, pdfText }) {
         }
     }
 
-    // Ordered URI patterns from PROPERTY_REGEXES — first matching pattern family still
-    // collects every matching URI (deduped) so AI can open a real SoW/spec file.
+    // Ordered URI patterns from PROPERTY_REGEXES — collect matching GeM docs for AI/SoW.
     for (const uri of uris) {
         if (!uriMatchesSpecificationPatterns(uri)) {
             continue;
         }
-        pushLink(
-            scopeFiles.length
-                ? "Buyer Specification Document"
-                : "Scope of Work / Specification Document",
-            uri,
-        );
+        // Skip generic GTC / OM policy downloads — not tender SoW.
+        if (/pdfByDate|downloadOmppdfile|gtc\/pdf/i.test(uri)) {
+            continue;
+        }
+        let label = "Scope of Work / Specification Document";
+        if (/Scopework_|\/SOW_|SCOPE_ATC_|scope.?of.?work/i.test(uri)) {
+            label = "Scope of Work";
+        } else if (/BoqDocument|\/boq/i.test(uri)) {
+            label = "BOQ Document";
+        } else if (scopeFiles.length) {
+            label = "Buyer Specification Document";
+        }
+        pushLink(label, uri);
     }
 
     return links.length ? links : null;
