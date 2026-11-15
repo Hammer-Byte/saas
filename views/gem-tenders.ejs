@@ -743,6 +743,10 @@
                                 <label class="form-check-label" for="gem-col-aiAnalyzed">AI analyzed</label>
                             </div>
                             <div class="form-check">
+                                <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-aiConfidence" value="aiConfidence" checked />
+                                <label class="form-check-label" for="gem-col-aiConfidence">AI confidence</label>
+                            </div>
+                            <div class="form-check">
                                 <input class="form-check-input gem-column-toggle" type="checkbox" id="gem-col-assignee" value="assignee" checked />
                                 <label class="form-check-label" for="gem-col-assignee">Assignee</label>
                             </div>
@@ -831,6 +835,7 @@
                                 <th scope="col" data-col="stage">Status</th>
                                 <th scope="col" data-col="locked" class="text-center" style="width: 4.5rem;">Locked</th>
                                 <th scope="col" data-col="aiAnalyzed" class="text-center" style="width: 5.5rem;">AI</th>
+                                <th scope="col" data-col="aiConfidence" class="text-center" style="width: 5.5rem;" title="AI confidence %">AI %</th>
                                 <th scope="col" data-col="assignee">Assignee</th>
                             </tr>
                         </thead>
@@ -851,6 +856,18 @@
                                         const isLocked = !!Number(tender.locked);
                                         const isHidden = !!Number(tender.hidden) || tender.hidden === true;
                                         const isAiAnalyzed = !!Number(tender.ai_analyzed);
+                                        const aiConfidenceRaw = tender.ai_confidence;
+                                        const aiConfidenceNum =
+                                            aiConfidenceRaw != null && aiConfidenceRaw !== ""
+                                                ? Number(aiConfidenceRaw)
+                                                : NaN;
+                                        const hasAiConfidence =
+                                            Number.isFinite(aiConfidenceNum) &&
+                                            aiConfidenceNum >= 0 &&
+                                            aiConfidenceNum <= 100;
+                                        const aiConfidenceDisplay = hasAiConfidence
+                                            ? `${Math.round(aiConfidenceNum)}%`
+                                            : "—";
                                     %>
                                     <tr
                                         data-id="<%= tender.id %>"
@@ -859,6 +876,7 @@
                                         data-locked="<%= isLocked ? '1' : '0' %>"
                                         data-hidden="<%= isHidden ? '1' : '0' %>"
                                         data-ai-analyzed="<%= isAiAnalyzed ? '1' : '0' %>"
+                                        data-ai-confidence="<%= hasAiConfidence ? Math.round(aiConfidenceNum) : '' %>"
                                         data-assignee-user-id="<%= tender.assignee_user_id != null ? tender.assignee_user_id : '' %>"
                                         data-stage="<%= stage %>"
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"
@@ -925,6 +943,9 @@
                                     </td>
                                     <td data-col="aiAnalyzed" class="text-center">
                                         <%= isAiAnalyzed ? "Yes" : "No" %>
+                                    </td>
+                                    <td data-col="aiConfidence" class="text-center">
+                                        <%= aiConfidenceDisplay %>
                                     </td>
                                     <td data-col="assignee">
                                         <span class="gem-tender-tag gem-tender-assignee-tag<%= tender.assignee_user_id ? '' : ' gem-tender-assignee-empty' %>">

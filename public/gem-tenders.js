@@ -17,6 +17,7 @@
         "stage",
         "locked",
         "aiAnalyzed",
+        "aiConfidence",
         "assignee",
     ];
     const fromInput = document.getElementById("gem-tenders-from");
@@ -35,6 +36,20 @@
         analyzed: "AI analyzed",
         not_analyzed: "Not AI analyzed",
     };
+
+    function normalizePositiveNumber(raw) {
+        const value = Number(String(raw ?? "").trim());
+        if (!Number.isFinite(value) || value < 1) return "";
+        return String(value);
+    }
+
+    function normalizeLockedFilter(raw) {
+        return ["locked", "unlocked"].includes(raw) ? raw : "";
+    }
+
+    function normalizeAiAnalyzedFilter(raw) {
+        return AI_ANALYZED_FILTERS.has(raw) ? raw : "";
+    }
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
     const refreshBtn = document.getElementById("gem-tenders-refresh-btn");
     const reportLink = document.getElementById("gem-tenders-report-link");
@@ -230,11 +245,11 @@
             assignees: selectedMultiValues(assigneeFilter),
             search: String(searchInput?.value || "").trim(),
             includeHidden: !!includeHiddenFilter?.checked,
-            quantityUpto: String(quantityUptoFilter?.value || "").trim(),
-            emdUpto: String(emdUptoFilter?.value || "").trim(),
-            locked: String(lockedFilter?.value || ""),
-            aiAnalyzed: String(aiAnalyzedFilter?.value || ""),
-            view: appliedFilters.view || "all",
+            quantityUpto: normalizePositiveNumber(quantityUptoFilter?.value),
+            emdUpto: normalizePositiveNumber(emdUptoFilter?.value),
+            locked: normalizeLockedFilter(String(lockedFilter?.value || "")),
+            aiAnalyzed: normalizeAiAnalyzedFilter(String(aiAnalyzedFilter?.value || "")),
+            view: QUICK_VIEWS.has(appliedFilters.view) ? appliedFilters.view : "all",
             columns,
         };
     }
@@ -249,20 +264,16 @@
         if (searchInput) searchInput.value = filters.search || "";
         if (includeHiddenFilter) includeHiddenFilter.checked = !!filters.includeHidden;
         if (quantityUptoFilter) {
-            const qty = Number(filters.quantityUpto);
-            quantityUptoFilter.value =
-                Number.isFinite(qty) && qty > 0 ? String(qty) : "";
+            quantityUptoFilter.value = normalizePositiveNumber(filters.quantityUpto);
         }
         if (emdUptoFilter) {
-            const emd = Number(filters.emdUpto);
-            emdUptoFilter.value =
-                Number.isFinite(emd) && emd > 0 ? String(emd) : "";
+            emdUptoFilter.value = normalizePositiveNumber(filters.emdUpto);
         }
-        if (lockedFilter) lockedFilter.value = filters.locked || "";
+        if (lockedFilter) {
+            lockedFilter.value = normalizeLockedFilter(filters.locked);
+        }
         if (aiAnalyzedFilter) {
-            aiAnalyzedFilter.value = AI_ANALYZED_FILTERS.has(filters.aiAnalyzed)
-                ? filters.aiAnalyzed
-                : "";
+            aiAnalyzedFilter.value = normalizeAiAnalyzedFilter(filters.aiAnalyzed);
         }
         const columns =
             filters.columns && typeof filters.columns === "object" ? filters.columns : {};
@@ -327,7 +338,7 @@
 
     /** Applies the filter bar as it is now; only a date change needs a server reload. */
     async function commitFilters({ forceReload = false } = {}) {
-        const filters = readFiltersFromDom();
+        const filters = normalizeStoredFilters(readFiltersFromDom());
         const from = filters.from;
         const to = filters.to;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
@@ -338,6 +349,7 @@
         const leftSearchMode = !!searchMode && !filters.search;
         appliedFilters = filters;
         writeStoredFilters(appliedFilters);
+        syncViewInUrl(appliedFilters.view);
         if (rangeChanged || forceReload || leftSearchMode) {
             searchMode = "";
             syncRangeInUrlAndHeader(from, to);
@@ -554,6 +566,19 @@
         for (const select of columnFilters) {
             fillColumnFilter(select);
         }
+        // Re-apply saved column-filter values now that options exist for the new rows.
+        const columns =
+            appliedFilters.columns && typeof appliedFilters.columns === "object"
+                ? appliedFilters.columns
+                : {};
+        for (const select of columnFilters) {
+            const column = select.dataset.column;
+            if (!column) continue;
+            const value = columns[column] == null ? "" : String(columns[column]);
+            select.value = [...select.options].some((option) => option.value === value)
+                ? value
+                : "";
+        }
         if (selectAllCheckbox) selectAllCheckbox.checked = false;
         hydrateReadableDates(tableBody);
         applySort();
@@ -598,6 +623,21 @@
                 const isHidden =
                     !!Number(tender.hidden) || tender.hidden === true;
                 const isAiAnalyzed = !!Number(tender.ai_analyzed);
+                const aiConfidenceRaw = tender.ai_confidence;
+                const aiConfidenceNum =
+                    aiConfidenceRaw != null && aiConfidenceRaw !== ""
+                        ? Number(aiConfidenceRaw)
+                        : NaN;
+                const hasAiConfidence =
+                    Number.isFinite(aiConfidenceNum) &&
+                    aiConfidenceNum >= 0 &&
+                    aiConfidenceNum <= 100;
+                const aiConfidenceRounded = hasAiConfidence
+                    ? Math.round(aiConfidenceNum)
+                    : null;
+                const aiConfidenceDisplay = hasAiConfidence
+                    ? `${aiConfidenceRounded}%`
+                    : "—";
                 const lockMessage = tender.lock_message || "";
                 const assigneeUserId =
                     tender.assignee_user_id != null
@@ -617,6 +657,7 @@
                     data-locked="${isLocked ? "1" : "0"}"
                     data-hidden="${isHidden ? "1" : "0"}"
                     data-ai-analyzed="${isAiAnalyzed ? "1" : "0"}"
+                    data-ai-confidence="${escapeHtml(hasAiConfidence ? aiConfidenceRounded : "")}"
                     data-assignee-user-id="${escapeHtml(assigneeUserId)}"
                     data-stage="${escapeHtml(stage)}"
                     data-past-experience="${escapeHtml(pastExperience)}"
@@ -677,6 +718,9 @@
                     </td>
                     <td data-col="aiAnalyzed" class="text-center">
                         ${isAiAnalyzed ? "Yes" : "No"}
+                    </td>
+                    <td data-col="aiConfidence" class="text-center">
+                        ${escapeHtml(aiConfidenceDisplay)}
                     </td>
                     <td data-col="assignee">
                         <span class="gem-tender-tag gem-tender-assignee-tag${assigneeUserId ? "" : " gem-tender-assignee-empty"}">
@@ -1169,13 +1213,28 @@
         return String(button?.firstChild?.textContent || view).trim();
     }
 
+    function syncViewInUrl(view) {
+        const next = QUICK_VIEWS.has(view) ? view : "all";
+        const url = new URL(window.location.href);
+        if (next === "all") url.searchParams.delete("view");
+        else url.searchParams.set("view", next);
+        window.history.replaceState({}, "", url.toString());
+    }
+
     function setQuickView(view) {
         appliedFilters.view = QUICK_VIEWS.has(view) ? view : "all";
-        const url = new URL(window.location.href);
-        if (appliedFilters.view === "all") url.searchParams.delete("view");
-        else url.searchParams.set("view", appliedFilters.view);
-        window.history.replaceState({}, "", url.toString());
+        syncViewInUrl(appliedFilters.view);
+        writeStoredFilters(appliedFilters);
         applyFilters();
+    }
+
+    function labelsForMultiValues(root, values) {
+        const wanted = new Set((values || []).map(String));
+        if (!wanted.size) return [];
+        return multiFilterOptions(root)
+            .filter((input) => wanted.has(String(input.value)))
+            .map((input) => String(input.dataset.label || input.value || "").trim())
+            .filter(Boolean);
     }
 
     function activeFilterChips() {
@@ -1189,18 +1248,33 @@
                 },
             });
         }
-        for (const root of multiFilters) {
-            const labels = selectedMultiLabels(root);
+
+        const multiChipSpecs = [
+            [categoryFilter, appliedFilters.categories],
+            [stageFilter, appliedFilters.stages],
+            [assigneeFilter, appliedFilters.assignees],
+        ];
+        for (const [root, values] of multiChipSpecs) {
+            if (!root) continue;
+            const labels = labelsForMultiValues(root, values);
             if (!labels.length) continue;
             chips.push({
                 label: `${root.dataset.chipLabel || "Filter"}: ${labels.join(", ")}`,
                 clear: () => setSelectedMultiValues(root, []),
             });
         }
+
+        const columnValues =
+            appliedFilters.columns && typeof appliedFilters.columns === "object"
+                ? appliedFilters.columns
+                : {};
         for (const select of columnFilters) {
-            if (!select.value) continue;
+            const column = select.dataset.column;
+            if (!column) continue;
+            const value = String(columnValues[column] || "").trim();
+            if (!value) continue;
             chips.push({
-                label: `${select.dataset.chipLabel || select.dataset.column}: ${select.value}`,
+                label: `${select.dataset.chipLabel || column}: ${value}`,
                 clear: () => {
                     select.value = "";
                 },
@@ -1485,10 +1559,13 @@
               : [];
         const columns =
             filters.columns && typeof filters.columns === "object" ? filters.columns : {};
-        const quantityRaw = String(filters.quantityUpto ?? "").trim();
-        const quantity = Number(quantityRaw);
-        const emdRaw = String(filters.emdUpto ?? "").trim();
-        const emd = Number(emdRaw);
+        const normalizedColumns = {};
+        for (const select of columnFilters) {
+            const column = select.dataset.column;
+            if (!column) continue;
+            const value = String(columns[column] ?? "").trim();
+            normalizedColumns[column] = value;
+        }
         return {
             from: normalizeDateInput(filters.from, pageFrom),
             to: normalizeDateInput(filters.to, pageTo),
@@ -1497,23 +1574,22 @@
             assignees: assignees.map(String).filter(Boolean),
             search: String(filters.search || "").trim(),
             includeHidden: filters.includeHidden !== false,
-            quantityUpto:
-                Number.isFinite(quantity) && quantity > 0 ? String(quantity) : "",
-            emdUpto: Number.isFinite(emd) && emd > 0 ? String(emd) : "",
-            locked: ["locked", "unlocked"].includes(filters.locked) ? filters.locked : "",
-            aiAnalyzed: AI_ANALYZED_FILTERS.has(filters.aiAnalyzed)
-                ? filters.aiAnalyzed
-                : "",
+            quantityUpto: normalizePositiveNumber(filters.quantityUpto),
+            emdUpto: normalizePositiveNumber(filters.emdUpto),
+            locked: normalizeLockedFilter(filters.locked),
+            aiAnalyzed: normalizeAiAnalyzedFilter(filters.aiAnalyzed),
             view: QUICK_VIEWS.has(filters.view) ? filters.view : "all",
-            columns,
+            columns: normalizedColumns,
         };
     }
 
     /** Clears every filter but keeps the date range. */
     function resetClientFilters() {
-        writeFiltersToDom(emptyFilters(pageFrom, pageTo));
-        appliedFilters.view = "all";
-        setQuickView("all");
+        const next = emptyFilters(pageFrom, pageTo);
+        writeFiltersToDom(next);
+        appliedFilters = next;
+        writeStoredFilters(appliedFilters);
+        syncViewInUrl("all");
         void commitFilters({ forceReload: !!searchMode });
     }
 
@@ -1654,7 +1730,6 @@
             const clear = filterChips?.chipClearers?.[Number(chipBtn.dataset.chipIndex)];
             if (clear) {
                 clear();
-                if (appliedFilters.view === "all") setQuickView("all");
                 void commitFilters();
             }
             return;
