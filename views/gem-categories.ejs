@@ -204,12 +204,13 @@
                             <h2 class="h5 mb-1">AI Scope</h2>
                             <p class="text-secondary small mb-0">
                                 Configure OpenAI key and model here (stored in
-                                <code>GEM_TENDER_AI_SETTINGS</code>). On new tender insert with a Scope of Work URL,
-                                that URL is sent to OpenAI as a file (no local PDF text extract) along with the prompt.
+                                <code>GEM_TENDER_AI_SETTINGS</code>). On new tender insert, the Scope of Work file is
+                                downloaded with the GeM session, uploaded to OpenAI, and attached to the prompt
+                                (then deleted locally and from OpenAI).
                                 <code>{{categories}}</code> is filled with scan keywords plus all GeM categories —
                                 SoW must match or associate with at least one. Decisions apply only when the model
                                 returns confidence ≥ the threshold below; otherwise the tender stays not AI-analyzed.
-                                Placeholders: <code>{{scope_of_work_url}}</code>, <code>{{categories}}</code>,
+                                Placeholders: <code>{{categories}}</code>,
                                 optional <code>{{confidence_threshold}}</code>.
                             </p>
                         </div>

@@ -20,10 +20,7 @@ export const DEFAULT_GEM_TENDER_AI_PROMPT = `You help HammerByte decide if a GeM
 Our scan keywords and GeM categories (the Scope of Work should fall under or be associated with at least one of these):
 {{categories}}
 
-Scope of Work document URL (also attached for you to inspect — PDF, scanned/image PDF, image, or other supported file):
-{{scope_of_work_url}}
-
-Inspect the attached Scope of Work document. Mark in_scope true only if the work clearly matches or is associated with at least one keyword or GeM category above; otherwise false.
+Inspect the attached Scope of Work document (PDF, scanned/image PDF, image, or other supported file). Mark in_scope true only if the work clearly matches or is associated with at least one keyword or GeM category above; otherwise false.
 Also give confidence from 0 to 100 for how sure you are that you understood the document and that your in_scope decision is correct. If you cannot read or understand the document, set confidence below {{confidence_threshold}} and explain why.
 Respond with JSON only: {"in_scope": true|false, "confidence": 0-100, "reason": "short explanation"}`;
 

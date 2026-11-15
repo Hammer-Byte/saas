@@ -38,7 +38,7 @@ export function findScopeOfWorkUrl(specification_links) {
 
 export function fillAiScopePrompt(
     template,
-    { scopeOfWorkUrl, categories, confidenceThreshold },
+    { categories, confidenceThreshold },
 ) {
     const categoriesText = Array.isArray(categories)
         ? categories.map((name) => `- ${name}`).join("\n")
@@ -46,11 +46,11 @@ export function fillAiScopePrompt(
     const threshold = normalizeConfidenceThreshold(
         confidenceThreshold ?? DEFAULT_GEM_TENDER_AI_CONFIDENCE_THRESHOLD,
     );
-    const url = String(scopeOfWorkUrl || "").trim();
+    // Older saved prompts may still mention URL/text placeholders; SoW is attached as a file.
+    const attachedNote = "(Scope of Work document is attached to this request)";
     return String(template || DEFAULT_GEM_TENDER_AI_PROMPT)
-        .replaceAll("{{scope_of_work_url}}", url)
-        // Older saved prompts may still use the text placeholder; fill with the URL.
-        .replaceAll("{{scope_of_work_text}}", url)
+        .replaceAll("{{scope_of_work_url}}", attachedNote)
+        .replaceAll("{{scope_of_work_text}}", attachedNote)
         .replaceAll("{{categories}}", categoriesText || "- (none configured)")
         .replaceAll("{{confidence_threshold}}", String(threshold));
 }
@@ -109,14 +109,16 @@ function normalizeAiScopeConfidence(raw) {
 }
 
 /**
- * Analyze one tender by sending the Scope of Work URL to OpenAI (PDF / image / etc.).
+ * Analyze one tender by uploading the Scope of Work file to OpenAI (PDF / image).
  * Called inline from the GEM scan insert path.
  * @returns {Promise<{status: string, reason?: string, confidence?: number|null}>}
  */
 export async function analyzeGemTenderAiScope({
     gemTenderId,
     tenderId = null,
-    sowUrl = "",
+    buffer = null,
+    mimeType = "application/pdf",
+    filename = "scope_of_work.pdf",
 }) {
     const id = Number(gemTenderId);
     const tenderLabel = tenderId ? String(tenderId) : `#${id}`;
@@ -125,8 +127,7 @@ export async function analyzeGemTenderAiScope({
         return { status: "invalid_id" };
     }
 
-    const scopeOfWorkUrl = String(sowUrl || "").trim();
-    if (!scopeOfWorkUrl) {
+    if (!Buffer.isBuffer(buffer) || !buffer.length) {
         logger.info(`AI scope skip: tender ${tenderLabel} → skipped_no_sow`);
         return { status: "skipped_no_sow" };
     }
@@ -158,12 +159,9 @@ export async function analyzeGemTenderAiScope({
     }
 
     const template = settings?.prompt_template || DEFAULT_GEM_TENDER_AI_PROMPT;
-    const hasUrlPlaceholder =
-        template.includes("{{scope_of_work_url}}") ||
-        template.includes("{{scope_of_work_text}}");
-    if (!hasUrlPlaceholder || !template.includes("{{categories}}")) {
+    if (!template.includes("{{categories}}")) {
         logger.error(
-            `AI scope skip: tender ${tenderLabel} → skipped_bad_prompt (need {{scope_of_work_url}} and {{categories}})`,
+            `AI scope skip: tender ${tenderLabel} → skipped_bad_prompt (need {{categories}})`,
         );
         return { status: "skipped_bad_prompt" };
     }
@@ -175,25 +173,25 @@ export async function analyzeGemTenderAiScope({
     }
 
     const filledPrompt = fillAiScopePrompt(template, {
-        scopeOfWorkUrl,
         categories,
         confidenceThreshold,
     });
 
     logger.info(
-        `AI scope start: tender ${tenderLabel} model=${model} threshold=${confidenceThreshold}% sowUrl=${scopeOfWorkUrl} labels=${categories.length}`,
+        `AI scope start: tender ${tenderLabel} model=${model} threshold=${confidenceThreshold}% file=${filename} bytes=${buffer.length} mime=${mimeType} labels=${categories.length}`,
     );
 
     const startedAt = Date.now();
     let parsed;
     try {
-        // Attach the SoW URL so OpenAI fetches PDF / image / other supported docs itself.
         parsed = await openAiChatJson({
             apiKey,
             model,
             system: `You are a careful tender triage assistant. Inspect the attached Scope of Work document (PDF, image, or other supported file). Reply with JSON only, including confidence 0-100. Decisions below ${confidenceThreshold}% confidence will be ignored.`,
             user: filledPrompt,
-            fileUrl: scopeOfWorkUrl,
+            fileBuffer: buffer,
+            filename,
+            mimeType,
         });
     } catch (error) {
         logger.error(

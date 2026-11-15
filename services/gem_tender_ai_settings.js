@@ -32,9 +32,6 @@ function validatePromptTemplate(template) {
     if (!text) {
         return { error: "Prompt template is required" };
     }
-    if (!text.includes("{{scope_of_work_url}}")) {
-        return { error: "Prompt must include {{scope_of_work_url}}" };
-    }
     if (!text.includes("{{categories}}")) {
         return { error: "Prompt must include {{categories}}" };
     }
@@ -59,7 +56,6 @@ function publicSettings(settings) {
         updated_on: settings?.updated_on || null,
         updated_by: settings?.updated_by || null,
         placeholders: [
-            "{{scope_of_work_url}}",
             "{{categories}}",
             "{{confidence_threshold}}",
         ],

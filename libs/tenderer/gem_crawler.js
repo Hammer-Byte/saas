@@ -165,6 +165,82 @@ const downloadTender = async (driver, tender) => {
     return { tenderFile, document, buffer };
 };
 
+/** Download Scope of Work with GeM session cookies (PDF or image). No pdftotext. */
+const downloadScopeOfWorkFile = async (driver, sowUrl, tenderId) => {
+    const url = String(sowUrl || "").trim();
+    if (!url) {
+        return null;
+    }
+
+    const cookies = await driver.manage().getCookies();
+    const cookieHeader = cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
+    logger.info(`AI scope SoW download start: tender ${tenderId} url=${url}`);
+
+    const response = await fetch(url, {
+        headers: {
+            Cookie: cookieHeader,
+            "User-Agent": "Mozilla/5.0",
+            Referer: GEM_URL,
+        },
+    });
+
+    if (!response.ok) {
+        logger.error(
+            `AI scope SoW download failed: tender ${tenderId} HTTP ${response.status} url=${url}`,
+        );
+        return null;
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    const header = buffer.subarray(0, 5).toString("latin1");
+    const isPdf = header === "%PDF-";
+    const isImage = contentType.startsWith("image/");
+
+    logger.info(
+        `AI scope SoW download: tender ${tenderId} bytes=${buffer.length} content-type=${contentType || "unknown"} pdf=${isPdf} image=${isImage}`,
+    );
+
+    if (!isPdf && !isImage) {
+        // Some GeM responses omit content-type but still return a PDF body.
+        if (header !== "%PDF-") {
+            logger.error(
+                `AI scope SoW unsupported type: tender ${tenderId} (content-type: ${contentType || "unknown"}, header: ${JSON.stringify(header)})`,
+            );
+            return null;
+        }
+    }
+
+    let ext = "pdf";
+    let mimeType = "application/pdf";
+    if (isImage) {
+        if (contentType.includes("png")) {
+            ext = "png";
+            mimeType = "image/png";
+        } else if (contentType.includes("webp")) {
+            ext = "webp";
+            mimeType = "image/webp";
+        } else if (contentType.includes("gif")) {
+            ext = "gif";
+            mimeType = "image/gif";
+        } else {
+            ext = "jpg";
+            mimeType = "image/jpeg";
+        }
+    } else {
+        mimeType = "application/pdf";
+        ext = "pdf";
+    }
+
+    const safeId = String(tenderId || "unknown").replace(/[^\w.-]+/g, "_");
+    const filename = `sow_${safeId}_${Date.now()}.${ext}`;
+    const sowFile = join(TENDERS_DIRECTORY, filename);
+    await mkdir(TENDERS_DIRECTORY, { recursive: true });
+    await writeFile(sowFile, buffer);
+    logger.info(`AI scope SoW saved: tender ${tenderId} path=${sowFile}`);
+    return { sowFile, buffer, mimeType, filename };
+};
+
 const goToNextPage = async (driver, page) => {
     await page.clickNextPage();
     await page.waitForSearchSettled();
@@ -1030,23 +1106,53 @@ export const processTender = async ({
 
             logger.info(`Stored tender details: ${tender_id}`);
 
-            // Inline AI scope: send SoW URL to OpenAI so it can inspect PDF / image / etc.
+            // Inline AI scope: download SoW with GeM session, upload file to OpenAI, then delete local copy.
+            let sowFile = null;
             try {
                 const sowUrl = findScopeOfWorkUrl(gemTenderDetails?.specification_links);
                 if (!sowUrl) {
                     logger.info(`AI scope skip: tender ${tender_id} → no Scope of Work URL`);
-                } else {
-                    const result = await analyzeGemTenderAiScope({
-                        gemTenderId: tenderRowId,
-                        tenderId: tender_id,
-                        sowUrl,
-                    });
-                    logger.info(
-                        `AI scope finished inline: tender ${tender_id} → ${result?.status || "unknown"}`,
+                } else if (!driver) {
+                    logger.error(
+                        `AI scope skip: tender ${tender_id} → no browser session for SoW download`,
                     );
+                } else {
+                    const sow = await downloadScopeOfWorkFile(driver, sowUrl, tender_id);
+                    if (!sow?.buffer) {
+                        logger.info(
+                            `AI scope skip: tender ${tender_id} → skipped_sow_download`,
+                        );
+                    } else {
+                        sowFile = sow.sowFile;
+                        const result = await analyzeGemTenderAiScope({
+                            gemTenderId: tenderRowId,
+                            tenderId: tender_id,
+                            buffer: sow.buffer,
+                            mimeType: sow.mimeType,
+                            filename: sow.filename,
+                        });
+                        logger.info(
+                            `AI scope finished inline: tender ${tender_id} → ${result?.status || "unknown"}`,
+                        );
+                    }
                 }
             } catch (error) {
                 logger.error(`AI scope failed inline for tender ${tender_id}: ${error}`);
+            } finally {
+                if (sowFile) {
+                    try {
+                        await unlink(sowFile);
+                        logger.info(
+                            `AI scope SoW local deleted: tender ${tender_id} path=${sowFile}`,
+                        );
+                    } catch (error) {
+                        if (error?.code !== "ENOENT") {
+                            logger.error(
+                                `AI scope SoW local delete failed: tender ${tender_id} path=${sowFile} → ${error}`,
+                            );
+                        }
+                    }
+                }
             }
 
             return true;
