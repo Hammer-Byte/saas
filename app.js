@@ -10,6 +10,7 @@ import { startGemTenderEligibilityReminderWatcher } from "./libs/gem_tender_elig
 import { startGemTenderUnattendedWatcher } from "./libs/gem_tender_unattended.js";
 import { startInquiryFollowupReminderWatcher } from "./libs/inquiry_followup_remind.js";
 import { startTaskReminderWatcher } from "./libs/task_remind.js";
+import { startJobInterviewReminderWatcher } from "./libs/job_interview_remind.js";
 
 logger.init({
     saveLogs: false,
@@ -38,6 +39,8 @@ try {
     logger.success("Task Reminder Watcher Ready");
     startInquiryFollowupReminderWatcher();
     logger.success("Inquiry Follow-up Reminder Watcher Ready");
+    startJobInterviewReminderWatcher();
+    logger.success("Job Interview Reminder Watcher Ready");
     allowTraffic();
 } catch (error) {
     logger.error(`Application Exited - ${error.message}`);

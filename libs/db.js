@@ -471,8 +471,10 @@ export async function generateDBTables() {
             interview_at DATETIME NOT NULL,
             meeting_link VARCHAR(512) NOT NULL,
             outcome TEXT NULL,
+            reminder_sent_on DATETIME NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_job_applicant_interviews_reminder (reminder_sent_on, interview_at),
             CONSTRAINT fk_job_applicant_interviews_applicant
                 FOREIGN KEY (job_applicant_id)
                 REFERENCES JOB_APPLICANTS(id)
