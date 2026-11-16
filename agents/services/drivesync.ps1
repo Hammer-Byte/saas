@@ -31,14 +31,47 @@ $script:FileLineRegex = '^\s*(New File|Newer|Older|Changed|Modified|Tweaked|same
 $script:ErrorLineRegex = 'ERROR\s+(\d+)\s+\(0x[0-9A-Fa-f]+\)\s+(.+?)\s+((?:\\\\|[A-Za-z]:\\).*)$'
 
 function Invoke-HbNet {
+    # Soften ErrorAction: with Stop, net.exe stderr (e.g. "connection could not be found" on
+    # /delete when nothing is mapped) becomes a terminating exception before we can read exit codes.
     param([string[]]$Arguments)
-    $output = & net.exe @Arguments 2>&1
-    return @{ code = $LASTEXITCODE; output = ((@($output) | ForEach-Object { [string]$_ }) -join ' ').Trim() }
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $raw = & net.exe @Arguments 2>&1
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+    $parts = @($raw) | ForEach-Object {
+        if ($_ -is [System.Management.Automation.ErrorRecord]) {
+            [string]$_.Exception.Message
+        } else {
+            [string]$_
+        }
+    }
+    return @{ code = $code; output = ($parts -join ' ').Trim() }
+}
+
+function Test-HbNetMissingConnection {
+    # net use /delete when no session exists - expected, not a failure.
+    param([hashtable]$Result)
+    if (-not $Result) {
+        return $false
+    }
+    if ($Result.code -eq 2) {
+        return $true
+    }
+    $text = [string]$Result.output
+    return ($text -match 'could not be found|1202|2250')
 }
 
 function Disconnect-HbSource {
+    # Never throw: missing sessions are normal; finally-blocks must not crash the cycle.
     param([string]$SourceHost)
-    $null = Invoke-HbNet -Arguments @('use', ('\\' + $SourceHost + '\IPC$'), '/delete', '/y')
+    $result = Invoke-HbNet -Arguments @('use', ('\\' + $SourceHost + '\IPC$'), '/delete', '/y')
+    if ($result.code -eq 0 -or (Test-HbNetMissingConnection -Result $result)) {
+        return
+    }
 }
 
 function Connect-HbSource {
