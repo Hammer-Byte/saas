@@ -63,23 +63,23 @@ const fields = [
         type: "pairs",
         required: true,
         max: MAX_PAIRS,
-        help: "Each pair copies \\\\source_host\\share onto a local folder on this machine (mirror: files removed at source are removed locally).",
+        help: "Each pair copies \\\\source_host\\share onto a local folder on this machine (mirror: files removed at source are removed locally). Optional exclude lists on a pair apply only to that pair (in addition to the service-wide lists below).",
     },
     {
         key: "exclude_dirs",
-        label: "Exclude directories",
+        label: "Exclude directories (all pairs)",
         type: "lines",
         rows: 4,
         placeholder: "database\nhmdm\\tomcat9\\logs",
-        help: "One folder name or relative path per line (e.g. database or hmdm\\tomcat9\\logs). Matched under every pair; not copied and not purged. Built-in: System Volume Information, $RECYCLE.BIN, RECYCLER.",
+        help: "One folder name or relative path per line (e.g. database or hmdm\\tomcat9\\logs). Applied to every pair; add pair-only excludes on the pair row. Not copied and not purged. Built-in: System Volume Information, $RECYCLE.BIN, RECYCLER.",
     },
     {
         key: "exclude_files",
-        label: "Exclude files",
+        label: "Exclude files (all pairs)",
         type: "lines",
         rows: 4,
         placeholder: "*.mdf\n*.ldf\npostmaster.pid",
-        help: "One file name or wildcard per line (e.g. *.mdf or postmaster.pid). Matched under every pair. Built-in: pagefile.sys, hiberfil.sys, swapfile.sys, DumpStack.log.tmp.",
+        help: "One file name or wildcard per line (e.g. *.mdf or postmaster.pid). Applied to every pair; add pair-only excludes on the pair row. Built-in: pagefile.sys, hiberfil.sys, swapfile.sys, DumpStack.log.tmp.",
     },
     {
         key: "skip_log_max",
@@ -208,7 +208,22 @@ function validate(input, previous = {}) {
             errors.push(`${label}: local path is used by another pair`);
         }
         seenLocal.add(localKey);
-        pairs.push({ share, local_path: localPath });
+        const pairExcludeDirs = readExcludeList(rawPair, "exclude_dirs", {
+            kind: "dir",
+            errors,
+            label: `${label} exclude directories`,
+        });
+        const pairExcludeFiles = readExcludeList(rawPair, "exclude_files", {
+            kind: "file",
+            errors,
+            label: `${label} exclude files`,
+        });
+        pairs.push({
+            share,
+            local_path: localPath,
+            exclude_dirs: pairExcludeDirs,
+            exclude_files: pairExcludeFiles,
+        });
     });
 
     const excludeDirs = readExcludeList(input, "exclude_dirs", {

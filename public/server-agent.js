@@ -102,10 +102,19 @@
                     config[key][checkbox.dataset.option] = checkbox.checked;
                 });
             } else if (type === "pairs") {
-                config[key] = Array.from(element.querySelectorAll(".pair-row")).map((row) => ({
-                    share: row.querySelector(".pair-share").value.trim(),
-                    local_path: row.querySelector(".pair-local").value.trim(),
-                }));
+                config[key] = Array.from(element.querySelectorAll(".pair-row")).map((row) => {
+                    const lines = (selector) =>
+                        (row.querySelector(selector)?.value || "")
+                            .split(/\r?\n/)
+                            .map((line) => line.trim())
+                            .filter(Boolean);
+                    return {
+                        share: row.querySelector(".pair-share").value.trim(),
+                        local_path: row.querySelector(".pair-local").value.trim(),
+                        exclude_dirs: lines(".pair-exclude-dirs"),
+                        exclude_files: lines(".pair-exclude-files"),
+                    };
+                });
             }
         });
         return config;

@@ -335,13 +335,28 @@
                                             </div>
                                             <% if (field.help) { %><div class="form-text mt-0 mb-2"><%= field.help %></div><% } %>
                                             <div class="pairs-list d-flex flex-column gap-2" data-key="<%= field.key %>" data-type="pairs" data-label="<%= field.label %>" data-max="<%= field.max %>">
-                                                <% (Array.isArray(value) ? value : []).forEach(function (pair) { %>
-                                                    <div class="input-group input-group-sm pair-row">
-                                                        <span class="input-group-text">\\source\</span>
-                                                        <input type="text" class="form-control pair-share" placeholder="share, e.g. g" value="<%= pair.share %>" />
-                                                        <span class="input-group-text">→</span>
-                                                        <input type="text" class="form-control pair-local" placeholder="local path, e.g. G:\" value="<%= pair.local_path %>" />
-                                                        <button type="button" class="btn btn-outline-danger pair-remove-btn" aria-label="Remove pair">×</button>
+                                                <% (Array.isArray(value) ? value : []).forEach(function (pair) {
+                                                    const pairExcludeDirs = Array.isArray(pair.exclude_dirs) ? pair.exclude_dirs.join("\n") : "";
+                                                    const pairExcludeFiles = Array.isArray(pair.exclude_files) ? pair.exclude_files.join("\n") : "";
+                                                %>
+                                                    <div class="border rounded p-2 pair-row">
+                                                        <div class="input-group input-group-sm">
+                                                            <span class="input-group-text">\\source\</span>
+                                                            <input type="text" class="form-control pair-share" placeholder="share, e.g. g" value="<%= pair.share %>" />
+                                                            <span class="input-group-text">→</span>
+                                                            <input type="text" class="form-control pair-local" placeholder="local path, e.g. G:\" value="<%= pair.local_path %>" />
+                                                            <button type="button" class="btn btn-outline-danger pair-remove-btn" aria-label="Remove pair">×</button>
+                                                        </div>
+                                                        <div class="row g-2 mt-1">
+                                                            <div class="col-md-6">
+                                                                <label class="form-label small mb-0 text-secondary">Exclude directories (this pair)</label>
+                                                                <textarea class="form-control form-control-sm pair-exclude-dirs" rows="2" placeholder="cfrbackup-EEZUIDLO&#10;hmdm\tomcat9\logs"><%= pairExcludeDirs %></textarea>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="form-label small mb-0 text-secondary">Exclude files (this pair)</label>
+                                                                <textarea class="form-control form-control-sm pair-exclude-files" rows="2" placeholder="*.tmp"><%= pairExcludeFiles %></textarea>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 <% }) %>
                                             </div>
@@ -653,12 +668,24 @@
 </main>
 
 <template id="pair-row-template">
-    <div class="input-group input-group-sm pair-row">
-        <span class="input-group-text">\\source\</span>
-        <input type="text" class="form-control pair-share" placeholder="share, e.g. g" />
-        <span class="input-group-text">→</span>
-        <input type="text" class="form-control pair-local" placeholder="local path, e.g. G:\" />
-        <button type="button" class="btn btn-outline-danger pair-remove-btn" aria-label="Remove pair">×</button>
+    <div class="border rounded p-2 pair-row">
+        <div class="input-group input-group-sm">
+            <span class="input-group-text">\\source\</span>
+            <input type="text" class="form-control pair-share" placeholder="share, e.g. g" />
+            <span class="input-group-text">→</span>
+            <input type="text" class="form-control pair-local" placeholder="local path, e.g. G:\" />
+            <button type="button" class="btn btn-outline-danger pair-remove-btn" aria-label="Remove pair">×</button>
+        </div>
+        <div class="row g-2 mt-1">
+            <div class="col-md-6">
+                <label class="form-label small mb-0 text-secondary">Exclude directories (this pair)</label>
+                <textarea class="form-control form-control-sm pair-exclude-dirs" rows="2" placeholder="cfrbackup-EEZUIDLO&#10;hmdm\tomcat9\logs"></textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small mb-0 text-secondary">Exclude files (this pair)</label>
+                <textarea class="form-control form-control-sm pair-exclude-files" rows="2" placeholder="*.tmp"></textarea>
+            </div>
+        </div>
     </div>
 </template>
 
