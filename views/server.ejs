@@ -366,10 +366,12 @@
                                                             <div class="col-md-6">
                                                                 <label class="form-label small mb-0 text-secondary">Exclude directories (this pair)</label>
                                                                 <textarea class="form-control form-control-sm pair-exclude-dirs" rows="2" placeholder="cfrbackup-EEZUIDLO&#10;hmdm\tomcat9\logs"><%= pairExcludeDirs %></textarea>
+                                                                <div class="form-text">Exact paths under this share only (e.g. logs = share\logs, not every logs folder).</div>
                                                             </div>
                                                             <div class="col-md-6">
                                                                 <label class="form-label small mb-0 text-secondary">Exclude files (this pair)</label>
-                                                                <textarea class="form-control form-control-sm pair-exclude-files" rows="2" placeholder="*.tmp"><%= pairExcludeFiles %></textarea>
+                                                                <textarea class="form-control form-control-sm pair-exclude-files" rows="2" placeholder="database\SmartOffice.mdf"><%= pairExcludeFiles %></textarea>
+                                                                <div class="form-text">Exact file paths under this share only. No wildcards.</div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -695,10 +697,12 @@
             <div class="col-md-6">
                 <label class="form-label small mb-0 text-secondary">Exclude directories (this pair)</label>
                 <textarea class="form-control form-control-sm pair-exclude-dirs" rows="2" placeholder="cfrbackup-EEZUIDLO&#10;hmdm\tomcat9\logs"></textarea>
+                <div class="form-text">Exact paths under this share only (e.g. logs = share\logs, not every logs folder).</div>
             </div>
             <div class="col-md-6">
                 <label class="form-label small mb-0 text-secondary">Exclude files (this pair)</label>
-                <textarea class="form-control form-control-sm pair-exclude-files" rows="2" placeholder="*.tmp"></textarea>
+                <textarea class="form-control form-control-sm pair-exclude-files" rows="2" placeholder="database\SmartOffice.mdf"></textarea>
+                <div class="form-text">Exact file paths under this share only. No wildcards.</div>
             </div>
         </div>
     </div>
