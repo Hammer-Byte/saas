@@ -321,10 +321,13 @@ const readme = toCrlf(
     readFileSync(join(SRC, "agent", "README.txt"), "utf8").replaceAll("__HB_VERSION__", agent.version),
 );
 const installCmd = toCrlf(readFileSync(join(SRC, "agent", "install-agent.cmd"), "utf8"));
+const defenderPrep = toCrlf(readFileSync(join(SRC, "agent", "hb-defender-prep.ps1"), "utf8"));
 checkSource("install-agent.cmd", installCmd);
+checkSource("hb-defender-prep.ps1", defenderPrep);
 checkSource("README.txt", readme);
 const zipEntries = [
     { name: "install-agent.cmd", data: Buffer.from(installCmd, "ascii") },
+    { name: "hb-defender-prep.ps1", data: Buffer.from(defenderPrep, "ascii") },
     { name: "agent.ps1", data: agent.data },
     { name: "README.txt", data: Buffer.from(readme, "ascii") },
 ];

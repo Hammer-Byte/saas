@@ -12,8 +12,9 @@ INSTALL
      The agent picks up changes within about 10 seconds.
 
 WHAT THE INSTALLER DOES
-  - Adds a Microsoft Defender exclusion for C:\ProgramData\HammerByte FIRST (so antivirus does
-    not block the script when run from Downloads), then copies the agent into that folder.
+  - Seeds a Defender folder exclusion, copies the agent into C:\ProgramData\HammerByte, then
+    runs a small platform-aware prep script from that folder. On Windows Server it also
+    excludes powershell.exe (folder exclusion alone often is not enough for AMSI there).
   - Folder is readable by Administrators and SYSTEM only.
   - Reuses the existing server tag (C:\ProgramData\HammerByte\.server-tag) or creates one.
 

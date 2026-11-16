@@ -210,14 +210,43 @@ function Set-HbFolderAcl {
 }
 
 function Add-HbDefenderExclusion {
+    # Path exclusions alone are enough on most Win10/11 clients. Server 2016-2025 often
+    # still AMSI-scans scripts unless powershell.exe is also excluded. Platform branching
+    # keeps one agent working across both without redeploying for Defender quirks.
+    $paths = @(
+        $script:HbRoot,
+        $script:AgentDir,
+        $script:ServicesDir,
+        $script:AgentFile
+    )
     $done = $false
     if (Get-Command -Name Add-MpPreference -ErrorAction SilentlyContinue) {
+        foreach ($path in $paths) {
+            if (-not $path) { continue }
+            try {
+                Add-MpPreference -ExclusionPath $path -ErrorAction Stop
+                $done = $true
+            } catch {
+                Write-HbConsole ('Add-MpPreference path failed (' + $path + '): ' + (Get-HbErrorText $_)) 'WARN'
+            }
+        }
+        $isServer = $false
         try {
-            Add-MpPreference -ExclusionPath $script:HbRoot -ErrorAction Stop
-            $done = $true
+            $os = Get-WmiObject -Class Win32_OperatingSystem -ErrorAction Stop
+            $isServer = ([int]$os.ProductType) -ne 1
+        } catch {}
+        if ($isServer) {
+            foreach ($process in @($script:PowerShellExe, 'powershell.exe', 'powershell')) {
+                try {
+                    Add-MpPreference -ExclusionProcess $process -ErrorAction Stop
+                    $done = $true
+                } catch {
+                    Write-HbConsole ('Add-MpPreference process failed (' + $process + '): ' + (Get-HbErrorText $_)) 'WARN'
+                }
+            }
+            Write-HbConsole 'Defender exclusions applied (server: path + powershell process)'
+        } elseif ($done) {
             Write-HbConsole ('Defender exclusion added for ' + $script:HbRoot)
-        } catch {
-            Write-HbConsole ('Add-MpPreference failed: ' + (Get-HbErrorText $_)) 'WARN'
         }
     }
     if (-not $done) {

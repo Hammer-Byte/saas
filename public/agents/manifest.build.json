@@ -44,6 +44,13 @@
       "size_bytes": 69075
     },
     {
+      "component": "agent",
+      "version": "1.0.6",
+      "file_path": "/public/agents/agent/1.0.6/agent.ps1",
+      "sha256": "ce8f21a09ed5298bb0e3e38b076c3c844f6b19adff5a38752fa2d7ad7d5367a3",
+      "size_bytes": 70679
+    },
+    {
       "component": "monitor",
       "version": "1.0.2",
       "file_path": "/public/agents/monitor/1.0.2/monitor.ps1",

