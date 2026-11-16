@@ -6,6 +6,7 @@ import { getCustomerById } from "../db/customers.js";
 import { getCustomerEmailsByCustomerId } from "../db/customer_emails.js";
 import { getAllSuperAdminUsers } from "../db/users.js";
 import { getServersWithPingAlertEnabled } from "../db/servers.js";
+import { getServerService } from "../db/server_services.js";
 
 const ALERT_COOLDOWN_MS = 60 * 60 * 1000;
 const PING_CHECK_INTERVAL_MS = 60 * 1000;
@@ -128,11 +129,23 @@ async function resolveAlertContext(server) {
     return { projectTitle, customerName };
 }
 
-/** Recipients are only SERVERS.alert_emails — nothing is emailed until selected in the UI. */
-async function resolveAlertRecipients(server) {
+/**
+ * Prefer service config.alert_emails when that key exists; otherwise fall back to
+ * SERVERS.alert_emails (legacy). Empty array means intentionally no recipients.
+ */
+async function resolveAlertRecipients(server, serviceConfig) {
     const { projectTitle, customerName } = await resolveAlertContext(server);
+    let recipients;
+    if (
+        serviceConfig != null &&
+        Object.prototype.hasOwnProperty.call(serviceConfig, "alert_emails")
+    ) {
+        recipients = parseStoredAlertEmails(serviceConfig.alert_emails);
+    } else {
+        recipients = parseStoredAlertEmails(server.alert_emails);
+    }
     return {
-        recipients: parseStoredAlertEmails(server.alert_emails),
+        recipients,
         projectTitle,
         customerName,
     };
@@ -234,7 +247,10 @@ export async function notifyDriveSyncAlertsIfNeeded({ server, body, config }) {
             return;
         }
 
-        const { recipients, projectTitle, customerName } = await resolveAlertRecipients(server);
+        const { recipients, projectTitle, customerName } = await resolveAlertRecipients(
+            server,
+            config,
+        );
         if (!recipients.length) {
             logger.info(
                 `server #${server.id} drivesync ${type} alert skipped: no alert_emails selected`,
@@ -331,6 +347,12 @@ export async function notifyServerMetricAlertsIfNeeded({ server, body }) {
             return;
         }
 
+        const monitorRow = await getServerService({
+            server_id: server.id,
+            service: "monitor",
+        });
+        const monitorConfig = monitorRow?.config || {};
+
         const checkedAt =
             getReadableDate("DD/MM/YYYY HH:mm:ss", getIstDateTime()) || "—";
         const serverName = server.name || server.tag || `Server #${server.id}`;
@@ -349,8 +371,10 @@ export async function notifyServerMetricAlertsIfNeeded({ server, body }) {
             memoryPercent >= memoryCutoff &&
             cooldownAllows(`memory:${server.id}`)
         ) {
-            const { recipients, projectTitle, customerName } =
-                await resolveAlertRecipients(server);
+            const { recipients, projectTitle, customerName } = await resolveAlertRecipients(
+                server,
+                monitorConfig,
+            );
             if (!recipients.length) {
                 logger.info(
                     `server #${server.id} memory alert skipped: no alert_emails selected`,
@@ -394,8 +418,10 @@ export async function notifyServerMetricAlertsIfNeeded({ server, body }) {
             cpuPercent >= cpuCutoff &&
             cooldownAllows(`cpu:${server.id}`)
         ) {
-            const { recipients, projectTitle, customerName } =
-                await resolveAlertRecipients(server);
+            const { recipients, projectTitle, customerName } = await resolveAlertRecipients(
+                server,
+                monitorConfig,
+            );
             if (!recipients.length) {
                 logger.info(
                     `server #${server.id} cpu alert skipped: no alert_emails selected`,
@@ -446,8 +472,14 @@ export async function checkServerPingAlerts() {
                 continue;
             }
 
-            const { recipients, projectTitle, customerName } =
-                await resolveAlertRecipients(server);
+            const monitorRow = await getServerService({
+                server_id: server.id,
+                service: "monitor",
+            });
+            const { recipients, projectTitle, customerName } = await resolveAlertRecipients(
+                server,
+                monitorRow?.config || {},
+            );
             if (!recipients.length) {
                 logger.info(
                     `server #${server.id} ping alert skipped: no alert_emails selected`,

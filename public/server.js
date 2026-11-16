@@ -177,6 +177,10 @@
     const extraAddButton = document.getElementById("alert-email-extra-add");
     const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+    function alertRoot() {
+        return alertsCard || document;
+    }
+
     function collectAlertFields() {
         return [
             cpuPercent,
@@ -187,19 +191,19 @@
             pingEnabled,
             extraInput,
             extraAddButton,
-            ...document.querySelectorAll(".alert-email-check"),
-            ...document.querySelectorAll(".alert-email-extra-remove"),
+            ...alertRoot().querySelectorAll(".alert-email-check"),
+            ...alertRoot().querySelectorAll(".alert-email-extra-remove"),
         ].filter(Boolean);
     }
 
     function selectedAlertEmails() {
-        return Array.from(document.querySelectorAll(".alert-email-check:checked"))
+        return Array.from(alertRoot().querySelectorAll(".alert-email-check:checked"))
             .map((input) => String(input.value || "").trim().toLowerCase())
             .filter((email, index, list) => email && list.indexOf(email) === index);
     }
 
     function serializeExtraList() {
-        return Array.from(document.querySelectorAll("#alert-email-extra-list .alert-email-extra-row"))
+        return Array.from(alertRoot().querySelectorAll("#alert-email-extra-list .alert-email-extra-row"))
             .map((row) => {
                 const input = row.querySelector(".alert-email-check");
                 return {
@@ -230,7 +234,7 @@
         collectAlertFields().forEach((element) => {
             element.disabled = !editing;
         });
-        document.querySelectorAll(".alert-email-extra-remove").forEach((button) => {
+        alertRoot().querySelectorAll(".alert-email-extra-remove").forEach((button) => {
             button.classList.toggle("d-none", !editing);
         });
         const editBtn = document.getElementById("server-alerts-edit-btn");
@@ -263,7 +267,7 @@
                 alert_memory_enabled: Boolean(memoryEnabled?.checked),
                 alert_ping_seconds: pingSeconds?.value || "180",
                 alert_ping_enabled: Boolean(pingEnabled?.checked),
-                checks: Array.from(document.querySelectorAll(".alert-email-check")).map((input) => ({
+                checks: Array.from(alertRoot().querySelectorAll(".alert-email-check")).map((input) => ({
                     value: input.value,
                     checked: input.checked,
                     source: input.dataset.source || "",
@@ -284,7 +288,7 @@
             if (extraInput) extraInput.value = state.extraInput || "";
             renderExtraList(state.extras || [], false);
             state.checks?.forEach((entry) => {
-                const input = Array.from(document.querySelectorAll(".alert-email-check")).find(
+                const input = Array.from(alertRoot().querySelectorAll(".alert-email-check")).find(
                     (element) =>
                         element.value === entry.value &&
                         (element.dataset.source || "") === entry.source,
@@ -319,11 +323,11 @@
                 showFeedback("Enter a valid email address.", true);
                 return;
             }
-            const existing = Array.from(document.querySelectorAll(".alert-email-check")).some(
+            const existing = Array.from(alertRoot().querySelectorAll(".alert-email-check")).some(
                 (input) => String(input.value || "").toLowerCase() === email,
             );
             if (existing) {
-                const match = Array.from(document.querySelectorAll(".alert-email-check")).find(
+                const match = Array.from(alertRoot().querySelectorAll(".alert-email-check")).find(
                     (input) => String(input.value || "").toLowerCase() === email,
                 );
                 if (match) match.checked = true;
@@ -393,12 +397,12 @@
                     ? server.alert_emails
                     : payload.alert_emails;
                 const savedSet = new Set(savedEmails);
-                document.querySelectorAll(".alert-email-check").forEach((input) => {
+                alertRoot().querySelectorAll(".alert-email-check").forEach((input) => {
                     if (input.dataset.source === "extra") return;
                     input.checked = savedSet.has(String(input.value || "").toLowerCase());
                 });
                 const candidateSet = new Set(
-                    Array.from(document.querySelectorAll(".alert-email-check"))
+                    Array.from(alertRoot().querySelectorAll(".alert-email-check"))
                         .filter((input) => input.dataset.source !== "extra")
                         .map((input) => String(input.value || "").toLowerCase()),
                 );

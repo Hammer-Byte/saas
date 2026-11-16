@@ -2,7 +2,6 @@ import {
     deleteServerById,
     getAllServers,
     getServerById,
-    normalizeAlertEmails,
     parseAlertEmailsColumn,
     updateServerAgentActiveById,
     updateServerAlertById,
@@ -35,6 +34,7 @@ import {
     updateServerServiceSettings,
 } from "../db/server_services.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
+import { normalizeServiceAlertEmails } from "../libs/agent_services/common.js";
 import { getAgentService, getDefaultConfig } from "../libs/agent_services/index.js";
 
 const APPROVAL_STATUSES = new Set(["pending", "approved", "rejected"]);
@@ -222,10 +222,11 @@ export async function updateMonitoredServer({ body, set }) {
     if (hasAlertSettings) {
         const latest = await getServerById({ id: server.id });
         const pick = (key) => (body[key] !== undefined ? body[key] : latest?.[key]);
-        const emails =
+        const emailList =
             body.alert_emails !== undefined
-                ? normalizeAlertEmails(body.alert_emails)
+                ? normalizeServiceAlertEmails(body.alert_emails)
                 : parseAlertEmailsColumn(latest?.alert_emails);
+        // Dual-write: SERVERS.alert_emails (legacy) + monitor service config (source of truth).
         const saved = await updateServerAlertSettingsById({
             id: server.id,
             alert_cpu_enabled: pick("alert_cpu_enabled"),
@@ -234,7 +235,7 @@ export async function updateMonitoredServer({ body, set }) {
             alert_memory_percent: Number(pick("alert_memory_percent")),
             alert_ping_enabled: pick("alert_ping_enabled"),
             alert_ping_seconds: Number(pick("alert_ping_seconds")),
-            alert_emails: emails,
+            alert_emails: emailList.length ? emailList : null,
         });
         if (!saved) {
             set.status = 500;
@@ -242,6 +243,35 @@ export async function updateMonitoredServer({ body, set }) {
                 error:
                     "Failed to save alert settings. If this is the first deploy of alert emails, run: ALTER TABLE SERVERS ADD COLUMN alert_emails TEXT NULL;",
             };
+        }
+
+        if (body.alert_emails !== undefined) {
+            await ensureServerService({
+                server_id: server.id,
+                service: "monitor",
+                config: getDefaultConfig("monitor"),
+            });
+            const monitorRow = await getServerService({
+                server_id: server.id,
+                service: "monitor",
+            });
+            if (monitorRow) {
+                const monitorDefinition = getAgentService("monitor");
+                const mergedInput = {
+                    ...(monitorRow.config || {}),
+                    alert_emails: emailList,
+                };
+                const validated = monitorDefinition.validate(mergedInput, monitorRow.config);
+                const nextConfig = validated.ok
+                    ? validated.config
+                    : { ...(monitorRow.config || {}), alert_emails: emailList };
+                await updateServerServiceSettings({
+                    id: monitorRow.id,
+                    enabled: monitorRow.enabled,
+                    config: nextConfig,
+                    bump_version: false,
+                });
+            }
         }
     }
 

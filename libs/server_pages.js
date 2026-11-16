@@ -4,6 +4,7 @@ import { getAllServers, parseAlertEmailsColumn } from "../db/servers.js";
 import { getAllServerServices, getServerServicesByServerId } from "../db/server_services.js";
 import { getServerMetricsByService } from "../db/server_metrics.js";
 import { getAllAgentReleases } from "../db/agent_releases.js";
+import { resolveServiceAlertEmails } from "./agent_services/common.js";
 import { describeAgentServices, getAgentService } from "./agent_services/index.js";
 import { listServerAlertCandidates } from "./server_alert_notify.js";
 
@@ -59,10 +60,14 @@ export async function buildServersPageData() {
 
 export async function buildServerPageData(server) {
     const rows = await getServerServicesByServerId({ server_id: server.id });
+    const serverAlertEmails = parseAlertEmailsColumn(server.alert_emails);
+    const alertEmailCandidates = await listServerAlertCandidates({ server });
     const serviceTabs = await Promise.all(
         describeAgentServices().map(async (definition) => {
             const service = getAgentService(definition.id);
             const row = rows.find((r) => r.service === definition.id);
+            const rawConfig = row ? row.config : service.defaults;
+            const alertEmails = resolveServiceAlertEmails(rawConfig, serverAlertEmails);
             const resultRows = await getServerMetricsByService({
                 server_id: server.id,
                 service: definition.id,
@@ -81,8 +86,13 @@ export async function buildServerPageData(server) {
                     last_error: row?.last_error || null,
                     last_status_at: row?.last_status_at || null,
                     last_result_at: row?.last_result_at || null,
-                    config: service.maskForBrowser(row ? row.config : service.defaults),
+                    config: service.maskForBrowser(rawConfig || {}),
                 },
+                alert_emails: alertEmails,
+                extra_alert_emails: alertEmails.filter(
+                    (email) =>
+                        !alertEmailCandidates.some((candidate) => candidate.email === email),
+                ),
                 results: resultRows.map((result) => ({
                     id: result.id,
                     type: result.type,
@@ -92,22 +102,15 @@ export async function buildServerPageData(server) {
             };
         }),
     );
-    const alertEmails = parseAlertEmailsColumn(server.alert_emails);
-    const alertEmailCandidates = await listServerAlertCandidates({ server });
-    const selectedSet = new Set(alertEmails);
-    const extraAlertEmails = alertEmails.filter(
-        (email) => !alertEmailCandidates.some((candidate) => candidate.email === email),
-    );
 
     return {
         server: {
             ...server,
             ...agentStatus(server),
-            alert_emails: alertEmails,
+            alert_emails: serverAlertEmails,
         },
         serviceTabs,
         alertEmailCandidates,
-        extraAlertEmails,
     };
 }
 

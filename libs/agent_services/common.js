@@ -47,6 +47,67 @@ export function readChecklist(input, key, options, fallback) {
     return result;
 }
 
+const ALERT_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_ALERT_EMAILS = 50;
+
+/** Unique lowercase emails for service config (always an array; empty = no mail). */
+export function normalizeServiceAlertEmails(value) {
+    const list = Array.isArray(value) ? value : [];
+    const seen = new Set();
+    const emails = [];
+    for (const entry of list) {
+        const email = String(entry || "")
+            .trim()
+            .toLowerCase();
+        if (!email || !ALERT_EMAIL_PATTERN.test(email) || seen.has(email)) {
+            continue;
+        }
+        seen.add(email);
+        emails.push(email);
+        if (emails.length >= MAX_ALERT_EMAILS) {
+            break;
+        }
+    }
+    return emails;
+}
+
+/**
+ * Read alert_emails from form input, preserving previous when the key is omitted
+ * (e.g. monitor service form does not include the recipients picker).
+ */
+export function readAlertEmails(input, previous, fallback = []) {
+    if (input != null && Object.prototype.hasOwnProperty.call(input, "alert_emails")) {
+        return normalizeServiceAlertEmails(input.alert_emails);
+    }
+    if (previous != null && Object.prototype.hasOwnProperty.call(previous, "alert_emails")) {
+        return normalizeServiceAlertEmails(previous.alert_emails);
+    }
+    return normalizeServiceAlertEmails(fallback);
+}
+
+/**
+ * Prefer service config.alert_emails when the key exists; otherwise fall back to
+ * server-level SERVERS.alert_emails (legacy).
+ */
+export function resolveServiceAlertEmails(serviceConfig, serverAlertEmails) {
+    if (serviceConfig != null && Object.prototype.hasOwnProperty.call(serviceConfig, "alert_emails")) {
+        return normalizeServiceAlertEmails(serviceConfig.alert_emails);
+    }
+    return normalizeServiceAlertEmails(
+        Array.isArray(serverAlertEmails)
+            ? serverAlertEmails
+            : typeof serverAlertEmails === "string" && serverAlertEmails
+              ? (() => {
+                    try {
+                        return JSON.parse(serverAlertEmails);
+                    } catch {
+                        return [];
+                    }
+                })()
+              : [],
+    );
+}
+
 /** Field metadata the browser needs to render a form (no functions). */
 export function describeFields(fields) {
     return fields.map((field) => ({ ...field }));

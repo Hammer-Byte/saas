@@ -1,4 +1,4 @@
-import { readChecklist, readInt } from "./common.js";
+import { readAlertEmails, readChecklist, readInt } from "./common.js";
 
 const METRIC_OPTIONS = [
     { key: "cpu", label: "CPU" },
@@ -17,6 +17,7 @@ const defaults = {
     metrics_interval_seconds: 900,
     metrics: Object.fromEntries(METRIC_OPTIONS.map((option) => [option.key, true])),
     top_process_count: 5,
+    alert_emails: [],
 };
 
 const fields = [
@@ -55,7 +56,7 @@ const fields = [
     },
 ];
 
-function validate(input) {
+function validate(input, previous = {}) {
     const errors = [];
     const config = {
         heartbeat_interval_seconds: readInt(input, "heartbeat_interval_seconds", {
@@ -80,6 +81,7 @@ function validate(input) {
             errors,
             label: "Top processes",
         }),
+        alert_emails: readAlertEmails(input, previous, defaults.alert_emails),
     };
     if (!Object.values(config.metrics).some(Boolean)) {
         errors.push("Select at least one metric");

@@ -1,4 +1,4 @@
-import { isPlainObject, readBool, readInt, readText } from "./common.js";
+import { isPlainObject, readAlertEmails, readBool, readInt, readText } from "./common.js";
 
 const MAX_PAIRS = 26;
 const MAX_EXCLUDES = 100;
@@ -22,6 +22,7 @@ const defaults = {
     exclude_files: [],
     alert_on_start: true,
     alert_on_complete: true,
+    alert_emails: [],
 };
 
 const fields = [
@@ -92,13 +93,13 @@ const fields = [
         key: "alert_on_start",
         label: "Email when a sync cycle starts",
         type: "bool",
-        help: "Uses the recipients selected under Monitoring → Alert email recipients.",
+        help: "Uses the Drive Sync alert recipients selected below.",
     },
     {
         key: "alert_on_complete",
         label: "Email when a sync cycle finishes (with stats)",
         type: "bool",
-        help: "Includes copied / skipped / purged / failed counts and the next scheduled run time.",
+        help: "Includes copied / skipped / purged / failed counts and the next scheduled run time. Uses Drive Sync alert recipients below.",
     },
 ];
 
@@ -242,6 +243,7 @@ function validate(input, previous = {}) {
         exclude_files: excludeFiles,
         alert_on_start: readBool(input, "alert_on_start", defaults.alert_on_start),
         alert_on_complete: readBool(input, "alert_on_complete", defaults.alert_on_complete),
+        alert_emails: readAlertEmails(input, previous, defaults.alert_emails),
     };
     return { ok: errors.length === 0, config, errors };
 }
