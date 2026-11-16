@@ -668,6 +668,7 @@ export const uiRoutes = new Elysia()
                         interviews: await getJobApplicantInterviewsByApplicantId({
                             job_applicant_id: applicant.id,
                         }),
+                        users: await getAllUsers(),
                     }),
                 );
             })

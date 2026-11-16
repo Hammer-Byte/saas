@@ -161,6 +161,7 @@
                             <thead class="table-light">
                                 <tr>
                                     <th scope="col">When</th>
+                                    <th scope="col">Interviewer</th>
                                     <th scope="col">Meeting link</th>
                                     <th scope="col">Outcome</th>
                                     <th scope="col" class="text-end">Save</th>
@@ -173,6 +174,12 @@
                                             data-readable-date="<%= interview.interview_at || '' %>"
                                             data-date-format="DD/MM/YYYY HH:mm"
                                         ></td>
+                                        <td>
+                                            <%= interview.interviewer_name || "—" %>
+                                            <% if (interview.interviewer_email) { %>
+                                                <div class="small text-secondary"><%= interview.interviewer_email %></div>
+                                            <% } %>
+                                        </td>
                                         <td>
                                             <a
                                                 href="<%= interview.meeting_link %>"
@@ -231,6 +238,22 @@
                     <div class="mb-3">
                         <label for="interview-time" class="form-label">Time</label>
                         <input type="time" class="form-control" id="interview-time" name="time" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="interview-interviewer" class="form-label">Interviewer</label>
+                        <select
+                            class="form-select"
+                            id="interview-interviewer"
+                            name="interviewer_user_id"
+                            required
+                        >
+                            <option value="">Select interviewer…</option>
+                            <% (users || []).forEach(function (user) { %>
+                                <option value="<%= user.id %>">
+                                    <%= user.full_name || user.email %> (<%= user.email %>)
+                                </option>
+                            <% }) %>
+                        </select>
                     </div>
                     <div class="mb-0">
                         <label for="interview-meeting-link" class="form-label">Meeting link</label>

@@ -78,6 +78,68 @@
         tableWrap?.classList.toggle("d-none", visibleCount === 0 && !!query);
     }
 
+    const sortableHeaders = Array.from(
+        document.querySelectorAll("#jobs-table thead th.jobs-sortable"),
+    );
+    let sortState = { key: null, direction: "asc" };
+
+    function sortValue(row, key) {
+        if (key === "id" || key === "active" || key === "applications") {
+            return Number(row.dataset[key] || 0);
+        }
+        return String(row.dataset[key] || "").toLowerCase();
+    }
+
+    function compareRows(left, right, key, direction) {
+        const leftValue = sortValue(left, key);
+        const rightValue = sortValue(right, key);
+        let result = 0;
+        if (typeof leftValue === "number" && typeof rightValue === "number") {
+            result = leftValue - rightValue;
+        } else {
+            result = String(leftValue).localeCompare(String(rightValue), undefined, {
+                numeric: true,
+                sensitivity: "base",
+            });
+        }
+        return direction === "asc" ? result : -result;
+    }
+
+    function applySort() {
+        if (!tableBody || !sortState.key) return;
+        const rows = Array.from(tableBody.querySelectorAll("tr[data-id]"));
+        rows.sort((left, right) =>
+            compareRows(left, right, sortState.key, sortState.direction),
+        );
+        for (const row of rows) {
+            tableBody.appendChild(row);
+        }
+        for (const header of sortableHeaders) {
+            if (header.dataset.sortKey === sortState.key) {
+                header.setAttribute(
+                    "aria-sort",
+                    sortState.direction === "asc" ? "ascending" : "descending",
+                );
+            } else {
+                header.setAttribute("aria-sort", "none");
+            }
+        }
+    }
+
+    for (const header of sortableHeaders) {
+        header.style.cursor = "pointer";
+        header.addEventListener("click", () => {
+            const key = header.dataset.sortKey;
+            if (!key) return;
+            if (sortState.key === key) {
+                sortState.direction = sortState.direction === "asc" ? "desc" : "asc";
+            } else {
+                sortState = { key, direction: "asc" };
+            }
+            applySort();
+        });
+    }
+
     openAddButton?.addEventListener("click", openAddModal);
 
     searchInput?.addEventListener("input", applySearch);

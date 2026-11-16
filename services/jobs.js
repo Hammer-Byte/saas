@@ -7,6 +7,7 @@ import {
     createJobPosition,
     deleteJobPositionById,
     getJobPositionById,
+    updateJobPositionActiveById,
     updateJobPositionById,
 } from "../db/job_positions.js";
 import { getJobApplicantMediaByJobPositionId } from "../db/job_applicants.js";
@@ -116,6 +117,28 @@ export async function updateJob({ body, cookie, set }) {
     const job = await getJobPositionById({ id: body.id });
     set.status = 200;
     return { message: "Job updated", job };
+}
+
+export async function updateJobActive({ body, cookie, set }) {
+    const gate = await requireJobsUser({ cookie, set });
+    if (gate.error) {
+        return { error: gate.error };
+    }
+
+    const existingJob = await getJobPositionById({ id: body.id });
+    if (!existingJob) {
+        set.status = 404;
+        return { error: "Job not found" };
+    }
+
+    await updateJobPositionActiveById({
+        id: body.id,
+        active: !!body.active,
+    });
+
+    const job = await getJobPositionById({ id: body.id });
+    set.status = 200;
+    return { message: "Job accepting applications updated", job };
 }
 
 export async function deleteJob({ params, cookie, set }) {

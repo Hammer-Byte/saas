@@ -10,6 +10,7 @@
     const interviewFormAlert = document.getElementById("interview-form-alert");
     const interviewDate = document.getElementById("interview-date");
     const interviewTime = document.getElementById("interview-time");
+    const interviewInterviewer = document.getElementById("interview-interviewer");
     const interviewMeetingLink = document.getElementById("interview-meeting-link");
     const interviewSubmitBtn = document.getElementById("interview-submit-btn");
 
@@ -99,10 +100,15 @@
 
         const date = String(interviewDate?.value || "").trim();
         const time = String(interviewTime?.value || "").trim();
+        const interviewerUserId = Number(interviewInterviewer?.value || 0);
         const meetingLink = String(interviewMeetingLink?.value || "").trim();
 
-        if (!date || !time || !meetingLink) {
-            showAlert(interviewFormAlert, "Date, time, and meeting link are required.", "danger");
+        if (!date || !time || !meetingLink || !interviewerUserId) {
+            showAlert(
+                interviewFormAlert,
+                "Date, time, interviewer, and meeting link are required.",
+                "danger",
+            );
             return;
         }
 
@@ -118,6 +124,7 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     id: applicantId,
+                    interviewer_user_id: interviewerUserId,
                     interview_at: interviewAt,
                     meeting_link: meetingLink,
                 }),

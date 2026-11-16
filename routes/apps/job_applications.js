@@ -45,6 +45,7 @@ export default function (app) {
         .post("/interview", scheduleJobApplicationInterview, {
             body: t.Object({
                 id: t.Numeric({ minimum: 1 }),
+                interviewer_user_id: t.Numeric({ minimum: 1 }),
                 interview_at: t.String({ minLength: 1, maxLength: 32 }),
                 meeting_link: t.String({ minLength: 1, maxLength: 512 }),
             }),

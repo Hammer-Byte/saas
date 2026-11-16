@@ -50,6 +50,18 @@ export async function updateJobPositionById({
     });
 }
 
+export async function updateJobPositionActiveById({ id, active }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE JOB_POSITIONS
+            SET active = ${active}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateJobPositionActiveById: ${error}`);
+    });
+}
+
 export async function deleteJobPositionById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM JOB_POSITIONS WHERE id = ${id}`).catch(
         (error) => {

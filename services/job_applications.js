@@ -15,6 +15,7 @@ import {
     updateJobApplicantInterviewOutcomeById,
 } from "../db/job_applicant_interviews.js";
 import { getJobPositionById } from "../db/job_positions.js";
+import { getUserById } from "../db/users.js";
 import { getWritableDate } from "../libs/date.js";
 import transporter from "../libs/transporter.js";
 import { canUseJobs } from "./jobs.js";
@@ -113,6 +114,43 @@ function sendInterviewEmail({
         });
     } catch (error) {
         logger.error(`sendInterviewEmail: ${error}`);
+    }
+}
+
+function sendInterviewerNotification({
+    interviewer,
+    applicant,
+    jobTitle,
+    interviewAt,
+    meetingLink,
+}) {
+    try {
+        const interviewDate =
+            getWritableDate("DD/MM/YYYY", interviewAt) || String(interviewAt);
+        const interviewTime =
+            getWritableDate("HH:mm", interviewAt) || String(interviewAt);
+        const html = filer.prepareTemplated(
+            "templates/job-interview-interviewer.html",
+            {
+                interviewer_name: interviewer.full_name || interviewer.email,
+                candidate_name: applicant.full_name,
+                candidate_email: applicant.email,
+                candidate_phone: applicant.phone,
+                job_title: jobTitle,
+                interview_date: interviewDate,
+                interview_time: interviewTime,
+                meeting_link: meetingLink,
+                app_name: "HammerByte",
+            },
+        );
+        transporter.transport({
+            recipient: interviewer.email,
+            subject: `Interview assigned: ${applicant.full_name} for ${jobTitle}`,
+            body: html,
+            html_enabled: true,
+        });
+    } catch (error) {
+        logger.error(`sendInterviewerNotification: ${error}`);
     }
 }
 
@@ -260,8 +298,15 @@ export async function scheduleJobApplicationInterview({ body, cookie, set }) {
         return { error: "Meeting link is required" };
     }
 
+    const interviewer = await getUserById({ id: body.interviewer_user_id });
+    if (!interviewer) {
+        set.status = 400;
+        return { error: "Interviewer not found" };
+    }
+
     const interviewId = await createJobApplicantInterview({
         job_applicant_id: applicant.id,
+        interviewer_user_id: interviewer.id,
         interview_at: interviewAt,
         meeting_link: meetingLink.slice(0, 512),
     });
@@ -276,6 +321,13 @@ export async function scheduleJobApplicationInterview({ body, cookie, set }) {
         interviewAt,
         meetingLink,
         replyEmail,
+    });
+    sendInterviewerNotification({
+        interviewer,
+        applicant,
+        jobTitle: applicant.job_title,
+        interviewAt,
+        meetingLink,
     });
 
     const interview = await getJobApplicantInterviewById({ id: interviewId });

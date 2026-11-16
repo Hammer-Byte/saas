@@ -14,21 +14,39 @@
 </nav>
 
 <main class="bg-light min-vh-100">
-    <div class="container py-5" id="job-page" data-job-id="<%= job.id %>">
+    <div
+        class="container py-5"
+        id="job-page"
+        data-job-id="<%= job.id %>"
+        data-job-active="<%= job.active ? '1' : '0' %>"
+    >
         <div class="mb-4">
             <p class="text-secondary small mb-1">
                 <a href="/app" class="text-decoration-none">App</a> /
                 <a href="/app/jobs" class="text-decoration-none">Jobs</a> /
                 <%= job.title %>
             </p>
-            <h1 class="h3 mb-1"><%= job.title %></h1>
-            <p class="text-secondary mb-0">
-                Experience: <%= job.experience %> ·
-                Reply: <%= job.reply_email || "—" %> ·
-                <span class="badge text-bg-<%= job.active ? 'success' : 'secondary' %>">
-                    <%= job.active ? "Active" : "Inactive" %>
-                </span>
-            </p>
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                <div>
+                    <h1 class="h3 mb-1"><%= job.title %></h1>
+                    <p class="text-secondary mb-0">
+                        Experience: <%= job.experience %> ·
+                        Reply: <%= job.reply_email || "—" %>
+                    </p>
+                </div>
+                <div class="form-check form-switch m-0 align-self-center">
+                    <input
+                        class="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id="job-accepting-applications"
+                        <%= job.active ? "checked" : "" %>
+                    />
+                    <label class="form-check-label" for="job-accepting-applications">
+                        Accepting applications
+                    </label>
+                </div>
+            </div>
         </div>
 
         <div id="job-alert" class="alert d-none" role="alert"></div>
@@ -68,7 +86,7 @@
                         type="search"
                         class="form-control"
                         id="applicants-search"
-                        placeholder="Search by name, email, phone…"
+                        placeholder="Search by name, email, phone, location…"
                         autocomplete="off"
                     />
                 </div>
@@ -83,7 +101,7 @@
                         No applications match your search.
                     </div>
                     <div class="table-responsive" id="applicants-table-wrap">
-                        <table class="table table-hover align-middle mb-0">
+                        <table class="table table-hover align-middle mb-0" id="applicants-table">
                             <thead class="table-light">
                                 <tr>
                                     <th scope="col" style="width: 2.5rem;">
@@ -94,24 +112,107 @@
                                             aria-label="Select all visible applications"
                                         />
                                     </th>
-                                    <th scope="col">Name</th>
-                                    <th scope="col">Email</th>
-                                    <th scope="col">Phone</th>
-                                    <th scope="col">Shortlisted</th>
-                                    <th scope="col">Decision</th>
-                                    <th scope="col">Applied On</th>
+                                    <th
+                                        scope="col"
+                                        class="applicants-sortable"
+                                        data-sort-key="id"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >ID</th>
+                                    <th
+                                        scope="col"
+                                        class="applicants-sortable"
+                                        data-sort-key="name"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Name</th>
+                                    <th
+                                        scope="col"
+                                        class="applicants-sortable"
+                                        data-sort-key="email"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Email</th>
+                                    <th
+                                        scope="col"
+                                        class="applicants-sortable"
+                                        data-sort-key="phone"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Phone</th>
+                                    <th
+                                        scope="col"
+                                        class="applicants-sortable"
+                                        data-sort-key="location"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Location</th>
+                                    <th
+                                        scope="col"
+                                        class="applicants-sortable"
+                                        data-sort-key="interview"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Interview</th>
+                                    <th
+                                        scope="col"
+                                        class="applicants-sortable"
+                                        data-sort-key="shortlisted"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Shortlisted</th>
+                                    <th
+                                        scope="col"
+                                        class="applicants-sortable"
+                                        data-sort-key="decision"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Decision</th>
+                                    <th
+                                        scope="col"
+                                        class="applicants-sortable"
+                                        data-sort-key="applied"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Applied On</th>
                                 </tr>
                             </thead>
                             <tbody id="applicants-tbody">
                                 <% applicants.forEach(function (applicant) {
                                     const shortlisted = !!applicant.shortlisted;
                                     const decision = applicant.decision || "";
+                                    const locationParts = [applicant.state, applicant.city].filter(Boolean);
+                                    const locationLabel = locationParts.length
+                                        ? locationParts.join(" - ")
+                                        : "—";
+                                    const interviewSort = applicant.latest_interview_at
+                                        ? String(applicant.latest_interview_at)
+                                        : "";
+                                    const appliedSort = applicant.created_on
+                                        ? String(applicant.created_on)
+                                        : "";
                                 %>
                                     <tr
                                         data-id="<%= applicant.id %>"
                                         data-name="<%= applicant.full_name || '' %>"
                                         data-email="<%= applicant.email || '' %>"
                                         data-phone="<%= applicant.phone || '' %>"
+                                        data-city="<%= applicant.city || '' %>"
+                                        data-state="<%= applicant.state || '' %>"
+                                        data-location="<%= locationLabel %>"
+                                        data-interview="<%= interviewSort %>"
+                                        data-shortlisted="<%= shortlisted ? '1' : '0' %>"
+                                        data-decision="<%= decision %>"
+                                        data-applied="<%= appliedSort %>"
                                         data-href="/app/job-applications/<%= applicant.id %>"
                                         class="applicant-row"
                                         style="cursor: pointer;"
@@ -124,9 +225,21 @@
                                                 aria-label="Select application"
                                             />
                                         </td>
+                                        <td><%= applicant.id %></td>
                                         <td><%= applicant.full_name %></td>
                                         <td><%= applicant.email %></td>
                                         <td><%= applicant.phone %></td>
+                                        <td><%= locationLabel %></td>
+                                        <td>
+                                            <% if (applicant.latest_interview_at) { %>
+                                                <span
+                                                    data-readable-date="<%= applicant.latest_interview_at %>"
+                                                    data-date-format="DD/MM/YYYY HH:mm"
+                                                ></span>
+                                            <% } else { %>
+                                                —
+                                            <% } %>
+                                        </td>
                                         <td>
                                             <% if (shortlisted) { %>
                                                 <span class="badge text-bg-success">Yes</span>

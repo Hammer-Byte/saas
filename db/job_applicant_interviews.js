@@ -3,14 +3,21 @@ import { executeSQLQuery } from "../libs/db.js";
 
 export async function createJobApplicantInterview({
     job_applicant_id,
+    interviewer_user_id,
     interview_at,
     meeting_link,
 }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO JOB_APPLICANT_INTERVIEWS ${sql(
-                { job_applicant_id, interview_at, meeting_link },
+                {
+                    job_applicant_id,
+                    interviewer_user_id,
+                    interview_at,
+                    meeting_link,
+                },
                 "job_applicant_id",
+                "interviewer_user_id",
                 "interview_at",
                 "meeting_link",
             )}
@@ -37,9 +44,13 @@ export async function updateJobApplicantInterviewOutcomeById({ id, outcome }) {
 export async function getJobApplicantInterviewById({ id }) {
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT *
+            SELECT
+                JOB_APPLICANT_INTERVIEWS.*,
+                USERS.full_name AS interviewer_name,
+                USERS.email AS interviewer_email
             FROM JOB_APPLICANT_INTERVIEWS
-            WHERE id = ${id}
+            INNER JOIN USERS ON USERS.id = JOB_APPLICANT_INTERVIEWS.interviewer_user_id
+            WHERE JOB_APPLICANT_INTERVIEWS.id = ${id}
         `,
     )
         .then((result) => (result.length ? result[0] : null))
@@ -52,10 +63,14 @@ export async function getJobApplicantInterviewById({ id }) {
 export async function getJobApplicantInterviewsByApplicantId({ job_applicant_id }) {
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT *
+            SELECT
+                JOB_APPLICANT_INTERVIEWS.*,
+                USERS.full_name AS interviewer_name,
+                USERS.email AS interviewer_email
             FROM JOB_APPLICANT_INTERVIEWS
-            WHERE job_applicant_id = ${job_applicant_id}
-            ORDER BY interview_at DESC, id DESC
+            INNER JOIN USERS ON USERS.id = JOB_APPLICANT_INTERVIEWS.interviewer_user_id
+            WHERE JOB_APPLICANT_INTERVIEWS.job_applicant_id = ${job_applicant_id}
+            ORDER BY JOB_APPLICANT_INTERVIEWS.interview_at DESC, JOB_APPLICANT_INTERVIEWS.id DESC
         `,
     )
         .then((result) => Array.from(result ?? []))

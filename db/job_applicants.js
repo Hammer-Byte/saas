@@ -121,7 +121,14 @@ export async function getJobApplicantsByJobPositionId({ job_position_id }) {
             SELECT
                 JOB_APPLICANTS.*,
                 MEDIA.name AS cv_name,
-                MEDIA.file AS cv_file
+                MEDIA.file AS cv_file,
+                (
+                    SELECT JOB_APPLICANT_INTERVIEWS.interview_at
+                    FROM JOB_APPLICANT_INTERVIEWS
+                    WHERE JOB_APPLICANT_INTERVIEWS.job_applicant_id = JOB_APPLICANTS.id
+                    ORDER BY JOB_APPLICANT_INTERVIEWS.interview_at DESC, JOB_APPLICANT_INTERVIEWS.id DESC
+                    LIMIT 1
+                ) AS latest_interview_at
             FROM JOB_APPLICANTS
             INNER JOIN MEDIA ON MEDIA.id = JOB_APPLICANTS.cv
             WHERE JOB_APPLICANTS.job_position_id = ${job_position_id}

@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { addJob, deleteJob, updateJob } from "../../services/jobs.js";
+import { addJob, deleteJob, updateJob, updateJobActive } from "../../services/jobs.js";
 import { ERRORS } from "../../constants.js";
 
 export default function (app) {
@@ -37,6 +37,16 @@ export default function (app) {
             detail: {
                 tags: ["Jobs"],
                 summary: "Update a job opening",
+            },
+        })
+        .patch("/active", updateJobActive, {
+            body: t.Object({
+                id: t.Numeric({ minimum: 1 }),
+                active: t.Boolean(),
+            }),
+            detail: {
+                tags: ["Jobs"],
+                summary: "Toggle whether a job is accepting applications",
             },
         })
         .delete("/:id", deleteJob, {

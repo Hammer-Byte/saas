@@ -60,14 +60,57 @@
                         No jobs match your search.
                     </div>
                     <div class="table-responsive" id="jobs-table-wrap">
-                        <table class="table table-hover align-middle mb-0">
+                        <table class="table table-hover align-middle mb-0" id="jobs-table">
                             <thead class="table-light">
                                 <tr>
-                                    <th scope="col">Title</th>
-                                    <th scope="col">Experience</th>
-                                    <th scope="col">Active</th>
-                                    <th scope="col">Applications</th>
-                                    <th scope="col">Created On</th>
+                                    <th
+                                        scope="col"
+                                        class="jobs-sortable"
+                                        data-sort-key="id"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >ID</th>
+                                    <th
+                                        scope="col"
+                                        class="jobs-sortable"
+                                        data-sort-key="title"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Title</th>
+                                    <th
+                                        scope="col"
+                                        class="jobs-sortable"
+                                        data-sort-key="experience"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Experience</th>
+                                    <th
+                                        scope="col"
+                                        class="jobs-sortable"
+                                        data-sort-key="active"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Active</th>
+                                    <th
+                                        scope="col"
+                                        class="jobs-sortable"
+                                        data-sort-key="applications"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Applications</th>
+                                    <th
+                                        scope="col"
+                                        class="jobs-sortable"
+                                        data-sort-key="created"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Created On</th>
                                     <th scope="col" class="text-end">Actions</th>
                                 </tr>
                             </thead>
@@ -80,10 +123,13 @@
                                         data-experience="<%= job.experience || '' %>"
                                         data-reply-email="<%= job.reply_email || '' %>"
                                         data-active="<%= job.active ? '1' : '0' %>"
+                                        data-applications="<%= Number(job.application_count || 0) %>"
+                                        data-created="<%= job.created_on || '' %>"
                                         data-href="/app/jobs/<%= job.id %>"
                                         class="job-row"
                                         style="cursor: pointer;"
                                     >
+                                        <td><%= job.id %></td>
                                         <td><%= job.title %></td>
                                         <td><%= job.experience %></td>
                                         <td>
@@ -194,7 +240,9 @@
                             name="active"
                             checked
                         />
-                        <label class="form-check-label" for="job-active">Active on careers page</label>
+                        <label class="form-check-label" for="job-active">
+                            Accepting applications (shown on careers page)
+                        </label>
                     </div>
                 </div>
                 <div class="modal-footer">

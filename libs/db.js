@@ -432,6 +432,7 @@ export async function generateDBTables() {
             title VARCHAR(128) NOT NULL,
             description TEXT NOT NULL,
             experience VARCHAR(128) NOT NULL,
+            reply_email VARCHAR(255) NOT NULL,
             active BOOLEAN NOT NULL DEFAULT TRUE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -447,9 +448,6 @@ export async function generateDBTables() {
             country VARCHAR(64) NOT NULL DEFAULT 'India',
             cv INT NOT NULL,
             shortlisted BOOLEAN NOT NULL DEFAULT FALSE,
-            interview_at DATETIME NULL,
-            interview_meeting_link VARCHAR(512) NULL,
-            interview_outcome TEXT NULL,
             decision VARCHAR(16) NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -463,6 +461,26 @@ export async function generateDBTables() {
             CONSTRAINT fk_job_applicants_media
                 FOREIGN KEY (cv)
                 REFERENCES MEDIA(id)
+                ON DELETE RESTRICT
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS JOB_APPLICANT_INTERVIEWS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            job_applicant_id INT NOT NULL,
+            interviewer_user_id INT NOT NULL,
+            interview_at DATETIME NOT NULL,
+            meeting_link VARCHAR(512) NOT NULL,
+            outcome TEXT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_job_applicant_interviews_applicant
+                FOREIGN KEY (job_applicant_id)
+                REFERENCES JOB_APPLICANTS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_job_applicant_interviews_interviewer
+                FOREIGN KEY (interviewer_user_id)
+                REFERENCES USERS(id)
                 ON DELETE RESTRICT
                 ON UPDATE CASCADE
         )`,
