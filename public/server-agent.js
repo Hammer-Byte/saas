@@ -89,6 +89,13 @@
                 config[key] = element.value.trim();
             } else if (type === "password") {
                 config[key] = element.value;
+            } else if (type === "bool") {
+                config[key] = element.checked;
+            } else if (type === "lines") {
+                config[key] = element.value
+                    .split(/\r?\n/)
+                    .map((line) => line.trim())
+                    .filter(Boolean);
             } else if (type === "checklist") {
                 config[key] = {};
                 element.querySelectorAll("[data-option]").forEach((checkbox) => {

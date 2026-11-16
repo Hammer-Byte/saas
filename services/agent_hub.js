@@ -8,18 +8,22 @@ import {
 } from "../db/servers.js";
 import {
     ensureServerService,
+    getServerService,
     getServerServicesByServerId,
     touchServerServiceResult,
     updateServerServiceStatus,
 } from "../db/server_services.js";
 import { createServerMetric } from "../db/server_metrics.js";
 import { getAgentService, getDefaultConfig, listAgentServices } from "../libs/agent_services/index.js";
-import { notifyServerMetricAlertsIfNeeded } from "../libs/server_alert_notify.js";
+import {
+    notifyDriveSyncAlertsIfNeeded,
+    notifyServerMetricAlertsIfNeeded,
+} from "../libs/server_alert_notify.js";
 import { getLatestReleaseMap } from "./agent_releases.js";
 
 const TAG_PATTERN = /^[A-Za-z0-9._-]{6,64}$/;
 const SERVICE_STATES = new Set(["running", "starting", "stopped", "backoff", "error", "disabled"]);
-const RESULT_TYPES = new Set(["heartbeat", "metrics", "sync_run"]);
+const RESULT_TYPES = new Set(["heartbeat", "metrics", "sync_run", "sync_start"]);
 const MAX_RESULT_BYTES = 2 * 1024 * 1024;
 
 function readTag(request) {
@@ -224,7 +228,7 @@ export async function ingestServiceResult({ request, body, set }) {
     }
     if (!RESULT_TYPES.has(type)) {
         set.status = 400;
-        return { error: "type must be heartbeat, metrics or sync_run" };
+        return { error: "type must be heartbeat, metrics, sync_start or sync_run" };
     }
 
     await touchServerServiceResult({ server_id: server.id, service: serviceId });
@@ -243,6 +247,14 @@ export async function ingestServiceResult({ request, body, set }) {
 
     if (type === "metrics") {
         await notifyServerMetricAlertsIfNeeded({ server, body });
+    }
+    if (serviceId === "drivesync" && (type === "sync_start" || type === "sync_run")) {
+        const serviceRow = await getServerService({ server_id: server.id, service: "drivesync" });
+        await notifyDriveSyncAlertsIfNeeded({
+            server,
+            body,
+            config: serviceRow?.config || {},
+        });
     }
 
     set.status = 200;

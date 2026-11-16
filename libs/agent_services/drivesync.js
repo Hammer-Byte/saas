@@ -1,9 +1,15 @@
-import { isPlainObject, readInt, readText } from "./common.js";
+import { isPlainObject, readBool, readInt, readText } from "./common.js";
 
 const MAX_PAIRS = 26;
+const MAX_EXCLUDES = 100;
+const MAX_EXCLUDE_LEN = 180;
 const HOST_PATTERN = /^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/;
 const SHARE_PATTERN = /^[A-Za-z0-9 _.$-]{1,80}$/;
 const LOCAL_PATH_PATTERN = /^[A-Za-z]:\\(?:[^<>:"/\\|?*\r\n]+\\?)*$/;
+/** Folder name or relative segments (no drive/UNC, no wildcards). */
+const DIR_EXCLUDE_PATTERN = /^[^<>:"/|?*\r\n\\]([^<>:"/|?*\r\n]*[^<>:"/|?*\r\n\\])?$/;
+/** File name or wildcard pattern (*.mdf); no path separators. */
+const FILE_EXCLUDE_PATTERN = /^[^<>:"/|\\\r\n]+$/;
 
 const defaults = {
     interval_seconds: 900,
@@ -12,6 +18,10 @@ const defaults = {
     password: "",
     pairs: [],
     skip_log_max: 500,
+    exclude_dirs: [],
+    exclude_files: [],
+    alert_on_start: true,
+    alert_on_complete: true,
 };
 
 const fields = [
@@ -55,6 +65,22 @@ const fields = [
         help: "Each pair copies \\\\source_host\\share onto a local folder on this machine (mirror: files removed at source are removed locally).",
     },
     {
+        key: "exclude_dirs",
+        label: "Exclude directories",
+        type: "lines",
+        rows: 4,
+        placeholder: "database\nhmdm\\tomcat9\\logs",
+        help: "One folder name or relative path per line (e.g. database or hmdm\\tomcat9\\logs). Matched under every pair; not copied and not purged. Built-in: System Volume Information, $RECYCLE.BIN, RECYCLER.",
+    },
+    {
+        key: "exclude_files",
+        label: "Exclude files",
+        type: "lines",
+        rows: 4,
+        placeholder: "*.mdf\n*.ldf\npostmaster.pid",
+        help: "One file name or wildcard per line (e.g. *.mdf or postmaster.pid). Matched under every pair. Built-in: pagefile.sys, hiberfil.sys, swapfile.sys, DumpStack.log.tmp.",
+    },
+    {
         key: "skip_log_max",
         label: "Max skipped files listed in local log per pair",
         type: "int",
@@ -62,7 +88,72 @@ const fields = [
         max: 5000,
         required: true,
     },
+    {
+        key: "alert_on_start",
+        label: "Email when a sync cycle starts",
+        type: "bool",
+        help: "Uses the recipients selected under Monitoring → Alert email recipients.",
+    },
+    {
+        key: "alert_on_complete",
+        label: "Email when a sync cycle finishes (with stats)",
+        type: "bool",
+        help: "Includes copied / skipped / purged / failed counts and the next scheduled run time.",
+    },
 ];
+
+function readExcludeList(input, key, { kind, errors, label }) {
+    const raw = input?.[key];
+    let items = [];
+    if (Array.isArray(raw)) {
+        items = raw.map((entry) => String(entry || "").trim()).filter(Boolean);
+    } else if (typeof raw === "string") {
+        items = raw
+            .split(/\r?\n/)
+            .map((entry) => entry.trim())
+            .filter(Boolean);
+    }
+
+    if (items.length > MAX_EXCLUDES) {
+        errors.push(`${label}: at most ${MAX_EXCLUDES} entries`);
+        items = items.slice(0, MAX_EXCLUDES);
+    }
+
+    const pattern = kind === "dir" ? DIR_EXCLUDE_PATTERN : FILE_EXCLUDE_PATTERN;
+    const out = [];
+    const seen = new Set();
+    for (const item of items) {
+        if (item.length > MAX_EXCLUDE_LEN) {
+            errors.push(`${label}: each entry must be at most ${MAX_EXCLUDE_LEN} characters`);
+            continue;
+        }
+        if (item.startsWith("\\\\") || /^[A-Za-z]:\\/i.test(item)) {
+            errors.push(
+                `${label}: use a name or relative path, not a full UNC or drive path (${item.slice(0, 40)})`,
+            );
+            continue;
+        }
+        if (!pattern.test(item)) {
+            if (kind === "dir") {
+                errors.push(
+                    `${label}: invalid directory "${item.slice(0, 40)}" (folder name or relative path; no wildcards)`,
+                );
+            } else {
+                errors.push(
+                    `${label}: invalid file pattern "${item.slice(0, 40)}" (file name or wildcard like *.mdf; no path separators)`,
+                );
+            }
+            continue;
+        }
+        const dedupe = item.toLowerCase();
+        if (seen.has(dedupe)) {
+            continue;
+        }
+        seen.add(dedupe);
+        out.push(item);
+    }
+    return out;
+}
 
 function validate(input, previous = {}) {
     const errors = [];
@@ -117,6 +208,17 @@ function validate(input, previous = {}) {
         pairs.push({ share, local_path: localPath });
     });
 
+    const excludeDirs = readExcludeList(input, "exclude_dirs", {
+        kind: "dir",
+        errors,
+        label: "Exclude directories",
+    });
+    const excludeFiles = readExcludeList(input, "exclude_files", {
+        kind: "file",
+        errors,
+        label: "Exclude files",
+    });
+
     const config = {
         interval_seconds: readInt(input, "interval_seconds", {
             min: 60,
@@ -136,6 +238,10 @@ function validate(input, previous = {}) {
             errors,
             label: "Max skipped files",
         }),
+        exclude_dirs: excludeDirs,
+        exclude_files: excludeFiles,
+        alert_on_start: readBool(input, "alert_on_start", defaults.alert_on_start),
+        alert_on_complete: readBool(input, "alert_on_complete", defaults.alert_on_complete),
     };
     return { ok: errors.length === 0, config, errors };
 }

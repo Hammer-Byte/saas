@@ -105,6 +105,20 @@
       "file_path": "/public/agents/drivesync/1.0.1/drivesync.ps1",
       "sha256": "0d3cb23a49677e7d7558e1bf5c82c7c9e6d9b952ce8fa46c661db2eacf31ac10",
       "size_bytes": 38091
+    },
+    {
+      "component": "drivesync",
+      "version": "1.0.5",
+      "file_path": "/public/agents/drivesync/1.0.5/drivesync.ps1",
+      "sha256": "9373f2d96f94d347253eea521747d445f4798cd46848a0524d3e87669b6becc6",
+      "size_bytes": 43860
+    },
+    {
+      "component": "drivesync",
+      "version": "1.0.4",
+      "file_path": "/public/agents/drivesync/1.0.4/drivesync.ps1",
+      "sha256": "1f65d8c22b8c6cc93af60caeb46932786363e1c11406c36dda669efb154e3c81",
+      "size_bytes": 42357
     }
   ]
 }

@@ -152,6 +152,176 @@ function queueAlertEmails({ recipients, subject, html, serverId, kind }) {
     }
 }
 
+function formatBytes(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) {
+        return "—";
+    }
+    if (amount < 1024) {
+        return `${Math.round(amount)} B`;
+    }
+    if (amount < 1024 * 1024) {
+        return `${(amount / 1024).toFixed(1)} KB`;
+    }
+    if (amount < 1024 * 1024 * 1024) {
+        return `${(amount / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    return `${(amount / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function formatDuration(seconds) {
+    const total = Number(seconds);
+    if (!Number.isFinite(total) || total < 0) {
+        return "—";
+    }
+    const whole = Math.round(total);
+    if (whole < 60) {
+        return `${whole}s`;
+    }
+    const minutes = Math.floor(whole / 60);
+    const rem = whole % 60;
+    if (minutes < 60) {
+        return rem ? `${minutes}m ${rem}s` : `${minutes}m`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remMin = minutes % 60;
+    return remMin ? `${hours}h ${remMin}m` : `${hours}h`;
+}
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function formatDriveSyncPairsHtml(pairs) {
+    if (!Array.isArray(pairs) || pairs.length === 0) {
+        return "<div>No drive pairs.</div>";
+    }
+    return pairs
+        .map((pair) => {
+            const source = escapeHtml(pair.source || `\\\\…\\${pair.share || "?"}`);
+            const destination = escapeHtml(pair.destination || pair.local_path || "?");
+            const status = pair.status ? ` — ${escapeHtml(pair.status)}` : "";
+            const stats =
+                pair.copied != null
+                    ? ` (copied ${Number(pair.copied) || 0}, skipped ${Number(pair.skipped) || 0}, purged ${Number(pair.purged) || 0}, failed ${Number(pair.failed) || 0})`
+                    : "";
+            return `<div><code>${source}</code> → <code>${destination}</code>${status}${stats}</div>`;
+        })
+        .join("");
+}
+
+/** Drive Sync start/complete emails. No cooldown — each cycle may notify when enabled. */
+export async function notifyDriveSyncAlertsIfNeeded({ server, body, config }) {
+    try {
+        if (!server?.id || !body || typeof body !== "object") {
+            return;
+        }
+        const type = String(body.type || "").toLowerCase();
+        if (type !== "sync_start" && type !== "sync_run") {
+            return;
+        }
+
+        const alertOnStart = config?.alert_on_start !== false;
+        const alertOnComplete = config?.alert_on_complete !== false;
+        if (type === "sync_start" && !alertOnStart) {
+            return;
+        }
+        if (type === "sync_run" && !alertOnComplete) {
+            return;
+        }
+
+        const { recipients, projectTitle, customerName } = await resolveAlertRecipients(server);
+        if (!recipients.length) {
+            logger.info(
+                `server #${server.id} drivesync ${type} alert skipped: no alert_emails selected`,
+            );
+            return;
+        }
+
+        const serverName = server.name || server.tag || `Server #${server.id}`;
+        const serverUrl = `${publicBaseUrl()}/app/servers/${server.id}`;
+        const sourceHost = body.source_host || "—";
+        const pairsHtml = formatDriveSyncPairsHtml(body.pairs);
+
+        if (type === "sync_start") {
+            const html = filer.prepareTemplated("templates/server_drivesync_start_alert.html", {
+                server_name: serverName,
+                server_tag: server.tag || "—",
+                project_title: projectTitle,
+                customer_name: customerName,
+                source_host: sourceHost,
+                pair_count: String(body.pair_count ?? (Array.isArray(body.pairs) ? body.pairs.length : 0)),
+                pairs_html: pairsHtml,
+                started_at: body.started_at_ist || "—",
+                interval_seconds: String(body.interval_seconds ?? "—"),
+                hostname: body.hostname || "—",
+                server_url: serverUrl,
+                app_name: "HammerByte",
+            });
+            queueAlertEmails({
+                recipients,
+                subject: `Drive Sync started — ${serverName} ← ${sourceHost}`,
+                html,
+                serverId: server.id,
+                kind: "drivesync_start",
+            });
+            return;
+        }
+
+        const totals = body.totals && typeof body.totals === "object" ? body.totals : {};
+        const copied = Number(totals.copied) || 0;
+        const skipped = Number(totals.skipped) || 0;
+        const purged = Number(totals.purged) || 0;
+        const failed = Number(totals.failed) || 0;
+        const mismatched = Number(totals.mismatched) || 0;
+        const filesSeen =
+            Number.isFinite(Number(body.files_seen))
+                ? Number(body.files_seen)
+                : copied + skipped + purged + failed + mismatched;
+        const status = String(body.status || "unknown");
+        const html = filer.prepareTemplated("templates/server_drivesync_complete_alert.html", {
+            server_name: serverName,
+            server_tag: server.tag || "—",
+            project_title: projectTitle,
+            customer_name: customerName,
+            source_host: sourceHost,
+            status,
+            files_seen: String(filesSeen),
+            copied: String(copied),
+            skipped: String(skipped),
+            purged: String(purged),
+            failed: String(failed),
+            bytes_copied: formatBytes(totals.bytes_copied),
+            duration: formatDuration(body.duration_seconds),
+            started_at: body.started_at_ist || "—",
+            finished_at: body.finished_at_ist || "—",
+            next_run_at: body.next_run_at_ist || "—",
+            interval_seconds: String(body.interval_seconds ?? "—"),
+            pairs_html: pairsHtml,
+            error_block: body.error
+                ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin-bottom:20px;font-size:14px;line-height:1.6;color:#991b1b;"><strong>Error:</strong> ${escapeHtml(body.error)}</div>`
+                : "",
+            hostname: body.hostname || "—",
+            server_url: serverUrl,
+            app_name: "HammerByte",
+        });
+        const subjectStatus = status === "ok" ? "completed" : status;
+        queueAlertEmails({
+            recipients,
+            subject: `Drive Sync ${subjectStatus} — ${serverName}: ${copied} synced / ${filesSeen} seen`,
+            html,
+            serverId: server.id,
+            kind: "drivesync_complete",
+        });
+    } catch (error) {
+        logger.error(`notifyDriveSyncAlertsIfNeeded: ${error}`);
+    }
+}
+
 export async function notifyServerMetricAlertsIfNeeded({ server, body }) {
     try {
         if (!server?.id || !body || typeof body !== "object") {

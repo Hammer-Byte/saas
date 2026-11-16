@@ -300,6 +300,20 @@
                                             <input type="password" class="form-control form-control-sm" id="<%= inputId %>" data-key="<%= field.key %>" data-type="password" data-label="<%= field.label %>" value="" autocomplete="new-password" placeholder="<%= config.password_set ? 'Saved — leave blank to keep' : 'Required' %>" />
                                             <div class="form-text"><%= config.password_set ? "A password is saved. Type a new one only to change it." : "No password saved yet." %></div>
                                         </div>
+                                    <% } else if (field.type === "bool") { %>
+                                        <div class="col-md-6">
+                                            <div class="form-check mt-4">
+                                                <input class="form-check-input" type="checkbox" id="<%= inputId %>" data-key="<%= field.key %>" data-type="bool" data-label="<%= field.label %>" <%= value ? "checked" : "" %> />
+                                                <label class="form-check-label small" for="<%= inputId %>"><%= field.label %></label>
+                                            </div>
+                                            <% if (field.help) { %><div class="form-text"><%= field.help %></div><% } %>
+                                        </div>
+                                    <% } else if (field.type === "lines") { %>
+                                        <div class="col-md-6">
+                                            <label class="form-label small" for="<%= inputId %>"><%= field.label %></label>
+                                            <textarea class="form-control form-control-sm font-monospace" id="<%= inputId %>" data-key="<%= field.key %>" data-type="lines" data-label="<%= field.label %>" rows="<%= field.rows || 4 %>" placeholder="<%= field.placeholder || '' %>" spellcheck="false"><%= Array.isArray(value) ? value.join('\n') : (value || '') %></textarea>
+                                            <% if (field.help) { %><div class="form-text"><%= field.help %></div><% } %>
+                                        </div>
                                     <% } else if (field.type === "checklist") { %>
                                         <div class="col-12">
                                             <div class="form-label small"><%= field.label %></div>
