@@ -93,13 +93,15 @@ const fields = [
         key: "alert_on_start",
         label: "Email when a sync cycle starts",
         type: "bool",
-        help: "Uses the Drive Sync alert recipients selected below.",
+        form: false,
+        help: "Configured in the Drive Sync Alerts card.",
     },
     {
         key: "alert_on_complete",
         label: "Email when a sync cycle finishes (with stats)",
         type: "bool",
-        help: "Includes copied / skipped / purged / failed counts and the next scheduled run time. Uses Drive Sync alert recipients below.",
+        form: false,
+        help: "Configured in the Drive Sync Alerts card.",
     },
 ];
 
@@ -243,8 +245,11 @@ function validate(input, previous = {}) {
         exclude_files: excludeFiles,
         alert_on_start: readBool(input, "alert_on_start", defaults.alert_on_start),
         alert_on_complete: readBool(input, "alert_on_complete", defaults.alert_on_complete),
-        alert_emails: readAlertEmails(input, previous, defaults.alert_emails),
     };
+    const alertEmails = readAlertEmails(input, previous);
+    if (alertEmails !== null) {
+        config.alert_emails = alertEmails;
+    }
     return { ok: errors.length === 0, config, errors };
 }
 

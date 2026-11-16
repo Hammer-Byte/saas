@@ -279,6 +279,7 @@
 
                             <div class="row g-3">
                                 <% tab.fields.forEach(function (field) {
+                                    if (field.form === false) { return; }
                                     const inputId = `${tab.id}-${field.key}`;
                                     const value = config[field.key];
                                 %>
@@ -348,71 +349,6 @@
                                     <% } %>
                                 <% }) %>
 
-                                <% if (tab.id === "drivesync") {
-                                    const dsSelectedEmails = Array.isArray(tab.alert_emails) ? tab.alert_emails : [];
-                                    const dsSelectedSet = {};
-                                    dsSelectedEmails.forEach(function (email) { dsSelectedSet[email] = true; });
-                                    const dsCandidates = Array.isArray(alertEmailCandidates) ? alertEmailCandidates : [];
-                                    const dsCustomer = dsCandidates.filter(function (c) { return c.source === "customer"; });
-                                    const dsAdmins = dsCandidates.filter(function (c) { return c.source === "super_admin"; });
-                                    const dsExtras = Array.isArray(tab.extra_alert_emails) ? tab.extra_alert_emails : [];
-                                %>
-                                    <div class="col-12 mt-2" data-key="alert_emails" data-type="alert_emails" data-label="Alert recipients" id="drivesync-alert-recipients">
-                                        <div class="form-label small mb-1">Drive Sync alert recipients</div>
-                                        <p class="form-text mt-0 mb-2">Start/complete emails go only to these addresses (independent of Monitoring recipients).</p>
-
-                                        <div class="mb-2">
-                                            <div class="small text-secondary mb-1">Customer</div>
-                                            <% if (!dsCustomer.length) { %>
-                                                <div class="small text-secondary"><%= server.project_id ? "No customer emails on the linked project." : "Link a project to see customer emails." %></div>
-                                            <% } else { %>
-                                                <div class="d-flex flex-column gap-1">
-                                                    <% dsCustomer.forEach(function (candidate, index) { %>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input drivesync-alert-email-check" type="checkbox" id="drivesync-alert-email-customer-<%= index %>" value="<%= candidate.email %>" data-source="customer" <%= dsSelectedSet[candidate.email] ? "checked" : "" %> />
-                                                            <label class="form-check-label small" for="drivesync-alert-email-customer-<%= index %>"><%= candidate.email %></label>
-                                                        </div>
-                                                    <% }) %>
-                                                </div>
-                                            <% } %>
-                                        </div>
-
-                                        <div class="mb-2">
-                                            <div class="small text-secondary mb-1">Super admins</div>
-                                            <% if (!dsAdmins.length) { %>
-                                                <div class="small text-secondary">No super-admin emails found.</div>
-                                            <% } else { %>
-                                                <div class="d-flex flex-column gap-1">
-                                                    <% dsAdmins.forEach(function (candidate, index) { %>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input drivesync-alert-email-check" type="checkbox" id="drivesync-alert-email-admin-<%= index %>" value="<%= candidate.email %>" data-source="super_admin" <%= dsSelectedSet[candidate.email] ? "checked" : "" %> />
-                                                            <label class="form-check-label small" for="drivesync-alert-email-admin-<%= index %>">
-                                                                <%= candidate.email %><% if (candidate.label) { %> <span class="text-secondary">(<%= candidate.label %>)</span><% } %>
-                                                            </label>
-                                                        </div>
-                                                    <% }) %>
-                                                </div>
-                                            <% } %>
-                                        </div>
-
-                                        <div class="mb-2">
-                                            <div class="small text-secondary mb-1">Additional emails</div>
-                                            <div class="d-flex flex-column gap-1 mb-2 drivesync-alert-email-extra-list">
-                                                <% dsExtras.forEach(function (email, index) { %>
-                                                    <div class="form-check drivesync-alert-email-extra-row">
-                                                        <input class="form-check-input drivesync-alert-email-check" type="checkbox" id="drivesync-alert-email-extra-<%= index %>" value="<%= email %>" data-source="extra" checked />
-                                                        <label class="form-check-label small" for="drivesync-alert-email-extra-<%= index %>"><%= email %></label>
-                                                        <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-2 drivesync-alert-email-extra-remove" aria-label="Remove">Remove</button>
-                                                    </div>
-                                                <% }) %>
-                                            </div>
-                                            <div class="input-group input-group-sm" style="max-width: 28rem;">
-                                                <input type="email" class="form-control drivesync-alert-email-extra-input" placeholder="ops@example.com" autocomplete="off" />
-                                                <button type="button" class="btn btn-outline-secondary drivesync-alert-email-extra-add">Add</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                <% } %>
                             </div>
 
                             <div class="d-flex align-items-center gap-3 mt-3">
@@ -425,140 +361,21 @@
                             const metricsRows = tab.results.filter(function (r) { return r.type === "metrics"; });
                             const snap = metricsRows.length ? metricsRows[0].data : null;
                             const monitorRunning = Boolean(row.enabled && row.state === "running");
-                            const alertCpuEnabled = Boolean(server.alert_cpu_enabled);
-                            const alertMemoryEnabled = Boolean(
-                                server.alert_memory_enabled != null ? server.alert_memory_enabled : server.alert,
-                            );
-                            const alertPingEnabled = Boolean(server.alert_ping_enabled);
-                            const alertCpuPercent = Number(server.alert_cpu_percent);
-                            const alertMemoryPercent = Number(server.alert_memory_percent);
-                            const alertPingSeconds = Number(server.alert_ping_seconds);
                         %>
                             <% if (monitorRunning) { %>
-                                <div class="border rounded p-3 mb-4 bg-white" id="server-alerts-card" data-server-id="<%= server.id %>">
-                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                                        <h3 class="h6 mb-0">Alerts</h3>
-                                        <div class="d-flex gap-2 align-items-center">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary server-icon-btn" id="server-alerts-edit-btn" title="Edit alerts" aria-label="Edit alerts">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                                                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>
-                                                </svg>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="server-alerts-cancel-btn">Cancel</button>
-                                            <button type="button" class="btn btn-sm btn-primary d-none" id="server-alerts-save-btn">Save</button>
-                                        </div>
-                                    </div>
-                                    <p class="form-text mt-0 mb-3">Email when CPU or memory from this service exceeds the limit, or when the agent stops polling (heartbeat).</p>
-                                    <table class="table table-sm align-middle mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th scope="col">Alert</th>
-                                                <th scope="col">Threshold</th>
-                                                <th scope="col">On</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td>CPU usage</td>
-                                                <td>
-                                                    <div class="input-group input-group-sm" style="max-width: 9rem;">
-                                                        <input type="number" class="form-control" id="alert-cpu-percent" min="1" max="100" value="<%= Number.isFinite(alertCpuPercent) ? alertCpuPercent : 80 %>" disabled />
-                                                        <span class="input-group-text">%</span>
-                                                    </div>
-                                                </td>
-                                                <td><input class="form-check-input" type="checkbox" id="alert-cpu-enabled" <%= alertCpuEnabled ? "checked" : "" %> disabled /></td>
-                                            </tr>
-                                            <tr>
-                                                <td>Memory usage</td>
-                                                <td>
-                                                    <div class="input-group input-group-sm" style="max-width: 9rem;">
-                                                        <input type="number" class="form-control" id="alert-memory-percent" min="1" max="100" value="<%= Number.isFinite(alertMemoryPercent) ? alertMemoryPercent : 80 %>" disabled />
-                                                        <span class="input-group-text">%</span>
-                                                    </div>
-                                                </td>
-                                                <td><input class="form-check-input" type="checkbox" id="alert-memory-enabled" <%= alertMemoryEnabled ? "checked" : "" %> disabled /></td>
-                                            </tr>
-                                            <tr>
-                                                <td>Agent silent</td>
-                                                <td>
-                                                    <div class="input-group input-group-sm" style="max-width: 12rem;">
-                                                        <input type="number" class="form-control" id="alert-ping-seconds" min="60" max="604800" value="<%= Number.isFinite(alertPingSeconds) ? alertPingSeconds : 180 %>" disabled />
-                                                        <span class="input-group-text">seconds</span>
-                                                    </div>
-                                                    <div class="form-text">Email when the agent has not polled for this long (it polls every 10s).</div>
-                                                </td>
-                                                <td><input class="form-check-input" type="checkbox" id="alert-ping-enabled" <%= alertPingEnabled ? "checked" : "" %> disabled /></td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-
-                                    <%
-                                        const selectedAlertEmails = Array.isArray(tab.alert_emails) ? tab.alert_emails : [];
-                                        const selectedAlertSet = {};
-                                        selectedAlertEmails.forEach(function (email) { selectedAlertSet[email] = true; });
-                                        const candidates = Array.isArray(alertEmailCandidates) ? alertEmailCandidates : [];
-                                        const customerCandidates = candidates.filter(function (c) { return c.source === "customer"; });
-                                        const adminCandidates = candidates.filter(function (c) { return c.source === "super_admin"; });
-                                        const extras = Array.isArray(tab.extra_alert_emails) ? tab.extra_alert_emails : [];
-                                    %>
-                                    <div class="mt-4" id="alert-recipients-section">
-                                        <div class="form-label small mb-1">Monitoring alert recipients</div>
-                                        <p class="form-text mt-0 mb-2">CPU, memory, and agent-silent emails go only to these addresses. Drive Sync has its own recipient list.</p>
-
-                                        <div class="mb-2">
-                                            <div class="small text-secondary mb-1">Customer</div>
-                                            <% if (!customerCandidates.length) { %>
-                                                <div class="small text-secondary"><%= server.project_id ? "No customer emails on the linked project." : "Link a project to see customer emails." %></div>
-                                            <% } else { %>
-                                                <div class="d-flex flex-column gap-1" id="alert-email-customer-list">
-                                                    <% customerCandidates.forEach(function (candidate, index) { %>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input alert-email-check" type="checkbox" id="alert-email-customer-<%= index %>" value="<%= candidate.email %>" data-source="customer" <%= selectedAlertSet[candidate.email] ? "checked" : "" %> disabled />
-                                                            <label class="form-check-label small" for="alert-email-customer-<%= index %>"><%= candidate.email %></label>
-                                                        </div>
-                                                    <% }) %>
-                                                </div>
-                                            <% } %>
-                                        </div>
-
-                                        <div class="mb-2">
-                                            <div class="small text-secondary mb-1">Super admins</div>
-                                            <% if (!adminCandidates.length) { %>
-                                                <div class="small text-secondary">No super-admin emails found.</div>
-                                            <% } else { %>
-                                                <div class="d-flex flex-column gap-1" id="alert-email-admin-list">
-                                                    <% adminCandidates.forEach(function (candidate, index) { %>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input alert-email-check" type="checkbox" id="alert-email-admin-<%= index %>" value="<%= candidate.email %>" data-source="super_admin" <%= selectedAlertSet[candidate.email] ? "checked" : "" %> disabled />
-                                                            <label class="form-check-label small" for="alert-email-admin-<%= index %>">
-                                                                <%= candidate.email %><% if (candidate.label) { %> <span class="text-secondary">(<%= candidate.label %>)</span><% } %>
-                                                            </label>
-                                                        </div>
-                                                    <% }) %>
-                                                </div>
-                                            <% } %>
-                                        </div>
-
-                                        <div class="mb-2">
-                                            <div class="small text-secondary mb-1">Additional emails</div>
-                                            <div class="d-flex flex-column gap-1 mb-2" id="alert-email-extra-list">
-                                                <% extras.forEach(function (email, index) { %>
-                                                    <div class="form-check alert-email-extra-row">
-                                                        <input class="form-check-input alert-email-check" type="checkbox" id="alert-email-extra-<%= index %>" value="<%= email %>" data-source="extra" checked disabled />
-                                                        <label class="form-check-label small" for="alert-email-extra-<%= index %>"><%= email %></label>
-                                                        <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-2 alert-email-extra-remove d-none" aria-label="Remove">Remove</button>
-                                                    </div>
-                                                <% }) %>
-                                            </div>
-                                            <div class="input-group input-group-sm" style="max-width: 28rem;">
-                                                <input type="email" class="form-control" id="alert-email-extra-input" placeholder="ops@example.com" disabled autocomplete="off" />
-                                                <button type="button" class="btn btn-outline-secondary" id="alert-email-extra-add" disabled>Add</button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div id="server-alert-feedback" class="small text-secondary d-none mt-2" role="status"></div>
-                                </div>
+                                <%- include('partials/service_alerts_card', {
+                                    serviceId: "monitor",
+                                    saveMode: "monitor",
+                                    server: server,
+                                    cardTitle: "Alerts",
+                                    introText: "Email when CPU or memory from this service exceeds the limit, or when the agent stops polling (heartbeat).",
+                                    bodyPartial: "partials/service_alerts_monitor_body",
+                                    bodyLocals: { server: server },
+                                    selectedEmails: tab.alert_emails,
+                                    extraEmails: tab.extra_alert_emails,
+                                    candidates: alertEmailCandidates,
+                                    recipientsHelp: "CPU, memory, and agent-silent emails go only to these addresses. Each service has its own recipient list.",
+                                }) %>
                             <% } else if (row.enabled) { %>
                                 <p class="text-secondary small mb-4">Alerts appear here once Monitoring is running on the machine.</p>
                             <% } else { %>
@@ -728,6 +545,19 @@
                         <% } else if (tab.id === "drivesync") {
                             const runs = tab.results.filter(function (r) { return r.type === "sync_run"; });
                         %>
+                            <%- include('partials/service_alerts_card', {
+                                serviceId: "drivesync",
+                                saveMode: "service",
+                                server: server,
+                                cardTitle: "Alerts",
+                                introText: "Email when a Drive Sync cycle starts or finishes. Recipients are independent of Monitoring.",
+                                bodyPartial: "partials/service_alerts_drivesync_body",
+                                bodyLocals: { config: config },
+                                selectedEmails: tab.alert_emails,
+                                extraEmails: tab.extra_alert_emails,
+                                candidates: alertEmailCandidates,
+                                recipientsHelp: "Start/complete emails go only to these addresses.",
+                            }) %>
                             <h3 class="h6 mb-2">Sync runs</h3>
                             <% if (!runs.length) { %>
                                 <p class="text-secondary">No sync runs received yet.</p>
@@ -847,5 +677,6 @@
 <script src="/public/utils.js" defer></script>
 <script src="/public/server.js" defer></script>
 <script src="/public/server-agent.js" defer></script>
+<script src="/public/server-service-alerts.js" defer></script>
 
 <%- include('common/footer') %>

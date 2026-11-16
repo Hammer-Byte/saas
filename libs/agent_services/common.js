@@ -73,7 +73,9 @@ export function normalizeServiceAlertEmails(value) {
 
 /**
  * Read alert_emails from form input, preserving previous when the key is omitted
- * (e.g. monitor service form does not include the recipients picker).
+ * (e.g. main service form does not include the recipients picker).
+ * Returns null when neither input nor previous defines the key so callers can omit
+ * it and keep the legacy SERVERS.alert_emails fallback.
  */
 export function readAlertEmails(input, previous, fallback = []) {
     if (input != null && Object.prototype.hasOwnProperty.call(input, "alert_emails")) {
@@ -82,7 +84,10 @@ export function readAlertEmails(input, previous, fallback = []) {
     if (previous != null && Object.prototype.hasOwnProperty.call(previous, "alert_emails")) {
         return normalizeServiceAlertEmails(previous.alert_emails);
     }
-    return normalizeServiceAlertEmails(fallback);
+    if (fallback === undefined) {
+        return null;
+    }
+    return null;
 }
 
 /**

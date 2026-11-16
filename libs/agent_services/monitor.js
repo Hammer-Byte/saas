@@ -81,8 +81,11 @@ function validate(input, previous = {}) {
             errors,
             label: "Top processes",
         }),
-        alert_emails: readAlertEmails(input, previous, defaults.alert_emails),
     };
+    const alertEmails = readAlertEmails(input, previous);
+    if (alertEmails !== null) {
+        config.alert_emails = alertEmails;
+    }
     if (!Object.values(config.metrics).some(Boolean)) {
         errors.push("Select at least one metric");
     }

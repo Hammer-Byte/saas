@@ -6,6 +6,7 @@ import {
     updateMonitoredServer,
     updateServerAgent,
     updateServerApproval,
+    updateServerServiceAlerts,
     updateServerServiceConfig,
 } from "../../services/servers.js";
 
@@ -52,6 +53,21 @@ export default function (app) {
             detail: {
                 tags: ["Monitored Servers"],
                 summary: "Enable/disable a service and save its config",
+            },
+        })
+        .patch("/:id/services/:service/alerts", updateServerServiceAlerts, {
+            params: t.Object({
+                id: t.Numeric({ minimum: 1 }),
+                service: t.String({ minLength: 1, maxLength: 32 }),
+            }),
+            body: t.Object({
+                alert_emails: t.Optional(t.Array(t.String({ maxLength: 254 }), { maxItems: 50 })),
+                alert_on_start: t.Optional(t.Boolean()),
+                alert_on_complete: t.Optional(t.Boolean()),
+            }),
+            detail: {
+                tags: ["Monitored Servers"],
+                summary: "Update alert recipients and service-specific alert flags",
             },
         })
         .get("/", getMonitoredServers, {

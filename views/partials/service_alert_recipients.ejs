@@ -1,0 +1,65 @@
+<%
+    const selectedEmailsList = Array.isArray(selectedEmails) ? selectedEmails : [];
+    const selectedSet = {};
+    selectedEmailsList.forEach(function (email) { selectedSet[email] = true; });
+    const candidateList = Array.isArray(candidates) ? candidates : [];
+    const customerCandidates = candidateList.filter(function (c) { return c.source === "customer"; });
+    const adminCandidates = candidateList.filter(function (c) { return c.source === "super_admin"; });
+    const extras = Array.isArray(extraEmails) ? extraEmails : [];
+    const sid = String(serviceId || "service");
+%>
+<div class="mt-4 service-alert-recipients">
+    <div class="form-label small mb-1">Alert recipients</div>
+    <p class="form-text mt-0 mb-2"><%= helpText || "No one is emailed until you select or add recipients and save." %></p>
+
+    <div class="mb-2">
+        <div class="small text-secondary mb-1">Customer</div>
+        <% if (!customerCandidates.length) { %>
+            <div class="small text-secondary"><%= server.project_id ? "No customer emails on the linked project." : "Link a project to see customer emails." %></div>
+        <% } else { %>
+            <div class="d-flex flex-column gap-1">
+                <% customerCandidates.forEach(function (candidate, index) { %>
+                    <div class="form-check">
+                        <input class="form-check-input alert-email-check" type="checkbox" id="<%= sid %>-alert-email-customer-<%= index %>" value="<%= candidate.email %>" data-source="customer" <%= selectedSet[candidate.email] ? "checked" : "" %> disabled />
+                        <label class="form-check-label small" for="<%= sid %>-alert-email-customer-<%= index %>"><%= candidate.email %></label>
+                    </div>
+                <% }) %>
+            </div>
+        <% } %>
+    </div>
+
+    <div class="mb-2">
+        <div class="small text-secondary mb-1">Super admins</div>
+        <% if (!adminCandidates.length) { %>
+            <div class="small text-secondary">No super-admin emails found.</div>
+        <% } else { %>
+            <div class="d-flex flex-column gap-1">
+                <% adminCandidates.forEach(function (candidate, index) { %>
+                    <div class="form-check">
+                        <input class="form-check-input alert-email-check" type="checkbox" id="<%= sid %>-alert-email-admin-<%= index %>" value="<%= candidate.email %>" data-source="super_admin" <%= selectedSet[candidate.email] ? "checked" : "" %> disabled />
+                        <label class="form-check-label small" for="<%= sid %>-alert-email-admin-<%= index %>">
+                            <%= candidate.email %><% if (candidate.label) { %> <span class="text-secondary">(<%= candidate.label %>)</span><% } %>
+                        </label>
+                    </div>
+                <% }) %>
+            </div>
+        <% } %>
+    </div>
+
+    <div class="mb-2">
+        <div class="small text-secondary mb-1">Additional emails</div>
+        <div class="d-flex flex-column gap-1 mb-2 alert-email-extra-list">
+            <% extras.forEach(function (email, index) { %>
+                <div class="form-check alert-email-extra-row">
+                    <input class="form-check-input alert-email-check" type="checkbox" id="<%= sid %>-alert-email-extra-<%= index %>" value="<%= email %>" data-source="extra" checked disabled />
+                    <label class="form-check-label small" for="<%= sid %>-alert-email-extra-<%= index %>"><%= email %></label>
+                    <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-2 alert-email-extra-remove d-none" aria-label="Remove">Remove</button>
+                </div>
+            <% }) %>
+        </div>
+        <div class="input-group input-group-sm" style="max-width: 28rem;">
+            <input type="email" class="form-control alert-email-extra-input" placeholder="ops@example.com" disabled autocomplete="off" />
+            <button type="button" class="btn btn-outline-secondary alert-email-extra-add" disabled>Add</button>
+        </div>
+    </div>
+</div>

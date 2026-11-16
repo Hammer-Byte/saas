@@ -96,12 +96,6 @@
                     .split(/\r?\n/)
                     .map((line) => line.trim())
                     .filter(Boolean);
-            } else if (type === "alert_emails") {
-                config[key] = Array.from(
-                    element.querySelectorAll(".drivesync-alert-email-check:checked"),
-                )
-                    .map((input) => String(input.value || "").trim().toLowerCase())
-                    .filter((email, index, list) => email && list.indexOf(email) === index);
             } else if (type === "checklist") {
                 config[key] = {};
                 element.querySelectorAll("[data-option]").forEach((checkbox) => {
@@ -191,49 +185,6 @@
             if (removeButton) {
                 removeButton.closest(".pair-row").remove();
                 refreshEnableState(form);
-                return;
-            }
-
-            const dsRemove = event.target.closest(".drivesync-alert-email-extra-remove");
-            if (dsRemove) {
-                dsRemove.closest(".drivesync-alert-email-extra-row")?.remove();
-                return;
-            }
-
-            const dsAdd = event.target.closest(".drivesync-alert-email-extra-add");
-            if (dsAdd) {
-                const root = form.querySelector("#drivesync-alert-recipients");
-                if (!root) return;
-                const input = root.querySelector(".drivesync-alert-email-extra-input");
-                const list = root.querySelector(".drivesync-alert-email-extra-list");
-                const email = String(input?.value || "")
-                    .trim()
-                    .toLowerCase();
-                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                    setFeedback(form, "Enter a valid email address for Drive Sync alerts.", true);
-                    return;
-                }
-                const existing = Array.from(
-                    root.querySelectorAll(".drivesync-alert-email-check"),
-                ).find((check) => String(check.value || "").toLowerCase() === email);
-                if (existing) {
-                    existing.checked = true;
-                    if (input) input.value = "";
-                    setFeedback(form, "Email already listed; selected.", false);
-                    return;
-                }
-                const index = list.querySelectorAll(".drivesync-alert-email-extra-row").length;
-                const row = document.createElement("div");
-                row.className = "form-check drivesync-alert-email-extra-row";
-                const inputId = `drivesync-alert-email-extra-dyn-${index}`;
-                row.innerHTML = `
-                    <input class="form-check-input drivesync-alert-email-check" type="checkbox" id="${inputId}" value="${email}" data-source="extra" checked />
-                    <label class="form-check-label small" for="${inputId}">${email}</label>
-                    <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-2 drivesync-alert-email-extra-remove" aria-label="Remove">Remove</button>
-                `;
-                list.appendChild(row);
-                if (input) input.value = "";
-                setFeedback(form, "Email added.", false);
             }
         });
 

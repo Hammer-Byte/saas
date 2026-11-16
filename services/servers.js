@@ -161,6 +161,89 @@ export async function updateServerServiceConfig({ params, body, set }) {
     };
 }
 
+/** Alert settings only (emails + service alert flags). Does not require the full sync form. */
+const SERVICE_ALERT_KEYS = {
+    drivesync: ["alert_on_start", "alert_on_complete", "alert_emails"],
+    monitor: ["alert_emails"],
+};
+
+const SERVICE_ALERT_AGENT_KEYS = {
+    drivesync: ["alert_on_start", "alert_on_complete"],
+};
+
+export async function updateServerServiceAlerts({ params, body, set }) {
+    const server = await getServerById({ id: params.id });
+    if (!server) {
+        set.status = 404;
+        return { error: "Server not found" };
+    }
+    const definition = getAgentService(params.service);
+    if (!definition) {
+        set.status = 404;
+        return { error: "Unknown service" };
+    }
+    const allowKeys = SERVICE_ALERT_KEYS[definition.id];
+    if (!allowKeys) {
+        set.status = 400;
+        return { error: "This service does not support alert settings yet" };
+    }
+
+    await ensureServerService({
+        server_id: server.id,
+        service: definition.id,
+        config: getDefaultConfig(definition.id),
+    });
+    const row = await getServerService({ server_id: server.id, service: definition.id });
+    if (!row) {
+        set.status = 500;
+        return { error: "Failed to load service" };
+    }
+
+    const patch = {};
+    for (const key of allowKeys) {
+        if (body[key] !== undefined) {
+            patch[key] = body[key];
+        }
+    }
+    if (Object.keys(patch).length === 0) {
+        set.status = 400;
+        return { error: "No alert settings provided" };
+    }
+
+    const mergedInput = { ...(row.config || {}), ...patch };
+    const result = definition.validate(mergedInput, row.config);
+    if (!result.ok) {
+        set.status = 400;
+        return { error: "Configuration is invalid", errors: result.errors };
+    }
+
+    const nextConfig = result.config;
+    const agentKeys = SERVICE_ALERT_AGENT_KEYS[definition.id] || [];
+    const agentFacingChanged = agentKeys.some(
+        (key) => JSON.stringify(nextConfig[key]) !== JSON.stringify(row.config?.[key]),
+    );
+    const changed = JSON.stringify(nextConfig) !== JSON.stringify(row.config);
+
+    await updateServerServiceSettings({
+        id: row.id,
+        enabled: row.enabled,
+        config: nextConfig,
+        bump_version: agentFacingChanged,
+    });
+
+    const saved = await getServerService({ server_id: server.id, service: definition.id });
+    set.status = 200;
+    return {
+        message: agentFacingChanged
+            ? "Alert settings saved - agent will restart the service"
+            : changed
+              ? "Alert settings saved"
+              : "Saved",
+        config: definition.maskForBrowser(saved?.config || {}),
+        alert_emails: normalizeServiceAlertEmails(saved?.config?.alert_emails),
+    };
+}
+
 export async function updateMonitoredServer({ body, set }) {
     const server = await getServerById({ id: body.id });
     if (!server) {
