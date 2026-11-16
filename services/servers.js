@@ -3,7 +3,7 @@ import {
     getAllServers,
     getServerById,
     parseAlertEmailsColumn,
-    updateServerAgentActiveById,
+    updateServerAgentSettingsById,
     updateServerAlertById,
     updateServerAlertSettingsById,
     updateServerApprovalById,
@@ -24,6 +24,8 @@ function decorateServer(server) {
         alert_memory_enabled: Boolean(server.alert_memory_enabled),
         alert_ping_enabled: Boolean(server.alert_ping_enabled),
         alert_emails: parseAlertEmailsColumn(server.alert_emails),
+        poll_seconds: Number(server.poll_seconds) > 0 ? Number(server.poll_seconds) : 10,
+        log_retention_days: Number(server.log_retention_days) > 0 ? Number(server.log_retention_days) : 14,
     };
 }
 import { getServerMetricsByServerId } from "../db/server_metrics.js";
@@ -95,11 +97,51 @@ export async function updateServerAgent({ params, body, set }) {
         set.status = 404;
         return { error: "Server not found" };
     }
-    await updateServerAgentActiveById({ id: server.id, agent_active: body.agent_active });
+
+    let pollSeconds = null;
+    let logRetentionDays = null;
+    if (body.poll_seconds !== undefined) {
+        const value = Number(body.poll_seconds);
+        if (!Number.isInteger(value) || value < 5 || value > 300) {
+            set.status = 400;
+            return { error: "poll_seconds must be an integer from 5 to 300" };
+        }
+        pollSeconds = value;
+    }
+    if (body.log_retention_days !== undefined) {
+        const value = Number(body.log_retention_days);
+        if (!Number.isInteger(value) || value < 1 || value > 90) {
+            set.status = 400;
+            return { error: "log_retention_days must be an integer from 1 to 90" };
+        }
+        logRetentionDays = value;
+    }
+
+    const result = await updateServerAgentSettingsById({
+        id: server.id,
+        agent_active: body.agent_active,
+        poll_seconds: pollSeconds,
+        log_retention_days: logRetentionDays,
+    });
+    if (!result.ok) {
+        set.status = 500;
+        const message = String(result.error?.message || result.error || "");
+        if (/Unknown column.*(poll_seconds|log_retention_days)/i.test(message)) {
+            return {
+                error: "Failed to save agent settings. Run: ALTER TABLE SERVERS ADD COLUMN poll_seconds INT NOT NULL DEFAULT 10, ADD COLUMN log_retention_days INT NOT NULL DEFAULT 14;",
+            };
+        }
+        return { error: "Failed to save agent settings" };
+    }
+
     set.status = 200;
+    let message = body.agent_active ? "Agent activated" : "Agent paused";
+    if (pollSeconds != null || logRetentionDays != null) {
+        message = "Agent settings saved";
+    }
     return {
-        message: body.agent_active ? "Agent activated" : "Agent paused",
-        server: await getServerById({ id: server.id }),
+        message,
+        server: decorateServer(await getServerById({ id: server.id })),
     };
 }
 

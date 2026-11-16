@@ -1097,12 +1097,35 @@ function Repair-HbStaleUpdateState {
 
 # ================================================================ main loop
 
+function Apply-HbSupervisorSettings {
+    param($Desired)
+    if ($null -eq $Desired) {
+        return
+    }
+    $poll = Get-HbInt -Map $Desired -Key 'poll_seconds' -Default $script:PollSeconds -Min 5 -Max 300
+    if ($poll -ne $script:PollSeconds) {
+        Write-HbLog ('poll interval set to ' + $poll + 's')
+        $script:PollSeconds = $poll
+    } else {
+        $script:PollSeconds = $poll
+    }
+    $days = Get-HbInt -Map $Desired -Key 'log_retention_days' -Default $script:HbLogRetentionDays -Min 1 -Max 90
+    if ($days -ne $script:HbLogRetentionDays) {
+        Write-HbLog ('log retention set to ' + $days + ' day(s)')
+    }
+    $script:HbLogRetentionDays = $days
+    try {
+        Write-HbTextFile -Path (Join-Path $script:HbRunDir 'log-retention-days.txt') -Text ([string]$days)
+    } catch {}
+}
+
 function Invoke-HbAgentTick {
     Update-HbChildStates
     $desired = Get-HbDesiredState
     if ($null -eq $desired) {
         return
     }
+    Apply-HbSupervisorSettings -Desired $desired
     if (-not (Get-HbBool -Map $desired -Key 'approved') -or -not (Get-HbBool -Map $desired -Key 'agent_active')) {
         foreach ($id in @($script:Children.Keys)) {
             if (Test-HbChildRunning -Child $script:Children[$id]) {
@@ -1185,6 +1208,7 @@ function Start-HbAgentLoop {
             $script:Desired = $cached
             $script:Etag = [string](Get-HbValue -Map $cached -Key 'etag' -Default '')
             Write-HbLog 'loaded cached desired state'
+            Apply-HbSupervisorSettings -Desired $cached
         }
 
         while (-not $script:ExitRequested) {

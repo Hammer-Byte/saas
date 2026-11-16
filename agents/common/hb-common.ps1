@@ -32,9 +32,25 @@ function Get-HbIstStamp {
 
 # ---------------------------------------------------------------- logging
 
+function Get-HbEffectiveLogRetentionDays {
+    # Agent writes run\log-retention-days.txt so child services share the same retention.
+    $file = Join-Path $script:HbRunDir 'log-retention-days.txt'
+    try {
+        if ([IO.File]::Exists($file)) {
+            $raw = [IO.File]::ReadAllText($file).Trim()
+            $days = 0
+            if ([int]::TryParse($raw, [ref]$days) -and $days -ge 1 -and $days -le 90) {
+                return $days
+            }
+        }
+    } catch {}
+    return [int]$script:HbLogRetentionDays
+}
+
 function Remove-HbOldLogs {
     try {
-        $cutoff = [DateTime]::UtcNow.AddDays(-$script:HbLogRetentionDays)
+        $days = Get-HbEffectiveLogRetentionDays
+        $cutoff = [DateTime]::UtcNow.AddDays(-$days)
         $pattern = $script:HbLogName + '-*.log'
         foreach ($file in @(Get-ChildItem -LiteralPath $script:HbLogDir -Filter $pattern -ErrorAction SilentlyContinue)) {
             if ($file.LastWriteTimeUtc -lt $cutoff) {

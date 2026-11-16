@@ -50,9 +50,13 @@
     });
 
     const activeToggle = document.getElementById("agent-active-toggle");
+    const pollInput = document.getElementById("agent-poll-seconds");
+    const retentionInput = document.getElementById("agent-log-retention-days");
+    const settingsSaveBtn = document.getElementById("agent-settings-save-btn");
+
     activeToggle?.addEventListener("change", async () => {
         const next = activeToggle.checked;
-        if (!next && !window.confirm("Pause the agent? Every service on this machine stops within about 10 seconds.")) {
+        if (!next && !window.confirm("Pause the agent? Every service on this machine stops within about one poll interval.")) {
             activeToggle.checked = true;
             return;
         }
@@ -71,6 +75,37 @@
             showPageAlert("Failed to update agent.", "danger");
         } finally {
             activeToggle.disabled = false;
+        }
+    });
+
+    settingsSaveBtn?.addEventListener("click", async () => {
+        const pollSeconds = Number(pollInput?.value);
+        const logRetentionDays = Number(retentionInput?.value);
+        if (!Number.isInteger(pollSeconds) || pollSeconds < 5 || pollSeconds > 300) {
+            showPageAlert("Poll interval must be an integer from 5 to 300.", "danger");
+            return;
+        }
+        if (!Number.isInteger(logRetentionDays) || logRetentionDays < 1 || logRetentionDays > 90) {
+            showPageAlert("Log retention must be an integer from 1 to 90.", "danger");
+            return;
+        }
+        settingsSaveBtn.disabled = true;
+        try {
+            const { ok, data } = await send(`/api/monitored-servers/${serverId}/agent`, {
+                agent_active: Boolean(activeToggle?.checked),
+                poll_seconds: pollSeconds,
+                log_retention_days: logRetentionDays,
+            });
+            if (!ok) {
+                showPageAlert(data.error || "Failed to save agent settings.", "danger");
+                return;
+            }
+            showPageAlert(data.message || "Agent settings saved.", "success");
+        } catch (error) {
+            console.error(error);
+            showPageAlert("Failed to save agent settings.", "danger");
+        } finally {
+            settingsSaveBtn.disabled = false;
         }
     });
 

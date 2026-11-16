@@ -39,6 +39,22 @@ function text(value, max) {
     return trimmed ? trimmed.slice(0, max) : null;
 }
 
+function clampInt(value, min, max, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+        return fallback;
+    }
+    return Math.min(max, Math.max(min, Math.round(number)));
+}
+
+export function readServerPollSeconds(server) {
+    return clampInt(server?.poll_seconds, 5, 300, 10);
+}
+
+export function readServerLogRetentionDays(server) {
+    return clampInt(server?.log_retention_days, 1, 90, 14);
+}
+
 function intOrNull(value) {
     const n = Number(value);
     return Number.isFinite(n) ? Math.trunc(n) : null;
@@ -112,6 +128,8 @@ function buildDesiredState({ server, rows, releases }) {
         approved,
         approval_status: server.approval_status,
         agent_active: agentActive,
+        poll_seconds: readServerPollSeconds(server),
+        log_retention_days: readServerLogRetentionDays(server),
         agent:
             approved && agentRelease
                 ? {

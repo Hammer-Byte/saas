@@ -180,6 +180,58 @@ export async function updateServerAgentActiveById({ id, agent_active }) {
     });
 }
 
+/** Update agent active flag and optional poll / log retention settings. */
+export async function updateServerAgentSettingsById({
+    id,
+    agent_active,
+    poll_seconds = null,
+    log_retention_days = null,
+}) {
+    try {
+        if (poll_seconds != null && log_retention_days != null) {
+            await executeSQLQuery(
+                (sql) => sql`
+                    UPDATE SERVERS
+                    SET agent_active = ${Boolean(agent_active)},
+                        poll_seconds = ${poll_seconds},
+                        log_retention_days = ${log_retention_days}
+                    WHERE id = ${id}
+                `,
+            );
+        } else if (poll_seconds != null) {
+            await executeSQLQuery(
+                (sql) => sql`
+                    UPDATE SERVERS
+                    SET agent_active = ${Boolean(agent_active)},
+                        poll_seconds = ${poll_seconds}
+                    WHERE id = ${id}
+                `,
+            );
+        } else if (log_retention_days != null) {
+            await executeSQLQuery(
+                (sql) => sql`
+                    UPDATE SERVERS
+                    SET agent_active = ${Boolean(agent_active)},
+                        log_retention_days = ${log_retention_days}
+                    WHERE id = ${id}
+                `,
+            );
+        } else {
+            await executeSQLQuery(
+                (sql) => sql`
+                    UPDATE SERVERS
+                    SET agent_active = ${Boolean(agent_active)}
+                    WHERE id = ${id}
+                `,
+            );
+        }
+        return { ok: true };
+    } catch (error) {
+        logger.error(`updateServerAgentSettingsById: ${error}`);
+        return { ok: false, error };
+    }
+}
+
 export async function updateServerNameById({ id, name = null }) {
     await executeSQLQuery(
         (sql) => sql`

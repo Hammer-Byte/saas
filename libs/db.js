@@ -924,6 +924,8 @@ export async function generateDBTables() {
             active BOOLEAN NOT NULL DEFAULT TRUE,
             approval_status VARCHAR(16) NOT NULL DEFAULT 'approved',
             agent_active BOOLEAN NOT NULL DEFAULT TRUE,
+            poll_seconds INT NOT NULL DEFAULT 10,
+            log_retention_days INT NOT NULL DEFAULT 14,
             last_poll_at DATETIME NULL,
             hostname VARCHAR(128) NULL,
             os_caption VARCHAR(128) NULL,

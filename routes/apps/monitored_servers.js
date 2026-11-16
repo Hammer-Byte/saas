@@ -35,10 +35,14 @@ export default function (app) {
         })
         .patch("/:id/agent", updateServerAgent, {
             params: t.Object({ id: t.Numeric({ minimum: 1 }) }),
-            body: t.Object({ agent_active: t.Boolean() }),
+            body: t.Object({
+                agent_active: t.Boolean(),
+                poll_seconds: t.Optional(t.Integer({ minimum: 5, maximum: 300 })),
+                log_retention_days: t.Optional(t.Integer({ minimum: 1, maximum: 90 })),
+            }),
             detail: {
                 tags: ["Monitored Servers"],
-                summary: "Activate or pause the agent (paused agents stop all services)",
+                summary: "Activate/pause the agent and optionally set poll interval and log retention",
             },
         })
         .patch("/:id/services/:service", updateServerServiceConfig, {

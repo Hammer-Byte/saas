@@ -8,13 +8,19 @@ import { resolveServiceAlertEmails } from "./agent_services/common.js";
 import { describeAgentServices, getAgentService } from "./agent_services/index.js";
 import { listServerAlertCandidates } from "./server_alert_notify.js";
 
-/** An agent polls every 10s; three missed polls means offline. */
-const ONLINE_WINDOW_SECONDS = 35;
+/** Default online window for the default 10s poll (three missed polls + slack). */
+const DEFAULT_ONLINE_WINDOW_SECONDS = 35;
+
+function onlineWindowSeconds(server) {
+    const poll = Number(server.poll_seconds);
+    const pollSeconds = Number.isFinite(poll) && poll > 0 ? poll : 10;
+    return Math.max(DEFAULT_ONLINE_WINDOW_SECONDS, pollSeconds * 3 + 5);
+}
 
 function agentStatus(server) {
     const age = server.seconds_since_poll == null ? null : Math.max(0, Number(server.seconds_since_poll));
     return {
-        online: age != null && age <= ONLINE_WINDOW_SECONDS,
+        online: age != null && age <= onlineWindowSeconds(server),
         seconds_since_poll: age,
     };
 }
