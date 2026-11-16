@@ -232,6 +232,41 @@ function clampPingSeconds(value, fallback = 180) {
     return Math.min(604800, Math.max(60, Math.round(n)));
 }
 
+const ALERT_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Normalize to unique lowercase emails; returns null when empty (stored as SQL NULL). */
+export function normalizeAlertEmails(value) {
+    const list = Array.isArray(value) ? value : [];
+    const seen = new Set();
+    const emails = [];
+    for (const entry of list) {
+        const email = String(entry || "")
+            .trim()
+            .toLowerCase();
+        if (!email || !ALERT_EMAIL_PATTERN.test(email) || seen.has(email)) {
+            continue;
+        }
+        seen.add(email);
+        emails.push(email);
+    }
+    return emails.length ? emails : null;
+}
+
+export function parseAlertEmailsColumn(value) {
+    if (value == null || value === "") {
+        return [];
+    }
+    if (Array.isArray(value)) {
+        return normalizeAlertEmails(value) || [];
+    }
+    try {
+        const parsed = typeof value === "string" ? JSON.parse(value) : value;
+        return normalizeAlertEmails(parsed) || [];
+    } catch {
+        return [];
+    }
+}
+
 export async function updateServerAlertSettingsById({
     id,
     alert_cpu_enabled,
@@ -240,6 +275,7 @@ export async function updateServerAlertSettingsById({
     alert_memory_percent,
     alert_ping_enabled,
     alert_ping_seconds,
+    alert_emails,
 }) {
     const cpuEnabled = Boolean(alert_cpu_enabled);
     const memoryEnabled = Boolean(alert_memory_enabled);
@@ -247,6 +283,8 @@ export async function updateServerAlertSettingsById({
     const cpuPercent = clampPercent(alert_cpu_percent, 80);
     const memoryPercent = clampPercent(alert_memory_percent, 80);
     const pingSeconds = clampPingSeconds(alert_ping_seconds, 180);
+    const emails = normalizeAlertEmails(alert_emails);
+    const emailsJson = emails ? JSON.stringify(emails) : null;
 
     await executeSQLQuery(
         (sql) => sql`
@@ -258,6 +296,7 @@ export async function updateServerAlertSettingsById({
                 alert_memory_percent = ${memoryPercent},
                 alert_ping_enabled = ${pingEnabled},
                 alert_ping_seconds = ${pingSeconds},
+                alert_emails = ${emailsJson},
                 alert = ${memoryEnabled}
             WHERE id = ${id}
         `,

@@ -411,6 +411,72 @@
                                             </tr>
                                         </tbody>
                                     </table>
+
+                                    <%
+                                        const selectedAlertEmails = Array.isArray(server.alert_emails) ? server.alert_emails : [];
+                                        const selectedAlertSet = {};
+                                        selectedAlertEmails.forEach(function (email) { selectedAlertSet[email] = true; });
+                                        const candidates = Array.isArray(alertEmailCandidates) ? alertEmailCandidates : [];
+                                        const customerCandidates = candidates.filter(function (c) { return c.source === "customer"; });
+                                        const adminCandidates = candidates.filter(function (c) { return c.source === "super_admin"; });
+                                        const extras = Array.isArray(extraAlertEmails) ? extraAlertEmails : [];
+                                    %>
+                                    <div class="mt-4" id="alert-recipients-section">
+                                        <div class="form-label small mb-1">Alert recipients</div>
+                                        <p class="form-text mt-0 mb-2">No one is emailed until you select or add recipients and save.</p>
+
+                                        <div class="mb-2">
+                                            <div class="small text-secondary mb-1">Customer</div>
+                                            <% if (!customerCandidates.length) { %>
+                                                <div class="small text-secondary"><%= server.project_id ? "No customer emails on the linked project." : "Link a project to see customer emails." %></div>
+                                            <% } else { %>
+                                                <div class="d-flex flex-column gap-1" id="alert-email-customer-list">
+                                                    <% customerCandidates.forEach(function (candidate, index) { %>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input alert-email-check" type="checkbox" id="alert-email-customer-<%= index %>" value="<%= candidate.email %>" data-source="customer" <%= selectedAlertSet[candidate.email] ? "checked" : "" %> disabled />
+                                                            <label class="form-check-label small" for="alert-email-customer-<%= index %>"><%= candidate.email %></label>
+                                                        </div>
+                                                    <% }) %>
+                                                </div>
+                                            <% } %>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <div class="small text-secondary mb-1">Super admins</div>
+                                            <% if (!adminCandidates.length) { %>
+                                                <div class="small text-secondary">No super-admin emails found.</div>
+                                            <% } else { %>
+                                                <div class="d-flex flex-column gap-1" id="alert-email-admin-list">
+                                                    <% adminCandidates.forEach(function (candidate, index) { %>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input alert-email-check" type="checkbox" id="alert-email-admin-<%= index %>" value="<%= candidate.email %>" data-source="super_admin" <%= selectedAlertSet[candidate.email] ? "checked" : "" %> disabled />
+                                                            <label class="form-check-label small" for="alert-email-admin-<%= index %>">
+                                                                <%= candidate.email %><% if (candidate.label) { %> <span class="text-secondary">(<%= candidate.label %>)</span><% } %>
+                                                            </label>
+                                                        </div>
+                                                    <% }) %>
+                                                </div>
+                                            <% } %>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <div class="small text-secondary mb-1">Additional emails</div>
+                                            <div class="d-flex flex-column gap-1 mb-2" id="alert-email-extra-list">
+                                                <% extras.forEach(function (email, index) { %>
+                                                    <div class="form-check alert-email-extra-row">
+                                                        <input class="form-check-input alert-email-check" type="checkbox" id="alert-email-extra-<%= index %>" value="<%= email %>" data-source="extra" checked disabled />
+                                                        <label class="form-check-label small" for="alert-email-extra-<%= index %>"><%= email %></label>
+                                                        <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-2 alert-email-extra-remove d-none" aria-label="Remove">Remove</button>
+                                                    </div>
+                                                <% }) %>
+                                            </div>
+                                            <div class="input-group input-group-sm" style="max-width: 28rem;">
+                                                <input type="email" class="form-control" id="alert-email-extra-input" placeholder="ops@example.com" disabled autocomplete="off" />
+                                                <button type="button" class="btn btn-outline-secondary" id="alert-email-extra-add" disabled>Add</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div id="server-alert-feedback" class="small text-secondary d-none mt-2" role="status"></div>
                                 </div>
                             <% } else if (row.enabled) { %>

@@ -85,6 +85,7 @@ export default function (app) {
                 alert_memory_percent: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
                 alert_ping_enabled: t.Optional(t.Boolean()),
                 alert_ping_seconds: t.Optional(t.Numeric({ minimum: 60, maximum: 604800 })),
+                alert_emails: t.Optional(t.Array(t.String({ maxLength: 254 }), { maxItems: 50 })),
             }),
             detail: {
                 tags: ["Monitored Servers"],

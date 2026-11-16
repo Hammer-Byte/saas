@@ -2,6 +2,8 @@ import {
     deleteServerById,
     getAllServers,
     getServerById,
+    normalizeAlertEmails,
+    parseAlertEmailsColumn,
     updateServerAgentActiveById,
     updateServerAlertById,
     updateServerAlertSettingsById,
@@ -9,6 +11,16 @@ import {
     updateServerNameById,
     updateServerProjectById,
 } from "../db/servers.js";
+
+function decorateServer(server) {
+    if (!server) {
+        return server;
+    }
+    return {
+        ...server,
+        alert_emails: parseAlertEmailsColumn(server.alert_emails),
+    };
+}
 import { getServerMetricsByServerId } from "../db/server_metrics.js";
 import {
     ensureServerService,
@@ -33,7 +45,7 @@ export function maskServiceRow(row) {
 export async function getMonitoredServers({ set }) {
     const servers = await getAllServers();
     set.status = 200;
-    return { servers };
+    return { servers: servers.map(decorateServer) };
 }
 
 export async function getMonitoredServer({ params, set }) {
@@ -48,7 +60,11 @@ export async function getMonitoredServer({ params, set }) {
         getServerServicesByServerId({ server_id: server.id }),
     ]);
     set.status = 200;
-    return { server, metrics, services: services.map(maskServiceRow) };
+    return {
+        server: decorateServer(server),
+        metrics,
+        services: services.map(maskServiceRow),
+    };
 }
 
 export async function updateServerApproval({ params, body, set }) {
@@ -176,6 +192,7 @@ export async function updateMonitoredServer({ body, set }) {
                 alert_memory_percent: server.alert_memory_percent ?? 80,
                 alert_ping_enabled: server.alert_ping_enabled,
                 alert_ping_seconds: server.alert_ping_seconds ?? 180,
+                alert_emails: parseAlertEmailsColumn(server.alert_emails),
             });
         }
     }
@@ -186,11 +203,16 @@ export async function updateMonitoredServer({ body, set }) {
         body.alert_memory_enabled !== undefined ||
         body.alert_memory_percent !== undefined ||
         body.alert_ping_enabled !== undefined ||
-        body.alert_ping_seconds !== undefined;
+        body.alert_ping_seconds !== undefined ||
+        body.alert_emails !== undefined;
 
     if (hasAlertSettings) {
         const latest = await getServerById({ id: server.id });
         const pick = (key) => (body[key] !== undefined ? body[key] : latest?.[key]);
+        const emails =
+            body.alert_emails !== undefined
+                ? normalizeAlertEmails(body.alert_emails)
+                : parseAlertEmailsColumn(latest?.alert_emails);
         await updateServerAlertSettingsById({
             id: server.id,
             alert_cpu_enabled: pick("alert_cpu_enabled"),
@@ -199,12 +221,13 @@ export async function updateMonitoredServer({ body, set }) {
             alert_memory_percent: pick("alert_memory_percent"),
             alert_ping_enabled: pick("alert_ping_enabled"),
             alert_ping_seconds: pick("alert_ping_seconds"),
+            alert_emails: emails,
         });
     }
 
     const updatedServer = await getServerById({ id: server.id });
     set.status = 200;
-    return { message: "Server updated", server: updatedServer };
+    return { message: "Server updated", server: decorateServer(updatedServer) };
 }
 
 /** Removes the server row; metrics and service rows cascade via FK. */

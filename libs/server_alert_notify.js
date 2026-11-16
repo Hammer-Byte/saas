@@ -26,6 +26,60 @@ function uniqueEmails(emails) {
     return recipients;
 }
 
+function parseStoredAlertEmails(value) {
+    if (value == null || value === "") {
+        return [];
+    }
+    if (Array.isArray(value)) {
+        return uniqueEmails(value.map((entry) => String(entry || "").trim().toLowerCase()));
+    }
+    try {
+        const parsed = typeof value === "string" ? JSON.parse(value) : value;
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+        return uniqueEmails(parsed.map((entry) => String(entry || "").trim().toLowerCase()));
+    } catch {
+        return [];
+    }
+}
+
+/** Candidate emails for the Alerts UI (not sent unless selected and saved). */
+export async function listServerAlertCandidates({ server }) {
+    const candidates = [];
+    const seen = new Set();
+
+    const add = (email, source, label = null) => {
+        const normalized = String(email || "")
+            .trim()
+            .toLowerCase();
+        if (!normalized || seen.has(normalized)) {
+            return;
+        }
+        seen.add(normalized);
+        candidates.push({ email: normalized, source, label });
+    };
+
+    if (server?.project_id) {
+        const project = await getCustomerProjectById({ id: server.project_id });
+        if (project) {
+            const customerEmails = await getCustomerEmailsByCustomerId({
+                customer_id: project.customer_id,
+            });
+            for (const email of customerEmails) {
+                add(email, "customer");
+            }
+        }
+    }
+
+    const superAdminUsers = await getAllSuperAdminUsers();
+    for (const user of superAdminUsers) {
+        add(user.email, "super_admin", user.full_name || null);
+    }
+
+    return candidates;
+}
+
 function formatMegabytes(value) {
     const amount = Number(value);
     if (!Number.isFinite(amount)) {
@@ -58,8 +112,7 @@ function markCooldown(key) {
     lastAlertAtByKey.set(key, Date.now());
 }
 
-async function resolveAlertRecipients(server) {
-    const recipientEmails = [];
+async function resolveAlertContext(server) {
     let projectTitle = "—";
     let customerName = "—";
 
@@ -69,20 +122,17 @@ async function resolveAlertRecipients(server) {
             projectTitle = project.title || "—";
             const customer = await getCustomerById({ id: project.customer_id });
             customerName = customer?.company || customer?.full_name || "—";
-            const customerEmails = await getCustomerEmailsByCustomerId({
-                customer_id: project.customer_id,
-            });
-            recipientEmails.push(...customerEmails);
         }
     }
 
-    const superAdminUsers = await getAllSuperAdminUsers();
-    for (const user of superAdminUsers) {
-        recipientEmails.push(user.email);
-    }
+    return { projectTitle, customerName };
+}
 
+/** Recipients are only SERVERS.alert_emails — nothing is emailed until selected in the UI. */
+async function resolveAlertRecipients(server) {
+    const { projectTitle, customerName } = await resolveAlertContext(server);
     return {
-        recipients: uniqueEmails(recipientEmails),
+        recipients: parseStoredAlertEmails(server.alert_emails),
         projectTitle,
         customerName,
     };
@@ -131,7 +181,11 @@ export async function notifyServerMetricAlertsIfNeeded({ server, body }) {
         ) {
             const { recipients, projectTitle, customerName } =
                 await resolveAlertRecipients(server);
-            if (recipients.length) {
+            if (!recipients.length) {
+                logger.info(
+                    `server #${server.id} memory alert skipped: no alert_emails selected`,
+                );
+            } else {
                 const html = filer.prepareTemplated("templates/server_memory_alert.html", {
                     server_name: serverName,
                     server_tag: server.tag || "—",
@@ -172,7 +226,11 @@ export async function notifyServerMetricAlertsIfNeeded({ server, body }) {
         ) {
             const { recipients, projectTitle, customerName } =
                 await resolveAlertRecipients(server);
-            if (recipients.length) {
+            if (!recipients.length) {
+                logger.info(
+                    `server #${server.id} cpu alert skipped: no alert_emails selected`,
+                );
+            } else {
                 const html = filer.prepareTemplated("templates/server_cpu_alert.html", {
                     server_name: serverName,
                     server_tag: server.tag || "—",
@@ -221,6 +279,10 @@ export async function checkServerPingAlerts() {
             const { recipients, projectTitle, customerName } =
                 await resolveAlertRecipients(server);
             if (!recipients.length) {
+                logger.info(
+                    `server #${server.id} ping alert skipped: no alert_emails selected`,
+                );
+                markCooldown(`ping:${server.id}`);
                 continue;
             }
 

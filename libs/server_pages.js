@@ -1,10 +1,11 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { getAllServers } from "../db/servers.js";
+import { getAllServers, parseAlertEmailsColumn } from "../db/servers.js";
 import { getAllServerServices, getServerServicesByServerId } from "../db/server_services.js";
 import { getServerMetricsByService } from "../db/server_metrics.js";
 import { getAllAgentReleases } from "../db/agent_releases.js";
 import { describeAgentServices, getAgentService } from "./agent_services/index.js";
+import { listServerAlertCandidates } from "./server_alert_notify.js";
 
 /** An agent polls every 10s; three missed polls means offline. */
 const ONLINE_WINDOW_SECONDS = 35;
@@ -91,7 +92,23 @@ export async function buildServerPageData(server) {
             };
         }),
     );
-    return { server: { ...server, ...agentStatus(server) }, serviceTabs };
+    const alertEmails = parseAlertEmailsColumn(server.alert_emails);
+    const alertEmailCandidates = await listServerAlertCandidates({ server });
+    const selectedSet = new Set(alertEmails);
+    const extraAlertEmails = alertEmails.filter(
+        (email) => !alertEmailCandidates.some((candidate) => candidate.email === email),
+    );
+
+    return {
+        server: {
+            ...server,
+            ...agentStatus(server),
+            alert_emails: alertEmails,
+        },
+        serviceTabs,
+        alertEmailCandidates,
+        extraAlertEmails,
+    };
 }
 
 export async function buildAgentReleasesPageData() {

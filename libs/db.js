@@ -920,6 +920,7 @@ export async function generateDBTables() {
             alert_memory_percent INT NOT NULL DEFAULT 80,
             alert_ping_enabled BOOLEAN NOT NULL DEFAULT FALSE,
             alert_ping_seconds INT NOT NULL DEFAULT 180,
+            alert_emails TEXT NULL,
             active BOOLEAN NOT NULL DEFAULT TRUE,
             approval_status VARCHAR(16) NOT NULL DEFAULT 'approved',
             agent_active BOOLEAN NOT NULL DEFAULT TRUE,
