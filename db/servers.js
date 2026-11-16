@@ -286,23 +286,27 @@ export async function updateServerAlertSettingsById({
     const emails = normalizeAlertEmails(alert_emails);
     const emailsJson = emails ? JSON.stringify(emails) : null;
 
-    await executeSQLQuery(
-        (sql) => sql`
-            UPDATE SERVERS
-            SET
-                alert_cpu_enabled = ${cpuEnabled},
-                alert_cpu_percent = ${cpuPercent},
-                alert_memory_enabled = ${memoryEnabled},
-                alert_memory_percent = ${memoryPercent},
-                alert_ping_enabled = ${pingEnabled},
-                alert_ping_seconds = ${pingSeconds},
-                alert_emails = ${emailsJson},
-                alert = ${memoryEnabled}
-            WHERE id = ${id}
-        `,
-    ).catch((error) => {
+    try {
+        await executeSQLQuery(
+            (sql) => sql`
+                UPDATE SERVERS
+                SET
+                    alert_cpu_enabled = ${cpuEnabled},
+                    alert_cpu_percent = ${cpuPercent},
+                    alert_memory_enabled = ${memoryEnabled},
+                    alert_memory_percent = ${memoryPercent},
+                    alert_ping_enabled = ${pingEnabled},
+                    alert_ping_seconds = ${pingSeconds},
+                    alert_emails = ${emailsJson},
+                    alert = ${memoryEnabled}
+                WHERE id = ${id}
+            `,
+        );
+        return true;
+    } catch (error) {
         logger.error(`updateServerAlertSettingsById: ${error}`);
-    });
+        return false;
+    }
 }
 
 /** Cascades to SERVER_METRICS and SERVER_SERVICES via FK. */

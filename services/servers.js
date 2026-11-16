@@ -18,6 +18,12 @@ function decorateServer(server) {
     }
     return {
         ...server,
+        alert_cpu_percent: Number(server.alert_cpu_percent),
+        alert_memory_percent: Number(server.alert_memory_percent),
+        alert_ping_seconds: Number(server.alert_ping_seconds),
+        alert_cpu_enabled: Boolean(server.alert_cpu_enabled),
+        alert_memory_enabled: Boolean(server.alert_memory_enabled),
+        alert_ping_enabled: Boolean(server.alert_ping_enabled),
         alert_emails: parseAlertEmailsColumn(server.alert_emails),
     };
 }
@@ -184,7 +190,7 @@ export async function updateMonitoredServer({ body, set }) {
     if (body.alert !== undefined) {
         await updateServerAlertById({ id: server.id, alert: body.alert });
         if (body.alert_memory_enabled === undefined) {
-            await updateServerAlertSettingsById({
+            const savedLegacy = await updateServerAlertSettingsById({
                 id: server.id,
                 alert_cpu_enabled: server.alert_cpu_enabled,
                 alert_cpu_percent: server.alert_cpu_percent,
@@ -194,6 +200,13 @@ export async function updateMonitoredServer({ body, set }) {
                 alert_ping_seconds: server.alert_ping_seconds ?? 180,
                 alert_emails: parseAlertEmailsColumn(server.alert_emails),
             });
+            if (!savedLegacy) {
+                set.status = 500;
+                return {
+                    error:
+                        "Failed to save alert settings. If this is the first deploy of alert emails, run: ALTER TABLE SERVERS ADD COLUMN alert_emails TEXT NULL;",
+                };
+            }
         }
     }
 
@@ -213,16 +226,23 @@ export async function updateMonitoredServer({ body, set }) {
             body.alert_emails !== undefined
                 ? normalizeAlertEmails(body.alert_emails)
                 : parseAlertEmailsColumn(latest?.alert_emails);
-        await updateServerAlertSettingsById({
+        const saved = await updateServerAlertSettingsById({
             id: server.id,
             alert_cpu_enabled: pick("alert_cpu_enabled"),
-            alert_cpu_percent: pick("alert_cpu_percent"),
+            alert_cpu_percent: Number(pick("alert_cpu_percent")),
             alert_memory_enabled: pick("alert_memory_enabled"),
-            alert_memory_percent: pick("alert_memory_percent"),
+            alert_memory_percent: Number(pick("alert_memory_percent")),
             alert_ping_enabled: pick("alert_ping_enabled"),
-            alert_ping_seconds: pick("alert_ping_seconds"),
+            alert_ping_seconds: Number(pick("alert_ping_seconds")),
             alert_emails: emails,
         });
+        if (!saved) {
+            set.status = 500;
+            return {
+                error:
+                    "Failed to save alert settings. If this is the first deploy of alert emails, run: ALTER TABLE SERVERS ADD COLUMN alert_emails TEXT NULL;",
+            };
+        }
     }
 
     const updatedServer = await getServerById({ id: server.id });

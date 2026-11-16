@@ -382,7 +382,10 @@
                     memoryEnabled.checked = Boolean(server.alert_memory_enabled);
                 }
                 if (pingSeconds) {
-                    pingSeconds.value = server.alert_ping_seconds ?? payload.alert_ping_seconds;
+                    const savedPing = Number(
+                        server.alert_ping_seconds ?? payload.alert_ping_seconds,
+                    );
+                    pingSeconds.value = Number.isFinite(savedPing) ? savedPing : payload.alert_ping_seconds;
                 }
                 if (pingEnabled) pingEnabled.checked = Boolean(server.alert_ping_enabled);
 
