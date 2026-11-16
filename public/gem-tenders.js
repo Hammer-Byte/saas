@@ -1,6 +1,6 @@
 (() => {
     // Bumped when a filter default changes so old saved filters don't override it.
-    const FILTERS_STORAGE_KEY = "gem-tenders-filters-v4";
+    const FILTERS_STORAGE_KEY = "gem-tenders-filters-v5";
     const COLUMNS_STORAGE_KEY = "gem-tenders-columns";
     const ALWAYS_VISIBLE_COLUMNS = new Set(["select", "tenderId"]);
     const DEFAULT_VISIBLE_COLUMNS = [
@@ -26,7 +26,6 @@
     const multiFilters = [categoryFilter, stageFilter, assigneeFilter].filter(Boolean);
     const includeHiddenFilter = document.getElementById("gem-filter-include-hidden");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
-    const emdUptoFilter = document.getElementById("gem-filter-emd-upto");
     const lockedFilter = document.getElementById("gem-filter-locked");
 
     function normalizePositiveNumber(raw) {
@@ -107,7 +106,6 @@
             search: "",
             includeHidden: true,
             quantityUpto: "",
-            emdUpto: "",
             locked: "",
             view: "all",
             columns: {},
@@ -233,7 +231,6 @@
             search: String(searchInput?.value || "").trim(),
             includeHidden: !!includeHiddenFilter?.checked,
             quantityUpto: normalizePositiveNumber(quantityUptoFilter?.value),
-            emdUpto: normalizePositiveNumber(emdUptoFilter?.value),
             locked: normalizeLockedFilter(String(lockedFilter?.value || "")),
             view: QUICK_VIEWS.has(appliedFilters.view) ? appliedFilters.view : "all",
             columns,
@@ -251,9 +248,6 @@
         if (includeHiddenFilter) includeHiddenFilter.checked = !!filters.includeHidden;
         if (quantityUptoFilter) {
             quantityUptoFilter.value = normalizePositiveNumber(filters.quantityUpto);
-        }
-        if (emdUptoFilter) {
-            emdUptoFilter.value = normalizePositiveNumber(filters.emdUpto);
         }
         if (lockedFilter) {
             lockedFilter.value = normalizeLockedFilter(filters.locked);
@@ -1247,14 +1241,6 @@
                 },
             });
         }
-        if (appliedFilters.emdUpto) {
-            chips.push({
-                label: `EMD ≤ ${appliedFilters.emdUpto}`,
-                clear: () => {
-                    if (emdUptoFilter) emdUptoFilter.value = "";
-                },
-            });
-        }
         if (appliedFilters.locked) {
             chips.push({
                 label: appliedFilters.locked === "locked" ? "Locked only" : "Not locked only",
@@ -1345,9 +1331,6 @@
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
         const hasQuantityUpto =
             quantityUpto != null && Number.isFinite(quantityUpto) && quantityUpto > 0;
-        const emdUptoRaw = String(appliedFilters.emdUpto ?? "").trim();
-        const emdUpto = emdUptoRaw === "" ? null : Number(emdUptoRaw);
-        const hasEmdUpto = emdUpto != null && Number.isFinite(emdUpto) && emdUpto > 0;
         const columns =
             appliedFilters.columns && typeof appliedFilters.columns === "object"
                 ? appliedFilters.columns
@@ -1403,12 +1386,6 @@
             const matchesQuantity =
                 !hasQuantityUpto || (rowQuantity > 0 && rowQuantity <= quantityUpto);
 
-            const rowEmd = Number(row.dataset.emd || 0);
-            // Known EMD only: NA (0 / missing) is excluded when a max is set.
-            const matchesEmd =
-                !hasEmdUpto ||
-                (Number.isFinite(rowEmd) && rowEmd > 0 && rowEmd <= emdUpto);
-
             const matchesLocked =
                 !lockedMode || (lockedMode === "locked") === (row.dataset.locked === "1");
 
@@ -1419,7 +1396,6 @@
                 matchesSearch &&
                 matchesColumns &&
                 matchesQuantity &&
-                matchesEmd &&
                 matchesLocked;
 
             // Hidden (closed) tenders show when asked for explicitly: the checkbox, their status, or their quick view.
@@ -1516,7 +1492,6 @@
             search: String(filters.search || "").trim(),
             includeHidden: filters.includeHidden !== false,
             quantityUpto: normalizePositiveNumber(filters.quantityUpto),
-            emdUpto: normalizePositiveNumber(filters.emdUpto),
             locked: normalizeLockedFilter(filters.locked),
             view: QUICK_VIEWS.has(filters.view) ? filters.view : "all",
             columns: normalizedColumns,
@@ -1710,7 +1685,6 @@
         input?.addEventListener("change", () => void commitFilters());
     }
     quantityUptoFilter?.addEventListener("input", () => void commitFilters());
-    emdUptoFilter?.addEventListener("input", () => void commitFilters());
 
     searchAllBtn?.addEventListener("click", () => {
         enterSearchMode();

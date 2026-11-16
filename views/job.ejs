@@ -86,7 +86,7 @@
                         type="search"
                         class="form-control"
                         id="applicants-search"
-                        placeholder="Search by name, email, phone, location…"
+                        placeholder="Search by name, phone, location, interviewer…"
                         autocomplete="off"
                     />
                 </div>
@@ -131,14 +131,6 @@
                                     <th
                                         scope="col"
                                         class="applicants-sortable"
-                                        data-sort-key="email"
-                                        role="button"
-                                        tabindex="0"
-                                        aria-sort="none"
-                                    >Email</th>
-                                    <th
-                                        scope="col"
-                                        class="applicants-sortable"
                                         data-sort-key="phone"
                                         role="button"
                                         tabindex="0"
@@ -152,6 +144,7 @@
                                         tabindex="0"
                                         aria-sort="none"
                                     >Location</th>
+                                    <th scope="col">Resume</th>
                                     <th
                                         scope="col"
                                         class="applicants-sortable"
@@ -160,6 +153,14 @@
                                         tabindex="0"
                                         aria-sort="none"
                                     >Interview</th>
+                                    <th
+                                        scope="col"
+                                        class="applicants-sortable"
+                                        data-sort-key="interviewer"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-sort="none"
+                                    >Interviewer</th>
                                     <th
                                         scope="col"
                                         class="applicants-sortable"
@@ -197,6 +198,7 @@
                                     const interviewSort = applicant.latest_interview_at
                                         ? String(applicant.latest_interview_at)
                                         : "";
+                                    const interviewerName = applicant.latest_interviewer_name || "";
                                     const appliedSort = applicant.created_on
                                         ? String(applicant.created_on)
                                         : "";
@@ -204,12 +206,12 @@
                                     <tr
                                         data-id="<%= applicant.id %>"
                                         data-name="<%= applicant.full_name || '' %>"
-                                        data-email="<%= applicant.email || '' %>"
                                         data-phone="<%= applicant.phone || '' %>"
                                         data-city="<%= applicant.city || '' %>"
                                         data-state="<%= applicant.state || '' %>"
                                         data-location="<%= locationLabel %>"
                                         data-interview="<%= interviewSort %>"
+                                        data-interviewer="<%= interviewerName %>"
                                         data-shortlisted="<%= shortlisted ? '1' : '0' %>"
                                         data-decision="<%= decision %>"
                                         data-applied="<%= appliedSort %>"
@@ -227,9 +229,18 @@
                                         </td>
                                         <td><%= applicant.id %></td>
                                         <td><%= applicant.full_name %></td>
-                                        <td><%= applicant.email %></td>
                                         <td><%= applicant.phone %></td>
                                         <td><%= locationLabel %></td>
+                                        <td>
+                                            <a
+                                                href="/api/job-applications/<%= applicant.id %>/resume"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onclick="event.stopPropagation()"
+                                            >
+                                                <%= applicant.cv_name || "Resume" %>
+                                            </a>
+                                        </td>
                                         <td>
                                             <% if (applicant.latest_interview_at) { %>
                                                 <span
@@ -240,6 +251,7 @@
                                                 —
                                             <% } %>
                                         </td>
+                                        <td><%= interviewerName || "—" %></td>
                                         <td>
                                             <% if (shortlisted) { %>
                                                 <span class="badge text-bg-success">Yes</span>

@@ -6,10 +6,8 @@ const MAX_EXCLUDE_LEN = 180;
 const HOST_PATTERN = /^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/;
 const SHARE_PATTERN = /^[A-Za-z0-9 _.$-]{1,80}$/;
 const LOCAL_PATH_PATTERN = /^[A-Za-z]:\\(?:[^<>:"/\\|?*\r\n]+\\?)*$/;
-/** Folder name or relative segments (no drive/UNC, no wildcards). */
-const DIR_EXCLUDE_PATTERN = /^[^<>:"/|?*\r\n\\]([^<>:"/|?*\r\n]*[^<>:"/|?*\r\n\\])?$/;
-/** File name or wildcard pattern (*.mdf); no path separators. */
-const FILE_EXCLUDE_PATTERN = /^[^<>:"/|\\\r\n]+$/;
+/** Exact relative path under the pair root (no drive/UNC, no wildcards). */
+const EXACT_EXCLUDE_PATTERN = /^[^<>:"/|?*\r\n\\]([^<>:"/|?*\r\n]*[^<>:"/|?*\r\n\\])?$/;
 
 const defaults = {
     interval_seconds: 900,
@@ -63,23 +61,7 @@ const fields = [
         type: "pairs",
         required: true,
         max: MAX_PAIRS,
-        help: "Each pair copies \\\\source_host\\share onto a local folder on this machine (mirror: files removed at source are removed locally). Optional exclude lists on a pair apply only to that pair (in addition to the service-wide lists below).",
-    },
-    {
-        key: "exclude_dirs",
-        label: "Exclude directories (all pairs)",
-        type: "lines",
-        rows: 4,
-        placeholder: "database\nhmdm\\tomcat9\\logs",
-        help: "One folder name or relative path per line (e.g. database or hmdm\\tomcat9\\logs). Applied to every pair; add pair-only excludes on the pair row. Not copied and not purged. Built-in: System Volume Information, $RECYCLE.BIN, RECYCLER.",
-    },
-    {
-        key: "exclude_files",
-        label: "Exclude files (all pairs)",
-        type: "lines",
-        rows: 4,
-        placeholder: "*.mdf\n*.ldf\npostmaster.pid",
-        help: "One file name or wildcard per line (e.g. *.mdf or postmaster.pid). Applied to every pair; add pair-only excludes on the pair row. Built-in: pagefile.sys, hiberfil.sys, swapfile.sys, DumpStack.log.tmp.",
+        help: "Each pair copies \\\\source_host\\share onto a local folder on this machine (mirror: files removed at source are removed locally). Optional exclude directories/files on a pair apply only to that pair as exact paths under its share root.",
     },
     {
         key: "skip_log_max",
@@ -122,7 +104,6 @@ function readExcludeList(input, key, { kind, errors, label }) {
         items = items.slice(0, MAX_EXCLUDES);
     }
 
-    const pattern = kind === "dir" ? DIR_EXCLUDE_PATTERN : FILE_EXCLUDE_PATTERN;
     const out = [];
     const seen = new Set();
     for (const item of items) {
@@ -132,18 +113,24 @@ function readExcludeList(input, key, { kind, errors, label }) {
         }
         if (item.startsWith("\\\\") || /^[A-Za-z]:\\/i.test(item)) {
             errors.push(
-                `${label}: use a name or relative path, not a full UNC or drive path (${item.slice(0, 40)})`,
+                `${label}: use a relative path under the share, not a full UNC or drive path (${item.slice(0, 40)})`,
             );
             continue;
         }
-        if (!pattern.test(item)) {
+        if (item.includes("*") || item.includes("?")) {
+            errors.push(
+                `${label}: wildcards are not allowed; list the exact ${kind === "dir" ? "directory" : "file"} path (e.g. ${kind === "dir" ? "hmdm\\tomcat9\\logs" : "database\\SmartOffice.mdf"})`,
+            );
+            continue;
+        }
+        if (!EXACT_EXCLUDE_PATTERN.test(item)) {
             if (kind === "dir") {
                 errors.push(
-                    `${label}: invalid directory "${item.slice(0, 40)}" (folder name or relative path; no wildcards)`,
+                    `${label}: invalid directory "${item.slice(0, 40)}" (exact folder name or relative path; no wildcards)`,
                 );
             } else {
                 errors.push(
-                    `${label}: invalid file pattern "${item.slice(0, 40)}" (file name or wildcard like *.mdf; no path separators)`,
+                    `${label}: invalid file "${item.slice(0, 40)}" (exact file name or relative path; no wildcards)`,
                 );
             }
             continue;
@@ -226,17 +213,6 @@ function validate(input, previous = {}) {
         });
     });
 
-    const excludeDirs = readExcludeList(input, "exclude_dirs", {
-        kind: "dir",
-        errors,
-        label: "Exclude directories",
-    });
-    const excludeFiles = readExcludeList(input, "exclude_files", {
-        kind: "file",
-        errors,
-        label: "Exclude files",
-    });
-
     const config = {
         interval_seconds: readInt(input, "interval_seconds", {
             min: 60,
@@ -256,8 +232,8 @@ function validate(input, previous = {}) {
             errors,
             label: "Max skipped files",
         }),
-        exclude_dirs: excludeDirs,
-        exclude_files: excludeFiles,
+        exclude_dirs: [],
+        exclude_files: [],
         alert_on_start: readBool(input, "alert_on_start", defaults.alert_on_start),
         alert_on_complete: readBool(input, "alert_on_complete", defaults.alert_on_complete),
     };

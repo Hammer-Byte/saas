@@ -101,6 +101,13 @@
     },
     {
       "component": "drivesync",
+      "version": "1.0.9",
+      "file_path": "/public/agents/drivesync/1.0.9/drivesync.ps1",
+      "sha256": "f213527a2224d57ae27a2994b9666b3cf6b13891120cce034bd855d7454e405e",
+      "size_bytes": 46144
+    },
+    {
+      "component": "drivesync",
       "version": "1.0.0",
       "file_path": "/public/agents/drivesync/1.0.0/drivesync.ps1",
       "sha256": "bfafb9c6e1d7af471c554da1436336ec3ce2d6aa8805d53ad8b673157da18819",
@@ -119,6 +126,13 @@
       "file_path": "/public/agents/drivesync/1.0.1/drivesync.ps1",
       "sha256": "0d3cb23a49677e7d7558e1bf5c82c7c9e6d9b952ce8fa46c661db2eacf31ac10",
       "size_bytes": 38091
+    },
+    {
+      "component": "drivesync",
+      "version": "1.0.8",
+      "file_path": "/public/agents/drivesync/1.0.8/drivesync.ps1",
+      "sha256": "9ccc62199536455146b5c033a96e1748edccf3a2f1b4328d6b03188247e3b299",
+      "size_bytes": 46941
     },
     {
       "component": "drivesync",

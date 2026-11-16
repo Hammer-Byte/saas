@@ -128,7 +128,16 @@ export async function getJobApplicantsByJobPositionId({ job_position_id }) {
                     WHERE JOB_APPLICANT_INTERVIEWS.job_applicant_id = JOB_APPLICANTS.id
                     ORDER BY JOB_APPLICANT_INTERVIEWS.interview_at DESC, JOB_APPLICANT_INTERVIEWS.id DESC
                     LIMIT 1
-                ) AS latest_interview_at
+                ) AS latest_interview_at,
+                (
+                    SELECT USERS.full_name
+                    FROM JOB_APPLICANT_INTERVIEWS
+                    INNER JOIN USERS
+                        ON USERS.id = JOB_APPLICANT_INTERVIEWS.interviewer_user_id
+                    WHERE JOB_APPLICANT_INTERVIEWS.job_applicant_id = JOB_APPLICANTS.id
+                    ORDER BY JOB_APPLICANT_INTERVIEWS.interview_at DESC, JOB_APPLICANT_INTERVIEWS.id DESC
+                    LIMIT 1
+                ) AS latest_interviewer_name
             FROM JOB_APPLICANTS
             INNER JOIN MEDIA ON MEDIA.id = JOB_APPLICANTS.cv
             WHERE JOB_APPLICANTS.job_position_id = ${job_position_id}

@@ -344,6 +344,42 @@ function Get-HbMergedExcludes {
     return ,$merged.ToArray()
 }
 
+function Resolve-HbRobocopyExcludePaths {
+    # Exact paths only: every user entry is relative to the pair root and expanded
+    # under source and dest. Bare "logs" means share\logs only, not every logs folder.
+    # Skip wildcards (* ?); validation should reject them.
+    param(
+        [string[]]$Entries,
+        [string]$SourceRoot,
+        [string]$DestRoot
+    )
+    $resolved = New-Object System.Collections.ArrayList
+    $seen = @{}
+    foreach ($item in @($Entries)) {
+        $raw = [string]$item
+        if (-not $raw) {
+            continue
+        }
+        $raw = $raw.Trim().TrimStart('\').TrimEnd('\')
+        if (-not $raw) {
+            continue
+        }
+        if ($raw.IndexOf('*') -ge 0 -or $raw.IndexOf('?') -ge 0) {
+            continue
+        }
+        $relative = $raw.Replace('/', '\')
+        foreach ($path in @((Join-Path $SourceRoot $relative), (Join-Path $DestRoot $relative))) {
+            $key = ([string]$path).ToLowerInvariant()
+            if ($seen.ContainsKey($key)) {
+                continue
+            }
+            $seen[$key] = $true
+            [void]$resolved.Add($path)
+        }
+    }
+    return ,$resolved.ToArray()
+}
+
 function Invoke-HbPairSync {
     param(
         [string]$SourceHost,
@@ -359,12 +395,16 @@ function Invoke-HbPairSync {
     $source = '\\' + $SourceHost + '\' + $share
     $result = New-HbPairResult -Share $share -Source $source -Destination $destination
     $started = [DateTime]::UtcNow
+    $resolvedUserDirs = Resolve-HbRobocopyExcludePaths -Entries $ExcludeDirs -SourceRoot $source -DestRoot $destination
+    $resolvedUserFiles = Resolve-HbRobocopyExcludePaths -Entries $ExcludeFiles -SourceRoot $source -DestRoot $destination
+    $resolvedExcludeDirs = Get-HbMergedExcludes -BuiltIn $script:ExcludedDirs -UserList $resolvedUserDirs
+    $resolvedExcludeFiles = Get-HbMergedExcludes -BuiltIn $script:ExcludedFiles -UserList $resolvedUserFiles
     Write-HbLog ('pair ' + ($Index + 1) + ': ' + $source + ' -> ' + $destination)
-    if ($ExcludeDirs -and $ExcludeDirs.Count -gt 0) {
-        Write-HbLog ('pair ' + ($Index + 1) + ' exclude dirs (/XD): ' + ($ExcludeDirs -join ', '))
+    if ($resolvedExcludeDirs -and $resolvedExcludeDirs.Count -gt 0) {
+        Write-HbLog ('pair ' + ($Index + 1) + ' exclude dirs (/XD): ' + ($resolvedExcludeDirs -join ', '))
     }
-    if ($ExcludeFiles -and $ExcludeFiles.Count -gt 0) {
-        Write-HbLog ('pair ' + ($Index + 1) + ' exclude files (/XF): ' + ($ExcludeFiles -join ', '))
+    if ($resolvedExcludeFiles -and $resolvedExcludeFiles.Count -gt 0) {
+        Write-HbLog ('pair ' + ($Index + 1) + ' exclude files (/XF): ' + ($resolvedExcludeFiles -join ', '))
     }
 
     try {
@@ -382,13 +422,13 @@ function Invoke-HbPairSync {
         $logPath = Join-Path $script:HbRunDir ('drivesync-pair-' + $Index + '.log')
         Remove-Item -LiteralPath $logPath -Force -ErrorAction SilentlyContinue
         $arguments = @($source, $destination, '/E', '/PURGE', '/COPY:DAT', '/DCOPY:T', '/R:1', '/W:1', '/XJ', '/FFT', '/Z', '/V', '/FP', '/BYTES', '/NP', '/NJH', ('/UNILOG:' + $logPath))
-        if ($ExcludeDirs -and $ExcludeDirs.Count -gt 0) {
+        if ($resolvedExcludeDirs -and $resolvedExcludeDirs.Count -gt 0) {
             $arguments += '/XD'
-            $arguments += $ExcludeDirs
+            $arguments += $resolvedExcludeDirs
         }
-        if ($ExcludeFiles -and $ExcludeFiles.Count -gt 0) {
+        if ($resolvedExcludeFiles -and $resolvedExcludeFiles.Count -gt 0) {
             $arguments += '/XF'
-            $arguments += $ExcludeFiles
+            $arguments += $resolvedExcludeFiles
         }
         $null = & $script:RobocopyExe @arguments 2>&1
         $exitCode = $LASTEXITCODE
@@ -428,10 +468,6 @@ function Invoke-HbSyncCycle {
     $pairs = Get-HbValue -Map $Config -Key 'pairs' -Default @()
     $pairs = @($pairs)
     $skipLogMax = Get-HbInt -Map $Config -Key 'skip_log_max' -Default 500 -Min 0 -Max 5000
-    $serviceExcludeDirs = @(Get-HbValue -Map $Config -Key 'exclude_dirs' -Default @())
-    $serviceExcludeFiles = @(Get-HbValue -Map $Config -Key 'exclude_files' -Default @())
-    $cycleExcludeDirs = Get-HbMergedExcludes -BuiltIn $script:ExcludedDirs -UserList $serviceExcludeDirs
-    $cycleExcludeFiles = Get-HbMergedExcludes -BuiltIn $script:ExcludedFiles -UserList $serviceExcludeFiles
 
     $intervalSeconds = Get-HbInt -Map $Config -Key 'interval_seconds' -Default 900 -Min 60 -Max 86400
     $startedUtc = [DateTime]::UtcNow
@@ -452,12 +488,6 @@ function Invoke-HbSyncCycle {
     }
 
     Write-HbLog ('sync cycle started: ' + $pairs.Count + ' pair(s) from ' + $sourceHost)
-    if ($cycleExcludeDirs.Count -gt 0) {
-        Write-HbLog ('service-wide exclude dirs (/XD): ' + ($cycleExcludeDirs -join ', '))
-    }
-    if ($cycleExcludeFiles.Count -gt 0) {
-        Write-HbLog ('service-wide exclude files (/XF): ' + ($cycleExcludeFiles -join ', '))
-    }
     $null = Send-HbResult -Type 'heartbeat' -Data @{}
     $null = Send-HbResult -Type 'sync_start' -Data @{
         source_host = $sourceHost
@@ -465,8 +495,6 @@ function Invoke-HbSyncCycle {
         interval_seconds = $intervalSeconds
         pair_count = $pairs.Count
         pairs = $pairSummaries.ToArray()
-        exclude_dirs = $cycleExcludeDirs
-        exclude_files = $cycleExcludeFiles
     }
     try {
         Connect-HbSource -SourceHost $sourceHost -User $user -Password $password
@@ -476,8 +504,8 @@ function Invoke-HbSyncCycle {
                 throw 'agent stopped during sync'
             }
             $pair = $pairs[$i]
-            $pairExcludeDirs = Get-HbMergedExcludes -BuiltIn $script:ExcludedDirs -UserList (@($serviceExcludeDirs) + @(Get-HbValue -Map $pair -Key 'exclude_dirs' -Default @()))
-            $pairExcludeFiles = Get-HbMergedExcludes -BuiltIn $script:ExcludedFiles -UserList (@($serviceExcludeFiles) + @(Get-HbValue -Map $pair -Key 'exclude_files' -Default @()))
+            $pairExcludeDirs = @(Get-HbValue -Map $pair -Key 'exclude_dirs' -Default @())
+            $pairExcludeFiles = @(Get-HbValue -Map $pair -Key 'exclude_files' -Default @())
             $pairResults += (Invoke-HbPairSync -SourceHost $sourceHost -Pair $pair -SkipLogMax $skipLogMax -State $state -Index $i -ExcludeDirs $pairExcludeDirs -ExcludeFiles $pairExcludeFiles)
         }
     } catch {

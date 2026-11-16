@@ -70,10 +70,10 @@
         for (const row of tableBody.querySelectorAll("tr[data-id]")) {
             const haystack = [
                 row.dataset.name || "",
-                row.dataset.email || "",
                 row.dataset.phone || "",
                 row.dataset.city || "",
                 row.dataset.state || "",
+                row.dataset.interviewer || "",
             ]
                 .join(" ")
                 .toLowerCase();
