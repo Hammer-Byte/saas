@@ -8,10 +8,6 @@ import {
     getGemTenderByTenderId,
     updateGemTenderScanDetailsById,
 } from "../../db/gem_tenders.js";
-import {
-    analyzeGemTenderAiScope,
-    findScopeOfWorkUrl,
-} from "../gem_tender_ai_scope.js";
 
 const DELAY_SHORT = 1000;
 
@@ -292,82 +288,6 @@ const downloadTender = async (driver, tender) => {
     await writeFile(tenderFile, buffer);
     logger.info(`Saved tender PDF: ${tenderId}`);
     return { tenderFile, document, buffer };
-};
-
-/** Download Scope of Work with GeM session cookies (PDF or image). No pdftotext. */
-const downloadScopeOfWorkFile = async (driver, sowUrl, tenderId) => {
-    const url = String(sowUrl || "").trim();
-    if (!url) {
-        return null;
-    }
-
-    const cookies = await driver.manage().getCookies();
-    const cookieHeader = cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
-    logger.info(`AI scope SoW download start: tender ${tenderId} url=${url}`);
-
-    const response = await fetch(url, {
-        headers: {
-            Cookie: cookieHeader,
-            "User-Agent": "Mozilla/5.0",
-            Referer: GEM_URL,
-        },
-    });
-
-    if (!response.ok) {
-        logger.error(
-            `AI scope SoW download failed: tender ${tenderId} HTTP ${response.status} url=${url}`,
-        );
-        return null;
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const contentType = (response.headers.get("content-type") || "").toLowerCase();
-    const header = buffer.subarray(0, 5).toString("latin1");
-    const isPdf = header === "%PDF-";
-    const isImage = contentType.startsWith("image/");
-
-    logger.info(
-        `AI scope SoW download: tender ${tenderId} bytes=${buffer.length} content-type=${contentType || "unknown"} pdf=${isPdf} image=${isImage}`,
-    );
-
-    if (!isPdf && !isImage) {
-        // Some GeM responses omit content-type but still return a PDF body.
-        if (header !== "%PDF-") {
-            logger.error(
-                `AI scope SoW unsupported type: tender ${tenderId} (content-type: ${contentType || "unknown"}, header: ${JSON.stringify(header)})`,
-            );
-            return null;
-        }
-    }
-
-    let ext = "pdf";
-    let mimeType = "application/pdf";
-    if (isImage) {
-        if (contentType.includes("png")) {
-            ext = "png";
-            mimeType = "image/png";
-        } else if (contentType.includes("webp")) {
-            ext = "webp";
-            mimeType = "image/webp";
-        } else if (contentType.includes("gif")) {
-            ext = "gif";
-            mimeType = "image/gif";
-        } else {
-            ext = "jpg";
-            mimeType = "image/jpeg";
-        }
-    } else {
-        mimeType = "application/pdf";
-        ext = "pdf";
-    }
-
-    const safeId = String(tenderId || "unknown").replace(/[^\w.-]+/g, "_");
-    const filename = `sow_${safeId}_${Date.now()}.${ext}`;
-    const sowFile = join(TENDERS_DIRECTORY, filename);
-    await mkdir(TENDERS_DIRECTORY, { recursive: true });
-    await writeFile(sowFile, buffer);
-    logger.info(`AI scope SoW saved: tender ${tenderId} path=${sowFile}`);
-    return { sowFile, buffer, mimeType, filename };
 };
 
 const goToNextPage = async (driver, page) => {
@@ -1247,91 +1167,7 @@ function scanDetailsDiffer(existingTender, nextDetails) {
     return false;
 }
 
-/** Why this row is not safe for inline AI (empty ⇒ untouched). */
-function getGemTenderAiSkipReasons(tender) {
-    if (!tender) return ["tender missing"];
-    const reasons = [];
-    if (tender.assignee_user_id != null) {
-        reasons.push(`assignee_user_id=${tender.assignee_user_id}`);
-    }
-    if (Number(tender.eligible)) reasons.push("eligible");
-    if (Number(tender.ineligible)) reasons.push("ineligible");
-    if (Number(tender.out_of_scope)) reasons.push("out_of_scope");
-    if (Number(tender.missed)) reasons.push("missed");
-    if (Number(tender.unattended)) reasons.push("unattended");
-    if (Number(tender.filed)) reasons.push("filed");
-    if (Number(tender.locked)) reasons.push("locked");
-    const stage = String(tender.stage || "").trim();
-    if (stage) reasons.push(`stage=${stage}`);
-    if (Number(tender.ai_analyzed)) reasons.push("ai_analyzed");
-    return reasons;
-}
-
-/** Completely untouched row — safe for inline AI scope (no human/system touch yet). */
-function isGemTenderUntouchedForAi(tender) {
-    return getGemTenderAiSkipReasons(tender).length === 0;
-}
-
-/** Download SoW with GeM session, upload to OpenAI, delete local copy. */
-async function runInlineAiScopeIfNeeded({
-    driver,
-    gemTenderId,
-    tenderId,
-    specification_links,
-}) {
-    let sowFile = null;
-    try {
-        const sowUrl = findScopeOfWorkUrl(specification_links);
-        if (!sowUrl) {
-            logger.info(`AI scope skip: tender ${tenderId} → no Scope of Work URL`);
-            return;
-        }
-        if (!driver) {
-            logger.error(
-                `AI scope skip: tender ${tenderId} → no browser session for SoW download`,
-            );
-            return;
-        }
-        const sow = await downloadScopeOfWorkFile(driver, sowUrl, tenderId);
-        if (!sow?.buffer) {
-            logger.info(
-                `AI scope skip: tender ${tenderId} → skipped_sow_download (SoW download failed or empty file)`,
-            );
-            return;
-        }
-        sowFile = sow.sowFile;
-        const result = await analyzeGemTenderAiScope({
-            gemTenderId,
-            tenderId,
-            buffer: sow.buffer,
-            mimeType: sow.mimeType,
-            filename: sow.filename,
-        });
-        logger.info(
-            `AI scope finished inline: tender ${tenderId} → ${result?.status || "unknown"}`,
-        );
-    } catch (error) {
-        logger.error(`AI scope failed inline for tender ${tenderId}: ${error}`);
-    } finally {
-        if (sowFile) {
-            try {
-                await unlink(sowFile);
-                logger.info(
-                    `AI scope SoW local deleted: tender ${tenderId} path=${sowFile}`,
-                );
-            } catch (error) {
-                if (error?.code !== "ENOENT") {
-                    logger.error(
-                        `AI scope SoW local delete failed: tender ${tenderId} path=${sowFile} → ${error}`,
-                    );
-                }
-            }
-        }
-    }
-}
-
 export const processTender = async ({
-    driver = null,
     tenderFile,
     category_group_id = null,
     tender_category_id = null,
@@ -1369,14 +1205,6 @@ export const processTender = async ({
             }
 
             logger.info(`Stored tender details: ${tender_id}`);
-
-            await runInlineAiScopeIfNeeded({
-                driver,
-                gemTenderId: tenderRowId,
-                tenderId: tender_id,
-                specification_links: gemTenderDetails?.specification_links,
-            });
-
             return true;
         }
 
@@ -1386,34 +1214,17 @@ export const processTender = async ({
             existingTender,
         });
 
-        let changed = false;
         if (!scanDetailsDiffer(existingTender, nextDetails)) {
             logger.info(`Tender unchanged, skipping update: ${tender_id}`);
-        } else {
-            await updateGemTenderScanDetailsById({
-                id: existingTender.id,
-                ...nextDetails,
-            });
-            logger.info(`Updated tender scan details: ${tender_id}`);
-            changed = true;
+            return false;
         }
 
-        // Re-scan: AI only for completely untouched rows (no assignee/stage/flags/ai yet).
-        if (isGemTenderUntouchedForAi(existingTender)) {
-            await runInlineAiScopeIfNeeded({
-                driver,
-                gemTenderId: existingTender.id,
-                tenderId: tender_id,
-                specification_links: gemTenderDetails?.specification_links,
-            });
-        } else {
-            const skipReasons = getGemTenderAiSkipReasons(existingTender);
-            logger.info(
-                `AI scope skip: tender ${tender_id} → already touched or analyzed (${skipReasons.join(", ")})`,
-            );
-        }
-
-        return changed;
+        await updateGemTenderScanDetailsById({
+            id: existingTender.id,
+            ...nextDetails,
+        });
+        logger.info(`Updated tender scan details: ${tender_id}`);
+        return true;
     } catch (error) {
         logger.error(`Failed to process tender ${tender_id}: ${error}`);
         return false;
@@ -1567,7 +1378,6 @@ export const searchTendersByKeyword = async (
                         tender,
                     );
                     const changed = await processTender({
-                        driver,
                         tenderFile,
                         category_group_id: resolvedCategoryGroupId,
                         tender_category_id: resolvedTenderCategoryId,

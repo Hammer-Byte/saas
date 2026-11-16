@@ -616,8 +616,6 @@ export async function generateDBTables() {
             lock_message VARCHAR(255) NULL,
             stage VARCHAR(64) NULL DEFAULT NULL,
             assignee_user_id INT NULL,
-            ai_analyzed TINYINT(1) NOT NULL DEFAULT 0,
-            ai_confidence TINYINT UNSIGNED NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_gem_tender (tender_id),
             CONSTRAINT fk_gem_tenders_category_group
@@ -700,28 +698,10 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS GEM_TENDER_AI_SETTINGS (
-            id INT PRIMARY KEY,
-            prompt_template TEXT NOT NULL,
-            openai_api_key VARCHAR(512) NULL,
-            openai_model VARCHAR(64) NOT NULL DEFAULT 'gpt-4o-mini',
-            confidence_threshold TINYINT UNSIGNED NOT NULL DEFAULT 80,
-            updated_by INT NULL,
-            updated_on DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            CONSTRAINT fk_gem_tender_ai_settings_user
-                FOREIGN KEY (updated_by)
-                REFERENCES USERS(id)
-                ON DELETE SET NULL
-                ON UPDATE CASCADE
-        )`,
-        `ALTER TABLE GEM_TENDERS
-            ADD COLUMN ai_confidence TINYINT UNSIGNED NULL AFTER ai_analyzed`,
-        `INSERT IGNORE INTO GEM_TENDER_AI_SETTINGS (id, prompt_template, openai_model, confidence_threshold) VALUES (
-            1,
-            'You help HammerByte decide if a GeM tender is in our service scope.\n\nOur scan keywords and GeM categories (the Scope of Work should fall under or be associated with at least one of these):\n{{categories}}\n\nInspect the attached Scope of Work document (PDF, scanned/image PDF, image, or other supported file). Mark in_scope true only if the work clearly matches or is associated with at least one keyword or GeM category above; otherwise false.\nAlso give confidence from 0 to 100 for how sure you are that you understood the document and that your in_scope decision is correct. If you cannot read or understand the document, set confidence below {{confidence_threshold}} and explain why.\nRespond with JSON only: {\"in_scope\": true|false, \"confidence\": 0-100, \"reason\": \"short explanation\"}',
-            'gpt-4o-mini',
-            80
-        );`,
+        // Remove retired GeM AI scope columns/table from older installs.
+        `ALTER TABLE GEM_TENDERS DROP COLUMN ai_confidence`,
+        `ALTER TABLE GEM_TENDERS DROP COLUMN ai_analyzed`,
+        `DROP TABLE IF EXISTS GEM_TENDER_AI_SETTINGS`,
         `CREATE TABLE IF NOT EXISTS GEM_TENDER_SCAN_RUNS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             status VARCHAR(32) NOT NULL DEFAULT 'running',
@@ -1232,9 +1212,9 @@ export async function generateDBTables() {
             await dbConnection.unsafe(table);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            // Ignore idempotent noise (e.g. duplicate key name on fresh vs existing).
+            // Ignore idempotent noise (duplicate keys/columns, or DROP of missing column/table).
             if (
-                !/duplicate (foreign )?key|already exists|duplicate column/i.test(
+                !/duplicate (foreign )?key|already exists|duplicate column|check that (column|table)|unknown (column|table)|doesn't exist|does not exist/i.test(
                     message,
                 )
             ) {

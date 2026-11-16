@@ -1,6 +1,6 @@
 (() => {
     // Bumped when a filter default changes so old saved filters don't override it.
-    const FILTERS_STORAGE_KEY = "gem-tenders-filters-v3";
+    const FILTERS_STORAGE_KEY = "gem-tenders-filters-v4";
     const COLUMNS_STORAGE_KEY = "gem-tenders-columns";
     const ALWAYS_VISIBLE_COLUMNS = new Set(["select", "tenderId"]);
     const DEFAULT_VISIBLE_COLUMNS = [
@@ -16,8 +16,6 @@
         "mseTurnover",
         "stage",
         "locked",
-        "aiAnalyzed",
-        "aiConfidence",
         "assignee",
     ];
     const fromInput = document.getElementById("gem-tenders-from");
@@ -30,12 +28,6 @@
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
     const emdUptoFilter = document.getElementById("gem-filter-emd-upto");
     const lockedFilter = document.getElementById("gem-filter-locked");
-    const aiAnalyzedFilter = document.getElementById("gem-filter-ai-analyzed");
-    const AI_ANALYZED_FILTERS = new Set(["analyzed", "not_analyzed"]);
-    const AI_ANALYZED_LABELS = {
-        analyzed: "AI analyzed",
-        not_analyzed: "Not AI analyzed",
-    };
 
     function normalizePositiveNumber(raw) {
         const value = Number(String(raw ?? "").trim());
@@ -45,10 +37,6 @@
 
     function normalizeLockedFilter(raw) {
         return ["locked", "unlocked"].includes(raw) ? raw : "";
-    }
-
-    function normalizeAiAnalyzedFilter(raw) {
-        return AI_ANALYZED_FILTERS.has(raw) ? raw : "";
     }
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
     const refreshBtn = document.getElementById("gem-tenders-refresh-btn");
@@ -121,7 +109,6 @@
             quantityUpto: "",
             emdUpto: "",
             locked: "",
-            aiAnalyzed: "",
             view: "all",
             columns: {},
         };
@@ -248,7 +235,6 @@
             quantityUpto: normalizePositiveNumber(quantityUptoFilter?.value),
             emdUpto: normalizePositiveNumber(emdUptoFilter?.value),
             locked: normalizeLockedFilter(String(lockedFilter?.value || "")),
-            aiAnalyzed: normalizeAiAnalyzedFilter(String(aiAnalyzedFilter?.value || "")),
             view: QUICK_VIEWS.has(appliedFilters.view) ? appliedFilters.view : "all",
             columns,
         };
@@ -271,9 +257,6 @@
         }
         if (lockedFilter) {
             lockedFilter.value = normalizeLockedFilter(filters.locked);
-        }
-        if (aiAnalyzedFilter) {
-            aiAnalyzedFilter.value = normalizeAiAnalyzedFilter(filters.aiAnalyzed);
         }
         const columns =
             filters.columns && typeof filters.columns === "object" ? filters.columns : {};
@@ -622,22 +605,6 @@
                 const isLocked = !!Number(tender.locked);
                 const isHidden =
                     !!Number(tender.hidden) || tender.hidden === true;
-                const isAiAnalyzed = !!Number(tender.ai_analyzed);
-                const aiConfidenceRaw = tender.ai_confidence;
-                const aiConfidenceNum =
-                    aiConfidenceRaw != null && aiConfidenceRaw !== ""
-                        ? Number(aiConfidenceRaw)
-                        : NaN;
-                const hasAiConfidence =
-                    Number.isFinite(aiConfidenceNum) &&
-                    aiConfidenceNum >= 0 &&
-                    aiConfidenceNum <= 100;
-                const aiConfidenceRounded = hasAiConfidence
-                    ? Math.round(aiConfidenceNum)
-                    : null;
-                const aiConfidenceDisplay = hasAiConfidence
-                    ? `${aiConfidenceRounded}%`
-                    : "—";
                 const lockMessage = tender.lock_message || "";
                 const assigneeUserId =
                     tender.assignee_user_id != null
@@ -656,8 +623,6 @@
                     data-tender-category-name="${escapeHtml(tenderCategoryName)}"
                     data-locked="${isLocked ? "1" : "0"}"
                     data-hidden="${isHidden ? "1" : "0"}"
-                    data-ai-analyzed="${isAiAnalyzed ? "1" : "0"}"
-                    data-ai-confidence="${escapeHtml(hasAiConfidence ? aiConfidenceRounded : "")}"
                     data-assignee-user-id="${escapeHtml(assigneeUserId)}"
                     data-stage="${escapeHtml(stage)}"
                     data-past-experience="${escapeHtml(pastExperience)}"
@@ -715,12 +680,6 @@
                             aria-label="${escapeHtml(isLocked ? lockMessage || "Locked" : "Not locked")}"
                             title="${escapeHtml(isLocked ? lockMessage || "Locked" : "Not locked")}"
                         />
-                    </td>
-                    <td data-col="aiAnalyzed" class="text-center">
-                        ${isAiAnalyzed ? "Yes" : "No"}
-                    </td>
-                    <td data-col="aiConfidence" class="text-center">
-                        ${escapeHtml(aiConfidenceDisplay)}
                     </td>
                     <td data-col="assignee">
                         <span class="gem-tender-tag gem-tender-assignee-tag${assigneeUserId ? "" : " gem-tender-assignee-empty"}">
@@ -1304,14 +1263,6 @@
                 },
             });
         }
-        if (AI_ANALYZED_FILTERS.has(appliedFilters.aiAnalyzed)) {
-            chips.push({
-                label: AI_ANALYZED_LABELS[appliedFilters.aiAnalyzed] || "AI analyzed",
-                clear: () => {
-                    if (aiAnalyzedFilter) aiAnalyzedFilter.value = "";
-                },
-            });
-        }
         if (!appliedFilters.includeHidden) {
             chips.push({
                 label: "Hiding hidden tenders",
@@ -1389,9 +1340,6 @@
         const selectedAssignees = (appliedFilters.assignees || []).map(String);
         const includeHidden = !!appliedFilters.includeHidden || !!searchMode;
         const lockedMode = String(appliedFilters.locked || "");
-        const aiAnalyzedMode = AI_ANALYZED_FILTERS.has(appliedFilters.aiAnalyzed)
-            ? appliedFilters.aiAnalyzed
-            : "";
         const view = QUICK_VIEWS.has(appliedFilters.view) ? appliedFilters.view : "all";
         const quantityUptoRaw = String(appliedFilters.quantityUpto ?? "").trim();
         const quantityUpto = quantityUptoRaw === "" ? null : Number(quantityUptoRaw);
@@ -1417,7 +1365,6 @@
 
         for (const row of rows) {
             const rowStage = String(row.dataset.stage || "unassigned");
-            const rowAiAnalyzed = row.dataset.aiAnalyzed === "1";
 
             const rowCategoryId = String(row.dataset.tenderCategoryId || "");
             const matchesCategory =
@@ -1465,11 +1412,6 @@
             const matchesLocked =
                 !lockedMode || (lockedMode === "locked") === (row.dataset.locked === "1");
 
-            const matchesAiAnalyzed =
-                !aiAnalyzedMode ||
-                (aiAnalyzedMode === "analyzed" && rowAiAnalyzed) ||
-                (aiAnalyzedMode === "not_analyzed" && !rowAiAnalyzed);
-
             const matchesBase =
                 matchesCategory &&
                 matchesStage &&
@@ -1478,8 +1420,7 @@
                 matchesColumns &&
                 matchesQuantity &&
                 matchesEmd &&
-                matchesLocked &&
-                matchesAiAnalyzed;
+                matchesLocked;
 
             // Hidden (closed) tenders show when asked for explicitly: the checkbox, their status, or their quick view.
             const isHiddenRow = row.dataset.hidden === "1";
@@ -1577,7 +1518,6 @@
             quantityUpto: normalizePositiveNumber(filters.quantityUpto),
             emdUpto: normalizePositiveNumber(filters.emdUpto),
             locked: normalizeLockedFilter(filters.locked),
-            aiAnalyzed: normalizeAiAnalyzedFilter(filters.aiAnalyzed),
             view: QUICK_VIEWS.has(filters.view) ? filters.view : "all",
             columns: normalizedColumns,
         };
@@ -1765,7 +1705,6 @@
         toInput,
         includeHiddenFilter,
         lockedFilter,
-        aiAnalyzedFilter,
         ...columnFilters,
     ]) {
         input?.addEventListener("change", () => void commitFilters());

@@ -129,8 +129,7 @@
         const keywordCount = selectedKeywordIds.size;
         const categoryCount = selectedCategoryIds.size;
         const totalSelected = keywordCount + categoryCount;
-        const hideScan =
-            activeScannerTab === "categories" || activeScannerTab === "ai-scope";
+        const hideScan = activeScannerTab === "categories";
 
         scannerScanButton.classList.toggle("d-none", hideScan);
         scannerScanButton.disabled = totalSelected === 0 || hideScan;
@@ -730,10 +729,7 @@
 
     scannerTabs?.addEventListener("shown.bs.tab", (event) => {
         const target = event.target?.getAttribute("data-bs-target") || "";
-        if (target.includes("ai-scope")) {
-            activeScannerTab = "ai-scope";
-            void loadAiScopeSettings();
-        } else if (target.includes("categories")) {
+        if (target.includes("categories")) {
             activeScannerTab = "categories";
         } else if (target.includes("advance")) {
             activeScannerTab = "advance";
@@ -741,133 +737,6 @@
             activeScannerTab = "direct";
         }
         syncSharedScanControls();
-    });
-
-    // ---------- AI Scope ----------
-
-    const aiScopeForm = document.getElementById("gem-ai-scope-form");
-    const aiScopePrompt = document.getElementById("gem-ai-scope-prompt");
-    const aiScopeApiKey = document.getElementById("gem-ai-scope-api-key");
-    const aiScopeModel = document.getElementById("gem-ai-scope-model");
-    const aiScopeConfidence = document.getElementById("gem-ai-scope-confidence");
-    const aiScopeStatus = document.getElementById("gem-ai-scope-status");
-    const aiScopeFormAlert = document.getElementById("gem-ai-scope-form-alert");
-    const aiScopeSaveButton = document.getElementById("gem-ai-scope-save-btn");
-
-    function fillAiScopeModelOptions(options, selected) {
-        if (!aiScopeModel) return;
-        const raw = Array.isArray(options) && options.length ? options : ["gpt-4o-mini"];
-        const list = raw.map((entry) => {
-            if (entry && typeof entry === "object") {
-                const id = String(entry.id || "").trim();
-                return {
-                    id,
-                    label: String(entry.label || id).trim() || id,
-                };
-            }
-            const id = String(entry || "").trim();
-            return { id, label: id };
-        }).filter((entry) => entry.id);
-        const ids = list.map((entry) => entry.id);
-        const current = selected && ids.includes(selected) ? selected : ids[0];
-        aiScopeModel.innerHTML = list
-            .map(
-                (entry) =>
-                    `<option value="${escapeHtml(entry.id)}" ${
-                        entry.id === current ? "selected" : ""
-                    }>${escapeHtml(entry.label)}</option>`,
-            )
-            .join("");
-    }
-
-    async function loadAiScopeSettings() {
-        if (!aiScopePrompt) return;
-        try {
-            const { ok, data } = await apiRequest("/api/gem-tender-ai-settings");
-            if (!ok) {
-                if (aiScopeStatus) {
-                    aiScopeStatus.textContent = data.error || "Failed to load AI settings.";
-                }
-                return;
-            }
-            const settings = data.settings || {};
-            aiScopePrompt.value = settings.prompt_template || "";
-            fillAiScopeModelOptions(settings.openai_model_options, settings.openai_model);
-            if (aiScopeApiKey) {
-                aiScopeApiKey.value = settings.openai_api_key || "";
-            }
-            if (aiScopeConfidence) {
-                const threshold = Number(settings.confidence_threshold);
-                aiScopeConfidence.value = Number.isFinite(threshold) ? threshold : 80;
-            }
-            if (aiScopeStatus) {
-                const threshold = Number(settings.confidence_threshold) || 80;
-                aiScopeStatus.textContent = settings.openai_api_key
-                    ? `Model: ${settings.openai_model || "gpt-4o-mini"} · Min confidence: ${threshold}%`
-                    : `No API key saved yet. Min confidence: ${threshold}%`;
-            }
-            const pricingNote = document.getElementById("gem-ai-scope-pricing-note");
-            if (pricingNote && settings.pricing_note) {
-                pricingNote.textContent = settings.pricing_note;
-            }
-            aiScopeFormAlert?.classList.add("d-none");
-        } catch (error) {
-            console.error(error);
-            if (aiScopeStatus) aiScopeStatus.textContent = "Failed to load AI settings.";
-        }
-    }
-
-    aiScopeForm?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const prompt_template = (aiScopePrompt?.value || "").trim();
-        const openai_model = (aiScopeModel?.value || "").trim();
-        const openai_api_key = (aiScopeApiKey?.value || "").trim();
-        const confidence_threshold = Number(aiScopeConfidence?.value);
-        if (!prompt_template) {
-            showFormAlert(aiScopeFormAlert, "Prompt template is required.");
-            return;
-        }
-        if (!prompt_template.includes("{{categories}}")) {
-            showFormAlert(
-                aiScopeFormAlert,
-                "Prompt must include {{categories}}.",
-            );
-            return;
-        }
-        if (!openai_model) {
-            showFormAlert(aiScopeFormAlert, "Select an OpenAI model.");
-            return;
-        }
-        if (
-            !Number.isFinite(confidence_threshold) ||
-            confidence_threshold < 1 ||
-            confidence_threshold > 100
-        ) {
-            showFormAlert(aiScopeFormAlert, "Min confidence must be between 1 and 100.");
-            return;
-        }
-
-        if (aiScopeSaveButton) aiScopeSaveButton.disabled = true;
-        try {
-            const { ok, data } = await apiRequest("/api/gem-tender-ai-settings", "PUT", {
-                prompt_template,
-                openai_model,
-                openai_api_key,
-                confidence_threshold,
-            });
-            if (!ok) {
-                showFormAlert(aiScopeFormAlert, data.error || "Failed to save settings.");
-                return;
-            }
-            aiScopeFormAlert?.classList.add("d-none");
-            showAlert(data.message || "AI scope settings saved.", "success");
-            await loadAiScopeSettings();
-        } catch (error) {
-            console.error(error);
-            showFormAlert(aiScopeFormAlert, "Failed to save settings.");
-        } finally {
-            if (aiScopeSaveButton) aiScopeSaveButton.disabled = false;
-        }
     });
 
     // ---------- Categories (HammerByte) ----------

@@ -91,20 +91,6 @@
                     Categories
                 </button>
             </li>
-            <li class="nav-item" role="presentation">
-                <button
-                    class="nav-link"
-                    id="gem-ai-scope-tab"
-                    data-bs-toggle="tab"
-                    data-bs-target="#gem-ai-scope-pane"
-                    type="button"
-                    role="tab"
-                    aria-controls="gem-ai-scope-pane"
-                    aria-selected="false"
-                >
-                    AI Scope
-                </button>
-            </li>
         </ul>
 
         <div class="tab-content">
@@ -196,81 +182,6 @@
                 </div>
             </div>
 
-            <%# AI Scope %>
-            <div class="tab-pane fade" id="gem-ai-scope-pane" role="tabpanel" aria-labelledby="gem-ai-scope-tab" tabindex="0">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body p-4">
-                        <div class="mb-3">
-                            <h2 class="h5 mb-1">AI Scope</h2>
-                            <p class="text-secondary small mb-0">
-                                Configure OpenAI key and model here (stored in
-                                <code>GEM_TENDER_AI_SETTINGS</code>). On new tender insert, the Scope of Work file is
-                                downloaded with the GeM session, uploaded to OpenAI, and attached to the prompt
-                                (then deleted locally and from OpenAI).
-                                <code>{{categories}}</code> is filled with scan keywords plus all GeM categories —
-                                SoW must match or associate with at least one. Decisions apply only when the model
-                                returns confidence ≥ the threshold below; otherwise the tender stays not AI-analyzed.
-                                Placeholders: <code>{{categories}}</code>,
-                                optional <code>{{confidence_threshold}}</code>.
-                            </p>
-                        </div>
-                        <div id="gem-ai-scope-status" class="small text-secondary mb-3"></div>
-                        <div id="gem-ai-scope-form-alert" class="alert d-none" role="alert"></div>
-                        <form id="gem-ai-scope-form" novalidate>
-                            <div class="row g-3 mb-3">
-                                <div class="col-md-8">
-                                    <label for="gem-ai-scope-api-key" class="form-label">OpenAI API key</label>
-                                    <input
-                                        type="text"
-                                        class="form-control font-monospace"
-                                        id="gem-ai-scope-api-key"
-                                        maxlength="512"
-                                        autocomplete="off"
-                                        placeholder="sk-…"
-                                        spellcheck="false"
-                                    />
-                                </div>
-                                <div class="col-md-4">
-                                    <label for="gem-ai-scope-confidence" class="form-label">Min confidence %</label>
-                                    <input
-                                        type="number"
-                                        class="form-control"
-                                        id="gem-ai-scope-confidence"
-                                        min="1"
-                                        max="100"
-                                        step="1"
-                                        value="80"
-                                        required
-                                    />
-                                </div>
-                                <div class="col-12">
-                                    <label for="gem-ai-scope-model" class="form-label">Model</label>
-                                    <select class="form-select" id="gem-ai-scope-model" required></select>
-                                    <div class="form-text" id="gem-ai-scope-pricing-note">
-                                        GPT-4 / GPT-5 / GPT-6 models ready to select, with USD per 1M tokens (input / output), cheapest first.
-                                        SoW triage is input-heavy (attached file); JSON output is tiny — input rate dominates.
-                                        We can pick the best cost/volume model together later (e.g. gpt-6-luna).
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="gem-ai-scope-prompt" class="form-label">Prompt template</label>
-                                <textarea
-                                    class="form-control font-monospace"
-                                    id="gem-ai-scope-prompt"
-                                    rows="14"
-                                    required
-                                    maxlength="20000"
-                                    spellcheck="false"
-                                ></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-primary" id="gem-ai-scope-save-btn">
-                                Save settings
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </main>

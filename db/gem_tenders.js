@@ -386,21 +386,10 @@ export async function updateGemTenderById(patch = {}) {
         "out_of_scope",
         "missed",
         "unattended",
-        "ai_analyzed",
     ]) {
         if (has(flag)) {
             pushAssignment(flag, !!patch[flag]);
         }
-    }
-    if (has("ai_confidence")) {
-        const confidence =
-            patch.ai_confidence == null || patch.ai_confidence === ""
-                ? null
-                : Math.min(100, Math.max(0, Math.round(Number(patch.ai_confidence))));
-        pushAssignment(
-            "ai_confidence",
-            Number.isFinite(confidence) ? confidence : null,
-        );
     }
     if (has("filed")) {
         pushAssignment("filed", !!patch.filed);
@@ -477,10 +466,6 @@ export async function updateGemTenderById(patch = {}) {
                         return sql`UPDATE GEM_TENDERS SET missed = ${value} WHERE id = ${id}`;
                     case "unattended":
                         return sql`UPDATE GEM_TENDERS SET unattended = ${value} WHERE id = ${id}`;
-                    case "ai_analyzed":
-                        return sql`UPDATE GEM_TENDERS SET ai_analyzed = ${value} WHERE id = ${id}`;
-                    case "ai_confidence":
-                        return sql`UPDATE GEM_TENDERS SET ai_confidence = ${value} WHERE id = ${id}`;
                     case "filed":
                         return sql`UPDATE GEM_TENDERS SET filed = ${value} WHERE id = ${id}`;
                     case "quote":
