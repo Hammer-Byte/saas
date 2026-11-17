@@ -465,6 +465,40 @@ function Get-HbPairIntervalSeconds {
     return (Get-HbInt -Map $Pair -Key 'interval_seconds' -Default 900 -Min 60 -Max 86400)
 }
 
+function Get-HbPairList {
+    # Get-HbValue / ConvertTo-HbPlain may wrap object[] in an extra single-element
+    # Object[], so @(Get-HbValue pairs) looks like 1 "pair" that is actually the
+    # inner array (share/local_path lookups then fail). Unwrap and keep maps only.
+    param($Raw)
+    $current = $Raw
+    while (
+        $null -ne $current -and
+        ($current -is [System.Array]) -and
+        $current.Length -eq 1 -and
+        $null -ne $current[0] -and
+        ($current[0] -is [System.Array] -or $current[0] -is [System.Collections.ArrayList])
+    ) {
+        $current = $current[0]
+    }
+    $list = New-Object System.Collections.ArrayList
+    if ($null -eq $current) {
+        return ,$list.ToArray()
+    }
+    if ($current -is [System.Collections.IDictionary]) {
+        [void]$list.Add($current)
+        return ,$list.ToArray()
+    }
+    if ($current -is [System.Collections.IEnumerable] -and -not ($current -is [string])) {
+        foreach ($item in $current) {
+            if ($item -is [System.Collections.IDictionary]) {
+                [void]$list.Add($item)
+            }
+        }
+        return ,$list.ToArray()
+    }
+    return ,$list.ToArray()
+}
+
 function Get-HbSoonestNextDueUtc {
     param($NextDueByIndex, [int]$PairCount)
     $soonest = $null
@@ -489,7 +523,7 @@ function Invoke-HbSyncCycle {
     $sourceHost = [string](Get-HbValue -Map $Config -Key 'source_host' -Default '')
     $user = [string](Get-HbValue -Map $Config -Key 'username' -Default '')
     $password = [string](Get-HbValue -Map $Config -Key 'password' -Default '')
-    $pairs = @(Get-HbValue -Map $Config -Key 'pairs' -Default @())
+    $pairs = Get-HbPairList -Raw (Get-HbValue -Map $Config -Key 'pairs' -Default @())
     $skipLogMax = Get-HbInt -Map $Config -Key 'skip_log_max' -Default 500 -Min 0 -Max 5000
     $dueIndexes = @($DueIndexes)
 
@@ -614,19 +648,21 @@ function Invoke-HbSyncCycle {
 function Start-HbDriveSync {
     Initialize-HbService -Name 'drivesync' -Version $script:ServiceVersion -ConfigFile $ConfigFile -ParentPid $ParentPid
     $config = $script:HbConfig
-    $pairs = @(Get-HbValue -Map $config -Key 'pairs' -Default @())
+    $pairs = Get-HbPairList -Raw (Get-HbValue -Map $config -Key 'pairs' -Default @())
     Write-HbLog ('pair-specific intervals; ' + $pairs.Count + ' pair(s); source ' + [string](Get-HbValue -Map $config -Key 'source_host' -Default ''))
     $nextDueByIndex = @{}
     for ($i = 0; $i -lt $pairs.Count; $i++) {
         $nextDueByIndex[$i] = [DateTime]::MinValue
-        Write-HbLog ('pair ' + ($i + 1) + ' interval ' + (Get-HbPairIntervalSeconds -Pair $pairs[$i]) + 's')
+        $pairShare = [string](Get-HbValue -Map $pairs[$i] -Key 'share' -Default '')
+        $pairLocal = [string](Get-HbValue -Map $pairs[$i] -Key 'local_path' -Default '')
+        Write-HbLog ('pair ' + ($i + 1) + ' ' + $pairShare + ' -> ' + $pairLocal + '; interval ' + (Get-HbPairIntervalSeconds -Pair $pairs[$i]) + 's')
     }
     while ($true) {
         if (-not (Test-HbParentAlive)) {
             Write-HbLog 'agent is gone; exiting'
             return
         }
-        $pairs = @(Get-HbValue -Map $config -Key 'pairs' -Default @())
+        $pairs = Get-HbPairList -Raw (Get-HbValue -Map $config -Key 'pairs' -Default @())
         $nowUtc = [DateTime]::UtcNow
         $dueIndexes = New-Object System.Collections.ArrayList
         for ($i = 0; $i -lt $pairs.Count; $i++) {
