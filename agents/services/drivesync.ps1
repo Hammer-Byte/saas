@@ -349,13 +349,13 @@ function Resolve-HbRobocopyExcludePaths {
     # under source and dest. Bare "logs" means share\logs only, not every logs folder.
     # Skip wildcards (* ?); validation should reject them.
     param(
-        [string[]]$Entries,
+        $Entries,
         [string]$SourceRoot,
         [string]$DestRoot
     )
     $resolved = New-Object System.Collections.ArrayList
     $seen = @{}
-    foreach ($item in @($Entries)) {
+    foreach ($item in @(Get-HbStringList -Raw $Entries)) {
         $raw = [string]$item
         if (-not $raw) {
             continue
@@ -499,6 +499,52 @@ function Get-HbPairList {
     return ,$list.ToArray()
 }
 
+function Get-HbStringList {
+    # Same nesting issue as pairs: exclude_dirs / exclude_files can arrive as
+    # Object[]{ Object[]{ 'path1', 'path2' } }. Flatten to a string[].
+    param($Raw)
+    $current = $Raw
+    while (
+        $null -ne $current -and
+        ($current -is [System.Array]) -and
+        $current.Length -eq 1 -and
+        $null -ne $current[0] -and
+        -not ($current[0] -is [string]) -and
+        ($current[0] -is [System.Array] -or $current[0] -is [System.Collections.ArrayList])
+    ) {
+        $current = $current[0]
+    }
+    $list = New-Object System.Collections.ArrayList
+    if ($null -eq $current) {
+        return ,$list.ToArray()
+    }
+    if ($current -is [string]) {
+        $one = $current.Trim()
+        if ($one) {
+            [void]$list.Add($one)
+        }
+        return ,$list.ToArray()
+    }
+    if ($current -is [System.Collections.IEnumerable]) {
+        foreach ($item in $current) {
+            if ($item -is [string]) {
+                $text = $item.Trim()
+                if ($text) {
+                    [void]$list.Add($text)
+                }
+                continue
+            }
+            if ($item -is [System.Array] -or $item -is [System.Collections.ArrayList]) {
+                foreach ($inner in @(Get-HbStringList -Raw $item)) {
+                    [void]$list.Add($inner)
+                }
+            }
+        }
+        return ,$list.ToArray()
+    }
+    return ,$list.ToArray()
+}
+
 function Get-HbSoonestNextDueUtc {
     param($NextDueByIndex, [int]$PairCount)
     $soonest = $null
@@ -569,8 +615,8 @@ function Invoke-HbSyncCycle {
             }
             $pair = $pairs[$i]
             $pairInterval = Get-HbPairIntervalSeconds -Pair $pair
-            $pairExcludeDirs = @(Get-HbValue -Map $pair -Key 'exclude_dirs' -Default @())
-            $pairExcludeFiles = @(Get-HbValue -Map $pair -Key 'exclude_files' -Default @())
+            $pairExcludeDirs = Get-HbStringList -Raw (Get-HbValue -Map $pair -Key 'exclude_dirs' -Default @())
+            $pairExcludeFiles = Get-HbStringList -Raw (Get-HbValue -Map $pair -Key 'exclude_files' -Default @())
             $pairResult = Invoke-HbPairSync -SourceHost $sourceHost -Pair $pair -SkipLogMax $skipLogMax -State $state -Index $i -ExcludeDirs $pairExcludeDirs -ExcludeFiles $pairExcludeFiles
             $finishedUtc = [DateTime]::UtcNow
             $nextDueUtc = $finishedUtc.AddSeconds($pairInterval)

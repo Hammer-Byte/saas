@@ -143,6 +143,13 @@
     },
     {
       "component": "drivesync",
+      "version": "1.0.12",
+      "file_path": "/public/agents/drivesync/1.0.12/drivesync.ps1",
+      "sha256": "c0fbe18c6228e28a993fcf6bd02f8d9a85e9c5094a3287d402c5446f82de58b4",
+      "size_bytes": 52636
+    },
+    {
+      "component": "drivesync",
       "version": "1.0.5",
       "file_path": "/public/agents/drivesync/1.0.5/drivesync.ps1",
       "sha256": "9373f2d96f94d347253eea521747d445f4798cd46848a0524d3e87669b6becc6",
