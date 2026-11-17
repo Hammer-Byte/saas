@@ -9,8 +9,9 @@ const LOCAL_PATH_PATTERN = /^[A-Za-z]:\\(?:[^<>:"/\\|?*\r\n]+\\?)*$/;
 /** Exact relative path under the pair root (no drive/UNC, no wildcards). */
 const EXACT_EXCLUDE_PATTERN = /^[^<>:"/|?*\r\n\\]([^<>:"/|?*\r\n]*[^<>:"/|?*\r\n\\])?$/;
 
+const PAIR_INTERVAL_DEFAULT = 900;
+
 const defaults = {
-    interval_seconds: 900,
     source_host: "",
     username: "",
     password: "",
@@ -24,15 +25,6 @@ const defaults = {
 };
 
 const fields = [
-    {
-        key: "interval_seconds",
-        label: "Sync interval (seconds)",
-        type: "int",
-        min: 60,
-        max: 86400,
-        required: true,
-        help: "Wait time between the end of one sync cycle and the start of the next.",
-    },
     {
         key: "source_host",
         label: "Source host",
@@ -61,7 +53,7 @@ const fields = [
         type: "pairs",
         required: true,
         max: MAX_PAIRS,
-        help: "Each pair copies \\\\source_host\\share onto a local folder on this machine (mirror: files removed at source are removed locally). Optional exclude directories/files on a pair apply only to that pair as exact paths under its share root.",
+        help: "Each pair copies \\\\source_host\\share onto a local folder on this machine (mirror). Each pair has its own sync interval (default 900s after that pair finishes). Optional exclude directories/files apply only to that pair as exact paths under its share root.",
     },
     {
         key: "skip_log_max",
@@ -172,6 +164,12 @@ function validate(input, previous = {}) {
     if (rawPairs.length > MAX_PAIRS) {
         errors.push(`At most ${MAX_PAIRS} drive pairs are allowed`);
     }
+    const legacyInterval = Number(previous?.interval_seconds);
+    const pairIntervalFallback =
+        Number.isInteger(legacyInterval) && legacyInterval >= 60 && legacyInterval <= 86400
+            ? legacyInterval
+            : PAIR_INTERVAL_DEFAULT;
+
     const seenLocal = new Set();
     rawPairs.slice(0, MAX_PAIRS).forEach((rawPair, index) => {
         const label = `Pair ${index + 1}`;
@@ -195,6 +193,13 @@ function validate(input, previous = {}) {
             errors.push(`${label}: local path is used by another pair`);
         }
         seenLocal.add(localKey);
+        const intervalSeconds = readInt(rawPair, "interval_seconds", {
+            min: 60,
+            max: 86400,
+            fallback: pairIntervalFallback,
+            errors,
+            label: `${label} sync interval`,
+        });
         const pairExcludeDirs = readExcludeList(rawPair, "exclude_dirs", {
             kind: "dir",
             errors,
@@ -208,19 +213,13 @@ function validate(input, previous = {}) {
         pairs.push({
             share,
             local_path: localPath,
+            interval_seconds: intervalSeconds,
             exclude_dirs: pairExcludeDirs,
             exclude_files: pairExcludeFiles,
         });
     });
 
     const config = {
-        interval_seconds: readInt(input, "interval_seconds", {
-            min: 60,
-            max: 86400,
-            fallback: defaults.interval_seconds,
-            errors,
-            label: "Sync interval",
-        }),
         source_host: sourceHost,
         username,
         password,

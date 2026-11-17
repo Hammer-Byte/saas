@@ -222,7 +222,12 @@ function formatDriveSyncPairsHtml(pairs) {
                 pair.copied != null
                     ? ` (copied ${Number(pair.copied) || 0}, skipped ${Number(pair.skipped) || 0}, purged ${Number(pair.purged) || 0}, failed ${Number(pair.failed) || 0})`
                     : "";
-            return `<div><code>${source}</code> → <code>${destination}</code>${status}${stats}</div>`;
+            const interval =
+                pair.interval_seconds != null ? ` · interval ${Number(pair.interval_seconds) || 0}s` : "";
+            const nextRun = pair.next_run_at_ist
+                ? ` · next ${escapeHtml(pair.next_run_at_ist)}`
+                : "";
+            return `<div><code>${source}</code> → <code>${destination}</code>${status}${stats}${interval}${nextRun}</div>`;
         })
         .join("");
 }

@@ -460,23 +460,50 @@ function Invoke-HbPairSync {
     return $result
 }
 
+function Get-HbPairIntervalSeconds {
+    param($Pair)
+    return (Get-HbInt -Map $Pair -Key 'interval_seconds' -Default 900 -Min 60 -Max 86400)
+}
+
+function Get-HbSoonestNextDueUtc {
+    param($NextDueByIndex, [int]$PairCount)
+    $soonest = $null
+    for ($i = 0; $i -lt $PairCount; $i++) {
+        if (-not $NextDueByIndex.ContainsKey($i)) {
+            continue
+        }
+        $due = [DateTime]$NextDueByIndex[$i]
+        if ($null -eq $soonest -or $due -lt $soonest) {
+            $soonest = $due
+        }
+    }
+    return $soonest
+}
+
 function Invoke-HbSyncCycle {
-    param($Config)
+    param(
+        $Config,
+        [int[]]$DueIndexes,
+        $NextDueByIndex
+    )
     $sourceHost = [string](Get-HbValue -Map $Config -Key 'source_host' -Default '')
     $user = [string](Get-HbValue -Map $Config -Key 'username' -Default '')
     $password = [string](Get-HbValue -Map $Config -Key 'password' -Default '')
-    $pairs = Get-HbValue -Map $Config -Key 'pairs' -Default @()
-    $pairs = @($pairs)
+    $pairs = @(Get-HbValue -Map $Config -Key 'pairs' -Default @())
     $skipLogMax = Get-HbInt -Map $Config -Key 'skip_log_max' -Default 500 -Min 0 -Max 5000
+    $dueIndexes = @($DueIndexes)
 
-    $intervalSeconds = Get-HbInt -Map $Config -Key 'interval_seconds' -Default 900 -Min 60 -Max 86400
     $startedUtc = [DateTime]::UtcNow
     $state = @{ events = (New-Object System.Collections.ArrayList); event_count = 0 }
     $pairResults = @()
     $cycleError = $null
 
     $pairSummaries = New-Object System.Collections.ArrayList
-    foreach ($pair in $pairs) {
+    foreach ($index in $dueIndexes) {
+        if ($index -lt 0 -or $index -ge $pairs.Count) {
+            continue
+        }
+        $pair = $pairs[$index]
         $shareName = [string](Get-HbValue -Map $pair -Key 'share' -Default '')
         $localPath = [string](Get-HbValue -Map $pair -Key 'local_path' -Default '')
         $null = $pairSummaries.Add(@{
@@ -484,33 +511,54 @@ function Invoke-HbSyncCycle {
             local_path = $localPath
             source = ('\\' + $sourceHost + '\' + $shareName)
             destination = $localPath
+            interval_seconds = (Get-HbPairIntervalSeconds -Pair $pair)
         })
     }
 
-    Write-HbLog ('sync cycle started: ' + $pairs.Count + ' pair(s) from ' + $sourceHost)
+    Write-HbLog ('sync cycle started: ' + $dueIndexes.Count + ' due pair(s) of ' + $pairs.Count + ' from ' + $sourceHost)
     $null = Send-HbResult -Type 'heartbeat' -Data @{}
     $null = Send-HbResult -Type 'sync_start' -Data @{
         source_host = $sourceHost
         started_at_ist = (Format-HbIst -Utc $startedUtc)
-        interval_seconds = $intervalSeconds
-        pair_count = $pairs.Count
+        pair_count = $dueIndexes.Count
         pairs = $pairSummaries.ToArray()
     }
     try {
         Connect-HbSource -SourceHost $sourceHost -User $user -Password $password
         Write-HbLog ('connected to \\' + $sourceHost + ' as ' + $user)
-        for ($i = 0; $i -lt $pairs.Count; $i++) {
+        foreach ($i in $dueIndexes) {
             if (-not (Test-HbParentAlive)) {
                 throw 'agent stopped during sync'
             }
+            if ($i -lt 0 -or $i -ge $pairs.Count) {
+                continue
+            }
             $pair = $pairs[$i]
+            $pairInterval = Get-HbPairIntervalSeconds -Pair $pair
             $pairExcludeDirs = @(Get-HbValue -Map $pair -Key 'exclude_dirs' -Default @())
             $pairExcludeFiles = @(Get-HbValue -Map $pair -Key 'exclude_files' -Default @())
-            $pairResults += (Invoke-HbPairSync -SourceHost $sourceHost -Pair $pair -SkipLogMax $skipLogMax -State $state -Index $i -ExcludeDirs $pairExcludeDirs -ExcludeFiles $pairExcludeFiles)
+            $pairResult = Invoke-HbPairSync -SourceHost $sourceHost -Pair $pair -SkipLogMax $skipLogMax -State $state -Index $i -ExcludeDirs $pairExcludeDirs -ExcludeFiles $pairExcludeFiles
+            $finishedUtc = [DateTime]::UtcNow
+            $nextDueUtc = $finishedUtc.AddSeconds($pairInterval)
+            $NextDueByIndex[$i] = $nextDueUtc
+            $pairResult['interval_seconds'] = $pairInterval
+            $pairResult['next_run_at_ist'] = (Format-HbIst -Utc $nextDueUtc)
+            $pairResults += $pairResult
+            Write-HbLog ('pair ' + ($i + 1) + ' next run ' + $pairResult.next_run_at_ist + ' (interval ' + $pairInterval + 's)')
         }
     } catch {
         $cycleError = Get-HbErrorText $_
         Write-HbLog ('sync cycle failed: ' + $cycleError) 'ERROR'
+        foreach ($i in $dueIndexes) {
+            if (-not $NextDueByIndex.ContainsKey($i) -or ([DateTime]$NextDueByIndex[$i]) -le $startedUtc) {
+                $pair = $null
+                if ($i -ge 0 -and $i -lt $pairs.Count) {
+                    $pair = $pairs[$i]
+                }
+                $pairInterval = Get-HbPairIntervalSeconds -Pair $pair
+                $NextDueByIndex[$i] = [DateTime]::UtcNow.AddSeconds($pairInterval)
+            }
+        }
     } finally {
         Disconnect-HbSource -SourceHost $sourceHost
     }
@@ -537,7 +585,10 @@ function Invoke-HbSyncCycle {
     }
 
     $finishedUtc = [DateTime]::UtcNow
-    $nextRunUtc = $finishedUtc.AddSeconds($intervalSeconds)
+    $soonestUtc = Get-HbSoonestNextDueUtc -NextDueByIndex $NextDueByIndex -PairCount $pairs.Count
+    if ($null -eq $soonestUtc) {
+        $soonestUtc = $finishedUtc.AddSeconds(900)
+    }
     $seen = [long]$totals.copied + [long]$totals.skipped + [long]$totals.purged + [long]$totals.failed + [long]$totals.mismatched
     $report = @{
         status = $status
@@ -545,8 +596,7 @@ function Invoke-HbSyncCycle {
         started_at_ist = (Format-HbIst -Utc $startedUtc)
         finished_at_ist = (Format-HbIst -Utc $finishedUtc)
         duration_seconds = [int]($finishedUtc - $startedUtc).TotalSeconds
-        interval_seconds = $intervalSeconds
-        next_run_at_ist = (Format-HbIst -Utc $nextRunUtc)
+        next_run_at_ist = (Format-HbIst -Utc $soonestUtc)
         files_seen = $seen
         totals = $totals
         pairs = $pairResults
@@ -564,20 +614,50 @@ function Invoke-HbSyncCycle {
 function Start-HbDriveSync {
     Initialize-HbService -Name 'drivesync' -Version $script:ServiceVersion -ConfigFile $ConfigFile -ParentPid $ParentPid
     $config = $script:HbConfig
-    $interval = Get-HbInt -Map $config -Key 'interval_seconds' -Default 900 -Min 60 -Max 86400
-    Write-HbLog ('interval ' + $interval + 's between cycles; source ' + [string](Get-HbValue -Map $config -Key 'source_host' -Default ''))
+    $pairs = @(Get-HbValue -Map $config -Key 'pairs' -Default @())
+    Write-HbLog ('pair-specific intervals; ' + $pairs.Count + ' pair(s); source ' + [string](Get-HbValue -Map $config -Key 'source_host' -Default ''))
+    $nextDueByIndex = @{}
+    for ($i = 0; $i -lt $pairs.Count; $i++) {
+        $nextDueByIndex[$i] = [DateTime]::MinValue
+        Write-HbLog ('pair ' + ($i + 1) + ' interval ' + (Get-HbPairIntervalSeconds -Pair $pairs[$i]) + 's')
+    }
     while ($true) {
         if (-not (Test-HbParentAlive)) {
             Write-HbLog 'agent is gone; exiting'
             return
         }
-        try {
-            Invoke-HbSyncCycle -Config $config
-        } catch {
-            Write-HbLog ('cycle crashed: ' + (Get-HbErrorText $_)) 'ERROR'
+        $pairs = @(Get-HbValue -Map $config -Key 'pairs' -Default @())
+        $nowUtc = [DateTime]::UtcNow
+        $dueIndexes = New-Object System.Collections.ArrayList
+        for ($i = 0; $i -lt $pairs.Count; $i++) {
+            if (-not $nextDueByIndex.ContainsKey($i)) {
+                $nextDueByIndex[$i] = [DateTime]::MinValue
+            }
+            if (([DateTime]$nextDueByIndex[$i]) -le $nowUtc) {
+                [void]$dueIndexes.Add($i)
+            }
         }
-        Write-HbLog ('next cycle in ' + $interval + 's')
-        if (-not (Wait-HbSeconds -Seconds $interval)) {
+        if ($dueIndexes.Count -gt 0) {
+            try {
+                Invoke-HbSyncCycle -Config $config -DueIndexes @($dueIndexes.ToArray()) -NextDueByIndex $nextDueByIndex
+            } catch {
+                Write-HbLog ('cycle crashed: ' + (Get-HbErrorText $_)) 'ERROR'
+                foreach ($i in @($dueIndexes.ToArray())) {
+                    $pairInterval = 900
+                    if ($i -ge 0 -and $i -lt $pairs.Count) {
+                        $pairInterval = Get-HbPairIntervalSeconds -Pair $pairs[$i]
+                    }
+                    $nextDueByIndex[$i] = [DateTime]::UtcNow.AddSeconds($pairInterval)
+                }
+            }
+        }
+        $soonestUtc = Get-HbSoonestNextDueUtc -NextDueByIndex $nextDueByIndex -PairCount $pairs.Count
+        $sleepSeconds = 60
+        if ($null -ne $soonestUtc) {
+            $sleepSeconds = [int][Math]::Max(1, [Math]::Ceiling(($soonestUtc - [DateTime]::UtcNow).TotalSeconds))
+        }
+        Write-HbLog ('next due pair check in ' + $sleepSeconds + 's')
+        if (-not (Wait-HbSeconds -Seconds $sleepSeconds)) {
             Write-HbLog 'agent is gone; exiting'
             return
         }

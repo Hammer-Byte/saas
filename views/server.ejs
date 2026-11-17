@@ -353,6 +353,7 @@
                                                 <% (Array.isArray(value) ? value : []).forEach(function (pair) {
                                                     const pairExcludeDirs = Array.isArray(pair.exclude_dirs) ? pair.exclude_dirs.join("\n") : "";
                                                     const pairExcludeFiles = Array.isArray(pair.exclude_files) ? pair.exclude_files.join("\n") : "";
+                                                    const pairInterval = Number(pair.interval_seconds) > 0 ? Number(pair.interval_seconds) : 900;
                                                 %>
                                                     <div class="border rounded p-2 pair-row">
                                                         <div class="input-group input-group-sm">
@@ -361,6 +362,11 @@
                                                             <span class="input-group-text">→</span>
                                                             <input type="text" class="form-control pair-local" placeholder="local path, e.g. G:\" value="<%= pair.local_path %>" />
                                                             <button type="button" class="btn btn-outline-danger pair-remove-btn" aria-label="Remove pair">×</button>
+                                                        </div>
+                                                        <div class="mt-1">
+                                                            <label class="form-label small mb-0 text-secondary">Sync interval (seconds)</label>
+                                                            <input type="number" class="form-control form-control-sm pair-interval" min="60" max="86400" step="1" value="<%= pairInterval %>" />
+                                                            <div class="form-text">Wait after this pair finishes before syncing it again (60–86400). Default 900.</div>
                                                         </div>
                                                         <div class="row g-2 mt-1">
                                                             <div class="col-md-6">
@@ -692,6 +698,11 @@
             <span class="input-group-text">→</span>
             <input type="text" class="form-control pair-local" placeholder="local path, e.g. G:\" />
             <button type="button" class="btn btn-outline-danger pair-remove-btn" aria-label="Remove pair">×</button>
+        </div>
+        <div class="mt-1">
+            <label class="form-label small mb-0 text-secondary">Sync interval (seconds)</label>
+            <input type="number" class="form-control form-control-sm pair-interval" min="60" max="86400" step="1" value="900" />
+            <div class="form-text">Wait after this pair finishes before syncing it again (60–86400). Default 900.</div>
         </div>
         <div class="row g-2 mt-1">
             <div class="col-md-6">

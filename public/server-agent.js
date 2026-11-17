@@ -143,9 +143,12 @@
                             .split(/\r?\n/)
                             .map((line) => line.trim())
                             .filter(Boolean);
+                    const intervalRaw = row.querySelector(".pair-interval")?.value.trim() || "";
+                    const intervalSeconds = intervalRaw === "" ? 900 : Number(intervalRaw);
                     return {
                         share: row.querySelector(".pair-share").value.trim(),
                         local_path: row.querySelector(".pair-local").value.trim(),
+                        interval_seconds: intervalSeconds,
                         exclude_dirs: lines(".pair-exclude-dirs"),
                         exclude_files: lines(".pair-exclude-files"),
                     };
@@ -179,8 +182,21 @@
                 const rows = Array.from(element.querySelectorAll(".pair-row"));
                 if (!rows.length) {
                     problems.push(`${label} (add at least one)`);
-                } else if (rows.some((row) => !row.querySelector(".pair-share").value.trim() || !row.querySelector(".pair-local").value.trim())) {
-                    problems.push(`${label} (fill share and local path in every row)`);
+                } else if (
+                    rows.some((row) => {
+                        const share = row.querySelector(".pair-share").value.trim();
+                        const localPath = row.querySelector(".pair-local").value.trim();
+                        const interval = Number(row.querySelector(".pair-interval")?.value);
+                        return (
+                            !share ||
+                            !localPath ||
+                            !Number.isInteger(interval) ||
+                            interval < 60 ||
+                            interval > 86400
+                        );
+                    })
+                ) {
+                    problems.push(`${label} (fill share, local path, and interval 60–86400 in every row)`);
                 }
             }
         });
