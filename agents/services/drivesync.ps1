@@ -345,8 +345,9 @@ function Get-HbMergedExcludes {
 }
 
 function Resolve-HbRobocopyExcludePaths {
-    # Exact paths only: every user entry is relative to the pair root and expanded
-    # under source and dest. Bare "logs" means share\logs only, not every logs folder.
+    # Exact paths only: every user entry is relative to the pair root.
+    # Emit relative + source absolute + dest absolute so robocopy /XD|/XF matches
+    # across 2012 path forms. Bare "logs" means share\logs only, not every logs folder.
     # Skip wildcards (* ?); validation should reject them.
     param(
         $Entries,
@@ -355,6 +356,8 @@ function Resolve-HbRobocopyExcludePaths {
     )
     $resolved = New-Object System.Collections.ArrayList
     $seen = @{}
+    $sourceBase = ([string]$SourceRoot).TrimEnd('\')
+    $destBase = ([string]$DestRoot).TrimEnd('\')
     foreach ($item in @(Get-HbStringList -Raw $Entries)) {
         $raw = [string]$item
         if (-not $raw) {
@@ -368,38 +371,51 @@ function Resolve-HbRobocopyExcludePaths {
             continue
         }
         $relative = $raw.Replace('/', '\')
-        foreach ($path in @((Join-Path $SourceRoot $relative), (Join-Path $DestRoot $relative))) {
+        $candidates = @(
+            $relative,
+            ($sourceBase + '\' + $relative),
+            ($destBase + '\' + $relative)
+        )
+        foreach ($path in $candidates) {
             $key = ([string]$path).ToLowerInvariant()
             if ($seen.ContainsKey($key)) {
                 continue
             }
             $seen[$key] = $true
-            [void]$resolved.Add($path)
+            [void]$resolved.Add([string]$path)
         }
     }
     return ,$resolved.ToArray()
 }
 
 function Invoke-HbPairSync {
+    # Read exclude lists from $Pair here (never via [string[]] params) so nested
+    # Object[] from JSON cannot coerce to a single "System.Object[]" string.
     param(
         [string]$SourceHost,
         $Pair,
         [int]$SkipLogMax,
         $State,
-        [int]$Index,
-        [string[]]$ExcludeDirs,
-        [string[]]$ExcludeFiles
+        [int]$Index
     )
     $share = [string](Get-HbValue -Map $Pair -Key 'share' -Default '')
     $destination = Get-HbNormalizedLocalPath -Path ([string](Get-HbValue -Map $Pair -Key 'local_path' -Default ''))
     $source = '\\' + $SourceHost + '\' + $share
     $result = New-HbPairResult -Share $share -Source $source -Destination $destination
     $started = [DateTime]::UtcNow
-    $resolvedUserDirs = Resolve-HbRobocopyExcludePaths -Entries $ExcludeDirs -SourceRoot $source -DestRoot $destination
-    $resolvedUserFiles = Resolve-HbRobocopyExcludePaths -Entries $ExcludeFiles -SourceRoot $source -DestRoot $destination
+    $rawExcludeDirs = Get-HbStringList -Raw (Get-HbValue -Map $Pair -Key 'exclude_dirs' -Default @())
+    $rawExcludeFiles = Get-HbStringList -Raw (Get-HbValue -Map $Pair -Key 'exclude_files' -Default @())
+    $resolvedUserDirs = Resolve-HbRobocopyExcludePaths -Entries $rawExcludeDirs -SourceRoot $source -DestRoot $destination
+    $resolvedUserFiles = Resolve-HbRobocopyExcludePaths -Entries $rawExcludeFiles -SourceRoot $source -DestRoot $destination
     $resolvedExcludeDirs = Get-HbMergedExcludes -BuiltIn $script:ExcludedDirs -UserList $resolvedUserDirs
     $resolvedExcludeFiles = Get-HbMergedExcludes -BuiltIn $script:ExcludedFiles -UserList $resolvedUserFiles
     Write-HbLog ('pair ' + ($Index + 1) + ': ' + $source + ' -> ' + $destination)
+    if ($rawExcludeDirs -and $rawExcludeDirs.Count -gt 0) {
+        Write-HbLog ('pair ' + ($Index + 1) + ' raw exclude dirs: ' + ($rawExcludeDirs -join ', '))
+    }
+    if ($rawExcludeFiles -and $rawExcludeFiles.Count -gt 0) {
+        Write-HbLog ('pair ' + ($Index + 1) + ' raw exclude files: ' + ($rawExcludeFiles -join ', '))
+    }
     if ($resolvedExcludeDirs -and $resolvedExcludeDirs.Count -gt 0) {
         Write-HbLog ('pair ' + ($Index + 1) + ' exclude dirs (/XD): ' + ($resolvedExcludeDirs -join ', '))
     }
@@ -421,15 +437,23 @@ function Invoke-HbPairSync {
 
         $logPath = Join-Path $script:HbRunDir ('drivesync-pair-' + $Index + '.log')
         Remove-Item -LiteralPath $logPath -Force -ErrorAction SilentlyContinue
-        $arguments = @($source, $destination, '/E', '/PURGE', '/COPY:DAT', '/DCOPY:T', '/R:1', '/W:1', '/XJ', '/FFT', '/Z', '/V', '/FP', '/BYTES', '/NP', '/NJH', ('/UNILOG:' + $logPath))
+        $argList = New-Object System.Collections.ArrayList
+        foreach ($arg in @($source, $destination, '/E', '/PURGE', '/COPY:DAT', '/DCOPY:T', '/R:1', '/W:1', '/XJ', '/FFT', '/Z', '/V', '/FP', '/BYTES', '/NP', '/NJH', ('/UNILOG:' + $logPath))) {
+            [void]$argList.Add([string]$arg)
+        }
         if ($resolvedExcludeDirs -and $resolvedExcludeDirs.Count -gt 0) {
-            $arguments += '/XD'
-            $arguments += $resolvedExcludeDirs
+            [void]$argList.Add('/XD')
+            foreach ($dir in @($resolvedExcludeDirs)) {
+                [void]$argList.Add([string]$dir)
+            }
         }
         if ($resolvedExcludeFiles -and $resolvedExcludeFiles.Count -gt 0) {
-            $arguments += '/XF'
-            $arguments += $resolvedExcludeFiles
+            [void]$argList.Add('/XF')
+            foreach ($file in @($resolvedExcludeFiles)) {
+                [void]$argList.Add([string]$file)
+            }
         }
+        $arguments = @($argList.ToArray())
         $null = & $script:RobocopyExe @arguments 2>&1
         $exitCode = $LASTEXITCODE
         $result.exit_code = $exitCode
@@ -615,9 +639,7 @@ function Invoke-HbSyncCycle {
             }
             $pair = $pairs[$i]
             $pairInterval = Get-HbPairIntervalSeconds -Pair $pair
-            $pairExcludeDirs = Get-HbStringList -Raw (Get-HbValue -Map $pair -Key 'exclude_dirs' -Default @())
-            $pairExcludeFiles = Get-HbStringList -Raw (Get-HbValue -Map $pair -Key 'exclude_files' -Default @())
-            $pairResult = Invoke-HbPairSync -SourceHost $sourceHost -Pair $pair -SkipLogMax $skipLogMax -State $state -Index $i -ExcludeDirs $pairExcludeDirs -ExcludeFiles $pairExcludeFiles
+            $pairResult = Invoke-HbPairSync -SourceHost $sourceHost -Pair $pair -SkipLogMax $skipLogMax -State $state -Index $i
             $finishedUtc = [DateTime]::UtcNow
             $nextDueUtc = $finishedUtc.AddSeconds($pairInterval)
             $NextDueByIndex[$i] = $nextDueUtc
