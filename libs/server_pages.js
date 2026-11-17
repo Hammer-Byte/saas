@@ -77,7 +77,7 @@ export async function buildServerPageData(server) {
             const resultRows = await getServerMetricsByService({
                 server_id: server.id,
                 service: definition.id,
-                limit: definition.id === "monitor" ? 50 : 30,
+                limit: definition.id === "monitor" ? 50 : definition.id === "drivesync" ? 60 : 30,
             });
             return {
                 ...definition,

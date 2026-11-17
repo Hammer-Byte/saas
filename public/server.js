@@ -120,6 +120,34 @@
         savedLabel: "Name saved.",
     });
 
+    document.addEventListener("click", async (event) => {
+        const button = event.target.closest(".sync-run-copy-btn");
+        if (!button) {
+            return;
+        }
+        const details = button.closest("details");
+        const textEl = details?.querySelector(".sync-run-copy-text");
+        const statusEl = details?.querySelector(".sync-run-copy-status");
+        const text = textEl?.textContent || "";
+        if (!text) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(text);
+            if (statusEl) {
+                statusEl.textContent = "Copied";
+                statusEl.classList.remove("d-none");
+                window.setTimeout(() => statusEl.classList.add("d-none"), 2000);
+            }
+        } catch (error) {
+            console.error(error);
+            if (statusEl) {
+                statusEl.textContent = "Copy failed";
+                statusEl.classList.remove("d-none");
+            }
+        }
+    });
+
     deleteButton?.addEventListener("click", async () => {
         const id = Number(nameCard?.dataset.serverId || 0);
         if (!id) return;

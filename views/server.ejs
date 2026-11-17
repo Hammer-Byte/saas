@@ -603,7 +603,7 @@
                                 <div class="table-responsive">
                                     <table class="table table-sm align-middle small mb-0">
                                         <thead class="table-light">
-                                            <tr><th>Finished</th><th>Status</th><th>Copied</th><th>Skipped</th><th>Purged</th><th>Failed</th><th>Data</th><th>Duration</th><th></th></tr>
+                                            <tr><th>Finished</th><th>Pair</th><th>Status</th><th>Copied</th><th>Skipped</th><th>Purged</th><th>Failed</th><th>Ignored</th><th>Data</th><th>Duration</th><th></th></tr>
                                         </thead>
                                         <tbody>
                                             <% runs.forEach(function (run) {
@@ -611,22 +611,77 @@
                                                 const totals = data.totals || {};
                                                 const pairs = Array.isArray(data.pairs) ? data.pairs : [];
                                                 const events = Array.isArray(data.events) ? data.events : [];
+                                                let pairLabel = "—";
+                                                if (data.source && data.destination) {
+                                                    pairLabel = data.source + " → " + data.destination;
+                                                } else if (pairs.length === 1 && pairs[0].source && pairs[0].destination) {
+                                                    pairLabel = pairs[0].source + " → " + pairs[0].destination;
+                                                } else if (pairs.length > 1) {
+                                                    pairLabel = pairs.length + " pairs";
+                                                }
+                                                const copyLines = [];
+                                                copyLines.push("Finished: " + (data.finished_at_ist || run.collected_at || ""));
+                                                copyLines.push("Status: " + (data.status || "unknown"));
+                                                copyLines.push("Pair: " + pairLabel);
+                                                copyLines.push("Copied: " + (totals.copied != null ? totals.copied : 0));
+                                                copyLines.push("Skipped: " + (totals.skipped != null ? totals.skipped : 0));
+                                                copyLines.push("Purged: " + (totals.purged != null ? totals.purged : 0));
+                                                copyLines.push("Failed: " + (totals.failed != null ? totals.failed : 0));
+                                                copyLines.push("Ignored: " + (totals.ignored != null ? totals.ignored : 0));
+                                                copyLines.push("Data: " + bytes(totals.bytes_copied));
+                                                copyLines.push("Duration: " + duration(data.duration_seconds));
+                                                if (data.exit_code != null || data.meaning) {
+                                                    copyLines.push("Robocopy: " + (data.exit_code != null ? data.exit_code : "") + " " + (data.meaning || ""));
+                                                }
+                                                if (data.error) {
+                                                    copyLines.push("Error: " + data.error);
+                                                }
+                                                if (data.script_version) {
+                                                    copyLines.push("Script: " + data.script_version);
+                                                }
+                                                pairs.forEach(function (pair) {
+                                                    copyLines.push("");
+                                                    copyLines.push("Pair detail: " + (pair.source || "") + " → " + (pair.destination || ""));
+                                                    copyLines.push("  status=" + (pair.status || "") + " copied=" + (pair.copied != null ? pair.copied : 0) + " skipped=" + (pair.skipped != null ? pair.skipped : 0) + " purged=" + (pair.purged != null ? pair.purged : 0) + " failed=" + (pair.failed != null ? pair.failed : 0) + " ignored=" + (pair.ignored != null ? pair.ignored : 0));
+                                                    if (pair.exit_code != null || pair.meaning) {
+                                                        copyLines.push("  robocopy " + (pair.exit_code != null ? pair.exit_code : "") + " " + (pair.meaning || ""));
+                                                    }
+                                                    if (pair.error) {
+                                                        copyLines.push("  error: " + pair.error);
+                                                    }
+                                                });
+                                                if (events.length) {
+                                                    copyLines.push("");
+                                                    copyLines.push("File events" + (data.events_truncated ? " (truncated)" : "") + ":");
+                                                    events.forEach(function (event) {
+                                                        copyLines.push("  [" + (event.action || "") + "] " + (event.path || "") + (event.detail ? " — " + event.detail : ""));
+                                                    });
+                                                }
+                                                const copyText = copyLines.join("\n");
                                             %>
                                                 <tr>
                                                     <td><%= data.finished_at_ist || "" %><% if (!data.finished_at_ist) { %><span data-readable-date="<%= run.collected_at || '' %>" data-date-format="DD/MM/YYYY HH:mm:ss"></span><% } %></td>
+                                                    <td class="text-break"><code class="small"><%= pairLabel %></code></td>
                                                     <td><span class="badge <%= runBadge(data.status) %>"><%= data.status || "unknown" %></span></td>
                                                     <td><%= fmt(totals.copied) %></td>
                                                     <td><%= fmt(totals.skipped) %></td>
                                                     <td><%= fmt(totals.purged) %></td>
                                                     <td class="<%= totals.failed ? 'text-danger fw-semibold' : '' %>"><%= fmt(totals.failed) %></td>
+                                                    <td><%= fmt(totals.ignored) %></td>
                                                     <td><%= bytes(totals.bytes_copied) %></td>
                                                     <td><%= duration(data.duration_seconds) %></td>
                                                     <td>
                                                         <details>
                                                             <summary class="small">Details</summary>
+                                                            <div class="d-flex align-items-center gap-2 my-1">
+                                                                <button type="button" class="btn btn-outline-secondary btn-sm sync-run-copy-btn">Copy</button>
+                                                                <span class="small text-secondary sync-run-copy-status d-none"></span>
+                                                            </div>
+                                                            <pre class="d-none sync-run-copy-text"><%= copyText %></pre>
                                                             <% if (data.error) { %><div class="text-danger my-1"><%= data.error %></div><% } %>
+                                                            <% if (pairs.length) { %>
                                                             <table class="table table-sm small my-2">
-                                                                <thead><tr><th>Pair</th><th>Status</th><th>Copied</th><th>Skipped</th><th>Purged</th><th>Failed</th><th>Robocopy</th></tr></thead>
+                                                                <thead><tr><th>Pair</th><th>Status</th><th>Copied</th><th>Skipped</th><th>Purged</th><th>Failed</th><th>Ignored</th><th>Robocopy</th></tr></thead>
                                                                 <tbody>
                                                                     <% pairs.forEach(function (pair) { %>
                                                                         <tr>
@@ -636,6 +691,7 @@
                                                                             <td><%= fmt(pair.skipped) %></td>
                                                                             <td><%= fmt(pair.purged) %></td>
                                                                             <td><%= fmt(pair.failed) %></td>
+                                                                            <td><%= fmt(pair.ignored) %></td>
                                                                             <td>
                                                                                 <%= pair.exit_code != null ? pair.exit_code : "—" %>
                                                                                 <span class="text-secondary"><%= pair.meaning || "" %></span>
@@ -645,6 +701,7 @@
                                                                     <% }) %>
                                                                 </tbody>
                                                             </table>
+                                                            <% } %>
                                                             <% if (events.length) { %>
                                                                 <div class="fw-semibold">File events<% if (data.events_truncated) { %> <span class="text-secondary fw-normal">(first <%= events.length %> of <%= data.event_count %>; full list in the drivesync log on the machine)</span><% } %></div>
                                                                 <div style="max-height: 20rem; overflow: auto">
@@ -652,7 +709,7 @@
                                                                         <tbody>
                                                                             <% events.forEach(function (event) { %>
                                                                                 <tr>
-                                                                                    <td><span class="badge <%= event.action === 'failed' ? 'text-bg-danger' : event.action === 'purged' ? 'text-bg-warning' : 'text-bg-light border' %>"><%= event.action %></span></td>
+                                                                                    <td><span class="badge <%= event.action === 'failed' ? 'text-bg-danger' : event.action === 'purged' ? 'text-bg-warning' : event.action === 'ignored' ? 'text-bg-secondary' : 'text-bg-light border' %>"><%= event.action %></span></td>
                                                                                     <td class="text-break"><%= event.path %></td>
                                                                                     <td class="text-secondary"><%= event.size != null && event.size >= 0 ? bytes(event.size) : "" %></td>
                                                                                     <td class="text-secondary"><%= event.detail || "" %></td>

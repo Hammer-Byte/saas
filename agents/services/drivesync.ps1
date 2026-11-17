@@ -180,6 +180,7 @@ function New-HbPairResult {
         skipped = 0
         purged = 0
         failed = 0
+        ignored = 0
         mismatched = 0
         bytes_copied = 0
         dirs_created = 0
@@ -230,14 +231,77 @@ function Get-HbFailureReason {
     }
 }
 
+function Test-HbPathMatchesPairExclude {
+    # True when $Path is an excluded file or sits under an excluded directory for this pair.
+    param(
+        [string]$Path,
+        [string]$SourceRoot,
+        [string]$DestRoot,
+        $ExcludeDirs,
+        $ExcludeFiles
+    )
+    if (-not $Path) {
+        return $false
+    }
+    $full = $Path.Trim().Replace('/', '\').TrimEnd('\').ToLowerInvariant()
+    $sourceBase = ([string]$SourceRoot).TrimEnd('\').ToLowerInvariant()
+    $destBase = ([string]$DestRoot).TrimEnd('\').ToLowerInvariant()
+    foreach ($entry in (Get-HbStringList -Raw $ExcludeFiles)) {
+        $rel = ([string]$entry).Trim().TrimStart('\').TrimEnd('\').Replace('/', '\').ToLowerInvariant()
+        if (-not $rel) {
+            continue
+        }
+        if ($full -eq $rel -or $full.EndsWith('\' + $rel)) {
+            return $true
+        }
+        if ($sourceBase -and ($full -eq ($sourceBase + '\' + $rel))) {
+            return $true
+        }
+        if ($destBase -and ($full -eq ($destBase + '\' + $rel))) {
+            return $true
+        }
+    }
+    foreach ($entry in (Get-HbStringList -Raw $ExcludeDirs)) {
+        $rel = ([string]$entry).Trim().TrimStart('\').TrimEnd('\').Replace('/', '\').ToLowerInvariant()
+        if (-not $rel) {
+            continue
+        }
+        $candidates = New-Object System.Collections.ArrayList
+        [void]$candidates.Add($rel)
+        if ($sourceBase) {
+            [void]$candidates.Add($sourceBase + '\' + $rel)
+        }
+        if ($destBase) {
+            [void]$candidates.Add($destBase + '\' + $rel)
+        }
+        foreach ($dir in $candidates) {
+            if ($full -eq $dir -or $full.StartsWith($dir + '\')) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
 function Read-HbRobocopyLog {
     # Streams the robocopy log, writes per-file lines to our log, and fills the pair result.
-    param([string]$LogPath, $Result, $State, [int]$SkipLogMax)
+    # Paths under pair excludes that still fail/purge are counted as ignored, not failed.
+    param(
+        [string]$LogPath,
+        $Result,
+        $State,
+        [int]$SkipLogMax,
+        [string]$SourceRoot,
+        [string]$DestRoot,
+        $ExcludeDirs,
+        $ExcludeFiles
+    )
     $skippedLogged = 0
     $summary = $null
     $bytesSummary = $null
     $pendingError = $null
     $failedPaths = @{}
+    $ignoredPaths = @{}
     $reader = New-Object IO.StreamReader($LogPath, [Text.Encoding]::Unicode, $true)
     try {
         while ($null -ne ($line = $reader.ReadLine())) {
@@ -245,11 +309,22 @@ function Read-HbRobocopyLog {
                 $text = $line.Trim()
                 if ($text) {
                     $pendingError.detail = $text
-                    if (-not $failedPaths.ContainsKey($pendingError.path)) {
-                        $failedPaths[$pendingError.path] = $true
+                    $errPath = $pendingError.path
+                    if (
+                        -not $failedPaths.ContainsKey($errPath) -and
+                        -not $ignoredPaths.ContainsKey($errPath)
+                    ) {
                         $reason = Get-HbFailureReason -Code $pendingError.code -WindowsText $text
-                        Write-HbLog ('FAILED ' + $pendingError.action + ' ' + $pendingError.path + ' - ' + $reason + ' [Windows ' + $pendingError.code + ': ' + $text + ']') 'WARN'
-                        Add-HbEvent -State $State -Share $Result.share -Action 'failed' -Path $pendingError.path -Size $null -Detail ($reason + ' [Windows ' + $pendingError.code + ': ' + $text + ']')
+                        $detail = ($reason + ' [Windows ' + $pendingError.code + ': ' + $text + ']')
+                        if (Test-HbPathMatchesPairExclude -Path $errPath -SourceRoot $SourceRoot -DestRoot $DestRoot -ExcludeDirs $ExcludeDirs -ExcludeFiles $ExcludeFiles) {
+                            $ignoredPaths[$errPath] = $true
+                            Write-HbLog ('IGNORED (excluded) ' + $pendingError.action + ' ' + $errPath + ' - ' + $detail)
+                            Add-HbEvent -State $State -Share $Result.share -Action 'ignored' -Path $errPath -Size $null -Detail ('excluded: ' + $detail)
+                        } else {
+                            $failedPaths[$errPath] = $true
+                            Write-HbLog ('FAILED ' + $pendingError.action + ' ' + $errPath + ' - ' + $detail) 'WARN'
+                            Add-HbEvent -State $State -Share $Result.share -Action 'failed' -Path $errPath -Size $null -Detail $detail
+                        }
                     }
                     $pendingError = $null
                 }
@@ -299,9 +374,17 @@ function Read-HbRobocopyLog {
                     }
                 }
             } elseif ($script:PurgedLabels -contains $label) {
-                $Result.purged = $Result.purged + 1
-                Write-HbLog ('PURGED (not at source, removed locally) ' + $path)
-                Add-HbEvent -State $State -Share $Result.share -Action 'purged' -Path $path -Size $size -Detail $label
+                if (Test-HbPathMatchesPairExclude -Path $path -SourceRoot $SourceRoot -DestRoot $DestRoot -ExcludeDirs $ExcludeDirs -ExcludeFiles $ExcludeFiles) {
+                    if (-not $ignoredPaths.ContainsKey($path)) {
+                        $ignoredPaths[$path] = $true
+                        Write-HbLog ('IGNORED (excluded purge) ' + $path)
+                        Add-HbEvent -State $State -Share $Result.share -Action 'ignored' -Path $path -Size $size -Detail ('excluded: ' + $label)
+                    }
+                } else {
+                    $Result.purged = $Result.purged + 1
+                    Write-HbLog ('PURGED (not at source, removed locally) ' + $path)
+                    Add-HbEvent -State $State -Share $Result.share -Action 'purged' -Path $path -Size $size -Detail $label
+                }
             } elseif ($label -eq '*Mismatch') {
                 $Result.mismatched = $Result.mismatched + 1
                 Write-HbLog ('MISMATCH (file at one side, folder at the other) ' + $path) 'WARN'
@@ -312,12 +395,17 @@ function Read-HbRobocopyLog {
         $reader.Dispose()
     }
     $Result.failed = $failedPaths.Count
+    $Result.ignored = $ignoredPaths.Count
     if ($null -ne $summary) {
-        # Robocopy's own totals are authoritative: Total, Copied, Skipped, Mismatch, FAILED, Extras.
+        # Copied/skipped/mismatch from robocopy summary; failed stays our non-excluded count.
         $Result.copied = $summary[1]
         $Result.skipped = $summary[2]
         $Result.mismatched = $summary[3]
-        $Result.failed = [Math]::Max($Result.failed, $summary[4])
+        $summaryFailed = [long]$summary[4]
+        if ($summaryFailed -gt ($Result.failed + $Result.ignored)) {
+            # Extra failures we did not see as ERROR lines and could not reclassify.
+            $Result.failed = [Math]::Max($Result.failed, $summaryFailed - $Result.ignored)
+        }
     }
     if ($null -ne $bytesSummary) {
         $Result.bytes_copied = $bytesSummary
@@ -326,10 +414,11 @@ function Read-HbRobocopyLog {
 
 function Get-HbMergedExcludes {
     # Built-in exclusions first, then user list; case-insensitive unique.
+    # Always return ArrayList so foreach enumerates strings (not a nested Object[]).
     param([string[]]$BuiltIn, $UserList)
     $merged = New-Object System.Collections.ArrayList
     $seen = @{}
-    foreach ($item in (@($BuiltIn) + @($UserList))) {
+    foreach ($item in (Get-HbStringList -Raw $BuiltIn)) {
         $name = [string]$item
         if (-not $name) {
             continue
@@ -341,7 +430,19 @@ function Get-HbMergedExcludes {
         $seen[$key] = $true
         [void]$merged.Add($name)
     }
-    return ,$merged.ToArray()
+    foreach ($item in (Get-HbStringList -Raw $UserList)) {
+        $name = [string]$item
+        if (-not $name) {
+            continue
+        }
+        $key = $name.ToLowerInvariant()
+        if ($seen.ContainsKey($key)) {
+            continue
+        }
+        $seen[$key] = $true
+        [void]$merged.Add($name)
+    }
+    return ,$merged
 }
 
 function Resolve-HbRobocopyExcludePaths {
@@ -349,6 +450,7 @@ function Resolve-HbRobocopyExcludePaths {
     # Emit relative + source absolute + dest absolute so robocopy /XD|/XF matches
     # across 2012 path forms. Bare "logs" means share\logs only, not every logs folder.
     # Skip wildcards (* ?); validation should reject them.
+    # Returns ArrayList of strings (foreach-safe; never nested Object[]).
     param(
         $Entries,
         [string]$SourceRoot,
@@ -358,7 +460,7 @@ function Resolve-HbRobocopyExcludePaths {
     $seen = @{}
     $sourceBase = ([string]$SourceRoot).TrimEnd('\')
     $destBase = ([string]$DestRoot).TrimEnd('\')
-    foreach ($item in @(Get-HbStringList -Raw $Entries)) {
+    foreach ($item in (Get-HbStringList -Raw $Entries)) {
         $raw = [string]$item
         if (-not $raw) {
             continue
@@ -371,11 +473,10 @@ function Resolve-HbRobocopyExcludePaths {
             continue
         }
         $relative = $raw.Replace('/', '\')
-        $candidates = @(
-            $relative,
-            ($sourceBase + '\' + $relative),
-            ($destBase + '\' + $relative)
-        )
+        $candidates = New-Object System.Collections.ArrayList
+        [void]$candidates.Add($relative)
+        [void]$candidates.Add($sourceBase + '\' + $relative)
+        [void]$candidates.Add($destBase + '\' + $relative)
         foreach ($path in $candidates) {
             $key = ([string]$path).ToLowerInvariant()
             if ($seen.ContainsKey($key)) {
@@ -385,7 +486,7 @@ function Resolve-HbRobocopyExcludePaths {
             [void]$resolved.Add([string]$path)
         }
     }
-    return ,$resolved.ToArray()
+    return ,$resolved
 }
 
 function Invoke-HbPairSync {
@@ -410,17 +511,17 @@ function Invoke-HbPairSync {
     $resolvedExcludeDirs = Get-HbMergedExcludes -BuiltIn $script:ExcludedDirs -UserList $resolvedUserDirs
     $resolvedExcludeFiles = Get-HbMergedExcludes -BuiltIn $script:ExcludedFiles -UserList $resolvedUserFiles
     Write-HbLog ('pair ' + ($Index + 1) + ': ' + $source + ' -> ' + $destination)
-    if ($rawExcludeDirs -and $rawExcludeDirs.Count -gt 0) {
-        Write-HbLog ('pair ' + ($Index + 1) + ' raw exclude dirs: ' + ($rawExcludeDirs -join ', '))
+    if ($rawExcludeDirs.Count -gt 0) {
+        Write-HbLog ('pair ' + ($Index + 1) + ' raw exclude dirs: ' + (($rawExcludeDirs | ForEach-Object { $_ }) -join ', '))
     }
-    if ($rawExcludeFiles -and $rawExcludeFiles.Count -gt 0) {
-        Write-HbLog ('pair ' + ($Index + 1) + ' raw exclude files: ' + ($rawExcludeFiles -join ', '))
+    if ($rawExcludeFiles.Count -gt 0) {
+        Write-HbLog ('pair ' + ($Index + 1) + ' raw exclude files: ' + (($rawExcludeFiles | ForEach-Object { $_ }) -join ', '))
     }
-    if ($resolvedExcludeDirs -and $resolvedExcludeDirs.Count -gt 0) {
-        Write-HbLog ('pair ' + ($Index + 1) + ' exclude dirs (/XD): ' + ($resolvedExcludeDirs -join ', '))
+    if ($resolvedExcludeDirs.Count -gt 0) {
+        Write-HbLog ('pair ' + ($Index + 1) + ' exclude dirs (/XD): ' + (($resolvedExcludeDirs | ForEach-Object { $_ }) -join ', '))
     }
-    if ($resolvedExcludeFiles -and $resolvedExcludeFiles.Count -gt 0) {
-        Write-HbLog ('pair ' + ($Index + 1) + ' exclude files (/XF): ' + ($resolvedExcludeFiles -join ', '))
+    if ($resolvedExcludeFiles.Count -gt 0) {
+        Write-HbLog ('pair ' + ($Index + 1) + ' exclude files (/XF): ' + (($resolvedExcludeFiles | ForEach-Object { $_ }) -join ', '))
     }
 
     try {
@@ -441,15 +542,15 @@ function Invoke-HbPairSync {
         foreach ($arg in @($source, $destination, '/E', '/PURGE', '/COPY:DAT', '/DCOPY:T', '/R:1', '/W:1', '/XJ', '/FFT', '/Z', '/V', '/FP', '/BYTES', '/NP', '/NJH', ('/UNILOG:' + $logPath))) {
             [void]$argList.Add([string]$arg)
         }
-        if ($resolvedExcludeDirs -and $resolvedExcludeDirs.Count -gt 0) {
+        if ($resolvedExcludeDirs.Count -gt 0) {
             [void]$argList.Add('/XD')
-            foreach ($dir in @($resolvedExcludeDirs)) {
+            foreach ($dir in $resolvedExcludeDirs) {
                 [void]$argList.Add([string]$dir)
             }
         }
-        if ($resolvedExcludeFiles -and $resolvedExcludeFiles.Count -gt 0) {
+        if ($resolvedExcludeFiles.Count -gt 0) {
             [void]$argList.Add('/XF')
-            foreach ($file in @($resolvedExcludeFiles)) {
+            foreach ($file in $resolvedExcludeFiles) {
                 [void]$argList.Add([string]$file)
             }
         }
@@ -460,18 +561,20 @@ function Invoke-HbPairSync {
         $result.meaning = Get-HbRobocopyMeaning -Code $exitCode
 
         if ([IO.File]::Exists($logPath)) {
-            Read-HbRobocopyLog -LogPath $logPath -Result $result -State $State -SkipLogMax $SkipLogMax
+            Read-HbRobocopyLog -LogPath $logPath -Result $result -State $State -SkipLogMax $SkipLogMax -SourceRoot $source -DestRoot $destination -ExcludeDirs $rawExcludeDirs -ExcludeFiles $rawExcludeFiles
             Remove-Item -LiteralPath $logPath -Force -ErrorAction SilentlyContinue
         }
 
         if ($exitCode -ge 16) {
             $result.status = 'failed'
             $result.error = $result.meaning
-        } elseif ($exitCode -ge 8 -or $result.failed -gt 0) {
+        } elseif ($result.failed -gt 0) {
             $result.status = 'partial'
             $result.error = ([string]$result.failed + ' file(s) failed to copy')
         } else {
+            # Exit bit 8 alone with only ignored/excluded failures does not fail the pair.
             $result.status = 'ok'
+            $result.error = $null
         }
     } catch {
         $result.status = 'failed'
@@ -480,7 +583,7 @@ function Invoke-HbPairSync {
     }
 
     $result.duration_seconds = [int]([DateTime]::UtcNow - $started).TotalSeconds
-    Write-HbLog ('pair ' + ($Index + 1) + ' ' + $result.status + ': copied ' + $result.copied + ', skipped ' + $result.skipped + ', purged ' + $result.purged + ', failed ' + $result.failed + ', bytes ' + $result.bytes_copied + ', robocopy ' + $result.exit_code + ' (' + $result.meaning + '), ' + $result.duration_seconds + 's')
+    Write-HbLog ('pair ' + ($Index + 1) + ' ' + $result.status + ': copied ' + $result.copied + ', skipped ' + $result.skipped + ', purged ' + $result.purged + ', failed ' + $result.failed + ', ignored ' + $result.ignored + ', bytes ' + $result.bytes_copied + ', robocopy ' + $result.exit_code + ' (' + $result.meaning + '), ' + $result.duration_seconds + 's')
     return $result
 }
 
@@ -525,7 +628,9 @@ function Get-HbPairList {
 
 function Get-HbStringList {
     # Same nesting issue as pairs: exclude_dirs / exclude_files can arrive as
-    # Object[]{ Object[]{ 'path1', 'path2' } }. Flatten to a string[].
+    # Object[]{ Object[]{ 'path1', 'path2' } }. Flatten to an ArrayList of strings.
+    # Returning ArrayList (not Object[]) so foreach enumerates each string; a nested
+    # Object[] return was stringified to "System.Object[]" when building /XD args.
     param($Raw)
     $current = $Raw
     while (
@@ -540,14 +645,14 @@ function Get-HbStringList {
     }
     $list = New-Object System.Collections.ArrayList
     if ($null -eq $current) {
-        return ,$list.ToArray()
+        return ,$list
     }
     if ($current -is [string]) {
         $one = $current.Trim()
         if ($one) {
             [void]$list.Add($one)
         }
-        return ,$list.ToArray()
+        return ,$list
     }
     if ($current -is [System.Collections.IEnumerable]) {
         foreach ($item in $current) {
@@ -559,14 +664,14 @@ function Get-HbStringList {
                 continue
             }
             if ($item -is [System.Array] -or $item -is [System.Collections.ArrayList]) {
-                foreach ($inner in @(Get-HbStringList -Raw $item)) {
-                    [void]$list.Add($inner)
+                foreach ($inner in (Get-HbStringList -Raw $item)) {
+                    [void]$list.Add([string]$inner)
                 }
             }
         }
-        return ,$list.ToArray()
+        return ,$list
     }
-    return ,$list.ToArray()
+    return ,$list
 }
 
 function Get-HbSoonestNextDueUtc {
@@ -584,6 +689,51 @@ function Get-HbSoonestNextDueUtc {
     return $soonest
 }
 
+function Send-HbPairSyncRun {
+    # One Sync runs row per pair (matches per-pair intervals).
+    param(
+        [string]$SourceHost,
+        $PairResult,
+        $State,
+        [DateTime]$PairStartedUtc,
+        [DateTime]$PairFinishedUtc
+    )
+    $totals = @{
+        copied = [long]$PairResult.copied
+        skipped = [long]$PairResult.skipped
+        purged = [long]$PairResult.purged
+        failed = [long]$PairResult.failed
+        ignored = [long]$PairResult.ignored
+        mismatched = [long]$PairResult.mismatched
+        bytes_copied = [long]$PairResult.bytes_copied
+    }
+    $seen = $totals.copied + $totals.skipped + $totals.purged + $totals.failed + $totals.ignored + $totals.mismatched
+    $report = @{
+        status = $PairResult.status
+        source_host = $SourceHost
+        share = $PairResult.share
+        source = $PairResult.source
+        destination = $PairResult.destination
+        exit_code = $PairResult.exit_code
+        meaning = $PairResult.meaning
+        interval_seconds = $PairResult.interval_seconds
+        next_run_at_ist = $PairResult.next_run_at_ist
+        started_at_ist = (Format-HbIst -Utc $PairStartedUtc)
+        finished_at_ist = (Format-HbIst -Utc $PairFinishedUtc)
+        duration_seconds = [int]$PairResult.duration_seconds
+        files_seen = $seen
+        totals = $totals
+        pairs = @($PairResult)
+        events = $State.events.ToArray()
+        event_count = $State.event_count
+        events_truncated = ($State.event_count -gt $State.events.Count)
+        error = $PairResult.error
+    }
+    if (-not (Send-HbResult -Type 'sync_run' -Data $report)) {
+        Write-HbLog ('pair sync report could not be delivered for ' + $PairResult.source + ' (details remain in this log)') 'WARN'
+    }
+}
+
 function Invoke-HbSyncCycle {
     param(
         $Config,
@@ -598,9 +748,9 @@ function Invoke-HbSyncCycle {
     $dueIndexes = @($DueIndexes)
 
     $startedUtc = [DateTime]::UtcNow
-    $state = @{ events = (New-Object System.Collections.ArrayList); event_count = 0 }
     $pairResults = @()
     $cycleError = $null
+    $emittedPairRun = $false
 
     $pairSummaries = New-Object System.Collections.ArrayList
     foreach ($index in $dueIndexes) {
@@ -627,6 +777,26 @@ function Invoke-HbSyncCycle {
         pair_count = $dueIndexes.Count
         pairs = $pairSummaries.ToArray()
     }
+
+    if ($pairs.Count -eq 0) {
+        $finishedUtc = [DateTime]::UtcNow
+        $null = Send-HbResult -Type 'sync_run' -Data @{
+            status = 'failed'
+            source_host = $sourceHost
+            started_at_ist = (Format-HbIst -Utc $startedUtc)
+            finished_at_ist = (Format-HbIst -Utc $finishedUtc)
+            duration_seconds = [int]($finishedUtc - $startedUtc).TotalSeconds
+            files_seen = 0
+            totals = @{ copied = 0; skipped = 0; purged = 0; failed = 0; ignored = 0; mismatched = 0; bytes_copied = 0 }
+            pairs = @()
+            events = @()
+            event_count = 0
+            events_truncated = $false
+            error = 'no drive pairs configured'
+        }
+        return
+    }
+
     try {
         Connect-HbSource -SourceHost $sourceHost -User $user -Password $password
         Write-HbLog ('connected to \\' + $sourceHost + ' as ' + $user)
@@ -639,13 +809,17 @@ function Invoke-HbSyncCycle {
             }
             $pair = $pairs[$i]
             $pairInterval = Get-HbPairIntervalSeconds -Pair $pair
-            $pairResult = Invoke-HbPairSync -SourceHost $sourceHost -Pair $pair -SkipLogMax $skipLogMax -State $state -Index $i
-            $finishedUtc = [DateTime]::UtcNow
-            $nextDueUtc = $finishedUtc.AddSeconds($pairInterval)
+            $pairState = @{ events = (New-Object System.Collections.ArrayList); event_count = 0 }
+            $pairStartedUtc = [DateTime]::UtcNow
+            $pairResult = Invoke-HbPairSync -SourceHost $sourceHost -Pair $pair -SkipLogMax $skipLogMax -State $pairState -Index $i
+            $pairFinishedUtc = [DateTime]::UtcNow
+            $nextDueUtc = $pairFinishedUtc.AddSeconds($pairInterval)
             $NextDueByIndex[$i] = $nextDueUtc
             $pairResult['interval_seconds'] = $pairInterval
             $pairResult['next_run_at_ist'] = (Format-HbIst -Utc $nextDueUtc)
             $pairResults += $pairResult
+            Send-HbPairSyncRun -SourceHost $sourceHost -PairResult $pairResult -State $pairState -PairStartedUtc $pairStartedUtc -PairFinishedUtc $pairFinishedUtc
+            $emittedPairRun = $true
             Write-HbLog ('pair ' + ($i + 1) + ' next run ' + $pairResult.next_run_at_ist + ' (interval ' + $pairInterval + 's)')
         }
     } catch {
@@ -665,25 +839,27 @@ function Invoke-HbSyncCycle {
         Disconnect-HbSource -SourceHost $sourceHost
     }
 
-    $totals = @{ copied = 0; skipped = 0; purged = 0; failed = 0; mismatched = 0; bytes_copied = 0 }
-    $okPairs = 0
-    foreach ($pairResult in $pairResults) {
-        foreach ($key in @('copied', 'skipped', 'purged', 'failed', 'mismatched', 'bytes_copied')) {
-            $totals[$key] += [long]$pairResult[$key]
+    if ($cycleError -and -not $emittedPairRun) {
+        $finishedUtc = [DateTime]::UtcNow
+        $soonestUtc = Get-HbSoonestNextDueUtc -NextDueByIndex $NextDueByIndex -PairCount $pairs.Count
+        if ($null -eq $soonestUtc) {
+            $soonestUtc = $finishedUtc.AddSeconds(900)
         }
-        if ($pairResult.status -eq 'ok') {
-            $okPairs++
+        $null = Send-HbResult -Type 'sync_run' -Data @{
+            status = 'failed'
+            source_host = $sourceHost
+            started_at_ist = (Format-HbIst -Utc $startedUtc)
+            finished_at_ist = (Format-HbIst -Utc $finishedUtc)
+            duration_seconds = [int]($finishedUtc - $startedUtc).TotalSeconds
+            next_run_at_ist = (Format-HbIst -Utc $soonestUtc)
+            files_seen = 0
+            totals = @{ copied = 0; skipped = 0; purged = 0; failed = 0; ignored = 0; mismatched = 0; bytes_copied = 0 }
+            pairs = @()
+            events = @()
+            event_count = 0
+            events_truncated = $false
+            error = $cycleError
         }
-    }
-    $status = 'ok'
-    if ($cycleError -or $pairResults.Count -eq 0 -or $okPairs -eq 0) {
-        $status = 'failed'
-    } elseif ($okPairs -lt $pairResults.Count) {
-        $status = 'partial'
-    }
-    if ($pairs.Count -eq 0) {
-        $cycleError = 'no drive pairs configured'
-        $status = 'failed'
     }
 
     $finishedUtc = [DateTime]::UtcNow
@@ -691,26 +867,7 @@ function Invoke-HbSyncCycle {
     if ($null -eq $soonestUtc) {
         $soonestUtc = $finishedUtc.AddSeconds(900)
     }
-    $seen = [long]$totals.copied + [long]$totals.skipped + [long]$totals.purged + [long]$totals.failed + [long]$totals.mismatched
-    $report = @{
-        status = $status
-        source_host = $sourceHost
-        started_at_ist = (Format-HbIst -Utc $startedUtc)
-        finished_at_ist = (Format-HbIst -Utc $finishedUtc)
-        duration_seconds = [int]($finishedUtc - $startedUtc).TotalSeconds
-        next_run_at_ist = (Format-HbIst -Utc $soonestUtc)
-        files_seen = $seen
-        totals = $totals
-        pairs = $pairResults
-        events = $state.events.ToArray()
-        event_count = $state.event_count
-        events_truncated = ($state.event_count -gt $state.events.Count)
-        error = $cycleError
-    }
-    Write-HbLog ('sync cycle ' + $status + ': copied ' + $totals.copied + ', skipped ' + $totals.skipped + ', purged ' + $totals.purged + ', failed ' + $totals.failed + ', ' + $report.duration_seconds + 's; next ' + $report.next_run_at_ist)
-    if (-not (Send-HbResult -Type 'sync_run' -Data $report)) {
-        Write-HbLog 'sync report could not be delivered (details remain in this log)' 'WARN'
-    }
+    Write-HbLog ('sync cycle done: ' + $pairResults.Count + ' pair report(s); next ' + (Format-HbIst -Utc $soonestUtc))
 }
 
 function Start-HbDriveSync {
