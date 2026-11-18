@@ -88,125 +88,174 @@
         </div>
 
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 pt-4 px-4">
-                <h2 class="h5 mb-0">Machine / metrics</h2>
+            <div class="card-header bg-white border-0 pt-3 px-3 pb-0 d-flex flex-wrap justify-content-between align-items-baseline gap-2">
+                <h2 class="h6 mb-0">Metrics</h2>
                 <% if (latestMetricReceivedOn) { %>
-                    <p class="text-secondary small mb-0 mt-1">
-                        Latest received
+                    <span class="text-secondary small">
+                        Received
                         <span
                             data-readable-date="<%= latestMetricReceivedOn %>"
                             data-date-format="DD/MM/YYYY HH:mm:ss"
                         ><%= latestMetricReceivedOn %></span>
-                    </p>
+                    </span>
                 <% } %>
             </div>
-            <div class="card-body px-4 pb-4">
+            <div class="card-body p-3">
                 <% if (!metrics) { %>
-                    <p class="text-secondary mb-0">No metrics received yet.</p>
-                <% } else { %>
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <div class="text-secondary small">Machine</div>
-                            <div><%= metrics.machineName || metrics.hostName || "—" %></div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="text-secondary small">User</div>
-                            <div>
-                                <%= metrics.userDomain ? (metrics.userDomain + "\\") : "" %><%= metrics.userName || "—" %>
+                    <p class="text-secondary small mb-0">No metrics received yet.</p>
+                <% } else {
+                    const memTotal = metrics.memory && metrics.memory.totalMb != null ? Number(metrics.memory.totalMb) : null;
+                    const memUsed = metrics.memory && metrics.memory.usedMb != null ? Number(metrics.memory.usedMb) : null;
+                    const memFree = metrics.memory && metrics.memory.freeMb != null ? Number(metrics.memory.freeMb) : null;
+                    const memPct = memTotal && memUsed != null && memTotal > 0
+                        ? Math.min(100, Math.round((memUsed / memTotal) * 100))
+                        : null;
+                    const memPctClass = memPct == null ? "bg-secondary" : memPct >= 90 ? "bg-danger" : memPct >= 75 ? "bg-warning" : "bg-success";
+                    const userLabel = (metrics.userDomain ? metrics.userDomain + "\\" : "") + (metrics.userName || "—");
+                    const publicIp = metrics.publicIp && metrics.publicIp.value ? metrics.publicIp.value : "—";
+                    const localIps = Array.isArray(metrics.localIps) && metrics.localIps.length ? metrics.localIps.join(", ") : "—";
+                    const macs = Array.isArray(metrics.macAddresses) && metrics.macAddresses.length ? metrics.macAddresses.join(", ") : "—";
+                    const cpuBits = [];
+                    if (metrics.cpu) {
+                        if (metrics.cpu.cores != null) cpuBits.push(metrics.cpu.cores + "c");
+                        if (metrics.cpu.logicalProcessors != null) cpuBits.push(metrics.cpu.logicalProcessors + "t");
+                        if (metrics.cpu.maxClockMhz != null) cpuBits.push(metrics.cpu.maxClockMhz + " MHz");
+                    }
+                %>
+                    <div class="metrics-identity small mb-3">
+                        <div class="row g-2">
+                            <div class="col-sm-6 col-lg-3">
+                                <span class="text-secondary">Host</span>
+                                <div class="fw-semibold text-truncate" title="<%= metrics.machineName || metrics.hostName || '' %>"><%= metrics.machineName || metrics.hostName || "—" %></div>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="text-secondary small">Captured at</div>
-                            <div><%= metrics.capturedAt || "—" %></div>
-                        </div>
-                        <div class="col-md-8">
-                            <div class="text-secondary small">OS</div>
-                            <div><%= metrics.osVersion || "—" %></div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="text-secondary small">Uptime</div>
-                            <div><%= metrics.uptime || "—" %></div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="text-secondary small">Local IPs</div>
-                            <div><%= Array.isArray(metrics.localIps) && metrics.localIps.length ? metrics.localIps.join(", ") : "—" %></div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="text-secondary small">Public IP</div>
-                            <div>
-                                <%= metrics.publicIp && metrics.publicIp.value ? metrics.publicIp.value : "—" %>
-                                <% if (metrics.publicIp && metrics.publicIp.source) { %>
-                                    <span class="text-secondary small">(<%= metrics.publicIp.source %>)</span>
-                                <% } %>
+                            <div class="col-sm-6 col-lg-3">
+                                <span class="text-secondary">User</span>
+                                <div class="text-truncate" title="<%= userLabel %>"><%= userLabel %></div>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="text-secondary small">MAC addresses</div>
-                            <div><%= Array.isArray(metrics.macAddresses) && metrics.macAddresses.length ? metrics.macAddresses.join(", ") : "—" %></div>
+                            <div class="col-sm-6 col-lg-3">
+                                <span class="text-secondary">Uptime</span>
+                                <div><%= metrics.uptime || "—" %></div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <span class="text-secondary">Captured</span>
+                                <div class="text-truncate" title="<%= metrics.capturedAt || '' %>"><%= metrics.capturedAt || "—" %></div>
+                            </div>
+                            <div class="col-12">
+                                <span class="text-secondary">OS</span>
+                                <div class="text-truncate" title="<%= metrics.osVersion || '' %>"><%= metrics.osVersion || "—" %></div>
+                            </div>
+                            <div class="col-sm-6 col-lg-4">
+                                <span class="text-secondary">Public IP</span>
+                                <div>
+                                    <code class="small"><%= publicIp %></code>
+                                    <% if (metrics.publicIp && metrics.publicIp.source) { %>
+                                        <span class="text-secondary">(<%= metrics.publicIp.source %>)</span>
+                                    <% } %>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-4">
+                                <span class="text-secondary">Local IPs</span>
+                                <div class="text-truncate" title="<%= localIps %>"><%= localIps %></div>
+                            </div>
+                            <div class="col-sm-12 col-lg-4">
+                                <span class="text-secondary">MACs</span>
+                                <div class="text-truncate" title="<%= macs %>"><code class="small"><%= macs %></code></div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="row g-3 mb-4">
+                    <div class="row g-2 mb-3">
                         <div class="col-md-4">
-                            <div class="border rounded p-3 h-100">
-                                <div class="fw-semibold mb-2">Memory</div>
+                            <div class="metrics-stat h-100">
+                                <div class="d-flex justify-content-between align-items-baseline gap-2">
+                                    <span class="text-secondary small text-uppercase">Memory</span>
+                                    <% if (memPct != null) { %>
+                                        <span class="small fw-semibold"><%= memPct %>%</span>
+                                    <% } %>
+                                </div>
                                 <% if (metrics.memory) { %>
-                                    <div class="small">Total: <%= metrics.memory.totalMb != null ? Number(metrics.memory.totalMb).toFixed(1) + " MB" : "—" %></div>
-                                    <div class="small">Used: <%= metrics.memory.usedMb != null ? Number(metrics.memory.usedMb).toFixed(1) + " MB" : "—" %></div>
-                                    <div class="small">Free: <%= metrics.memory.freeMb != null ? Number(metrics.memory.freeMb).toFixed(1) + " MB" : "—" %></div>
+                                    <div class="progress metrics-progress my-1" role="progressbar" aria-valuenow="<%= memPct || 0 %>" aria-valuemin="0" aria-valuemax="100">
+                                        <div class="progress-bar <%= memPctClass %>" style="width: <%= memPct != null ? memPct : 0 %>%"></div>
+                                    </div>
+                                    <div class="small">
+                                        <%= memUsed != null ? memUsed.toFixed(0) : "—" %>
+                                        /
+                                        <%= memTotal != null ? memTotal.toFixed(0) : "—" %> MB
+                                        <span class="text-secondary">free <%= memFree != null ? memFree.toFixed(0) : "—" %></span>
+                                    </div>
                                 <% } else { %>
-                                    <div class="text-secondary small">—</div>
+                                    <div class="text-secondary small mt-1">—</div>
                                 <% } %>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="border rounded p-3 h-100">
-                                <div class="fw-semibold mb-2">CPU</div>
+                            <div class="metrics-stat h-100">
+                                <div class="text-secondary small text-uppercase">CPU</div>
                                 <% if (metrics.cpu) { %>
-                                    <div class="small"><%= metrics.cpu.name || "—" %></div>
-                                    <div class="small">Cores: <%= metrics.cpu.cores != null ? metrics.cpu.cores : "—" %></div>
-                                    <div class="small">Logical: <%= metrics.cpu.logicalProcessors != null ? metrics.cpu.logicalProcessors : "—" %></div>
-                                    <div class="small">Max MHz: <%= metrics.cpu.maxClockMhz != null ? metrics.cpu.maxClockMhz : "—" %></div>
+                                    <div class="small fw-semibold text-truncate mt-1" title="<%= metrics.cpu.name || '' %>"><%= metrics.cpu.name || "—" %></div>
+                                    <div class="small text-secondary"><%= cpuBits.length ? cpuBits.join(" · ") : "—" %></div>
                                 <% } else { %>
-                                    <div class="text-secondary small">—</div>
+                                    <div class="text-secondary small mt-1">—</div>
                                 <% } %>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="border rounded p-3 h-100">
-                                <div class="fw-semibold mb-2">Processes</div>
-                                <% if (metrics.processes) { %>
-                                    <div class="small">Count: <%= metrics.processes.count != null ? metrics.processes.count : "—" %></div>
-                                <% } else { %>
-                                    <div class="text-secondary small">—</div>
-                                <% } %>
+                            <div class="metrics-stat h-100">
+                                <div class="text-secondary small text-uppercase">Processes</div>
+                                <div class="fs-5 fw-semibold mt-1">
+                                    <%= metrics.processes && metrics.processes.count != null ? metrics.processes.count : "—" %>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <h3 class="h6">Storage</h3>
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <h3 class="h6 mb-0">Storage</h3>
+                    </div>
                     <% if (!Array.isArray(metrics.storage) || !metrics.storage.length) { %>
-                        <p class="text-secondary small">No storage data.</p>
+                        <p class="text-secondary small mb-3">No storage data.</p>
                     <% } else { %>
-                        <div class="table-responsive mb-4">
-                            <table class="table table-sm align-middle">
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm align-middle mb-0 metrics-table">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>Name</th>
-                                        <th>Format</th>
-                                        <th>Type</th>
-                                        <th>Total GB</th>
-                                        <th>Free GB</th>
+                                        <th>Volume</th>
+                                        <th class="d-none d-md-table-cell">Format</th>
+                                        <th style="min-width: 8rem;">Usage</th>
+                                        <th class="text-end">Free</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <% metrics.storage.forEach(function (disk) { %>
+                                    <% metrics.storage.forEach(function (disk) {
+                                        const totalGb = disk.totalGb != null ? Number(disk.totalGb) : null;
+                                        const freeGb = disk.freeGb != null ? Number(disk.freeGb) : null;
+                                        const usedGb = totalGb != null && freeGb != null ? Math.max(0, totalGb - freeGb) : null;
+                                        const diskPct = totalGb && usedGb != null && totalGb > 0
+                                            ? Math.min(100, Math.round((usedGb / totalGb) * 100))
+                                            : null;
+                                        const diskClass = diskPct == null ? "bg-secondary" : diskPct >= 90 ? "bg-danger" : diskPct >= 75 ? "bg-warning" : "bg-success";
+                                        const volumeLabel = (disk.name || "—") + (disk.label ? " (" + disk.label + ")" : "");
+                                    %>
                                         <tr>
-                                            <td><%= disk.name || "—" %><% if (disk.label) { %> (<%= disk.label %>)<% } %></td>
-                                            <td><%= disk.format || "—" %></td>
-                                            <td><%= disk.type || "—" %></td>
-                                            <td><%= disk.totalGb != null ? Number(disk.totalGb).toFixed(1) : "—" %></td>
-                                            <td><%= disk.freeGb != null ? Number(disk.freeGb).toFixed(1) : "—" %></td>
+                                            <td>
+                                                <div class="small fw-semibold text-truncate" style="max-width: 14rem;" title="<%= volumeLabel %>"><%= volumeLabel %></div>
+                                                <div class="text-secondary" style="font-size: 0.7rem;"><%= disk.type || "" %></div>
+                                            </td>
+                                            <td class="d-none d-md-table-cell small"><%= disk.format || "—" %></td>
+                                            <td>
+                                                <% if (diskPct != null) { %>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <div class="progress metrics-progress flex-grow-1" role="progressbar" aria-valuenow="<%= diskPct %>" aria-valuemin="0" aria-valuemax="100">
+                                                            <div class="progress-bar <%= diskClass %>" style="width: <%= diskPct %>%"></div>
+                                                        </div>
+                                                        <span class="small text-nowrap"><%= diskPct %>%</span>
+                                                    </div>
+                                                    <div class="text-secondary" style="font-size: 0.7rem;"><%= usedGb.toFixed(1) %> / <%= totalGb.toFixed(1) %> GB</div>
+                                                <% } else { %>
+                                                    <span class="text-secondary small">—</span>
+                                                <% } %>
+                                            </td>
+                                            <td class="text-end small text-nowrap"><%= freeGb != null ? freeGb.toFixed(1) + " GB" : "—" %></td>
                                         </tr>
                                     <% }) %>
                                 </tbody>
@@ -214,60 +263,64 @@
                         </div>
                     <% } %>
 
-                    <h3 class="h6">Network interfaces</h3>
-                    <% if (!Array.isArray(metrics.networkInterfaces) || !metrics.networkInterfaces.length) { %>
-                        <p class="text-secondary small mb-0">No network interface data.</p>
-                    <% } else { %>
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Status</th>
-                                        <th>MAC</th>
-                                        <th>Speed</th>
-                                        <th>IPv4</th>
-                                        <th>Gateway</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% metrics.networkInterfaces.forEach(function (networkInterface) { %>
+                    <details class="metrics-details mb-2">
+                        <summary class="small fw-semibold">Network interfaces<% if (Array.isArray(metrics.networkInterfaces) && metrics.networkInterfaces.length) { %> (<%= metrics.networkInterfaces.length %>)<% } %></summary>
+                        <% if (!Array.isArray(metrics.networkInterfaces) || !metrics.networkInterfaces.length) { %>
+                            <p class="text-secondary small mb-0 mt-2">No network interface data.</p>
+                        <% } else { %>
+                            <div class="table-responsive mt-2">
+                                <table class="table table-sm align-middle mb-0 metrics-table">
+                                    <thead class="table-light">
                                         <tr>
-                                            <td><%= networkInterface.name || "—" %></td>
-                                            <td><%= networkInterface.status || "—" %></td>
-                                            <td><code class="small"><%= networkInterface.mac || "—" %></code></td>
-                                            <td><%= networkInterface.speedMbps != null ? (networkInterface.speedMbps + " Mbps") : "—" %></td>
-                                            <td><%= Array.isArray(networkInterface.ipv4) ? networkInterface.ipv4.join(", ") : "—" %></td>
-                                            <td><%= Array.isArray(networkInterface.gateway) ? networkInterface.gateway.join(", ") : "—" %></td>
+                                            <th>Name</th>
+                                            <th>Status</th>
+                                            <th class="d-none d-md-table-cell">MAC</th>
+                                            <th>Speed</th>
+                                            <th>IPv4</th>
+                                            <th class="d-none d-lg-table-cell">Gateway</th>
                                         </tr>
-                                    <% }) %>
-                                </tbody>
-                            </table>
-                        </div>
-                    <% } %>
+                                    </thead>
+                                    <tbody>
+                                        <% metrics.networkInterfaces.forEach(function (networkInterface) { %>
+                                            <tr>
+                                                <td class="small"><%= networkInterface.name || "—" %></td>
+                                                <td class="small"><%= networkInterface.status || "—" %></td>
+                                                <td class="d-none d-md-table-cell"><code class="small"><%= networkInterface.mac || "—" %></code></td>
+                                                <td class="small text-nowrap"><%= networkInterface.speedMbps != null ? (networkInterface.speedMbps + " Mbps") : "—" %></td>
+                                                <td class="small"><%= Array.isArray(networkInterface.ipv4) ? networkInterface.ipv4.join(", ") : "—" %></td>
+                                                <td class="d-none d-lg-table-cell small"><%= Array.isArray(networkInterface.gateway) ? networkInterface.gateway.join(", ") : "—" %></td>
+                                            </tr>
+                                        <% }) %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <% } %>
+                    </details>
 
                     <% if (metrics.processes && Array.isArray(metrics.processes.items) && metrics.processes.items.length) { %>
-                        <h3 class="h6 mt-4">Top processes</h3>
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>PID</th>
-                                        <th>Name</th>
-                                        <th>Memory MB</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% metrics.processes.items.slice(0, 15).forEach(function (processItem) { %>
+                        <details class="metrics-details">
+                            <summary class="small fw-semibold">Top processes (<%= Math.min(10, metrics.processes.items.length) %>)</summary>
+                            <div class="table-responsive mt-2">
+                                <table class="table table-sm align-middle mb-0 metrics-table">
+                                    <thead class="table-light">
                                         <tr>
-                                            <td><%= processItem.pid != null ? processItem.pid : "—" %></td>
-                                            <td><%= processItem.name || "—" %></td>
-                                            <td><%= processItem.memoryMb != null ? Number(processItem.memoryMb).toFixed(1) : "—" %></td>
+                                            <th>PID</th>
+                                            <th>Name</th>
+                                            <th class="text-end">Memory MB</th>
                                         </tr>
-                                    <% }) %>
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        <% metrics.processes.items.slice(0, 10).forEach(function (processItem) { %>
+                                            <tr>
+                                                <td class="small"><%= processItem.pid != null ? processItem.pid : "—" %></td>
+                                                <td class="small text-truncate" style="max-width: 16rem;"><%= processItem.name || "—" %></td>
+                                                <td class="small text-end"><%= processItem.memoryMb != null ? Number(processItem.memoryMb).toFixed(1) : "—" %></td>
+                                            </tr>
+                                        <% }) %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
                     <% } %>
                 <% } %>
             </div>
@@ -429,6 +482,42 @@
         </div>
     </div>
 </div>
+
+<style>
+    .metrics-stat {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 0.5rem;
+        padding: 0.65rem 0.75rem;
+    }
+    .metrics-progress {
+        height: 0.35rem;
+        background: #e9ecef;
+    }
+    .metrics-table {
+        font-size: 0.8125rem;
+    }
+    .metrics-table > :not(caption) > * > * {
+        padding: 0.35rem 0.5rem;
+    }
+    .metrics-details > summary {
+        cursor: pointer;
+        list-style: none;
+        color: #495057;
+    }
+    .metrics-details > summary::-webkit-details-marker {
+        display: none;
+    }
+    .metrics-details > summary::before {
+        content: "▸";
+        display: inline-block;
+        margin-right: 0.35rem;
+        color: #6c757d;
+    }
+    .metrics-details[open] > summary::before {
+        content: "▾";
+    }
+</style>
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
