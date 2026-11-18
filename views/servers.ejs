@@ -15,16 +15,153 @@
 
 <main class="bg-light min-vh-100">
     <div class="container py-5">
-        <div class="mb-4">
-            <p class="text-secondary small mb-1">
-                <a href="/app" class="text-decoration-none">App</a> / Servers
-            </p>
-            <h1 class="h3 mb-1">Servers</h1>
-            <p class="text-secondary mb-0">Coming soon</p>
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> / Servers
+                </p>
+                <h1 class="h3 mb-1">Servers</h1>
+                <p class="text-secondary mb-0">Create server records, share OTP for tag claim, and manage details.</p>
+            </div>
+            <button
+                type="button"
+                class="btn btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#server-modal"
+                id="open-add-server-btn"
+            >
+                Add Server
+            </button>
+        </div>
+
+        <div id="servers-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div id="servers-empty" class="p-4 p-md-5 text-center text-secondary <%= servers && servers.length ? 'd-none' : '' %>">
+                    No servers found.
+                </div>
+                <div class="table-responsive <%= !servers || !servers.length ? 'd-none' : '' %>" id="servers-table-wrap">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Location</th>
+                                <th scope="col">Project</th>
+                                <th scope="col">Tag</th>
+                                <th scope="col">Mapped</th>
+                                <th scope="col">OTP</th>
+                                <th scope="col">Active</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="servers-tbody">
+                            <% (servers || []).forEach(function (server) { %>
+                                <tr
+                                    data-id="<%= server.id %>"
+                                    data-name="<%= server.name %>"
+                                    data-location="<%= server.location %>"
+                                    data-project-id="<%= server.project_id || '' %>"
+                                    data-notes="<%= server.notes || '' %>"
+                                    data-active="<%= server.active ? '1' : '0' %>"
+                                    data-tag="<%= server.tag %>"
+                                    data-tag-mapped="<%= server.tag_mapped ? '1' : '0' %>"
+                                    data-otp="<%= server.otp %>"
+                                >
+                                    <td class="server-name"><%= server.name %></td>
+                                    <td class="server-location"><%= server.location %></td>
+                                    <td class="server-project">
+                                        <% if (server.project_id) { %>
+                                            <%= server.project_title || ("Project #" + server.project_id) %><% if (server.customer_name) { %> — <%= server.customer_name %><% } %>
+                                        <% } else { %>
+                                            <span class="text-secondary">—</span>
+                                        <% } %>
+                                    </td>
+                                    <td class="server-tag"><code class="small"><%= server.tag %></code></td>
+                                    <td class="server-mapped">
+                                        <% if (server.tag_mapped) { %>
+                                            <span class="badge text-bg-success">mapped</span>
+                                        <% } else { %>
+                                            <span class="badge text-bg-warning">pending</span>
+                                        <% } %>
+                                    </td>
+                                    <td class="server-otp"><code><%= server.otp %></code></td>
+                                    <td class="server-active">
+                                        <% if (server.active) { %>
+                                            <span class="badge text-bg-success">active</span>
+                                        <% } else { %>
+                                            <span class="badge text-bg-secondary">inactive</span>
+                                        <% } %>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            <a href="/app/servers/<%= server.id %>" class="btn btn-sm btn-outline-primary">Open</a>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary server-edit-btn">Edit</button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger server-delete-btn">Delete</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </main>
 
-<script src="/public/app.js" defer></script>
+<div class="modal fade" id="server-modal" tabindex="-1" aria-labelledby="server-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="server-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="server-modal-label">Add server</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="server-form-alert" class="alert d-none" role="alert"></div>
+                    <input type="hidden" id="server-id" name="id" value="" />
+                    <div class="mb-3">
+                        <label for="server-name" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="server-name" name="name" maxlength="128" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="server-location" class="form-label">Location</label>
+                        <input type="text" class="form-control" id="server-location" name="location" maxlength="128" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="server-project-id" class="form-label">Project</label>
+                        <select class="form-select" id="server-project-id" name="project_id">
+                            <option value="">No project</option>
+                            <% (projects || []).forEach(function (project) { %>
+                                <option value="<%= project.id %>">
+                                    <%= project.title %><% if (project.customer_name) { %> — <%= project.customer_name %><% } %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="server-notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="server-notes" name="notes" rows="3" maxlength="4000"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="server-active" name="active" checked />
+                        <label class="form-check-label" for="server-active">Active</label>
+                    </div>
+                    <p class="text-secondary small mt-3 mb-0" id="server-readonly-hint">
+                        Tag and OTP are generated automatically on create.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="server-submit-btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/servers.js" defer></script>
 <%- include('common/footer') %>

@@ -34,6 +34,7 @@ import {
 } from "../db/customer_projects.js";
 import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
 import { getAllInternalDocuments } from "../db/internal_documents.js";
+import { getAllServers, getServerById } from "../db/servers.js";
 import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
 import {
     getAllCustomerInvoices,
@@ -666,8 +667,20 @@ export const uiRoutes = new Elysia()
             .get("/app/servers", async ({ render, session }) =>
                 render("servers", appPage(session, {
                     title: "Servers — HammerByte",
+                    servers: await getAllServers(),
+                    projects: await getAllCustomerProjects(),
                 })),
             )
+            .get("/app/servers/:id", async ({ render, session, params, redirect }) => {
+                const server = await getServerById({ id: Number(params.id) });
+                if (!server) {
+                    return redirect("/not-found");
+                }
+                return render("server", appPage(session, {
+                    title: `${server.name} — Servers — HammerByte`,
+                    server,
+                }));
+            })
             .get("/app/expenses", async ({ render, session, query }) => {
                 const monthBounds = getIstMonthBounds();
                 const defaultStart = monthBounds.from;

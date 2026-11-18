@@ -923,6 +923,26 @@ export async function generateDBTables() {
             max_parallel INT NOT NULL DEFAULT 1,
             updated_on DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )`,
+        `CREATE TABLE IF NOT EXISTS SERVERS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(128) NOT NULL,
+            location VARCHAR(128) NOT NULL,
+            project_id INT NULL,
+            notes TEXT NULL,
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            tag CHAR(36) NOT NULL,
+            tag_mapped BOOLEAN NOT NULL DEFAULT FALSE,
+            otp CHAR(4) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_server_tag (tag),
+            INDEX idx_servers_otp_tag_mapped (otp, tag_mapped),
+            CONSTRAINT fk_servers_customer_project
+                FOREIGN KEY (project_id)
+                REFERENCES CUSTOMER_PROJECTS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        )`,
         `CREATE TABLE IF NOT EXISTS TASKS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(128) NOT NULL,
