@@ -1,0 +1,127 @@
+import { logger } from "@hammerbyte/utils";
+import { executeSQLQuery } from "../libs/db.js";
+
+export async function createServer({
+    name,
+    location,
+    project_id = null,
+    notes = null,
+    tag,
+    otp,
+    active,
+}) {
+    const row = { name, location, project_id, notes, tag, otp };
+    const columns = ["name", "location", "project_id", "notes", "tag", "otp"];
+    if (active === false) {
+        row.active = false;
+        columns.push("active");
+    }
+
+    return await executeSQLQuery(
+        (sql) => sql`
+            INSERT INTO SERVERS ${sql(row, ...columns)}
+        `,
+    )
+        .then((result) => result.lastInsertRowid)
+        .catch((error) => {
+            logger.error(`createServer: ${error}`);
+        });
+}
+
+export async function updateServerById({
+    id,
+    name,
+    location,
+    project_id = null,
+    notes = null,
+    active,
+}) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET
+                name = ${name},
+                location = ${location},
+                project_id = ${project_id},
+                notes = ${notes},
+                active = ${active}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerById: ${error}`);
+    });
+}
+
+export async function markServerTagMappedById({ id }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET tag_mapped = TRUE
+            WHERE id = ${id} AND tag_mapped = FALSE
+        `,
+    ).catch((error) => {
+        logger.error(`markServerTagMappedById: ${error}`);
+    });
+}
+
+export async function deleteServerById({ id }) {
+    await executeSQLQuery((sql) => sql`DELETE FROM SERVERS WHERE id = ${id}`).catch((error) => {
+        logger.error(`deleteServerById: ${error}`);
+    });
+}
+
+export async function getServerById({ id }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                SERVERS.*,
+                CUSTOMER_PROJECTS.title AS project_title,
+                CUSTOMERS.full_name AS customer_name
+            FROM SERVERS
+            LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = SERVERS.project_id
+            LEFT JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_PROJECTS.customer_id
+            WHERE SERVERS.id = ${id}
+        `,
+    )
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getServerById: ${error}`);
+            return null;
+        });
+}
+
+export async function getServerByUnmappedOtp({ otp }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *
+            FROM SERVERS
+            WHERE otp = ${otp} AND tag_mapped = FALSE
+            LIMIT 1
+        `,
+    )
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getServerByUnmappedOtp: ${error}`);
+            return null;
+        });
+}
+
+export async function getAllServers() {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                SERVERS.*,
+                CUSTOMER_PROJECTS.title AS project_title,
+                CUSTOMERS.full_name AS customer_name
+            FROM SERVERS
+            LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = SERVERS.project_id
+            LEFT JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_PROJECTS.customer_id
+            ORDER BY SERVERS.id DESC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getAllServers: ${error}`);
+            return [];
+        });
+}
