@@ -56,11 +56,6 @@ import roles from "./apps/roles.js";
 import authorities from "./apps/authorities.js";
 import roleAuthorities from "./apps/role_authorities.js";
 import userRoles from "./apps/user_roles.js";
-import servers from "./apps/servers.js";
-import monitoredServers from "./apps/monitored_servers.js";
-import serverMetrics from "./apps/server_metrics.js";
-import agent from "./apps/agent.js";
-import agentReleases from "./apps/agent_releases.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 import canUseContentPublisher from "../middlewares/can_use_content_publisher.js";
@@ -78,8 +73,6 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
     .group("/inquiries", inquiries)
     .group("/job-applications", publicJobApplications)
     .group("/contracts", contractsSign)
-    .group("/servers", servers)
-    .group("/agent", agent)
     // Meta Instagram Graph API must fetch image_url without a session cookie.
     .get("/content-publish/public-media/:token", getContentPublishPublicMedia, {
         detail: {
@@ -89,9 +82,6 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
     })
     .guard({ beforeHandle: [requireApiSession] }, (app) =>
         app
-            .group("/monitored-servers", monitoredServers)
-            .group("/server-metrics", serverMetrics)
-            .group("/agent-releases", agentReleases)
             .group("/project-applications", projectApplications)
             .group("/application-services", applicationServices)
             .group("/expenses", expenses)

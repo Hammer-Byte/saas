@@ -50,8 +50,6 @@ RUN bun install --frozen-lockfile
 
 COPY . .
 
-RUN bun run build:agents
-
 VOLUME ["/app/media"]
 
 EXPOSE 3000

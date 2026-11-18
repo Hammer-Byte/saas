@@ -221,7 +221,7 @@ export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_CONTRACTS: "View Contracts page",
     USE_PAGE_INTERNAL_DOCUMENTS: "View Internal Documents page",
     USE_PAGE_JOBS: "View and manage Jobs openings and applications",
-    USE_PAGE_SERVERS: "View Servers monitor page",
+    USE_PAGE_SERVERS: "View Servers page",
     USE_PAGE_TASKS: "View Tasks page",
     USE_PAGE_GEM_TENDERS: "View GEM Tenders page",
     USE_PAGE_GEM_CATEGORIES: "View and manage the GEM Scanner (Direct Search, Advance Search, categories) and scan history",
