@@ -35,6 +35,7 @@ import {
 import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
 import { getAllInternalDocuments } from "../db/internal_documents.js";
 import { getAllServers, getServerById } from "../db/servers.js";
+import { buildServerPageData } from "../libs/server_pages.js";
 import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
 import {
     getAllCustomerInvoices,
@@ -678,7 +679,7 @@ export const uiRoutes = new Elysia()
                 }
                 return render("server", appPage(session, {
                     title: `${server.name} — Servers — HammerByte`,
-                    server,
+                    ...(await buildServerPageData(server)),
                 }));
             })
             .get("/app/expenses", async ({ render, session, query }) => {

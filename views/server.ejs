@@ -21,12 +21,416 @@
                 <a href="/app/servers" class="text-decoration-none">Servers</a> /
                 <%= server.name %>
             </p>
-            <h1 class="h3 mb-1"><%= server.name %></h1>
-            <p class="text-secondary mb-0">Coming soon</p>
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                <div>
+                    <h1 class="h3 mb-1"><%= server.name %></h1>
+                    <p class="text-secondary mb-0">
+                        <%= server.location %>
+                        <% if (server.project_id) { %>
+                            · <%= server.project_title || ("Project #" + server.project_id) %><% if (server.customer_name) { %> — <%= server.customer_name %><% } %>
+                        <% } %>
+                    </p>
+                </div>
+                <a href="/app/servers" class="btn btn-outline-secondary">Back to servers</a>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+                    <h2 class="h5 mb-0">Status</h2>
+                    <% if (aliveStatus === "alive") { %>
+                        <span class="badge text-bg-success">Alive</span>
+                    <% } else if (aliveStatus === "offline") { %>
+                        <span class="badge text-bg-danger">Offline</span>
+                    <% } else { %>
+                        <span class="badge text-bg-secondary">No ping yet</span>
+                    <% } %>
+                </div>
+                <div class="row g-3 small">
+                    <div class="col-md-6">
+                        <div class="text-secondary">Tag</div>
+                        <code><%= server.tag %></code>
+                        <% if (server.tag_mapped) { %>
+                            <span class="badge text-bg-success ms-1">mapped</span>
+                        <% } else { %>
+                            <span class="badge text-bg-warning ms-1">pending</span>
+                        <% } %>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-secondary">OTP</div>
+                        <code><%= server.otp %></code>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-secondary">Active</div>
+                        <%= server.active ? "Yes" : "No" %>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-secondary">Last ping</div>
+                        <% if (latestPing) { %>
+                            <span
+                                data-readable-date="<%= latestPing.received_on || '' %>"
+                                data-date-format="DD/MM/YYYY HH:mm:ss"
+                            ><%= latestPing.received_on || "—" %></span>
+                            <span class="text-secondary">
+                                (alive if within <%= aliveWithinSeconds %>s)
+                            </span>
+                        <% } else { %>
+                            <span class="text-secondary">—</span>
+                        <% } %>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-secondary">Client timestamp</div>
+                        <%= latestPing && latestPing.client_timestamp ? latestPing.client_timestamp : "—" %>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">Machine / metrics</h2>
+                <% if (latestMetricReceivedOn) { %>
+                    <p class="text-secondary small mb-0 mt-1">
+                        Latest received
+                        <span
+                            data-readable-date="<%= latestMetricReceivedOn %>"
+                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                        ><%= latestMetricReceivedOn %></span>
+                    </p>
+                <% } %>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <% if (!metrics) { %>
+                    <p class="text-secondary mb-0">No metrics received yet.</p>
+                <% } else { %>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="text-secondary small">Machine</div>
+                            <div><%= metrics.machineName || metrics.hostName || "—" %></div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-secondary small">User</div>
+                            <div>
+                                <%= metrics.userDomain ? (metrics.userDomain + "\\") : "" %><%= metrics.userName || "—" %>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-secondary small">Captured at</div>
+                            <div><%= metrics.capturedAt || "—" %></div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="text-secondary small">OS</div>
+                            <div><%= metrics.osVersion || "—" %></div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-secondary small">Uptime</div>
+                            <div><%= metrics.uptime || "—" %></div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-secondary small">Local IPs</div>
+                            <div><%= Array.isArray(metrics.localIps) && metrics.localIps.length ? metrics.localIps.join(", ") : "—" %></div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-secondary small">Public IP</div>
+                            <div>
+                                <%= metrics.publicIp && metrics.publicIp.value ? metrics.publicIp.value : "—" %>
+                                <% if (metrics.publicIp && metrics.publicIp.source) { %>
+                                    <span class="text-secondary small">(<%= metrics.publicIp.source %>)</span>
+                                <% } %>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-secondary small">MAC addresses</div>
+                            <div><%= Array.isArray(metrics.macAddresses) && metrics.macAddresses.length ? metrics.macAddresses.join(", ") : "—" %></div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 h-100">
+                                <div class="fw-semibold mb-2">Memory</div>
+                                <% if (metrics.memory) { %>
+                                    <div class="small">Total: <%= metrics.memory.totalMb != null ? Number(metrics.memory.totalMb).toFixed(1) + " MB" : "—" %></div>
+                                    <div class="small">Used: <%= metrics.memory.usedMb != null ? Number(metrics.memory.usedMb).toFixed(1) + " MB" : "—" %></div>
+                                    <div class="small">Free: <%= metrics.memory.freeMb != null ? Number(metrics.memory.freeMb).toFixed(1) + " MB" : "—" %></div>
+                                <% } else { %>
+                                    <div class="text-secondary small">—</div>
+                                <% } %>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 h-100">
+                                <div class="fw-semibold mb-2">CPU</div>
+                                <% if (metrics.cpu) { %>
+                                    <div class="small"><%= metrics.cpu.name || "—" %></div>
+                                    <div class="small">Cores: <%= metrics.cpu.cores != null ? metrics.cpu.cores : "—" %></div>
+                                    <div class="small">Logical: <%= metrics.cpu.logicalProcessors != null ? metrics.cpu.logicalProcessors : "—" %></div>
+                                    <div class="small">Max MHz: <%= metrics.cpu.maxClockMhz != null ? metrics.cpu.maxClockMhz : "—" %></div>
+                                <% } else { %>
+                                    <div class="text-secondary small">—</div>
+                                <% } %>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 h-100">
+                                <div class="fw-semibold mb-2">Processes</div>
+                                <% if (metrics.processes) { %>
+                                    <div class="small">Count: <%= metrics.processes.count != null ? metrics.processes.count : "—" %></div>
+                                <% } else { %>
+                                    <div class="text-secondary small">—</div>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="h6">Storage</h3>
+                    <% if (!Array.isArray(metrics.storage) || !metrics.storage.length) { %>
+                        <p class="text-secondary small">No storage data.</p>
+                    <% } else { %>
+                        <div class="table-responsive mb-4">
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Format</th>
+                                        <th>Type</th>
+                                        <th>Total GB</th>
+                                        <th>Free GB</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% metrics.storage.forEach(function (disk) { %>
+                                        <tr>
+                                            <td><%= disk.name || "—" %><% if (disk.label) { %> (<%= disk.label %>)<% } %></td>
+                                            <td><%= disk.format || "—" %></td>
+                                            <td><%= disk.type || "—" %></td>
+                                            <td><%= disk.totalGb != null ? Number(disk.totalGb).toFixed(1) : "—" %></td>
+                                            <td><%= disk.freeGb != null ? Number(disk.freeGb).toFixed(1) : "—" %></td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% } %>
+
+                    <h3 class="h6">Network interfaces</h3>
+                    <% if (!Array.isArray(metrics.networkInterfaces) || !metrics.networkInterfaces.length) { %>
+                        <p class="text-secondary small mb-0">No network interface data.</p>
+                    <% } else { %>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Status</th>
+                                        <th>MAC</th>
+                                        <th>Speed</th>
+                                        <th>IPv4</th>
+                                        <th>Gateway</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% metrics.networkInterfaces.forEach(function (networkInterface) { %>
+                                        <tr>
+                                            <td><%= networkInterface.name || "—" %></td>
+                                            <td><%= networkInterface.status || "—" %></td>
+                                            <td><code class="small"><%= networkInterface.mac || "—" %></code></td>
+                                            <td><%= networkInterface.speedMbps != null ? (networkInterface.speedMbps + " Mbps") : "—" %></td>
+                                            <td><%= Array.isArray(networkInterface.ipv4) ? networkInterface.ipv4.join(", ") : "—" %></td>
+                                            <td><%= Array.isArray(networkInterface.gateway) ? networkInterface.gateway.join(", ") : "—" %></td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% } %>
+
+                    <% if (metrics.processes && Array.isArray(metrics.processes.items) && metrics.processes.items.length) { %>
+                        <h3 class="h6 mt-4">Top processes</h3>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>PID</th>
+                                        <th>Name</th>
+                                        <th>Memory MB</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% metrics.processes.items.slice(0, 15).forEach(function (processItem) { %>
+                                        <tr>
+                                            <td><%= processItem.pid != null ? processItem.pid : "—" %></td>
+                                            <td><%= processItem.name || "—" %></td>
+                                            <td><%= processItem.memoryMb != null ? Number(processItem.memoryMb).toFixed(1) : "—" %></td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% } %>
+                <% } %>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">Services</h2>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <h3 class="h6">Dataer</h3>
+                <% if (!dataerRuns || !dataerRuns.length) { %>
+                    <p class="text-secondary small">No Dataer runs yet.</p>
+                <% } else { %>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Received</th>
+                                    <th>Finished</th>
+                                    <th>Host</th>
+                                    <th>Remote → Local</th>
+                                    <th>Success</th>
+                                    <th>Result</th>
+                                    <th>Duration</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% dataerRuns.forEach(function (run) { %>
+                                    <tr>
+                                        <td
+                                            data-readable-date="<%= run.received_on || '' %>"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                                        ><%= run.received_on || "—" %></td>
+                                        <td><%= run.finished_at || "—" %></td>
+                                        <td><%= run.host || "—" %></td>
+                                        <td class="small">
+                                            <div><%= run.remote || "—" %></div>
+                                            <div class="text-secondary">→ <%= run.local_path || "—" %></div>
+                                        </td>
+                                        <td>
+                                            <% if (run.success) { %>
+                                                <span class="badge text-bg-success">ok</span>
+                                            <% } else if (run.success === false || run.success === 0) { %>
+                                                <span class="badge text-bg-danger">fail</span>
+                                            <% } else { %>
+                                                <span class="badge text-bg-secondary">—</span>
+                                            <% } %>
+                                        </td>
+                                        <td class="small"><%= run.result || "—" %></td>
+                                        <td><%= run.duration_seconds != null ? Number(run.duration_seconds).toFixed(1) + "s" : "—" %></td>
+                                        <td class="text-end">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary run-detail-btn"
+                                                data-title="Dataer run detail"
+                                                data-detail="<%= encodeURIComponent(run.detail || '') %>"
+                                            >Detail</button>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+
+                <h3 class="h6">DBer</h3>
+                <% if (!dberRuns || !dberRuns.length) { %>
+                    <p class="text-secondary small mb-0">No DBer runs yet.</p>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Received</th>
+                                    <th>Finished</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>Success</th>
+                                    <th>Result</th>
+                                    <th>Duration</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% dberRuns.forEach(function (run) { %>
+                                    <tr>
+                                        <td
+                                            data-readable-date="<%= run.received_on || '' %>"
+                                            data-date-format="DD/MM/YYYY HH:mm:ss"
+                                        ><%= run.received_on || "—" %></td>
+                                        <td><%= run.finished_at || "—" %></td>
+                                        <td class="small">
+                                            <div><%= run.from_host || "—" %></div>
+                                            <div class="text-secondary"><%= run.from_database || "—" %></div>
+                                        </td>
+                                        <td class="small">
+                                            <div><%= run.to_host || "—" %></div>
+                                            <div class="text-secondary"><%= run.to_database || "—" %></div>
+                                        </td>
+                                        <td>
+                                            <% if (run.success) { %>
+                                                <span class="badge text-bg-success">ok</span>
+                                            <% } else if (run.success === false || run.success === 0) { %>
+                                                <span class="badge text-bg-danger">fail</span>
+                                            <% } else { %>
+                                                <span class="badge text-bg-secondary">—</span>
+                                            <% } %>
+                                        </td>
+                                        <td class="small">
+                                            <div><%= run.result || "—" %></div>
+                                            <% if (run.bacpac_path) { %>
+                                                <div class="text-secondary"><code class="small"><%= run.bacpac_path %></code></div>
+                                            <% } %>
+                                        </td>
+                                        <td><%= run.duration_seconds != null ? Number(run.duration_seconds).toFixed(1) + "s" : "—" %></td>
+                                        <td class="text-end">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary run-detail-btn"
+                                                data-title="DBer run detail"
+                                                data-detail="<%= encodeURIComponent(run.detail || '') %>"
+                                            >Detail</button>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-0">Alerts</h2>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <p class="text-secondary mb-0">Coming soon</p>
+            </div>
         </div>
     </div>
 </main>
 
-<script src="/public/app.js" defer></script>
+<div class="modal fade" id="run-detail-modal" tabindex="-1" aria-labelledby="run-detail-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="run-detail-modal-label">Run detail</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <pre class="small mb-0" id="run-detail-body" style="white-space: pre-wrap;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/server.js" defer></script>
 <%- include('common/footer') %>

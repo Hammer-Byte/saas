@@ -106,6 +106,22 @@ export async function getServerByUnmappedOtp({ otp }) {
         });
 }
 
+export async function getServerByMappedTag({ tag }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *
+            FROM SERVERS
+            WHERE tag = ${tag} AND tag_mapped = TRUE
+            LIMIT 1
+        `,
+    )
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getServerByMappedTag: ${error}`);
+            return null;
+        });
+}
+
 export async function getAllServers() {
     return await executeSQLQuery(
         (sql) => sql`

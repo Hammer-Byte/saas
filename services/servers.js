@@ -1,8 +1,13 @@
 import { getCustomerProjectById } from "../db/customer_projects.js";
+import { createServerDataerRun } from "../db/server_dataer_runs.js";
+import { createServerDberRun } from "../db/server_dber_runs.js";
+import { createServerMetric } from "../db/server_metrics.js";
+import { createServerPing } from "../db/server_pings.js";
 import {
     createServer,
     deleteServerById,
     getServerById,
+    getServerByMappedTag,
     getServerByUnmappedOtp,
     markServerTagMappedById,
     updateServerById,
@@ -32,6 +37,154 @@ async function resolveProjectId({ project_id, set }) {
     }
 
     return { projectId: existingProject.id };
+}
+
+function asNullableString(value, maxLength = null) {
+    if (value == null) {
+        return null;
+    }
+    const text = String(value).trim();
+    if (!text) {
+        return null;
+    }
+    if (maxLength != null) {
+        return text.slice(0, maxLength);
+    }
+    return text;
+}
+
+function asNullableNumber(value) {
+    if (value == null || value === "") {
+        return null;
+    }
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+}
+
+function asNullableBoolean(value) {
+    if (value == null) {
+        return null;
+    }
+    return Boolean(value);
+}
+
+async function resolveMappedServerFromTag({ body, set }) {
+    const tag = asNullableString(body.TAG);
+    if (!tag) {
+        set.status = 401;
+        return { error: "TAG is required" };
+    }
+
+    const mappedServer = await getServerByMappedTag({ tag });
+    if (!mappedServer) {
+        set.status = 401;
+        return { error: "Invalid or unmapped TAG" };
+    }
+
+    return { mappedServer };
+}
+
+async function handleCreateTag({ body, set }) {
+    const otp = String(body.otp || "").trim();
+    if (!/^\d{4}$/.test(otp)) {
+        set.status = 401;
+        return { error: "Invalid OTP" };
+    }
+
+    const existingServer = await getServerByUnmappedOtp({ otp });
+    if (!existingServer) {
+        set.status = 401;
+        return { error: "No unmapped server found for this OTP" };
+    }
+
+    await markServerTagMappedById({ id: existingServer.id });
+
+    set.status = 201;
+    return { tag_id: existingServer.tag };
+}
+
+async function handlePinger({ body, set }) {
+    const tagResult = await resolveMappedServerFromTag({ body, set });
+    if (tagResult.error) {
+        return { error: tagResult.error };
+    }
+
+    await createServerPing({
+        server_id: tagResult.mappedServer.id,
+        client_timestamp: asNullableString(body.timestamp, 64),
+        payload: JSON.stringify(body),
+    });
+
+    set.status = 201;
+    return { ok: true };
+}
+
+async function handleMetricer({ body, set }) {
+    const tagResult = await resolveMappedServerFromTag({ body, set });
+    if (tagResult.error) {
+        return { error: tagResult.error };
+    }
+
+    await createServerMetric({
+        server_id: tagResult.mappedServer.id,
+        client_timestamp: asNullableString(body.timestamp, 64),
+        payload: JSON.stringify(body),
+    });
+
+    set.status = 201;
+    return { ok: true };
+}
+
+async function handleDataer({ body, set }) {
+    const tagResult = await resolveMappedServerFromTag({ body, set });
+    if (tagResult.error) {
+        return { error: tagResult.error };
+    }
+
+    await createServerDataerRun({
+        server_id: tagResult.mappedServer.id,
+        host: asNullableString(body.host, 256),
+        remote: asNullableString(body.remote, 512),
+        local_path: asNullableString(body.local, 512),
+        interval_seconds: asNullableNumber(body.intervalSeconds),
+        success: asNullableBoolean(body.success),
+        result: asNullableString(body.result, 512),
+        duration_seconds: asNullableNumber(body.durationSeconds),
+        finished_at: asNullableString(body.finishedAt, 64),
+        detail: asNullableString(body.detail),
+        client_timestamp: asNullableString(body.timestamp, 64),
+        payload: JSON.stringify(body),
+    });
+
+    set.status = 201;
+    return { ok: true };
+}
+
+async function handleDber({ body, set }) {
+    const tagResult = await resolveMappedServerFromTag({ body, set });
+    if (tagResult.error) {
+        return { error: tagResult.error };
+    }
+
+    await createServerDberRun({
+        server_id: tagResult.mappedServer.id,
+        from_host: asNullableString(body.fromHost, 256),
+        from_database: asNullableString(body.fromDatabase, 256),
+        to_host: asNullableString(body.toHost, 256),
+        to_database: asNullableString(body.toDatabase, 256),
+        interval_seconds: asNullableNumber(body.intervalSeconds),
+        success: asNullableBoolean(body.success),
+        result: asNullableString(body.result, 512),
+        duration_seconds: asNullableNumber(body.durationSeconds),
+        finished_at: asNullableString(body.finishedAt, 64),
+        bacpac_path: asNullableString(body.bacpacPath, 1024),
+        detail: asNullableString(body.detail),
+        client_timestamp: asNullableString(body.timestamp, 64),
+        payload: JSON.stringify(body),
+    });
+
+    set.status = 201;
+    return { ok: true };
 }
 
 export async function addServer({ body, set }) {
@@ -120,25 +273,24 @@ export async function deleteServer({ params, set }) {
 }
 
 export async function handleServerRequest({ body, set }) {
-    if (body.TYPE !== "CREATE_TAG") {
-        set.status = 401;
-        return { error: "Unsupported request type" };
+    const type = String(body?.TYPE || "").trim();
+
+    if (type === "CREATE_TAG") {
+        return handleCreateTag({ body, set });
+    }
+    if (type === "PINGER") {
+        return handlePinger({ body, set });
+    }
+    if (type === "Metricer") {
+        return handleMetricer({ body, set });
+    }
+    if (type === "Dataer") {
+        return handleDataer({ body, set });
+    }
+    if (type === "DBer") {
+        return handleDber({ body, set });
     }
 
-    const otp = String(body.otp || "").trim();
-    if (!/^\d{4}$/.test(otp)) {
-        set.status = 401;
-        return { error: "Invalid OTP" };
-    }
-
-    const existingServer = await getServerByUnmappedOtp({ otp });
-    if (!existingServer) {
-        set.status = 401;
-        return { error: "No unmapped server found for this OTP" };
-    }
-
-    await markServerTagMappedById({ id: existingServer.id });
-
-    set.status = 201;
-    return { tag_id: existingServer.tag };
+    set.status = 401;
+    return { error: "Unsupported request type" };
 }

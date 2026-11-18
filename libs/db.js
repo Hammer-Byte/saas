@@ -943,6 +943,78 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
+        `CREATE TABLE IF NOT EXISTS SERVER_PINGS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            server_id INT NOT NULL,
+            client_timestamp VARCHAR(64) NULL,
+            payload TEXT NOT NULL,
+            received_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_server_pings_server
+                FOREIGN KEY (server_id)
+                REFERENCES SERVERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_server_pings_server_received (server_id, received_on)
+        )`,
+        `CREATE TABLE IF NOT EXISTS SERVER_METRICS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            server_id INT NOT NULL,
+            client_timestamp VARCHAR(64) NULL,
+            payload MEDIUMTEXT NOT NULL,
+            received_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_server_metrics_server
+                FOREIGN KEY (server_id)
+                REFERENCES SERVERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_server_metrics_server_received (server_id, received_on)
+        )`,
+        `CREATE TABLE IF NOT EXISTS SERVER_DATAER_RUNS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            server_id INT NOT NULL,
+            host VARCHAR(256) NULL,
+            remote VARCHAR(512) NULL,
+            local_path VARCHAR(512) NULL,
+            interval_seconds INT NULL,
+            success BOOLEAN NULL,
+            result VARCHAR(512) NULL,
+            duration_seconds DECIMAL(12, 3) NULL,
+            finished_at VARCHAR(64) NULL,
+            detail TEXT NULL,
+            client_timestamp VARCHAR(64) NULL,
+            payload MEDIUMTEXT NOT NULL,
+            received_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_server_dataer_runs_server
+                FOREIGN KEY (server_id)
+                REFERENCES SERVERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_server_dataer_runs_server_received (server_id, received_on)
+        )`,
+        `CREATE TABLE IF NOT EXISTS SERVER_DBER_RUNS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            server_id INT NOT NULL,
+            from_host VARCHAR(256) NULL,
+            from_database VARCHAR(256) NULL,
+            to_host VARCHAR(256) NULL,
+            to_database VARCHAR(256) NULL,
+            interval_seconds INT NULL,
+            success BOOLEAN NULL,
+            result VARCHAR(512) NULL,
+            duration_seconds DECIMAL(12, 3) NULL,
+            finished_at VARCHAR(64) NULL,
+            bacpac_path VARCHAR(1024) NULL,
+            detail TEXT NULL,
+            client_timestamp VARCHAR(64) NULL,
+            payload MEDIUMTEXT NOT NULL,
+            received_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_server_dber_runs_server
+                FOREIGN KEY (server_id)
+                REFERENCES SERVERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_server_dber_runs_server_received (server_id, received_on)
+        )`,
         `CREATE TABLE IF NOT EXISTS TASKS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(128) NOT NULL,
