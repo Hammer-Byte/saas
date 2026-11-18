@@ -34,12 +34,6 @@ import {
 } from "../db/customer_projects.js";
 import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
 import { getAllInternalDocuments } from "../db/internal_documents.js";
-import { getServerById, getServersByProjectId } from "../db/servers.js";
-import {
-    buildAgentReleasesPageData,
-    buildServerPageData,
-    buildServersPageData,
-} from "../libs/server_pages.js";
 import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
 import {
     getAllCustomerInvoices,
@@ -443,9 +437,6 @@ export const uiRoutes = new Elysia()
                     applications: await getProjectApplicationsByProjectId({
                         project_id: customerProject.id,
                     }),
-                    servers: await getServersByProjectId({
-                        project_id: customerProject.id,
-                    }),
                     invoices: await getCustomerInvoicesByProjectId({
                         project_id: customerProject.id,
                         start: rangeStart,
@@ -675,24 +666,6 @@ export const uiRoutes = new Elysia()
             .get("/app/servers", async ({ render, session }) =>
                 render("servers", appPage(session, {
                     title: "Servers — HammerByte",
-                    ...(await buildServersPageData()),
-                    projects: await getAllCustomerProjects(),
-                })),
-            )
-            .get("/app/servers/:id", async ({ render, session, params, redirect }) => {
-                const server = await getServerById({ id: Number(params.id) });
-                if (!server) {
-                    return redirect("/not-found");
-                }
-                return render("server", appPage(session, {
-                    title: `${server.name || server.tag} — Servers — HammerByte`,
-                    ...(await buildServerPageData(server)),
-                }));
-            })
-            .get("/app/agent-releases", async ({ render, session }) =>
-                render("agent-releases", appPage(session, {
-                    title: "Agent Releases — HammerByte",
-                    ...(await buildAgentReleasesPageData()),
                 })),
             )
             .get("/app/expenses", async ({ render, session, query }) => {

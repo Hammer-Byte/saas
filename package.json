@@ -3,9 +3,6 @@
     "module": "app.js",
     "type": "module",
     "private": true,
-    "scripts": {
-        "build:agents": "bun scripts/build-agents.js"
-    },
     "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/static": "^1.4.7",

@@ -26,7 +26,6 @@ const app = new Elysia().use(
             "Content-Type",
             HEADERS.APPLICATION_ID,
             HEADERS.APPLICATION_TOKEN,
-            "X-Server-Tag",
         ],
     }),
 ).use(

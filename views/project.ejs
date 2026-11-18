@@ -136,59 +136,6 @@
 
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 px-4">
-                <h2 class="h5 mb-0">Servers</h2>
-                <a href="/app/servers" class="btn btn-sm btn-outline-secondary">Fleet / assign project</a>
-            </div>
-            <div class="card-body p-0">
-                <% if (!servers || servers.length === 0) { %>
-                    <div class="p-4 text-center text-secondary">
-                        No servers assigned to this project yet. Assign one from the
-                        <a href="/app/servers">Servers</a> fleet page (Edit → Project).
-                    </div>
-                <% } else { %>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th scope="col">Name</th>
-                                    <th scope="col">Tag</th>
-                                    <th scope="col">Last poll</th>
-                                    <th scope="col">Status</th>
-                                    <th scope="col"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% servers.forEach(function (server) { %>
-                                    <tr>
-                                        <td><%= server.name || "Unnamed server" %></td>
-                                        <td><code><%= server.tag %></code></td>
-                                        <td
-                                            data-readable-date="<%= server.last_poll_at || '' %>"
-                                            data-date-format="DD/MM/YYYY HH:mm:ss"
-                                        ><%= server.last_poll_at ? "" : "—" %></td>
-                                        <td>
-                                            <% if (server.approval_status === "approved" && server.agent_active) { %>
-                                                <span class="badge text-bg-success">active</span>
-                                            <% } else if (server.approval_status === "approved") { %>
-                                                <span class="badge text-bg-warning">paused</span>
-                                            <% } else { %>
-                                                <span class="badge text-bg-secondary"><%= server.approval_status || "pending" %></span>
-                                            <% } %>
-                                        </td>
-                                        <td class="text-end">
-                                            <a href="/app/servers/<%= server.id %>" class="btn btn-sm btn-outline-primary">View</a>
-                                        </td>
-                                    </tr>
-                                <% }) %>
-                            </tbody>
-                        </table>
-                    </div>
-                <% } %>
-            </div>
-        </div>
-
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 px-4">
                 <h2 class="h5 mb-0">Tasks</h2>
                 <div class="d-flex gap-2">
                     <a href="/app/tasks" class="btn btn-sm btn-outline-primary">Open Tasks</a>
