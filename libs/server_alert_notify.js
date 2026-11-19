@@ -1,5 +1,6 @@
 import { filer, logger } from "@hammerbyte/utils";
 import { createServerAlertLog } from "../db/server_alert_log.js";
+import { getLatestServerPingByServerId } from "../db/server_pings.js";
 import {
     getServerById,
     updateServerAlertStateById,
@@ -14,6 +15,8 @@ import {
     storageOverThreshold,
 } from "./server_alerts.js";
 import transporter from "./transporter.js";
+
+const METRICER_REQUIRES_PING_WITHIN_SECONDS = 180;
 
 function publicBaseUrl() {
     return String(Bun.env.PUBLIC_BASE_URL || "https://hammerbyte.co.in").replace(/\/$/, "");
@@ -94,37 +97,73 @@ async function logDeliveredAlert({ server, kind, detail, delivery }) {
     return true;
 }
 
+async function serverHasRecentPing(serverId, withinSeconds) {
+    const latestPing = await getLatestServerPingByServerId({ server_id: serverId });
+    const age =
+        latestPing?.seconds_since_received == null
+            ? null
+            : Number(latestPing.seconds_since_received);
+    if (age == null || !Number.isFinite(age)) {
+        return false;
+    }
+    return age <= withinSeconds;
+}
+
+/**
+ * Each Metricer condition is fully independent (own cooldown / notify / log).
+ * Metricer alerts only run when a recent ping shows the host is reachable.
+ */
 export async function evaluateMetricerAlerts({ server, payload }) {
+    if (!server?.id || !payload || typeof payload !== "object") {
+        return;
+    }
+
+    const config = parseAlertConfig(server.alert_config);
+    const metricer = config.metricer;
+    if (!metricer.enabled) {
+        logger.info(`server #${server.id} metricer alerts skipped: disabled`);
+        return;
+    }
+    if (!metricer.recipients.length) {
+        logger.info(`server #${server.id} metricer alerts skipped: no recipients`);
+        return;
+    }
+    if (!metricer.recipients.some(recipientCanNotify)) {
+        logger.info(`server #${server.id} metricer alerts skipped: no email/SMS enabled`);
+        return;
+    }
+
+    const pingWithin = Math.max(
+        30,
+        Number(config.pinger?.missed_ping_seconds) || METRICER_REQUIRES_PING_WITHIN_SECONDS,
+    );
     try {
-        if (!server?.id || !payload || typeof payload !== "object") {
+        const alive = await serverHasRecentPing(server.id, pingWithin);
+        if (!alive) {
+            logger.info(
+                `server #${server.id} metricer alerts skipped: no ping within ${pingWithin}s`,
+            );
             return;
         }
-        const config = parseAlertConfig(server.alert_config);
-        const metricer = config.metricer;
-        if (!metricer.enabled) {
-            logger.info(`server #${server.id} metricer alerts skipped: disabled`);
-            return;
-        }
-        if (!metricer.recipients.length) {
-            logger.info(`server #${server.id} metricer alerts skipped: no recipients`);
-            return;
-        }
-        if (!metricer.recipients.some(recipientCanNotify)) {
-            logger.info(`server #${server.id} metricer alerts skipped: no email/SMS enabled`);
-            return;
-        }
+    } catch (error) {
+        logger.error(`evaluateMetricerAlerts ping gate: ${error}`);
+        return;
+    }
 
-        let state = parseAlertState(server.alert_state);
-        const capturedAt = payload.capturedAt || payload.timestamp || "—";
-        const cooldown = metricer.cooldown_seconds;
+    let state = parseAlertState(server.alert_state);
+    const capturedAt = payload.capturedAt || payload.timestamp || "—";
+    const cooldown = metricer.cooldown_seconds;
+    const recipients = metricer.recipients;
 
-        if (metricer.ram_enabled) {
+    // --- RAM (independent) ---
+    if (metricer.ram_enabled) {
+        try {
             const ramPct = memoryUsagePercent(payload);
             if (ramPct == null) {
                 logger.info(`server #${server.id} metricer RAM skipped: no memory data`);
             } else if (ramPct < metricer.ram_percent) {
                 logger.info(
-                    `server #${server.id} metricer RAM skipped: ${ramPct.toFixed(1)}% < ${metricer.ram_percent}%`,
+                    `server #${server.id} metricer RAM ok: ${ramPct.toFixed(1)}% < ${metricer.ram_percent}%`,
                 );
             } else if (!cooldownElapsed(state.metricer_ram, cooldown)) {
                 logger.info(`server #${server.id} metricer RAM skipped: cooldown`);
@@ -132,7 +171,7 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                 const detail = `RAM usage ${ramPct.toFixed(1)}% (threshold ${metricer.ram_percent}%)`;
                 const delivery = notifySection({
                     server,
-                    recipients: metricer.recipients,
+                    recipients,
                     subject: `Server RAM alert — ${server.name}`,
                     htmlBuilder: (recipientName) =>
                         metricEmailHtml({
@@ -147,23 +186,30 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                 if (await logDeliveredAlert({ server, kind: "metricer_ram", detail, delivery })) {
                     state = await stampAlertState(server.id, state, "metricer_ram");
                     logger.info(`server #${server.id} metricer RAM alert sent (${detail})`);
-                } else {
-                    logger.info(`server #${server.id} metricer RAM alert not delivered (${detail})`);
                 }
             }
+        } catch (error) {
+            logger.error(`server #${server.id} metricer RAM check failed: ${error}`);
         }
+    }
 
-        if (metricer.cpu_enabled) {
+    // --- CPU (independent) ---
+    if (metricer.cpu_enabled) {
+        try {
             const cpuPct = cpuUsagePercent(payload);
-            if (
-                cpuPct != null &&
-                cpuPct >= metricer.cpu_percent &&
-                cooldownElapsed(state.metricer_cpu, cooldown)
-            ) {
+            if (cpuPct == null) {
+                logger.info(`server #${server.id} metricer CPU skipped: no usage data`);
+            } else if (cpuPct < metricer.cpu_percent) {
+                logger.info(
+                    `server #${server.id} metricer CPU ok: ${cpuPct.toFixed(1)}% < ${metricer.cpu_percent}%`,
+                );
+            } else if (!cooldownElapsed(state.metricer_cpu, cooldown)) {
+                logger.info(`server #${server.id} metricer CPU skipped: cooldown`);
+            } else {
                 const detail = `CPU usage ${cpuPct.toFixed(1)}% (threshold ${metricer.cpu_percent}%)`;
                 const delivery = notifySection({
                     server,
-                    recipients: metricer.recipients,
+                    recipients,
                     subject: `Server CPU alert — ${server.name}`,
                     htmlBuilder: (recipientName) =>
                         metricEmailHtml({
@@ -180,11 +226,20 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                     logger.info(`server #${server.id} metricer CPU alert sent (${detail})`);
                 }
             }
+        } catch (error) {
+            logger.error(`server #${server.id} metricer CPU check failed: ${error}`);
         }
+    }
 
-        if (metricer.storage_enabled) {
+    // --- Storage (independent) ---
+    if (metricer.storage_enabled) {
+        try {
             const offenders = storageOverThreshold(payload, metricer.storage_percent);
-            if (offenders.length && cooldownElapsed(state.metricer_storage, cooldown)) {
+            if (!offenders.length) {
+                logger.info(`server #${server.id} metricer storage ok: under ${metricer.storage_percent}%`);
+            } else if (!cooldownElapsed(state.metricer_storage, cooldown)) {
+                logger.info(`server #${server.id} metricer storage skipped: cooldown`);
+            } else {
                 const detail = offenders
                     .map(
                         (disk) =>
@@ -194,7 +249,7 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                 const fullDetail = `${detail} (threshold ${metricer.storage_percent}%)`;
                 const delivery = notifySection({
                     server,
-                    recipients: metricer.recipients,
+                    recipients,
                     subject: `Server storage alert — ${server.name}`,
                     htmlBuilder: (recipientName) =>
                         metricEmailHtml({
@@ -218,19 +273,28 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                     logger.info(`server #${server.id} metricer storage alert sent (${detail})`);
                 }
             }
+        } catch (error) {
+            logger.error(`server #${server.id} metricer storage check failed: ${error}`);
         }
+    }
 
-        if (metricer.temp_enabled) {
+    // --- Temperature (independent) ---
+    if (metricer.temp_enabled) {
+        try {
             const temp = maxTemperatureCelsius(payload);
-            if (
-                temp != null &&
-                temp >= metricer.temp_celsius &&
-                cooldownElapsed(state.metricer_temp, cooldown)
-            ) {
+            if (temp == null) {
+                logger.info(`server #${server.id} metricer temp skipped: no temperature data`);
+            } else if (temp < metricer.temp_celsius) {
+                logger.info(
+                    `server #${server.id} metricer temp ok: ${temp.toFixed(1)}°C < ${metricer.temp_celsius}°C`,
+                );
+            } else if (!cooldownElapsed(state.metricer_temp, cooldown)) {
+                logger.info(`server #${server.id} metricer temp skipped: cooldown`);
+            } else {
                 const detail = `Temperature ${temp.toFixed(1)}°C (threshold ${metricer.temp_celsius}°C)`;
                 const delivery = notifySection({
                     server,
-                    recipients: metricer.recipients,
+                    recipients,
                     subject: `Server temperature alert — ${server.name}`,
                     htmlBuilder: (recipientName) =>
                         metricEmailHtml({
@@ -243,13 +307,13 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                     smsMessage: `HammerByte: ${server.name} temp ${temp.toFixed(0)}C >= ${metricer.temp_celsius}C`,
                 });
                 if (await logDeliveredAlert({ server, kind: "metricer_temp", detail, delivery })) {
-                    await stampAlertState(server.id, state, "metricer_temp");
+                    state = await stampAlertState(server.id, state, "metricer_temp");
                     logger.info(`server #${server.id} metricer temp alert sent (${detail})`);
                 }
             }
+        } catch (error) {
+            logger.error(`server #${server.id} metricer temp check failed: ${error}`);
         }
-    } catch (error) {
-        logger.error(`evaluateMetricerAlerts: ${error}`);
     }
 }
 
