@@ -300,14 +300,19 @@
             const fullNameInput = transferUserForm.elements.namedItem("full_name");
             const emailInput = transferUserForm.elements.namedItem("email");
             const phoneInput = transferUserForm.elements.namedItem("phone");
+            const personalEmailInput = transferUserForm.elements.namedItem("personal_email");
             if (fullNameInput) {
                 fullNameInput.value = fullNameInput.defaultValue || fullNameInput.value;
             }
             if (emailInput) {
-                emailInput.value = emailInput.defaultValue || emailInput.value;
+                emailInput.value = "";
             }
             if (phoneInput) {
                 phoneInput.value = phoneInput.defaultValue || phoneInput.value;
+            }
+            if (personalEmailInput) {
+                personalEmailInput.value =
+                    personalEmailInput.defaultValue || personalEmailInput.value;
             }
             if (transferLoginMethodSelect) {
                 transferLoginMethodSelect.value = "otp";
@@ -330,15 +335,32 @@
         const contractId = Number(transferUserForm.dataset.contractId);
         const loginMethod = transferLoginMethodSelect?.value || "otp";
         const password = transferPasswordInput?.value || "";
+        const professionalEmail = (transferUserForm.elements.namedItem("email")?.value || "")
+            .trim()
+            .toLowerCase();
+        const personalEmail = (transferUserForm.elements.namedItem("personal_email")?.value || "")
+            .trim()
+            .toLowerCase();
         const hourlyRateRaw = (transferUserForm.elements.namedItem("hourly_rate")?.value || "").trim();
         const payload = {
+            email: professionalEmail,
+            personal_email: personalEmail,
             login_method: loginMethod,
-            personal_email: (transferUserForm.elements.namedItem("personal_email")?.value || "").trim() || null,
             hourly_rate: null,
             role_ids: Array.from(document.querySelectorAll(".transfer-user-role-checkbox:checked")).map(
                 (checkbox) => Number(checkbox.value),
             ),
         };
+
+        if (!professionalEmail.endsWith("@hammerbyte.co.in")) {
+            showAlert(transferUserFormAlert, "Professional email must be @hammerbyte.co.in.", "danger");
+            return;
+        }
+
+        if (!personalEmail) {
+            showAlert(transferUserFormAlert, "Personal email is required.", "danger");
+            return;
+        }
 
         if (hourlyRateRaw !== "") {
             const hourlyRate = Number(hourlyRateRaw);

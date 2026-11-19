@@ -52,7 +52,7 @@
                                 <tr>
                                 <th scope="col">ID</th>
                                 <th scope="col">Full name</th>
-                                <th scope="col">Email</th>
+                                <th scope="col">Professional email</th>
                                 <th scope="col">Phone</th>
                                 <th scope="col">Personal email</th>
                                 <th scope="col">Rate / hr</th>
@@ -142,8 +142,17 @@
                         <input type="text" class="form-control" id="user-full-name" name="full_name" maxlength="128" required />
                     </div>
                     <div class="mb-3">
-                        <label for="user-email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="user-email" name="email" maxlength="48" required />
+                        <label for="user-email" class="form-label">Professional email</label>
+                        <input
+                            type="email"
+                            class="form-control"
+                            id="user-email"
+                            name="email"
+                            maxlength="48"
+                            placeholder="name@hammerbyte.co.in"
+                            required
+                        />
+                        <div class="form-text">Must be an @hammerbyte.co.in address (login email).</div>
                     </div>
                     <div class="mb-3">
                         <label for="user-phone" class="form-label">Phone</label>
@@ -154,8 +163,9 @@
                             name="phone"
                             maxlength="13"
                             placeholder="+919876543210"
+                            required
                         />
-                        <div class="form-text">Optional. 10–13 digits, optional leading +.</div>
+                        <div class="form-text">Required. 10–13 digits, optional leading +.</div>
                     </div>
                     <div class="mb-3">
                         <label for="user-personal-email" class="form-label">Personal email</label>
@@ -165,8 +175,9 @@
                             id="user-personal-email"
                             name="personal_email"
                             maxlength="128"
+                            required
                         />
-                        <div class="form-text">Used for GEM tender eligibility reminders. Optional.</div>
+                        <div class="form-text">Required. Used for GEM tender eligibility reminders.</div>
                     </div>
                     <div class="mb-3">
                         <label for="user-hourly-rate" class="form-label">Rate per hour</label>

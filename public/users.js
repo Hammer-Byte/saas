@@ -286,22 +286,38 @@
         const loginMethod = loginMethodSelect?.value || "otp";
         const password = passwordInput?.value || "";
         const phone = (phoneInput?.value || "").trim();
+        const personalEmail = (personalEmailInput?.value || "").trim();
         const hourlyRateRaw = (hourlyRateInput?.value || "").trim();
         const payload = {
             full_name: fullNameInput.value.trim(),
-            email: emailInput.value.trim(),
-            phone: phone || null,
-            personal_email: (personalEmailInput?.value || "").trim() || null,
+            email: emailInput.value.trim().toLowerCase(),
+            phone,
+            personal_email: personalEmail.toLowerCase(),
             login_method: loginMethod,
             hourly_rate: null,
         };
 
         if (!payload.full_name || !payload.email) {
-            showAlert(formAlert, "Please fill in full name and email.", "danger");
+            showAlert(formAlert, "Please fill in full name and professional email.", "danger");
             return;
         }
 
-        if (phone && !/^\+?[0-9]{10,13}$/.test(phone)) {
+        if (!payload.email.endsWith("@hammerbyte.co.in")) {
+            showAlert(formAlert, "Professional email must be @hammerbyte.co.in.", "danger");
+            return;
+        }
+
+        if (!personalEmail) {
+            showAlert(formAlert, "Personal email is required.", "danger");
+            return;
+        }
+
+        if (!phone) {
+            showAlert(formAlert, "Phone is required.", "danger");
+            return;
+        }
+
+        if (!/^\+?[0-9]{10,13}$/.test(phone)) {
             showAlert(formAlert, "Enter a valid phone number.", "danger");
             return;
         }

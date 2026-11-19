@@ -12,6 +12,8 @@ export const ERRORS = {
     FULL_NAME_REQUIRED: "Full name is required",
     PHONE_REQUIRED: "Phone is required",
     EMAIL_INVALID: "Email is invalid",
+    PROFESSIONAL_EMAIL_DOMAIN: "Professional email must be @hammerbyte.co.in",
+    PERSONAL_EMAIL_REQUIRED: "Personal email is required",
     NO_SUCH_USER: "No Such User Found",
     INVALID_OTP: "Invalid OTP",
     INVALID_PASSWORD: "Invalid email or password",
@@ -22,6 +24,10 @@ export const ERRORS = {
     CONTRACT_NOT_SIGNED: "Contract must be signed before transferring to a user",
     CONTRACT_USER_EXISTS: "A user with this contract email already exists",
 };
+
+export const USER_PROFESSIONAL_EMAIL_DOMAIN = "@hammerbyte.co.in";
+export const USER_PROFESSIONAL_EMAIL_PATTERN = "^[a-zA-Z0-9._%+-]+@hammerbyte\\.co\\.in$";
+export const USER_PHONE_PATTERN = "^\\+?[0-9]{10,13}$";
 
 export const CONTRACT_BROKEN_BY = {
     HAMMERBYTE: "hammerbyte",

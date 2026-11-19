@@ -1,5 +1,9 @@
 import { t } from "elysia";
-import { CONTRACT_BROKEN_BY, USER_LOGIN_METHODS } from "../../constants.js";
+import {
+    CONTRACT_BROKEN_BY,
+    USER_LOGIN_METHODS,
+    USER_PROFESSIONAL_EMAIL_PATTERN,
+} from "../../constants.js";
 import {
     addContract,
     breakContract,
@@ -93,18 +97,24 @@ export default function (app) {
                 id: t.Numeric(),
             }),
             body: t.Object({
+                email: t.String({
+                    minLength: 18,
+                    maxLength: 48,
+                    pattern: USER_PROFESSIONAL_EMAIL_PATTERN,
+                    error: "Professional email must be @hammerbyte.co.in",
+                }),
+                personal_email: t.String({
+                    minLength: 3,
+                    maxLength: 128,
+                    format: "email",
+                    error: "Personal email is required",
+                }),
                 login_method: t.Union([
                     t.Literal(USER_LOGIN_METHODS.OTP),
                     t.Literal(USER_LOGIN_METHODS.PASSWORD),
                     t.Literal(USER_LOGIN_METHODS.BOTH),
                 ]),
                 password: t.Optional(t.String({ maxLength: 128 })),
-                personal_email: t.Optional(
-                    t.Union([
-                        t.String({ maxLength: 128 }),
-                        t.Null(),
-                    ]),
-                ),
                 hourly_rate: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
                 role_ids: t.Optional(t.Array(t.Numeric({ minimum: 1 }))),
             }),

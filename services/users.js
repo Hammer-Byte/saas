@@ -1,4 +1,9 @@
-import { ERRORS, USER_LOGIN_METHODS } from "../constants.js";
+import {
+    ERRORS,
+    USER_LOGIN_METHODS,
+    USER_PHONE_PATTERN,
+    USER_PROFESSIONAL_EMAIL_DOMAIN,
+} from "../constants.js";
 import {
     createUser,
     deleteUserById,
@@ -10,6 +15,7 @@ import {
 import { deactivateUserAuthenticationTokensByUserId } from "../db/user_authentication_tokens.js";
 
 const LOGIN_METHOD_VALUES = new Set(Object.values(USER_LOGIN_METHODS));
+const PHONE_PATTERN = new RegExp(USER_PHONE_PATTERN);
 
 function sanitizeUser(user) {
     if (!user) return null;
@@ -40,13 +46,35 @@ function normalizeHourlyRate(value) {
     return { rate: Math.round(rate * 100) / 100 };
 }
 
+function normalizeProfessionalEmail(value) {
+    const email = String(value || "").trim().toLowerCase();
+    if (!email || email.length > 48) {
+        return { error: "Valid professional email is required (max 48 characters)" };
+    }
+    if (!email.endsWith(USER_PROFESSIONAL_EMAIL_DOMAIN)) {
+        return { error: ERRORS.PROFESSIONAL_EMAIL_DOMAIN };
+    }
+    return { email };
+}
+
+function normalizePersonalEmail(value) {
+    const email = String(value || "").trim().toLowerCase();
+    if (!email || email.length > 128) {
+        return { error: ERRORS.PERSONAL_EMAIL_REQUIRED };
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return { error: ERRORS.EMAIL_INVALID };
+    }
+    return { email };
+}
+
 function normalizePhone(value) {
     const phone = String(value || "").trim();
     if (!phone) {
-        return { phone: null };
+        return { error: ERRORS.PHONE_REQUIRED };
     }
-    if (!/^\+?[0-9]{10,13}$/.test(phone)) {
-        return { error: "Valid phone is required" };
+    if (!PHONE_PATTERN.test(phone)) {
+        return { error: ERRORS.PHONE_REQUIRED };
     }
     return { phone };
 }
@@ -60,12 +88,12 @@ export async function createUserFromInput({
     password,
     hourly_rate,
 }) {
-    const normalizedEmail = String(email || "").trim().toLowerCase();
-    if (!normalizedEmail || normalizedEmail.length > 48) {
-        return { status: 400, error: "Valid email is required (max 48 characters)" };
+    const professionalEmailResult = normalizeProfessionalEmail(email);
+    if (professionalEmailResult.error) {
+        return { status: 400, error: professionalEmailResult.error };
     }
 
-    const existingUser = await getUserByEmail({ email: normalizedEmail });
+    const existingUser = await getUserByEmail({ email: professionalEmailResult.email });
     if (existingUser) {
         return { status: 409, error: "A user with this email already exists" };
     }
@@ -85,7 +113,10 @@ export async function createUserFromInput({
         passwordHash = await Bun.password.hash(passwordValue);
     }
 
-    const personalEmail = String(personal_email || "").trim().toLowerCase() || null;
+    const personalEmailResult = normalizePersonalEmail(personal_email);
+    if (personalEmailResult.error) {
+        return { status: 400, error: personalEmailResult.error };
+    }
     const phoneResult = normalizePhone(phone);
     if (phoneResult.error) {
         return { status: 400, error: phoneResult.error };
@@ -102,8 +133,8 @@ export async function createUserFromInput({
 
     const id = await createUser({
         full_name: normalizedFullName,
-        email: normalizedEmail,
-        personal_email: personalEmail,
+        email: professionalEmailResult.email,
+        personal_email: personalEmailResult.email,
         phone: phoneResult.phone,
         login_method: loginMethod,
         password_hash: passwordHash,
@@ -146,8 +177,13 @@ export async function updateUser({ body, set }) {
         return { error: "User not found" };
     }
 
-    const email = body.email.trim().toLowerCase();
-    const emailOwner = await getUserByEmail({ email });
+    const professionalEmailResult = normalizeProfessionalEmail(body.email);
+    if (professionalEmailResult.error) {
+        set.status = 400;
+        return { error: professionalEmailResult.error };
+    }
+
+    const emailOwner = await getUserByEmail({ email: professionalEmailResult.email });
     if (emailOwner && emailOwner.id !== body.id) {
         set.status = 409;
         return { error: "A user with this email already exists" };
@@ -183,7 +219,11 @@ export async function updateUser({ body, set }) {
         updatePassword = true;
     }
 
-    const personalEmail = String(body.personal_email || "").trim().toLowerCase() || null;
+    const personalEmailResult = normalizePersonalEmail(body.personal_email);
+    if (personalEmailResult.error) {
+        set.status = 400;
+        return { error: personalEmailResult.error };
+    }
     const phoneResult = normalizePhone(body.phone);
     if (phoneResult.error) {
         set.status = 400;
@@ -198,8 +238,8 @@ export async function updateUser({ body, set }) {
     await updateUserById({
         id: existingUser.id,
         full_name: body.full_name.trim(),
-        email,
-        personal_email: personalEmail,
+        email: professionalEmailResult.email,
+        personal_email: personalEmailResult.email,
         phone: phoneResult.phone,
         login_method: loginMethod,
         password_hash: passwordHash,

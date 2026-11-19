@@ -464,16 +464,17 @@
                         />
                     </div>
                     <div class="mb-3">
-                        <label for="transfer-user-email" class="form-label">Email</label>
+                        <label for="transfer-user-email" class="form-label">Professional email</label>
                         <input
                             type="email"
                             class="form-control"
                             id="transfer-user-email"
                             name="email"
-                            value="<%= contract.email %>"
                             maxlength="48"
-                            readonly
+                            placeholder="name@hammerbyte.co.in"
+                            required
                         />
+                        <div class="form-text">Must be an @hammerbyte.co.in address (login email).</div>
                     </div>
                     <div class="mb-3">
                         <label for="transfer-user-phone" class="form-label">Phone</label>
@@ -485,6 +486,7 @@
                             value="<%= contract.phone %>"
                             maxlength="13"
                             readonly
+                            required
                         />
                     </div>
                     <div class="mb-3">
@@ -494,9 +496,11 @@
                             class="form-control"
                             id="transfer-user-personal-email"
                             name="personal_email"
+                            value="<%= contract.email %>"
                             maxlength="128"
+                            required
                         />
-                        <div class="form-text">Used for GEM tender eligibility reminders. Optional.</div>
+                        <div class="form-text">Required. Prefills from contract email.</div>
                     </div>
                     <div class="mb-3">
                         <label for="transfer-user-hourly-rate" class="form-label">Rate per hour</label>

@@ -588,16 +588,14 @@ export async function transferContractToUser({ params, body, set }) {
         return { error: ERRORS.CONTRACT_NOT_SIGNED };
     }
 
-    const email = String(existingContract.email || "").trim().toLowerCase();
-    const existingUser = await getUserByEmail({ email });
-    if (existingUser) {
-        set.status = 409;
-        return { error: ERRORS.CONTRACT_USER_EXISTS };
+    if (!existingContract.phone) {
+        set.status = 400;
+        return { error: ERRORS.PHONE_REQUIRED };
     }
 
     const result = await createUserFromInput({
         full_name: existingContract.full_name,
-        email,
+        email: body.email,
         personal_email: body.personal_email,
         phone: existingContract.phone,
         login_method: body.login_method,

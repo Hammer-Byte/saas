@@ -1,5 +1,9 @@
 import { t } from "elysia";
-import { USER_LOGIN_METHODS } from "../../constants.js";
+import {
+    USER_LOGIN_METHODS,
+    USER_PHONE_PATTERN,
+    USER_PROFESSIONAL_EMAIL_PATTERN,
+} from "../../constants.js";
 import { addUser, deleteUser, updateUser, updateUserLoginActive } from "../../services/users.js";
 import { getUserRoles } from "../../services/user_roles.js";
 
@@ -19,27 +23,21 @@ export default function (app) {
                     error: "Full name is required",
                 }),
                 email: t.String({
-                    minLength: 3,
+                    minLength: 18,
                     maxLength: 48,
-                    format: "email",
-                    error: "Valid email is required",
+                    pattern: USER_PROFESSIONAL_EMAIL_PATTERN,
+                    error: "Professional email must be @hammerbyte.co.in",
                 }),
-                personal_email: t.Optional(
-                    t.Union([
-                        t.String({ maxLength: 128 }),
-                        t.Null(),
-                    ]),
-                ),
-                phone: t.Optional(
-                    t.Union([
-                        t.String({
-                            pattern: "^\\+?[0-9]{10,13}$",
-                            error: "Valid phone is required",
-                        }),
-                        t.Literal(""),
-                        t.Null(),
-                    ]),
-                ),
+                personal_email: t.String({
+                    minLength: 3,
+                    maxLength: 128,
+                    format: "email",
+                    error: "Personal email is required",
+                }),
+                phone: t.String({
+                    pattern: USER_PHONE_PATTERN,
+                    error: "Valid phone is required",
+                }),
                 login_method: loginMethodSchema,
                 password: t.Optional(t.String({ maxLength: 128 })),
                 hourly_rate: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
@@ -58,27 +56,21 @@ export default function (app) {
                     error: "Full name is required",
                 }),
                 email: t.String({
-                    minLength: 3,
+                    minLength: 18,
                     maxLength: 48,
-                    format: "email",
-                    error: "Valid email is required",
+                    pattern: USER_PROFESSIONAL_EMAIL_PATTERN,
+                    error: "Professional email must be @hammerbyte.co.in",
                 }),
-                personal_email: t.Optional(
-                    t.Union([
-                        t.String({ maxLength: 128 }),
-                        t.Null(),
-                    ]),
-                ),
-                phone: t.Optional(
-                    t.Union([
-                        t.String({
-                            pattern: "^\\+?[0-9]{10,13}$",
-                            error: "Valid phone is required",
-                        }),
-                        t.Literal(""),
-                        t.Null(),
-                    ]),
-                ),
+                personal_email: t.String({
+                    minLength: 3,
+                    maxLength: 128,
+                    format: "email",
+                    error: "Personal email is required",
+                }),
+                phone: t.String({
+                    pattern: USER_PHONE_PATTERN,
+                    error: "Valid phone is required",
+                }),
                 login_method: loginMethodSchema,
                 password: t.Optional(t.String({ maxLength: 128 })),
                 hourly_rate: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
