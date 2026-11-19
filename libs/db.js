@@ -744,6 +744,8 @@ export async function generateDBTables() {
             tag CHAR(36) NOT NULL,
             tag_mapped BOOLEAN NOT NULL DEFAULT FALSE,
             otp CHAR(4) NOT NULL,
+            alert_config MEDIUMTEXT NULL,
+            alert_state MEDIUMTEXT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY unique_server_tag (tag),

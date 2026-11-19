@@ -1,3 +1,5 @@
+import { getCustomerEmailsByCustomerId } from "../db/customer_emails.js";
+import { getCustomerPhonesByCustomerId } from "../db/customer_phones.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
 import { createServerDataerRun } from "../db/server_dataer_runs.js";
 import { createServerDberRun } from "../db/server_dber_runs.js";
@@ -10,8 +12,11 @@ import {
     getServerByMappedTag,
     getServerByUnmappedOtp,
     markServerTagMappedById,
+    updateServerAlertConfigById,
     updateServerById,
 } from "../db/servers.js";
+import { evaluateMetricerAlerts } from "../libs/server_alert_notify.js";
+import { buildAlertCandidates, parseAlertConfig } from "../libs/server_alerts.js";
 import { generateOTP } from "../libs/utils.js";
 
 async function allocateServerOtp() {
@@ -130,6 +135,10 @@ async function handleMetricer({ body, set }) {
         client_timestamp: asNullableString(body.timestamp, 64),
         payload: JSON.stringify(body),
     });
+
+    // Fresh row picks up latest alert_config/state for cooldown stamps.
+    const server = (await getServerById({ id: tagResult.mappedServer.id })) || tagResult.mappedServer;
+    await evaluateMetricerAlerts({ server, payload: body });
 
     set.status = 201;
     return { ok: true };
@@ -270,6 +279,43 @@ export async function deleteServer({ params, set }) {
 
     await deleteServerById({ id: params.id });
     set.status = 204;
+}
+
+export async function loadServerAlertCandidates({ server }) {
+    if (!server?.project_id) {
+        return [];
+    }
+    const project = await getCustomerProjectById({ id: server.project_id });
+    if (!project?.customer_id) {
+        return [];
+    }
+    const [emails, phones] = await Promise.all([
+        getCustomerEmailsByCustomerId({ customer_id: project.customer_id }),
+        getCustomerPhonesByCustomerId({ customer_id: project.customer_id }),
+    ]);
+    return buildAlertCandidates({
+        customerName: server.customer_name || "Contact",
+        emails,
+        phones,
+    });
+}
+
+export async function updateServerAlerts({ params, body, set }) {
+    const id = Number(params.id);
+    const existingServer = await getServerById({ id });
+    if (!existingServer) {
+        set.status = 404;
+        return { error: "Server not found" };
+    }
+
+    const alert_config = parseAlertConfig(body?.alert_config ?? body);
+    await updateServerAlertConfigById({ id, alert_config });
+    const server = await getServerById({ id });
+    set.status = 200;
+    return {
+        message: "Alert settings saved",
+        alert_config: parseAlertConfig(server?.alert_config),
+    };
 }
 
 export async function handleServerRequest({ body, set }) {

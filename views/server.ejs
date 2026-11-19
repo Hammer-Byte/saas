@@ -483,15 +483,132 @@
         </div>
 
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 pt-4 px-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <h2 class="h5 mb-0">Alerts</h2>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#server-alerts-modal"
+                    id="open-server-alerts-btn"
+                >
+                    Configure alerts
+                </button>
             </div>
             <div class="card-body px-4 pb-4">
-                <p class="text-secondary mb-0">Coming soon</p>
+                <p class="text-secondary small mb-0">
+                    Pinger and Metricer alerts can email (and log SMS stubs) when thresholds are hit.
+                    Map a project first so customer contacts appear as suggestions.
+                </p>
             </div>
         </div>
     </div>
 </main>
+
+<%
+    const alertCfg = typeof alertConfig === "object" && alertConfig ? alertConfig : { pinger: {}, metricer: {} };
+    const pingerCfg = alertCfg.pinger || {};
+    const metricerCfg = alertCfg.metricer || {};
+    const candidates = Array.isArray(alertCandidates) ? alertCandidates : [];
+%>
+
+<div
+    class="modal fade"
+    id="server-alerts-modal"
+    tabindex="-1"
+    aria-labelledby="server-alerts-modal-label"
+    aria-hidden="true"
+    data-server-id="<%= server.id %>"
+    data-alert-config="<%= encodeURIComponent(JSON.stringify(alertCfg)) %>"
+    data-alert-candidates="<%= encodeURIComponent(JSON.stringify(candidates)) %>"
+>
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="server-alerts-modal-label">Configure alerts</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="server-alerts-form-alert" class="alert d-none" role="alert"></div>
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="alerts-tab-pinger" data-bs-toggle="tab" data-bs-target="#alerts-pane-pinger" type="button" role="tab">Pinger</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="alerts-tab-metricer" data-bs-toggle="tab" data-bs-target="#alerts-pane-metricer" type="button" role="tab">Metricer</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link disabled" type="button" tabindex="-1" aria-disabled="true">Dataer</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link disabled" type="button" tabindex="-1" aria-disabled="true">DBer</button>
+                    </li>
+                </ul>
+                <div class="tab-content pt-3">
+                    <div class="tab-pane fade show active" id="alerts-pane-pinger" role="tabpanel">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="pinger-enabled" <%= pingerCfg.enabled ? "checked" : "" %> />
+                            <label class="form-check-label" for="pinger-enabled">Enable Pinger alerts</label>
+                        </div>
+                        <h3 class="h6">Whom</h3>
+                        <div id="pinger-recipients" class="mb-3"></div>
+                        <h3 class="h6">Criteria</h3>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label small" for="pinger-missed">No ping for (seconds)</label>
+                                <input type="number" class="form-control form-control-sm" id="pinger-missed" min="30" max="86400" value="<%= pingerCfg.missed_ping_seconds || 180 %>" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small" for="pinger-cooldown">Cooldown off (seconds)</label>
+                                <input type="number" class="form-control form-control-sm" id="pinger-cooldown" min="60" max="86400" value="<%= pingerCfg.cooldown_seconds || 900 %>" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="alerts-pane-metricer" role="tabpanel">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="metricer-enabled" <%= metricerCfg.enabled ? "checked" : "" %> />
+                            <label class="form-check-label" for="metricer-enabled">Enable Metricer alerts</label>
+                        </div>
+                        <h3 class="h6">Whom</h3>
+                        <div id="metricer-recipients" class="mb-3"></div>
+                        <h3 class="h6">Criteria</h3>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="metricer-ram-enabled" <%= metricerCfg.ram_enabled !== false ? "checked" : "" %> />
+                                    <label class="form-check-label" for="metricer-ram-enabled">RAM above %</label>
+                                </div>
+                                <input type="number" class="form-control form-control-sm mt-1" id="metricer-ram-percent" min="1" max="100" value="<%= metricerCfg.ram_percent || 90 %>" />
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="metricer-storage-enabled" <%= metricerCfg.storage_enabled !== false ? "checked" : "" %> />
+                                    <label class="form-check-label" for="metricer-storage-enabled">Storage above %</label>
+                                </div>
+                                <input type="number" class="form-control form-control-sm mt-1" id="metricer-storage-percent" min="1" max="100" value="<%= metricerCfg.storage_percent || 90 %>" />
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="metricer-temp-enabled" <%= metricerCfg.temp_enabled ? "checked" : "" %> />
+                                    <label class="form-check-label" for="metricer-temp-enabled">Temperature above °C</label>
+                                </div>
+                                <input type="number" class="form-control form-control-sm mt-1" id="metricer-temp-celsius" min="1" max="150" value="<%= metricerCfg.temp_celsius || 80 %>" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small" for="metricer-cooldown">Cool off (seconds)</label>
+                                <input type="number" class="form-control form-control-sm" id="metricer-cooldown" min="60" max="86400" value="<%= metricerCfg.cooldown_seconds || 900 %>" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="server-alerts-save-btn">Save alerts</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="run-detail-modal" tabindex="-1" aria-labelledby="run-detail-modal-label" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">

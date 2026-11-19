@@ -141,3 +141,55 @@ export async function getAllServers() {
             return [];
         });
 }
+
+export async function updateServerAlertConfigById({ id, alert_config }) {
+    const payload = typeof alert_config === "string" ? alert_config : JSON.stringify(alert_config ?? {});
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET alert_config = ${payload}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerAlertConfigById: ${error}`);
+    });
+}
+
+export async function updateServerAlertStateById({ id, alert_state }) {
+    const payload = typeof alert_state === "string" ? alert_state : JSON.stringify(alert_state ?? {});
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET alert_state = ${payload}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerAlertStateById: ${error}`);
+    });
+}
+
+/** Active servers that may need missed-ping evaluation (includes alert_config/state). */
+export async function getActiveServersForPingAlerts() {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                SERVERS.id,
+                SERVERS.name,
+                SERVERS.location,
+                SERVERS.active,
+                SERVERS.alert_config,
+                SERVERS.alert_state,
+                CUSTOMER_PROJECTS.title AS project_title,
+                CUSTOMERS.full_name AS customer_name
+            FROM SERVERS
+            LEFT JOIN CUSTOMER_PROJECTS ON CUSTOMER_PROJECTS.id = SERVERS.project_id
+            LEFT JOIN CUSTOMERS ON CUSTOMERS.id = CUSTOMER_PROJECTS.customer_id
+            WHERE SERVERS.active = TRUE
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getActiveServersForPingAlerts: ${error}`);
+            return [];
+        });
+}

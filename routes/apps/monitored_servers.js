@@ -1,5 +1,10 @@
 import { t } from "elysia";
-import { addServer, deleteServer, updateServer } from "../../services/servers.js";
+import {
+    addServer,
+    deleteServer,
+    updateServer,
+    updateServerAlerts,
+} from "../../services/servers.js";
 
 export default function (app) {
     return app
@@ -53,6 +58,25 @@ export default function (app) {
             detail: {
                 tags: ["Monitored Servers"],
                 summary: "Delete server inventory record",
+            },
+        })
+        .patch("/:id/alerts", updateServerAlerts, {
+            params: t.Object({
+                id: t.Numeric({ minimum: 1 }),
+            }),
+            body: t.Object(
+                {
+                    alert_config: t.Optional(t.Any()),
+                    pinger: t.Optional(t.Any()),
+                    metricer: t.Optional(t.Any()),
+                    dataer: t.Optional(t.Any()),
+                    dber: t.Optional(t.Any()),
+                },
+                { additionalProperties: true },
+            ),
+            detail: {
+                tags: ["Monitored Servers"],
+                summary: "Update server alert configuration",
             },
         });
 }

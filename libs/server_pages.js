@@ -2,6 +2,10 @@ import { getRecentServerDataerRunsByServerId } from "../db/server_dataer_runs.js
 import { getRecentServerDberRunsByServerId } from "../db/server_dber_runs.js";
 import { getLatestServerMetricByServerId } from "../db/server_metrics.js";
 import { getLatestServerPingByServerId } from "../db/server_pings.js";
+import { getCustomerEmailsByCustomerId } from "../db/customer_emails.js";
+import { getCustomerPhonesByCustomerId } from "../db/customer_phones.js";
+import { getCustomerProjectById } from "../db/customer_projects.js";
+import { buildAlertCandidates, parseAlertConfig } from "./server_alerts.js";
 
 const ALIVE_WITHIN_SECONDS = 180;
 const SERVICE_RUN_LIMIT = 25;
@@ -17,8 +21,27 @@ function parseMetricPayload(row) {
     }
 }
 
+async function loadAlertCandidatesForServer(server) {
+    if (!server?.project_id) {
+        return [];
+    }
+    const project = await getCustomerProjectById({ id: server.project_id });
+    if (!project?.customer_id) {
+        return [];
+    }
+    const [emails, phones] = await Promise.all([
+        getCustomerEmailsByCustomerId({ customer_id: project.customer_id }),
+        getCustomerPhonesByCustomerId({ customer_id: project.customer_id }),
+    ]);
+    return buildAlertCandidates({
+        customerName: server.customer_name || "Contact",
+        emails,
+        phones,
+    });
+}
+
 export async function buildServerPageData(server) {
-    const [latestPing, latestMetricRow, dataerRuns, dberRuns] = await Promise.all([
+    const [latestPing, latestMetricRow, dataerRuns, dberRuns, alertCandidates] = await Promise.all([
         getLatestServerPingByServerId({ server_id: server.id }),
         getLatestServerMetricByServerId({ server_id: server.id }),
         getRecentServerDataerRunsByServerId({
@@ -29,6 +52,7 @@ export async function buildServerPageData(server) {
             server_id: server.id,
             limit: SERVICE_RUN_LIMIT,
         }),
+        loadAlertCandidatesForServer(server),
     ]);
 
     const secondsSincePing =
@@ -50,5 +74,7 @@ export async function buildServerPageData(server) {
         latestMetricReceivedOn: latestMetricRow?.received_on || null,
         dataerRuns,
         dberRuns,
+        alertConfig: parseAlertConfig(server.alert_config),
+        alertCandidates,
     };
 }
