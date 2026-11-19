@@ -11,6 +11,11 @@
     const passwordWrap = document.getElementById("user-password-wrap");
     const passwordInput = document.getElementById("user-password");
     const passwordHelp = document.getElementById("user-password-help");
+    const passwordToggleButton = document.getElementById("user-password-toggle-btn");
+    const passwordEyeOpen = document.getElementById("user-password-eye-open");
+    const passwordEyeClosed = document.getElementById("user-password-eye-closed");
+    const loginActiveWrap = document.getElementById("user-login-active-wrap");
+    const loginActiveInput = document.getElementById("user-login-active");
     const roleCheckboxes = Array.from(document.querySelectorAll(".user-role-checkbox"));
 
     if (!form || !tableBody) {
@@ -54,6 +59,22 @@
         rolesSection?.classList.toggle("d-none", !visible);
     }
 
+    function setLoginActiveSectionVisible(visible) {
+        loginActiveWrap?.classList.toggle("d-none", !visible);
+    }
+
+    function resetPasswordVisibility() {
+        if (!passwordInput) return;
+        passwordInput.type = "password";
+        passwordEyeOpen?.classList.remove("d-none");
+        passwordEyeClosed?.classList.add("d-none");
+        if (passwordToggleButton) {
+            passwordToggleButton.title = "Show password";
+            passwordToggleButton.setAttribute("aria-label", "Show password");
+            passwordToggleButton.setAttribute("aria-pressed", "false");
+        }
+    }
+
     function syncPasswordField() {
         const method = loginMethodSelect?.value || "otp";
         const needsPassword = method === "password" || method === "both";
@@ -63,6 +84,7 @@
             passwordInput.required = needsPassword && !isEdit;
             if (method === "otp") {
                 passwordInput.value = "";
+                resetPasswordVisibility();
             }
         }
         if (passwordHelp) {
@@ -103,9 +125,12 @@
         form.reset();
         idInput.value = "";
         if (loginMethodSelect) loginMethodSelect.value = "otp";
+        if (loginActiveInput) loginActiveInput.checked = true;
         clearRoleCheckboxes();
         setRolesSectionVisible(false);
+        setLoginActiveSectionVisible(false);
         hideAlert(formAlert);
+        resetPasswordVisibility();
         syncPasswordField();
     }
 
@@ -124,7 +149,10 @@
         if (personalEmailInput) personalEmailInput.value = row.dataset.personalEmail || "";
         if (hourlyRateInput) hourlyRateInput.value = row.dataset.hourlyRate || "";
         if (loginMethodSelect) loginMethodSelect.value = row.dataset.loginMethod || "otp";
+        if (loginActiveInput) loginActiveInput.checked = row.dataset.loginActive === "1";
         if (passwordInput) passwordInput.value = "";
+        setLoginActiveSectionVisible(true);
+        resetPasswordVisibility();
         syncPasswordField();
 
         const userId = Number(row.dataset.id || 0);
@@ -145,6 +173,17 @@
     openAddButton?.addEventListener("click", openAddModal);
     loginMethodSelect?.addEventListener("change", syncPasswordField);
 
+    passwordToggleButton?.addEventListener("click", () => {
+        if (!passwordInput) return;
+        const showing = passwordInput.type === "text";
+        passwordInput.type = showing ? "password" : "text";
+        passwordEyeOpen?.classList.toggle("d-none", !showing);
+        passwordEyeClosed?.classList.toggle("d-none", showing);
+        passwordToggleButton.title = showing ? "Show password" : "Hide password";
+        passwordToggleButton.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+        passwordToggleButton.setAttribute("aria-pressed", showing ? "false" : "true");
+    });
+
     tableBody.addEventListener("click", async (event) => {
         const row = event.target.closest("tr[data-id]");
         if (!row) return;
@@ -153,49 +192,6 @@
             const modal = window.bootstrap?.Modal?.getOrCreateInstance(modalElement);
             modal?.show();
             await openEditModal(row);
-            return;
-        }
-
-        if (event.target.closest(".user-block-btn") || event.target.closest(".user-unblock-btn")) {
-            const loginActive = row.dataset.loginActive === "1";
-            const nextLoginActive = !loginActive;
-            const confirmed = await showConfirm({
-                title: nextLoginActive ? "Unblock login?" : "Block login?",
-                description: nextLoginActive
-                    ? "This user will be able to sign in again."
-                    : "This user will be signed out and unable to log in.",
-                choices: [
-                    { label: "Cancel", variant: "secondary", value: false },
-                    {
-                        label: nextLoginActive ? "Unblock" : "Block",
-                        variant: nextLoginActive ? "success" : "warning",
-                        value: true,
-                    },
-                ],
-            });
-            if (!confirmed) {
-                return;
-            }
-
-            hideAlert(pageAlert);
-            try {
-                const response = await fetch(`/api/users/${row.dataset.id}/login-active`, {
-                    method: "PATCH",
-                    credentials: "same-origin",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ login_active: nextLoginActive }),
-                });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    showAlert(pageAlert, data.error || "Failed to update login status.", "danger");
-                    return;
-                }
-
-                window.location.reload();
-            } catch (error) {
-                console.error(error);
-                showAlert(pageAlert, "Failed to update login status.", "danger");
-            }
             return;
         }
 
@@ -326,6 +322,10 @@
 
         if (password) {
             payload.password = password;
+        }
+
+        if (id) {
+            payload.login_active = loginActiveInput?.checked === true;
         }
 
         const submitButton = document.getElementById("user-submit-btn");

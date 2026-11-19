@@ -207,6 +207,16 @@ export async function updateUser({ body, set }) {
         update_password: updatePassword,
     });
 
+    if (typeof body.login_active === "boolean" && !!existingUser.login_active !== body.login_active) {
+        await updateUserLoginActiveById({
+            id: existingUser.id,
+            login_active: body.login_active,
+        });
+        if (!body.login_active) {
+            await deactivateUserAuthenticationTokensByUserId({ user_id: existingUser.id });
+        }
+    }
+
     const user = sanitizeUser(await getUserById({ id: existingUser.id }));
 
     set.status = 200;

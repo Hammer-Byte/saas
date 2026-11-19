@@ -82,6 +82,7 @@ export default function (app) {
                 login_method: loginMethodSchema,
                 password: t.Optional(t.String({ maxLength: 128 })),
                 hourly_rate: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
+                login_active: t.Optional(t.Boolean()),
             }),
             detail: {
                 tags: ["Users"],
