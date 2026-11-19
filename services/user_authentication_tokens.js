@@ -1,11 +1,12 @@
 import { filer, logger } from "@hammerbyte/utils";
 import { ERRORS, USER_LOGIN_METHODS } from "../constants.js";
-import { getUserByEmail, getUserById } from "../db/users.js";
+import { getUserByEmail, getUserById, updateUserLastLoginById } from "../db/users.js";
 import {
     createUserAuthenticationToken,
     getUserAuthenticationTokenByTokenAndOtp,
     updateUserAuthenticationTokenActiveById,
 } from "../db/user_authentication_tokens.js";
+import { getIstDateTime } from "../libs/date.js";
 import { generateAuthenticationToken, generateOTP } from "../libs/utils.js";
 import { setAuthenticationTokenCookie } from "../libs/authentication.js";
 import transporter from "../libs/transporter.js";
@@ -80,6 +81,10 @@ export async function updateUserAuthenticationToken({ body, cookie, set }) {
     await updateUserAuthenticationTokenActiveById({
         id: existingUserAuthenticationToken.id,
         active: true,
+    });
+    await updateUserLastLoginById({
+        id: user.id,
+        last_login: getIstDateTime(),
     });
     setAuthenticationTokenCookie(cookie, existingUserAuthenticationToken.token);
 

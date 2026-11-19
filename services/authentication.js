@@ -1,5 +1,5 @@
 import { ERRORS, USER_LOGIN_METHODS } from "../constants.js";
-import { getUserByEmail } from "../db/users.js";
+import { getUserByEmail, updateUserLastLoginById } from "../db/users.js";
 import {
     createUserAuthenticationToken,
     getActiveUserAuthenticationTokenByToken,
@@ -12,6 +12,7 @@ import {
     clearAuthenticationTokenCookie,
     setAuthenticationTokenCookie,
 } from "../libs/authentication.js";
+import { getIstDateTime } from "../libs/date.js";
 import { generateAuthenticationToken, generateOTP } from "../libs/utils.js";
 
 export async function getCurrentUser({ cookie }) {
@@ -133,6 +134,10 @@ export async function loginWithPassword({ body, cookie, set }) {
     await updateUserAuthenticationTokenActiveById({
         id: tokenId,
         active: true,
+    });
+    await updateUserLastLoginById({
+        id: user.id,
+        last_login: getIstDateTime(),
     });
     setAuthenticationTokenCookie(cookie, token);
 

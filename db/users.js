@@ -1,5 +1,6 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
+import { toDbDateTime } from "../libs/date.js";
 
 export async function createUser({
     full_name,
@@ -104,6 +105,18 @@ export async function updateUserLoginActiveById({ id, login_active }) {
     });
 }
 
+export async function updateUserLastLoginById({ id, last_login }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE USERS
+            SET last_login = ${toDbDateTime(last_login)}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateUserLastLoginById: ${error}`);
+    });
+}
+
 export async function getUserByEmail({ email }) {
     return await executeSQLQuery(
         (sql) => sql`
@@ -146,11 +159,16 @@ export async function getAllUsers() {
                 login_method,
                 hourly_rate,
                 login_active,
+                last_login,
                 super_admin,
                 created_on,
                 updated_at
             FROM USERS
-            ORDER BY id ASC
+            ORDER BY
+                login_active DESC,
+                hourly_rate DESC,
+                last_login DESC,
+                id ASC
         `,
     )
         .then((result) => Array.from(result ?? []))

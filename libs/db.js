@@ -155,6 +155,7 @@ export async function generateDBTables() {
             password_hash VARCHAR(255) NULL,
             hourly_rate DECIMAL(10, 2) NULL,
             login_active BOOLEAN NOT NULL DEFAULT TRUE,
+            last_login DATETIME NULL,
             super_admin BOOLEAN NOT NULL DEFAULT FALSE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

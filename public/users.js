@@ -372,4 +372,70 @@
     });
 
     syncPasswordField();
+
+    const sortableHeaders = Array.from(
+        document.querySelectorAll("#users-table thead th.users-sortable"),
+    );
+    let sortState = { key: "loginActive", direction: "desc" };
+
+    function sortValue(row, key) {
+        if (key === "loginActive") {
+            return Number(row.dataset.loginActive || 0);
+        }
+        if (key === "hourlyRate") {
+            const rate = row.dataset.hourlyRate;
+            return rate === "" || rate == null ? Number.NEGATIVE_INFINITY : Number(rate);
+        }
+        if (key === "lastLogin") {
+            return String(row.dataset.lastLogin || "");
+        }
+        return String(row.dataset[key] || "").toLowerCase();
+    }
+
+    function compareRows(left, right, key, direction) {
+        const leftValue = sortValue(left, key);
+        const rightValue = sortValue(right, key);
+        let result = 0;
+        if (typeof leftValue === "number" && typeof rightValue === "number") {
+            result = leftValue - rightValue;
+        } else {
+            result = String(leftValue).localeCompare(String(rightValue), undefined, {
+                numeric: true,
+                sensitivity: "base",
+            });
+        }
+        return direction === "asc" ? result : -result;
+    }
+
+    function applySort() {
+        if (!tableBody || !sortState.key) return;
+        const rows = Array.from(tableBody.querySelectorAll("tr[data-id]"));
+        rows.sort((left, right) => compareRows(left, right, sortState.key, sortState.direction));
+        for (const row of rows) {
+            tableBody.appendChild(row);
+        }
+        for (const header of sortableHeaders) {
+            if (header.dataset.sortKey === sortState.key) {
+                header.setAttribute(
+                    "aria-sort",
+                    sortState.direction === "asc" ? "ascending" : "descending",
+                );
+            } else {
+                header.setAttribute("aria-sort", "none");
+            }
+        }
+    }
+
+    for (const header of sortableHeaders) {
+        header.addEventListener("click", () => {
+            const key = header.dataset.sortKey;
+            if (!key) return;
+            if (sortState.key === key) {
+                sortState.direction = sortState.direction === "asc" ? "desc" : "asc";
+            } else {
+                sortState = { key, direction: key === "hourlyRate" || key === "loginActive" || key === "lastLogin" ? "desc" : "asc" };
+            }
+            applySort();
+        });
+    }
 })();

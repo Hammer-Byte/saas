@@ -47,7 +47,7 @@
                     No users found.
                 </div>
                 <div class="table-responsive <%= !users || !users.length ? 'd-none' : '' %>" id="users-table-wrap">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0" id="users-table">
                         <thead class="table-light">
                                 <tr>
                                 <th scope="col">ID</th>
@@ -55,9 +55,31 @@
                                 <th scope="col">Professional email</th>
                                 <th scope="col">Phone</th>
                                 <th scope="col">Personal email</th>
-                                <th scope="col">Rate / hr</th>
+                                <th
+                                    scope="col"
+                                    class="users-sortable"
+                                    data-sort-key="hourlyRate"
+                                    aria-sort="none"
+                                >
+                                    Rate / hr <span class="users-sort-indicator" aria-hidden="true"></span>
+                                </th>
                                 <th scope="col">Login method</th>
-                                <th scope="col">Login</th>
+                                <th
+                                    scope="col"
+                                    class="users-sortable"
+                                    data-sort-key="loginActive"
+                                    aria-sort="descending"
+                                >
+                                    Login <span class="users-sort-indicator" aria-hidden="true"></span>
+                                </th>
+                                <th
+                                    scope="col"
+                                    class="users-sortable"
+                                    data-sort-key="lastLogin"
+                                    aria-sort="none"
+                                >
+                                    Last login <span class="users-sort-indicator" aria-hidden="true"></span>
+                                </th>
                                 <th scope="col">Actions</th>
                             </tr>
                         </thead>
@@ -74,6 +96,7 @@
                                     data-hourly-rate="<%= user.hourly_rate != null ? user.hourly_rate : '' %>"
                                     data-login-method="<%= method %>"
                                     data-login-active="<%= loginActive ? '1' : '0' %>"
+                                    data-last-login="<%= user.last_login || '' %>"
                                 >
                                     <td class="user-id"><%= user.id %></td>
                                     <td class="user-full-name"><%= user.full_name %></td>
@@ -89,6 +112,16 @@
                                             <span class="badge text-bg-success">Active</span>
                                         <% } else { %>
                                             <span class="badge text-bg-danger">Blocked</span>
+                                        <% } %>
+                                    </td>
+                                    <td class="user-last-login">
+                                        <% if (user.last_login) { %>
+                                            <span
+                                                data-readable-date="<%= user.last_login %>"
+                                                data-date-format="DD/MM/YYYY HH:mm"
+                                            ><%= user.last_login %></span>
+                                        <% } else { %>
+                                            —
                                         <% } %>
                                     </td>
                                     <td class="text-end">
@@ -296,6 +329,34 @@
 
     #user-modal .modal-dialog-scrollable .modal-body {
         overflow-y: auto;
+    }
+
+    #users-table thead th.users-sortable {
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+    }
+
+    #users-table thead th.users-sortable:hover,
+    #users-table thead th.users-sortable:focus-visible {
+        color: #0d6efd;
+    }
+
+    .users-sort-indicator::before {
+        content: "↕";
+        margin-left: 0.25rem;
+        opacity: 0.45;
+        font-size: 0.75em;
+    }
+
+    th.users-sortable[aria-sort="ascending"] .users-sort-indicator::before {
+        content: "↑";
+        opacity: 1;
+    }
+
+    th.users-sortable[aria-sort="descending"] .users-sort-indicator::before {
+        content: "↓";
+        opacity: 1;
     }
 </style>
 
