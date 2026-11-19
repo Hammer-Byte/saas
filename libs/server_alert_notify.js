@@ -1,4 +1,5 @@
 import { filer, logger } from "@hammerbyte/utils";
+import { createServerAlertLog } from "../db/server_alert_log.js";
 import {
     getServerById,
     updateServerAlertStateById,
@@ -49,8 +50,16 @@ function metricEmailHtml({ recipientName, server, alertTitle, alertDetail, captu
     });
 }
 
+function recipientCanNotify(recipient) {
+    return Boolean(
+        (recipient?.email_on && recipient?.email) || (recipient?.sms_on && recipient?.phone),
+    );
+}
+
 function notifySection({ server, recipients, subject, htmlBuilder, smsMessage }) {
     const list = Array.isArray(recipients) ? recipients : [];
+    let sent = 0;
+    const delivered = [];
     for (const recipient of list) {
         const name = recipient.name || "there";
         if (recipient.email_on && recipient.email) {
@@ -60,11 +69,29 @@ function notifySection({ server, recipients, subject, htmlBuilder, smsMessage })
                 body: htmlBuilder(name),
                 html_enabled: true,
             });
+            sent += 1;
+            delivered.push(`${name} <${recipient.email}> email`);
         }
         if (recipient.sms_on && recipient.phone) {
             sendSmsStub({ phone: recipient.phone, message: smsMessage });
+            sent += 1;
+            delivered.push(`${name} <${recipient.phone}> sms`);
         }
     }
+    return { sent, recipientsText: delivered.join("; ") };
+}
+
+async function logDeliveredAlert({ server, kind, detail, delivery }) {
+    if (!delivery?.sent) {
+        return false;
+    }
+    await createServerAlertLog({
+        server_id: server.id,
+        kind,
+        detail: detail || null,
+        recipients: delivery.recipientsText || null,
+    });
+    return true;
 }
 
 export async function evaluateMetricerAlerts({ server, payload }) {
@@ -75,9 +102,15 @@ export async function evaluateMetricerAlerts({ server, payload }) {
         const config = parseAlertConfig(server.alert_config);
         const metricer = config.metricer;
         if (!metricer.enabled) {
+            logger.info(`server #${server.id} metricer alerts skipped: disabled`);
             return;
         }
         if (!metricer.recipients.length) {
+            logger.info(`server #${server.id} metricer alerts skipped: no recipients`);
+            return;
+        }
+        if (!metricer.recipients.some(recipientCanNotify)) {
+            logger.info(`server #${server.id} metricer alerts skipped: no email/SMS enabled`);
             return;
         }
 
@@ -87,13 +120,17 @@ export async function evaluateMetricerAlerts({ server, payload }) {
 
         if (metricer.ram_enabled) {
             const ramPct = memoryUsagePercent(payload);
-            if (
-                ramPct != null &&
-                ramPct >= metricer.ram_percent &&
-                cooldownElapsed(state.metricer_ram, cooldown)
-            ) {
+            if (ramPct == null) {
+                logger.info(`server #${server.id} metricer RAM skipped: no memory data`);
+            } else if (ramPct < metricer.ram_percent) {
+                logger.info(
+                    `server #${server.id} metricer RAM skipped: ${ramPct.toFixed(1)}% < ${metricer.ram_percent}%`,
+                );
+            } else if (!cooldownElapsed(state.metricer_ram, cooldown)) {
+                logger.info(`server #${server.id} metricer RAM skipped: cooldown`);
+            } else {
                 const detail = `RAM usage ${ramPct.toFixed(1)}% (threshold ${metricer.ram_percent}%)`;
-                notifySection({
+                const delivery = notifySection({
                     server,
                     recipients: metricer.recipients,
                     subject: `Server RAM alert — ${server.name}`,
@@ -107,8 +144,12 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                         }),
                     smsMessage: `HammerByte: ${server.name} RAM ${ramPct.toFixed(0)}% >= ${metricer.ram_percent}%`,
                 });
-                state = await stampAlertState(server.id, state, "metricer_ram");
-                logger.info(`server #${server.id} metricer RAM alert sent (${detail})`);
+                if (await logDeliveredAlert({ server, kind: "metricer_ram", detail, delivery })) {
+                    state = await stampAlertState(server.id, state, "metricer_ram");
+                    logger.info(`server #${server.id} metricer RAM alert sent (${detail})`);
+                } else {
+                    logger.info(`server #${server.id} metricer RAM alert not delivered (${detail})`);
+                }
             }
         }
 
@@ -120,7 +161,7 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                 cooldownElapsed(state.metricer_cpu, cooldown)
             ) {
                 const detail = `CPU usage ${cpuPct.toFixed(1)}% (threshold ${metricer.cpu_percent}%)`;
-                notifySection({
+                const delivery = notifySection({
                     server,
                     recipients: metricer.recipients,
                     subject: `Server CPU alert — ${server.name}`,
@@ -134,8 +175,10 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                         }),
                     smsMessage: `HammerByte: ${server.name} CPU ${cpuPct.toFixed(0)}% >= ${metricer.cpu_percent}%`,
                 });
-                state = await stampAlertState(server.id, state, "metricer_cpu");
-                logger.info(`server #${server.id} metricer CPU alert sent (${detail})`);
+                if (await logDeliveredAlert({ server, kind: "metricer_cpu", detail, delivery })) {
+                    state = await stampAlertState(server.id, state, "metricer_cpu");
+                    logger.info(`server #${server.id} metricer CPU alert sent (${detail})`);
+                }
             }
         }
 
@@ -148,7 +191,8 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                             `${disk.name}${disk.label ? ` (${disk.label})` : ""} ${disk.used_percent}% used`,
                     )
                     .join("; ");
-                notifySection({
+                const fullDetail = `${detail} (threshold ${metricer.storage_percent}%)`;
+                const delivery = notifySection({
                     server,
                     recipients: metricer.recipients,
                     subject: `Server storage alert — ${server.name}`,
@@ -157,13 +201,22 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                             recipientName,
                             server,
                             alertTitle: "Storage",
-                            alertDetail: `${detail} (threshold ${metricer.storage_percent}%)`,
+                            alertDetail: fullDetail,
                             capturedAt,
                         }),
                     smsMessage: `HammerByte: ${server.name} storage over ${metricer.storage_percent}%`,
                 });
-                state = await stampAlertState(server.id, state, "metricer_storage");
-                logger.info(`server #${server.id} metricer storage alert sent (${detail})`);
+                if (
+                    await logDeliveredAlert({
+                        server,
+                        kind: "metricer_storage",
+                        detail: fullDetail,
+                        delivery,
+                    })
+                ) {
+                    state = await stampAlertState(server.id, state, "metricer_storage");
+                    logger.info(`server #${server.id} metricer storage alert sent (${detail})`);
+                }
             }
         }
 
@@ -175,7 +228,7 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                 cooldownElapsed(state.metricer_temp, cooldown)
             ) {
                 const detail = `Temperature ${temp.toFixed(1)}°C (threshold ${metricer.temp_celsius}°C)`;
-                notifySection({
+                const delivery = notifySection({
                     server,
                     recipients: metricer.recipients,
                     subject: `Server temperature alert — ${server.name}`,
@@ -189,8 +242,10 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                         }),
                     smsMessage: `HammerByte: ${server.name} temp ${temp.toFixed(0)}C >= ${metricer.temp_celsius}C`,
                 });
-                await stampAlertState(server.id, state, "metricer_temp");
-                logger.info(`server #${server.id} metricer temp alert sent (${detail})`);
+                if (await logDeliveredAlert({ server, kind: "metricer_temp", detail, delivery })) {
+                    await stampAlertState(server.id, state, "metricer_temp");
+                    logger.info(`server #${server.id} metricer temp alert sent (${detail})`);
+                }
             }
         }
     } catch (error) {
@@ -235,13 +290,26 @@ export async function evaluatePingerMissedAlert({
                 app_name: "HammerByte",
             });
 
-        notifySection({
+        const detail = `No ping for ${Math.round(secondsSincePing)}s (limit ${pinger.missed_ping_seconds}s)`;
+        const delivery = notifySection({
             server,
             recipients: pinger.recipients,
             subject: `Server ping missed — ${server.name}`,
             htmlBuilder: htmlFor,
             smsMessage: `HammerByte: ${server.name} no ping for ${Math.round(secondsSincePing)}s (limit ${pinger.missed_ping_seconds}s)`,
         });
+
+        if (
+            !(await logDeliveredAlert({
+                server,
+                kind: "pinger_missed",
+                detail,
+                delivery,
+            }))
+        ) {
+            logger.info(`server #${server.id} pinger missed alert not delivered (no mediums)`);
+            return;
+        }
 
         // Prefer fresh row stamp; fall back to passed server state.
         const fresh = (await getServerById({ id: server.id })) || server;

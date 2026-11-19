@@ -662,15 +662,22 @@ export const uiRoutes = new Elysia()
                     projects: await getAllCustomerProjects(),
                 })),
             )
-            .get("/app/servers/:id", async ({ render, session, params, redirect }) => {
+            .get("/app/servers/:id", async ({ render, session, params, redirect, query }) => {
                 const server = await getServerById({ id: Number(params.id) });
                 if (!server) {
                     return redirect("/not-found");
                 }
+                const monthBounds = getIstMonthBounds();
+                const defaultStart = monthBounds.from;
+                const defaultEnd = getIstDate();
+                const start = parseQueryDate(query.start) || defaultStart;
+                const end = parseQueryDate(query.end) || defaultEnd;
+                const alertLogStart = start <= end ? start : end;
+                const alertLogEnd = start <= end ? end : start;
                 return render("server", appPage(session, {
                     title: `${server.name} — Servers — HammerByte`,
                     projects: await getAllCustomerProjects(),
-                    ...(await buildServerPageData(server)),
+                    ...(await buildServerPageData(server, { alertLogStart, alertLogEnd })),
                 }));
             })
             .get("/app/expenses", async ({ render, session, query }) => {

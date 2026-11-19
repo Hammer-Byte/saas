@@ -828,6 +828,20 @@ export async function generateDBTables() {
                 ON UPDATE CASCADE,
             INDEX idx_server_dber_runs_server_received (server_id, received_on)
         )`,
+        `CREATE TABLE IF NOT EXISTS SERVER_ALERT_LOG (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            server_id INT NOT NULL,
+            kind VARCHAR(64) NOT NULL,
+            detail TEXT NULL,
+            recipients TEXT NULL,
+            sent_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_server_alert_log_server
+                FOREIGN KEY (server_id)
+                REFERENCES SERVERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_server_alert_log_server_sent (server_id, sent_on)
+        )`,
         `CREATE TABLE IF NOT EXISTS TASKS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(128) NOT NULL,

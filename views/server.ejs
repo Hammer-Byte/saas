@@ -155,6 +155,21 @@
                         ? Math.min(100, Math.max(0, Math.round(Number(cpuRaw))))
                         : null;
                     const cpuPctClass = cpuPct == null ? "bg-secondary" : cpuPct >= 90 ? "bg-danger" : cpuPct >= 75 ? "bg-warning" : "bg-success";
+                    let tempC = null;
+                    const tempBlock = metrics.temperatureCelsius;
+                    if (tempBlock && typeof tempBlock === "object" && tempBlock.unavailable !== true) {
+                        const readings = Array.isArray(tempBlock.readings) ? tempBlock.readings : [];
+                        for (const reading of readings) {
+                            let value = null;
+                            if (typeof reading === "number") value = reading;
+                            else if (reading && typeof reading === "object") {
+                                value = Number(reading.celsius ?? reading.value ?? reading.temp);
+                            }
+                            if (!Number.isFinite(value)) continue;
+                            if (tempC == null || value > tempC) tempC = value;
+                        }
+                        if (tempC != null) tempC = Math.round(tempC * 10) / 10;
+                    }
                 %>
                     <div class="metrics-identity small mb-3">
                         <div class="row g-2">
@@ -199,13 +214,11 @@
                     </div>
 
                     <div class="row g-2 mb-3">
-                        <div class="col-md-4">
+                        <div class="col-6 col-lg-3">
                             <div class="metrics-stat h-100">
                                 <div class="d-flex justify-content-between align-items-baseline gap-2">
                                     <span class="text-secondary small text-uppercase">Memory</span>
-                                    <% if (memPct != null) { %>
-                                        <span class="small fw-semibold"><%= memPct %>%</span>
-                                    <% } %>
+                                    <span class="small fw-semibold"><%= memPct != null ? (memPct + "%") : "—" %></span>
                                 </div>
                                 <% if (metrics.memory) { %>
                                     <div class="progress metrics-progress my-1" role="progressbar" aria-valuenow="<%= memPct || 0 %>" aria-valuemin="0" aria-valuemax="100">
@@ -222,20 +235,18 @@
                                 <% } %>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-6 col-lg-3">
                             <div class="metrics-stat h-100">
                                 <div class="d-flex justify-content-between align-items-baseline gap-2">
                                     <span class="text-secondary small text-uppercase">CPU</span>
-                                    <% if (cpuPct != null) { %>
-                                        <span class="small fw-semibold"><%= cpuPct %>%</span>
-                                    <% } %>
+                                    <span class="small fw-semibold"><%= cpuPct != null ? (cpuPct + "%") : "—" %></span>
                                 </div>
+                                <% if (cpuPct != null) { %>
+                                    <div class="progress metrics-progress my-1" role="progressbar" aria-valuenow="<%= cpuPct %>" aria-valuemin="0" aria-valuemax="100">
+                                        <div class="progress-bar <%= cpuPctClass %>" style="width: <%= cpuPct %>%"></div>
+                                    </div>
+                                <% } %>
                                 <% if (metrics.cpu) { %>
-                                    <% if (cpuPct != null) { %>
-                                        <div class="progress metrics-progress my-1" role="progressbar" aria-valuenow="<%= cpuPct %>" aria-valuemin="0" aria-valuemax="100">
-                                            <div class="progress-bar <%= cpuPctClass %>" style="width: <%= cpuPct %>%"></div>
-                                        </div>
-                                    <% } %>
                                     <div class="small fw-semibold text-truncate mt-1" title="<%= metrics.cpu.name || '' %>"><%= metrics.cpu.name || "—" %></div>
                                     <div class="small text-secondary"><%= cpuBits.length ? cpuBits.join(" · ") : "—" %></div>
                                 <% } else { %>
@@ -243,7 +254,15 @@
                                 <% } %>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-6 col-lg-3">
+                            <div class="metrics-stat h-100">
+                                <div class="text-secondary small text-uppercase">Temp</div>
+                                <div class="fs-5 fw-semibold mt-1">
+                                    <%= tempC != null ? (tempC + "°C") : "—" %>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3">
                             <div class="metrics-stat h-100">
                                 <div class="text-secondary small text-uppercase">Processes</div>
                                 <div class="fs-5 fw-semibold mt-1">
@@ -513,10 +532,76 @@
                 </button>
             </div>
             <div class="card-body px-4 pb-4">
-                <p class="text-secondary small mb-0">
-                    Pinger and Metricer alerts can email (and log SMS stubs) when thresholds are hit.
-                    Map a project first so customer contacts appear as suggestions.
+                <p class="text-secondary small mb-3">
+                    Sent alerts are listed below. Configure Pinger / Metricer recipients and thresholds with the button above.
                 </p>
+                <form class="row g-2 align-items-end mb-3" method="get" action="/app/servers/<%= server.id %>">
+                    <div class="col-sm-4 col-md-3">
+                        <label class="form-label small mb-1" for="alert-log-start">From</label>
+                        <input
+                            type="text"
+                            class="form-control form-control-sm js-date-input"
+                            id="alert-log-start"
+                            name="start"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            data-date-value="<%= alertLogStart || '' %>"
+                            value="<%= alertLogStart || '' %>"
+                            required
+                        />
+                    </div>
+                    <div class="col-sm-4 col-md-3">
+                        <label class="form-label small mb-1" for="alert-log-end">To</label>
+                        <input
+                            type="text"
+                            class="form-control form-control-sm js-date-input"
+                            id="alert-log-end"
+                            name="end"
+                            placeholder="dd/mm/yyyy"
+                            autocomplete="off"
+                            inputmode="numeric"
+                            data-date-value="<%= alertLogEnd || '' %>"
+                            value="<%= alertLogEnd || '' %>"
+                            required
+                        />
+                    </div>
+                    <div class="col-sm-4 col-md-3">
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Apply range</button>
+                    </div>
+                </form>
+                <% const logs = Array.isArray(alertLogs) ? alertLogs : []; %>
+                <% if (!logs.length) { %>
+                    <p class="text-secondary small mb-0">No alerts sent in this date range.</p>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>When</th>
+                                    <th>Alert</th>
+                                    <th>Detail</th>
+                                    <th>Sent to</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% logs.forEach(function (row) { %>
+                                    <tr>
+                                        <td class="small text-nowrap">
+                                            <span
+                                                data-readable-date="<%= row.sent_on || '' %>"
+                                                data-date-format="DD/MM/YYYY HH:mm:ss"
+                                            ><%= row.sent_on || "—" %></span>
+                                        </td>
+                                        <td class="small fw-semibold"><%= row.kind_label || row.kind || "—" %></td>
+                                        <td class="small"><%= row.detail || "—" %></td>
+                                        <td class="small"><%= row.recipients || "—" %></td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
             </div>
         </div>
     </div>

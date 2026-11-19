@@ -1,10 +1,12 @@
 import { getRecentServerDataerRunsByServerId } from "../db/server_dataer_runs.js";
 import { getRecentServerDberRunsByServerId } from "../db/server_dber_runs.js";
+import { getServerAlertLogsByServerIdAndDateRange } from "../db/server_alert_log.js";
 import { getLatestServerMetricByServerId } from "../db/server_metrics.js";
 import { getLatestServerPingByServerId } from "../db/server_pings.js";
 import { getCustomerEmailsByCustomerId } from "../db/customer_emails.js";
 import { getCustomerPhonesByCustomerId } from "../db/customer_phones.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
+import { serverAlertKindLabel } from "./server_alert_kinds.js";
 import { buildAlertCandidates, parseAlertConfig } from "./server_alerts.js";
 
 const ALIVE_WITHIN_SECONDS = 180;
@@ -40,8 +42,9 @@ async function loadAlertCandidatesForServer(server) {
     });
 }
 
-export async function buildServerPageData(server) {
-    const [latestPing, latestMetricRow, dataerRuns, dberRuns, alertCandidates] = await Promise.all([
+export async function buildServerPageData(server, { alertLogStart = null, alertLogEnd = null } = {}) {
+    const [latestPing, latestMetricRow, dataerRuns, dberRuns, alertCandidates, alertLogs] =
+        await Promise.all([
         getLatestServerPingByServerId({ server_id: server.id }),
         getLatestServerMetricByServerId({ server_id: server.id }),
         getRecentServerDataerRunsByServerId({
@@ -53,6 +56,13 @@ export async function buildServerPageData(server) {
             limit: SERVICE_RUN_LIMIT,
         }),
         loadAlertCandidatesForServer(server),
+        alertLogStart && alertLogEnd
+            ? getServerAlertLogsByServerIdAndDateRange({
+                  server_id: server.id,
+                  start: alertLogStart,
+                  end: alertLogEnd,
+              })
+            : Promise.resolve([]),
     ]);
 
     const secondsSincePing =
@@ -76,5 +86,11 @@ export async function buildServerPageData(server) {
         dberRuns,
         alertConfig: parseAlertConfig(server.alert_config),
         alertCandidates,
+        alertLogs: (alertLogs || []).map((row) => ({
+            ...row,
+            kind_label: serverAlertKindLabel(row.kind),
+        })),
+        alertLogStart,
+        alertLogEnd,
     };
 }

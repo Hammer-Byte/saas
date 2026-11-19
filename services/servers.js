@@ -1,9 +1,10 @@
+import { logger } from "@hammerbyte/utils";
 import { getCustomerEmailsByCustomerId } from "../db/customer_emails.js";
 import { getCustomerPhonesByCustomerId } from "../db/customer_phones.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
 import { createServerDataerRun } from "../db/server_dataer_runs.js";
 import { createServerDberRun } from "../db/server_dber_runs.js";
-import { createServerMetric } from "../db/server_metrics.js";
+import { createServerMetric, getLatestServerMetricByServerId } from "../db/server_metrics.js";
 import { createServerPing } from "../db/server_pings.js";
 import {
     createServer,
@@ -311,6 +312,23 @@ export async function updateServerAlerts({ params, body, set }) {
     const alert_config = parseAlertConfig(body?.alert_config ?? body);
     await updateServerAlertConfigById({ id, alert_config });
     const server = await getServerById({ id });
+
+    // Re-check latest stored sample so Metricer can fire without waiting for next ingest.
+    try {
+        const latestMetric = await getLatestServerMetricByServerId({ server_id: id });
+        if (latestMetric?.payload && server) {
+            let payload = latestMetric.payload;
+            if (typeof payload === "string") {
+                payload = JSON.parse(payload);
+            }
+            if (payload && typeof payload === "object") {
+                await evaluateMetricerAlerts({ server, payload });
+            }
+        }
+    } catch (error) {
+        logger.error(`updateServerAlerts metric re-eval: ${error}`);
+    }
+
     set.status = 200;
     return {
         message: "Alert settings saved",
