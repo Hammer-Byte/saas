@@ -121,6 +121,7 @@
     function mergeRecipientRows(candidates, saved) {
         const savedList = Array.isArray(saved) ? saved : [];
         const savedByKey = new Map(savedList.map((row) => [recipientKey(row), row]));
+        const candidateKeys = new Set(candidates.map((row) => recipientKey(row)));
         const rows = [];
         const seen = new Set();
 
@@ -133,6 +134,7 @@
                 phone: candidate.phone || null,
                 email_on: match ? Boolean(match.email_on) : false,
                 sms_on: match ? Boolean(match.sms_on) : false,
+                custom: false,
             });
             seen.add(key);
         }
@@ -146,6 +148,7 @@
                 phone: savedRow.phone || null,
                 email_on: Boolean(savedRow.email_on),
                 sms_on: Boolean(savedRow.sms_on),
+                custom: !candidateKeys.has(key),
             });
         }
 
@@ -155,7 +158,7 @@
     function renderRecipients(container, rows, section) {
         if (!rows.length) {
             container.innerHTML =
-                '<p class="text-secondary small mb-0">No contacts yet. Map a project with customer emails/phones, or save custom recipients after adding them on the customer.</p>';
+                '<p class="text-secondary small mb-0">No contacts yet. Add a person below, or map a project with customer emails/phones.</p>';
             return;
         }
 
@@ -168,9 +171,16 @@
                 const label = labelParts.join(" · ");
                 const emailDisabled = row.email ? "" : "disabled";
                 const smsDisabled = row.phone ? "" : "disabled";
+                const isCustom = Boolean(row.custom);
+                const removeBtn = isCustom
+                    ? `<button type="button" class="btn btn-link btn-sm text-danger p-0 recipient-remove-btn" aria-label="Remove">Remove</button>`
+                    : "";
                 return `
-                    <div class="border rounded p-2 mb-2 alert-recipient-row" data-section="${section}" data-index="${index}">
-                        <div class="small fw-semibold mb-1">${escapeHtml(label)}</div>
+                    <div class="border rounded p-2 mb-2 alert-recipient-row" data-section="${section}" data-index="${index}" data-custom="${isCustom ? "1" : "0"}">
+                        <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                            <div class="small fw-semibold">${escapeHtml(label)}</div>
+                            ${removeBtn}
+                        </div>
                         <div class="d-flex flex-wrap gap-3">
                             <div class="form-check mb-0">
                                 <input class="form-check-input recipient-email-on" type="checkbox" id="${section}-email-${index}" ${row.email_on ? "checked" : ""} ${emailDisabled} />
@@ -188,6 +198,96 @@
                 `;
             })
             .join("");
+    }
+
+    function recipientsContainerForSection(section) {
+        return section === "metricer" ? metricerRecipientsEl : pingerRecipientsEl;
+    }
+
+    function readAllRecipientRows(container) {
+        return Array.from(container.querySelectorAll(".alert-recipient-row")).map((row) => ({
+            name: row.querySelector(".recipient-name")?.value.trim() || "",
+            email: row.querySelector(".recipient-email")?.value.trim() || null,
+            phone: row.querySelector(".recipient-phone")?.value.trim() || null,
+            email_on: Boolean(row.querySelector(".recipient-email-on")?.checked),
+            sms_on: Boolean(row.querySelector(".recipient-sms-on")?.checked),
+            custom: row.dataset.custom === "1",
+        }));
+    }
+
+    function clearAddPersonForm(form) {
+        const nameInput = form.querySelector(".alert-add-name");
+        const emailInput = form.querySelector(".alert-add-email");
+        const phoneInput = form.querySelector(".alert-add-phone");
+        const emailOn = form.querySelector(".alert-add-email-on");
+        const smsOn = form.querySelector(".alert-add-sms-on");
+        const errorEl = form.querySelector(".alert-add-person-error");
+        if (nameInput) nameInput.value = "";
+        if (emailInput) emailInput.value = "";
+        if (phoneInput) phoneInput.value = "";
+        if (emailOn) emailOn.checked = false;
+        if (smsOn) smsOn.checked = false;
+        if (errorEl) {
+            errorEl.textContent = "";
+            errorEl.classList.add("d-none");
+        }
+    }
+
+    function showAddPersonError(form, message) {
+        const errorEl = form.querySelector(".alert-add-person-error");
+        if (!errorEl) return;
+        errorEl.textContent = message;
+        errorEl.classList.toggle("d-none", !message);
+    }
+
+    function addPersonFromForm(form) {
+        const section = form.dataset.section || "pinger";
+        const container = recipientsContainerForSection(section);
+        const name = form.querySelector(".alert-add-name")?.value.trim() || "";
+        const email = form.querySelector(".alert-add-email")?.value.trim() || "";
+        const phone = form.querySelector(".alert-add-phone")?.value.trim() || "";
+        let email_on = Boolean(form.querySelector(".alert-add-email-on")?.checked);
+        let sms_on = Boolean(form.querySelector(".alert-add-sms-on")?.checked);
+
+        if (!name) {
+            showAddPersonError(form, "Name is required.");
+            return;
+        }
+        if (!email && !phone) {
+            showAddPersonError(form, "Enter an email or phone/mobile.");
+            return;
+        }
+        if (!email_on && !sms_on) {
+            if (email) email_on = true;
+            else if (phone) sms_on = true;
+        }
+        if (email_on && !email) {
+            showAddPersonError(form, "Email is required when Email is selected.");
+            return;
+        }
+        if (sms_on && !phone) {
+            showAddPersonError(form, "Phone is required when SMS is selected.");
+            return;
+        }
+
+        const next = {
+            name,
+            email: email || null,
+            phone: phone || null,
+            email_on,
+            sms_on,
+            custom: true,
+        };
+        const existing = readAllRecipientRows(container);
+        const key = recipientKey(next);
+        if (existing.some((row) => recipientKey(row) === key)) {
+            showAddPersonError(form, "That contact is already in the list.");
+            return;
+        }
+
+        existing.push(next);
+        renderRecipients(container, existing, section);
+        clearAddPersonForm(form);
     }
 
     function escapeHtml(value) {
@@ -243,6 +343,30 @@
             alertsFormAlert.textContent = "";
         }
         hydrateAlertRecipients();
+        alertsModal.querySelectorAll(".alert-add-person").forEach((form) => clearAddPersonForm(form));
+    });
+
+    alertsModal.addEventListener("click", (event) => {
+        const addBtn = event.target.closest(".alert-add-person-btn");
+        if (addBtn) {
+            const form = addBtn.closest(".alert-add-person");
+            if (form) addPersonFromForm(form);
+            return;
+        }
+
+        const removeBtn = event.target.closest(".recipient-remove-btn");
+        if (removeBtn) {
+            const row = removeBtn.closest(".alert-recipient-row");
+            if (!row || row.dataset.custom !== "1") return;
+            const section = row.dataset.section || "pinger";
+            const container = recipientsContainerForSection(section);
+            const key = recipientKey({
+                email: row.querySelector(".recipient-email")?.value || "",
+                phone: row.querySelector(".recipient-phone")?.value || "",
+            });
+            const next = readAllRecipientRows(container).filter((entry) => recipientKey(entry) !== key);
+            renderRecipients(container, next, section);
+        }
     });
 
     alertsSaveBtn.addEventListener("click", async () => {
