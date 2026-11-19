@@ -164,33 +164,44 @@
 
         container.innerHTML = rows
             .map((row, index) => {
-                const labelParts = [];
-                if (row.name) labelParts.push(row.name);
-                if (row.email) labelParts.push(row.email);
-                if (row.phone) labelParts.push(row.phone);
-                const label = labelParts.join(" · ");
-                const emailDisabled = row.email ? "" : "disabled";
-                const smsDisabled = row.phone ? "" : "disabled";
+                const detailParts = [];
+                if (row.email) detailParts.push(row.email);
+                if (row.phone) detailParts.push(row.phone);
+                const detail = detailParts.join(" · ");
                 const isCustom = Boolean(row.custom);
-                const removeBtn = isCustom
-                    ? `<button type="button" class="btn btn-link btn-sm text-danger p-0 recipient-remove-btn" aria-label="Remove">Remove</button>`
+                const actions = isCustom
+                    ? `<div class="d-flex gap-2">
+                            <button type="button" class="btn btn-link btn-sm p-0 recipient-edit-btn">Edit</button>
+                            <button type="button" class="btn btn-link btn-sm text-danger p-0 recipient-remove-btn">Delete</button>
+                       </div>`
                     : "";
+                const mediums = [];
+                if (row.email) {
+                    mediums.push(`
+                        <div class="form-check mb-0">
+                            <input class="form-check-input recipient-email-on" type="checkbox" id="${section}-email-${index}" ${row.email_on ? "checked" : ""} />
+                            <label class="form-check-label small" for="${section}-email-${index}">Email</label>
+                        </div>
+                    `);
+                }
+                if (row.phone) {
+                    mediums.push(`
+                        <div class="form-check mb-0">
+                            <input class="form-check-input recipient-sms-on" type="checkbox" id="${section}-sms-${index}" ${row.sms_on ? "checked" : ""} />
+                            <label class="form-check-label small" for="${section}-sms-${index}">Mobile</label>
+                        </div>
+                    `);
+                }
                 return `
                     <div class="border rounded p-2 mb-2 alert-recipient-row" data-section="${section}" data-index="${index}" data-custom="${isCustom ? "1" : "0"}">
                         <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
-                            <div class="small fw-semibold">${escapeHtml(label)}</div>
-                            ${removeBtn}
-                        </div>
-                        <div class="d-flex flex-wrap gap-3">
-                            <div class="form-check mb-0">
-                                <input class="form-check-input recipient-email-on" type="checkbox" id="${section}-email-${index}" ${row.email_on ? "checked" : ""} ${emailDisabled} />
-                                <label class="form-check-label small" for="${section}-email-${index}">Email</label>
+                            <div>
+                                <div class="small fw-semibold">${escapeHtml(row.name || "Contact")}</div>
+                                ${detail ? `<div class="small text-secondary">${escapeHtml(detail)}</div>` : ""}
                             </div>
-                            <div class="form-check mb-0">
-                                <input class="form-check-input recipient-sms-on" type="checkbox" id="${section}-sms-${index}" ${row.sms_on ? "checked" : ""} ${smsDisabled} />
-                                <label class="form-check-label small" for="${section}-sms-${index}">SMS</label>
-                            </div>
+                            ${actions}
                         </div>
+                        <div class="d-flex flex-wrap gap-3">${mediums.join("")}</div>
                         <input type="hidden" class="recipient-name" value="${escapeAttr(row.name || "")}" />
                         <input type="hidden" class="recipient-email" value="${escapeAttr(row.email || "")}" />
                         <input type="hidden" class="recipient-phone" value="${escapeAttr(row.phone || "")}" />
@@ -204,6 +215,23 @@
         return section === "metricer" ? metricerRecipientsEl : pingerRecipientsEl;
     }
 
+    function personFormForSection(section) {
+        return alertsModal.querySelector(`.alert-add-person[data-section="${section}"]`);
+    }
+
+    function personFormCollapseEl(form) {
+        return form?.querySelector(".collapse") || null;
+    }
+
+    function setPersonFormExpanded(form, expanded) {
+        const collapseEl = personFormCollapseEl(form);
+        if (!collapseEl || !window.bootstrap?.Collapse) {
+            collapseEl?.classList.toggle("show", expanded);
+            return;
+        }
+        window.bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false })[expanded ? "show" : "hide"]();
+    }
+
     function readAllRecipientRows(container) {
         return Array.from(container.querySelectorAll(".alert-recipient-row")).map((row) => ({
             name: row.querySelector(".recipient-name")?.value.trim() || "",
@@ -215,22 +243,32 @@
         }));
     }
 
-    function clearAddPersonForm(form) {
+    function setPersonFormMode(form, { editing = false } = {}) {
+        const title = form.querySelector(".alert-add-person-title");
+        const submitBtn = form.querySelector(".alert-add-person-btn");
+        const cancelBtn = form.querySelector(".alert-add-person-cancel");
+        const toggleBtn = form.querySelector(".alert-add-person-toggle");
+        if (title) title.textContent = editing ? "Edit person" : "Add person";
+        if (submitBtn) submitBtn.textContent = editing ? "Save" : "Add";
+        if (cancelBtn) cancelBtn.classList.toggle("d-none", !editing);
+        if (toggleBtn) toggleBtn.textContent = editing ? "Edit person" : "Add person";
+    }
+
+    function clearAddPersonForm(form, { collapse = false } = {}) {
         const nameInput = form.querySelector(".alert-add-name");
         const emailInput = form.querySelector(".alert-add-email");
         const phoneInput = form.querySelector(".alert-add-phone");
-        const emailOn = form.querySelector(".alert-add-email-on");
-        const smsOn = form.querySelector(".alert-add-sms-on");
         const errorEl = form.querySelector(".alert-add-person-error");
         if (nameInput) nameInput.value = "";
         if (emailInput) emailInput.value = "";
         if (phoneInput) phoneInput.value = "";
-        if (emailOn) emailOn.checked = false;
-        if (smsOn) smsOn.checked = false;
+        delete form.dataset.editIndex;
+        setPersonFormMode(form, { editing: false });
         if (errorEl) {
             errorEl.textContent = "";
             errorEl.classList.add("d-none");
         }
+        if (collapse) setPersonFormExpanded(form, false);
     }
 
     function showAddPersonError(form, message) {
@@ -240,14 +278,32 @@
         errorEl.classList.toggle("d-none", !message);
     }
 
-    function addPersonFromForm(form) {
+    function beginEditPerson(section, index) {
+        const form = personFormForSection(section);
+        const container = recipientsContainerForSection(section);
+        if (!form || !container) return;
+        const rows = readAllRecipientRows(container);
+        const row = rows[index];
+        if (!row || !row.custom) return;
+
+        form.dataset.editIndex = String(index);
+        form.querySelector(".alert-add-name").value = row.name || "";
+        form.querySelector(".alert-add-email").value = row.email || "";
+        form.querySelector(".alert-add-phone").value = row.phone || "";
+        setPersonFormMode(form, { editing: true });
+        showAddPersonError(form, "");
+        setPersonFormExpanded(form, true);
+        form.querySelector(".alert-add-name")?.focus();
+    }
+
+    function savePersonFromForm(form) {
         const section = form.dataset.section || "pinger";
         const container = recipientsContainerForSection(section);
         const name = form.querySelector(".alert-add-name")?.value.trim() || "";
         const email = form.querySelector(".alert-add-email")?.value.trim() || "";
         const phone = form.querySelector(".alert-add-phone")?.value.trim() || "";
-        let email_on = Boolean(form.querySelector(".alert-add-email-on")?.checked);
-        let sms_on = Boolean(form.querySelector(".alert-add-sms-on")?.checked);
+        const editIndex = form.dataset.editIndex != null ? Number(form.dataset.editIndex) : null;
+        const isEditing = Number.isInteger(editIndex) && editIndex >= 0;
 
         if (!name) {
             showAddPersonError(form, "Name is required.");
@@ -257,16 +313,11 @@
             showAddPersonError(form, "Enter an email or phone/mobile.");
             return;
         }
-        if (!email_on && !sms_on) {
-            if (email) email_on = true;
-            else if (phone) sms_on = true;
-        }
-        if (email_on && !email) {
-            showAddPersonError(form, "Email is required when Email is selected.");
-            return;
-        }
-        if (sms_on && !phone) {
-            showAddPersonError(form, "Phone is required when SMS is selected.");
+
+        const existing = readAllRecipientRows(container);
+        const previous = isEditing ? existing[editIndex] : null;
+        if (isEditing && (!previous || !previous.custom)) {
+            showAddPersonError(form, "That person can no longer be edited.");
             return;
         }
 
@@ -274,20 +325,27 @@
             name,
             email: email || null,
             phone: phone || null,
-            email_on,
-            sms_on,
+            email_on: Boolean(previous?.email_on) && Boolean(email),
+            sms_on: Boolean(previous?.sms_on) && Boolean(phone),
             custom: true,
         };
-        const existing = readAllRecipientRows(container);
         const key = recipientKey(next);
-        if (existing.some((row) => recipientKey(row) === key)) {
+        const duplicate = existing.some((row, index) => {
+            if (isEditing && index === editIndex) return false;
+            return recipientKey(row) === key;
+        });
+        if (duplicate) {
             showAddPersonError(form, "That contact is already in the list.");
             return;
         }
 
-        existing.push(next);
+        if (isEditing) {
+            existing[editIndex] = next;
+        } else {
+            existing.push(next);
+        }
         renderRecipients(container, existing, section);
-        clearAddPersonForm(form);
+        clearAddPersonForm(form, { collapse: true });
     }
 
     function escapeHtml(value) {
@@ -311,7 +369,7 @@
                 email_on: Boolean(row.querySelector(".recipient-email-on")?.checked),
                 sms_on: Boolean(row.querySelector(".recipient-sms-on")?.checked),
             }))
-            .filter((row) => row.email_on || row.sms_on);
+            .filter((row) => row.email || row.phone);
     }
 
     function showAlertsFeedback(message, isError) {
@@ -343,14 +401,29 @@
             alertsFormAlert.textContent = "";
         }
         hydrateAlertRecipients();
-        alertsModal.querySelectorAll(".alert-add-person").forEach((form) => clearAddPersonForm(form));
+        alertsModal.querySelectorAll(".alert-add-person").forEach((form) => clearAddPersonForm(form, { collapse: true }));
     });
 
     alertsModal.addEventListener("click", (event) => {
         const addBtn = event.target.closest(".alert-add-person-btn");
         if (addBtn) {
             const form = addBtn.closest(".alert-add-person");
-            if (form) addPersonFromForm(form);
+            if (form) savePersonFromForm(form);
+            return;
+        }
+
+        const cancelBtn = event.target.closest(".alert-add-person-cancel");
+        if (cancelBtn) {
+            const form = cancelBtn.closest(".alert-add-person");
+            if (form) clearAddPersonForm(form, { collapse: true });
+            return;
+        }
+
+        const editBtn = event.target.closest(".recipient-edit-btn");
+        if (editBtn) {
+            const row = editBtn.closest(".alert-recipient-row");
+            if (!row || row.dataset.custom !== "1") return;
+            beginEditPerson(row.dataset.section || "pinger", Number(row.dataset.index));
             return;
         }
 
@@ -360,12 +433,13 @@
             if (!row || row.dataset.custom !== "1") return;
             const section = row.dataset.section || "pinger";
             const container = recipientsContainerForSection(section);
-            const key = recipientKey({
-                email: row.querySelector(".recipient-email")?.value || "",
-                phone: row.querySelector(".recipient-phone")?.value || "",
-            });
-            const next = readAllRecipientRows(container).filter((entry) => recipientKey(entry) !== key);
+            const index = Number(row.dataset.index);
+            const next = readAllRecipientRows(container).filter((_, i) => i !== index);
             renderRecipients(container, next, section);
+            const form = personFormForSection(section);
+            if (form && form.dataset.editIndex != null && Number(form.dataset.editIndex) === index) {
+                clearAddPersonForm(form, { collapse: true });
+            }
         }
     });
 

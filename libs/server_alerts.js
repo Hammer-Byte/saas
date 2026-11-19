@@ -55,15 +55,12 @@ function normalizeRecipient(raw) {
     if (sms_on && !phone) {
         return null;
     }
-    if (!email_on && !sms_on) {
-        return null;
-    }
     return {
         name: name || (email ? email.split("@")[0] : phone),
         email: email || null,
         phone: phone || null,
-        email_on,
-        sms_on,
+        email_on: Boolean(email) && email_on,
+        sms_on: Boolean(phone) && sms_on,
     };
 }
 

@@ -552,36 +552,34 @@
                         </div>
                         <h3 class="h6">Whom</h3>
                         <div id="pinger-recipients" class="mb-2"></div>
-                        <div class="border rounded p-2 mb-3 alert-add-person" data-section="pinger">
-                            <div class="small fw-semibold mb-2">Add person</div>
-                            <div class="row g-2 align-items-end">
-                                <div class="col-md-3">
-                                    <label class="form-label small" for="pinger-add-name">Name</label>
-                                    <input type="text" class="form-control form-control-sm alert-add-name" id="pinger-add-name" maxlength="128" autocomplete="off" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small" for="pinger-add-email">Email</label>
-                                    <input type="email" class="form-control form-control-sm alert-add-email" id="pinger-add-email" maxlength="255" autocomplete="off" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small" for="pinger-add-phone">Phone / mobile</label>
-                                    <input type="text" class="form-control form-control-sm alert-add-phone" id="pinger-add-phone" maxlength="20" autocomplete="off" />
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="d-flex flex-wrap gap-3 mb-1">
-                                        <div class="form-check mb-0">
-                                            <input class="form-check-input alert-add-email-on" type="checkbox" id="pinger-add-email-on" />
-                                            <label class="form-check-label small" for="pinger-add-email-on">Email</label>
+                        <div class="mb-3 alert-add-person" data-section="pinger">
+                            <button class="btn btn-sm btn-outline-secondary alert-add-person-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#pinger-add-person-body" aria-expanded="false" aria-controls="pinger-add-person-body">
+                                Add person
+                            </button>
+                            <div class="collapse mt-2" id="pinger-add-person-body">
+                                <div class="border rounded p-2">
+                                    <div class="small fw-semibold mb-2 alert-add-person-title">Add person</div>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="pinger-add-name">Name</label>
+                                            <input type="text" class="form-control form-control-sm alert-add-name" id="pinger-add-name" maxlength="128" autocomplete="off" />
                                         </div>
-                                        <div class="form-check mb-0">
-                                            <input class="form-check-input alert-add-sms-on" type="checkbox" id="pinger-add-sms-on" />
-                                            <label class="form-check-label small" for="pinger-add-sms-on">SMS</label>
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="pinger-add-email">Email</label>
+                                            <input type="email" class="form-control form-control-sm alert-add-email" id="pinger-add-email" maxlength="255" autocomplete="off" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="pinger-add-phone">Phone / mobile</label>
+                                            <input type="text" class="form-control form-control-sm alert-add-phone" id="pinger-add-phone" maxlength="20" autocomplete="off" />
                                         </div>
                                     </div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary alert-add-person-btn">Add</button>
+                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                        <button type="button" class="btn btn-sm btn-primary alert-add-person-btn">Add</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary alert-add-person-cancel d-none">Cancel</button>
+                                    </div>
+                                    <div class="small text-danger d-none mt-1 alert-add-person-error"></div>
                                 </div>
                             </div>
-                            <div class="small text-danger d-none mt-1 alert-add-person-error"></div>
                         </div>
                         <h3 class="h6">Criteria</h3>
                         <div class="row g-2">
@@ -602,36 +600,34 @@
                         </div>
                         <h3 class="h6">Whom</h3>
                         <div id="metricer-recipients" class="mb-2"></div>
-                        <div class="border rounded p-2 mb-3 alert-add-person" data-section="metricer">
-                            <div class="small fw-semibold mb-2">Add person</div>
-                            <div class="row g-2 align-items-end">
-                                <div class="col-md-3">
-                                    <label class="form-label small" for="metricer-add-name">Name</label>
-                                    <input type="text" class="form-control form-control-sm alert-add-name" id="metricer-add-name" maxlength="128" autocomplete="off" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small" for="metricer-add-email">Email</label>
-                                    <input type="email" class="form-control form-control-sm alert-add-email" id="metricer-add-email" maxlength="255" autocomplete="off" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small" for="metricer-add-phone">Phone / mobile</label>
-                                    <input type="text" class="form-control form-control-sm alert-add-phone" id="metricer-add-phone" maxlength="20" autocomplete="off" />
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="d-flex flex-wrap gap-3 mb-1">
-                                        <div class="form-check mb-0">
-                                            <input class="form-check-input alert-add-email-on" type="checkbox" id="metricer-add-email-on" />
-                                            <label class="form-check-label small" for="metricer-add-email-on">Email</label>
+                        <div class="mb-3 alert-add-person" data-section="metricer">
+                            <button class="btn btn-sm btn-outline-secondary alert-add-person-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#metricer-add-person-body" aria-expanded="false" aria-controls="metricer-add-person-body">
+                                Add person
+                            </button>
+                            <div class="collapse mt-2" id="metricer-add-person-body">
+                                <div class="border rounded p-2">
+                                    <div class="small fw-semibold mb-2 alert-add-person-title">Add person</div>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="metricer-add-name">Name</label>
+                                            <input type="text" class="form-control form-control-sm alert-add-name" id="metricer-add-name" maxlength="128" autocomplete="off" />
                                         </div>
-                                        <div class="form-check mb-0">
-                                            <input class="form-check-input alert-add-sms-on" type="checkbox" id="metricer-add-sms-on" />
-                                            <label class="form-check-label small" for="metricer-add-sms-on">SMS</label>
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="metricer-add-email">Email</label>
+                                            <input type="email" class="form-control form-control-sm alert-add-email" id="metricer-add-email" maxlength="255" autocomplete="off" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="metricer-add-phone">Phone / mobile</label>
+                                            <input type="text" class="form-control form-control-sm alert-add-phone" id="metricer-add-phone" maxlength="20" autocomplete="off" />
                                         </div>
                                     </div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary alert-add-person-btn">Add</button>
+                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                        <button type="button" class="btn btn-sm btn-primary alert-add-person-btn">Add</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary alert-add-person-cancel d-none">Cancel</button>
+                                    </div>
+                                    <div class="small text-danger d-none mt-1 alert-add-person-error"></div>
                                 </div>
                             </div>
-                            <div class="small text-danger d-none mt-1 alert-add-person-error"></div>
                         </div>
                         <h3 class="h6">Criteria</h3>
                         <div class="row g-2 mb-2">
