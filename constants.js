@@ -49,9 +49,6 @@ export const SWAGGER = {
     APPLICATION: "Saas Mailer",
 };
 
-/** Application service title for external content publish API (also seeded in SERVICES). */
-export const CONTENT_PUBLISHER_SERVICE = "content-publisher";
-
 export const AUTHORITIES = {
     USE_PAGE_PROJECTS: "USE_PAGE_PROJECTS",
     USE_PAGE_EXPENSES: "USE_PAGE_EXPENSES",
@@ -69,7 +66,6 @@ export const AUTHORITIES = {
     ASSIGN_GEM_TENDER_ASSIGNEE: "ASSIGN_GEM_TENDER_ASSIGNEE",
     MARK_GEM_TENDER_MASS_STAGE_CHANGE: "MARK_GEM_TENDER_MASS_STAGE_CHANGE",
     ASSIGN_INQUIRY_ASSIGNEE: "ASSIGN_INQUIRY_ASSIGNEE",
-    USE_PAGE_AUTOMATION: "USE_PAGE_AUTOMATION",
     USE_PAGE_APPLICATIONS: "USE_PAGE_APPLICATIONS",
     USE_PAGE_SERVICES: "USE_PAGE_SERVICES",
     USE_PAGE_USERS: "USE_PAGE_USERS",
@@ -228,7 +224,6 @@ export const AUTHORITY_DESCRIPTIONS = {
     ASSIGN_GEM_TENDER_ASSIGNEE: "Assign any user as GEM tender assignee",
     MARK_GEM_TENDER_MASS_STAGE_CHANGE: "Bulk change GEM tender stage (comment required)",
     ASSIGN_INQUIRY_ASSIGNEE: "Assign any user as inquiry assignee",
-    USE_PAGE_AUTOMATION: "View Automation page",
     USE_PAGE_APPLICATIONS: "View Applications page",
     USE_PAGE_SERVICES: "View Services page",
     USE_PAGE_USERS: "View Users page",

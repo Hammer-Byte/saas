@@ -1,6 +1,6 @@
 import { filer, logger } from "@hammerbyte/utils";
 import { generateDBTables } from "./libs/db.js";
-import { initSeleniumPipeline } from "./libs/selenium/index.js";
+import { initGemScanRunner } from "./libs/gem_scan_runner.js";
 import transporter from "./libs/transporter.js";
 import bucketizer from "./libs/bucketizer.js";
 import { allowTraffic } from "./server.js";
@@ -23,8 +23,8 @@ try {
     logger.success("Required Directories Ready");
     await generateDBTables();
     logger.success("Database Ready (Tables Verified)");
-    await initSeleniumPipeline();
-    logger.success("Selenium Pipeline Ready");
+    await initGemScanRunner();
+    logger.success("GeM Scan Runner Ready");
     startGemTenderEligibilityReminderWatcher();
     logger.success("GEM Tender Eligibility Reminder Watcher Ready");
     startGemTenderUnattendedWatcher();

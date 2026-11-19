@@ -23,7 +23,7 @@ import {
     getGemTenderScanRunById,
 } from "../db/gem_tender_scan_runs.js";
 import { hasAuthority } from "../libs/app_page.js";
-import { enqueueGemScanJob } from "../libs/selenium/enqueue_gem.js";
+import { enqueueGemScanJob } from "../libs/gem_scan_runner.js";
 import { getCurrentUser } from "./authentication.js";
 
 export function canUseGemCategories(authorities, { super_admin = false } = {}) {
@@ -346,7 +346,7 @@ export async function startGemCategoryScan({ body, cookie, set }) {
     });
     if (!job) {
         set.status = 400;
-        return { error: "Failed to enqueue selenium job", processing: false };
+        return { error: "Failed to queue GeM scan", processing: false };
     }
 
     set.status = 202;

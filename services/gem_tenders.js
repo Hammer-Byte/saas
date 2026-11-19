@@ -31,7 +31,7 @@ import {
     notifyGemTenderQuoteRequested,
     notifyGemTendersBulkAssigned,
 } from "../libs/gem_tender_notify.js";
-import { enqueueGemScanJob } from "../libs/selenium/enqueue_gem.js";
+import { enqueueGemScanJob } from "../libs/gem_scan_runner.js";
 import { getCurrentUser } from "./authentication.js";
 
 const STAGE_VALUES = new Set(Object.values(GEM_TENDER_STAGES));
@@ -1111,7 +1111,7 @@ export async function startGemAdhocTenderScan({ body, cookie, set }) {
     });
     if (!job) {
         set.status = 400;
-        return { error: "Failed to enqueue selenium job", processing: false };
+        return { error: "Failed to queue GeM scan", processing: false };
     }
 
     set.status = 202;

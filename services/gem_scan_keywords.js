@@ -12,7 +12,7 @@ import {
     createGemTenderScanRun,
     getGemTenderScanRunById,
 } from "../db/gem_tender_scan_runs.js";
-import { enqueueGemScanJob } from "../libs/selenium/enqueue_gem.js";
+import { enqueueGemScanJob } from "../libs/gem_scan_runner.js";
 import { canUseGemCategories } from "./gem_categories.js";
 import { getCurrentUser } from "./authentication.js";
 
@@ -202,7 +202,7 @@ export async function startGemScanKeywordScan({ body, cookie, set }) {
     });
     if (!job) {
         set.status = 400;
-        return { error: "Failed to enqueue selenium job", processing: false };
+        return { error: "Failed to queue GeM scan", processing: false };
     }
 
     set.status = 202;

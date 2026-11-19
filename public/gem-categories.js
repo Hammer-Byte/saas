@@ -716,7 +716,7 @@
                 return;
             }
             showAlert(
-                data.message || "Scan queued. Track it under App → Selenium.",
+                data.message || "Scan queued. Track it under History.",
                 "success",
             );
             renderAll();

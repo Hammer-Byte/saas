@@ -58,6 +58,8 @@ import { getAllGemCategories } from "../db/gem_categories.js";
 import { getAllGemScanKeywords } from "../db/gem_scan_keywords.js";
 import { getAllGemTenderCategories } from "../db/gem_tender_categories.js";
 import { canUseGemCategories } from "../services/gem_categories.js";
+import { getAllGemTenderScanRuns } from "../db/gem_tender_scan_runs.js";
+import { GEM_TENDER_SCAN_TYPE_LABELS } from "../constants.js";
 import {
     getAllGemTenders,
     getGemTenderById,
@@ -107,18 +109,6 @@ import { getTaskEffortsByTaskId } from "../db/task_efforts.js";
 import { getAllTaskFollowersByTaskId, getTaskFollowerByTaskIdAndUserId } from "../db/task_followers.js";
 import { getAllTaskRemindersByTaskId } from "../db/task_reminders.js";
 import { buildSprintBurnReport, buildTaskReport } from "../services/task_report.js";
-import { getAllAutomationUsers } from "../db/automation_users.js";
-import { getAllLinkedinDesignations } from "../db/linkedin_designations.js";
-import { getAllLinkedinDesignationMessages } from "../db/linkedin_designation_messages.js";
-import {
-    getSeleniumJobStatusCountsByCreatedOnRange,
-    getSeleniumJobsByCreatedOnRange,
-    getSeleniumPipelineStatus,
-} from "../libs/selenium/index.js";
-import {
-    canUseAutomation,
-    resolveSourceFilter,
-} from "../services/selenium.js";
 import {
     addIstCalendarDays,
     buildSprintWeekOptions,
@@ -991,9 +981,22 @@ export const uiRoutes = new Elysia()
                     }),
                 );
             })
-            .get("/app/gem-tender-scan-history", ({ redirect }) =>
-                redirect("/app/selenium?source=gem"),
-            )
+            .get("/app/gem-tender-scan-history", async ({ render, session, redirect }) => {
+                if (
+                    !canUseGemCategories(session?.authorities, {
+                        super_admin: session?.super_admin,
+                    })
+                ) {
+                    return redirect("/app");
+                }
+                return render(
+                    "gem-tender-scan-history",
+                    appPage(session, {
+                        runs: await getAllGemTenderScanRuns(),
+                        GEM_TENDER_SCAN_TYPE_LABELS,
+                    }),
+                );
+            })
             .get("/app/gem-keyword-tenders", ({ redirect, query }) => {
                 const search = new URLSearchParams(query || {}).toString();
                 return redirect(`/app/gem-tenders/list${search ? `?${search}` : ""}`);
@@ -1091,151 +1094,5 @@ export const uiRoutes = new Elysia()
                         GEM_TENDER_LOCK_MESSAGES,
                     }));
                 },
-            )
-            .get("/app/automation", ({ render, session }) =>
-                render("automation", appPage(session, {
-                    title: "Automation — HammerByte",
-                })),
-            )
-            .get("/app/selenium", async ({ render, session, query, redirect }) => {
-                if (
-                    !canUseAutomation(session?.authorities, {
-                        super_admin: session?.super_admin,
-                    })
-                ) {
-                    return redirect("/app");
-                }
-
-                const today = getIstDate();
-                const from = parseQueryDate(query.from) || today;
-                const to = parseQueryDate(query.to) || today;
-                const rangeFrom = from <= to ? from : to;
-                const rangeTo = from <= to ? to : from;
-                const statusFilter = String(query.status || "all").trim().toLowerCase() || "all";
-                const sourceFilter = resolveSourceFilter(query.source) || "all";
-
-                const [pipeline, counts, jobs] = await Promise.all([
-                    getSeleniumPipelineStatus(),
-                    getSeleniumJobStatusCountsByCreatedOnRange({
-                        start: rangeFrom,
-                        end: rangeTo,
-                        source: sourceFilter === "all" ? null : sourceFilter,
-                    }),
-                    getSeleniumJobsByCreatedOnRange({
-                        start: rangeFrom,
-                        end: rangeTo,
-                        status: statusFilter !== "all" ? statusFilter : null,
-                        source: sourceFilter === "all" ? null : sourceFilter,
-                    }),
-                ]);
-
-                return render(
-                    "selenium",
-                    appPage(session, {
-                        title: "Selenium — HammerByte",
-                        from: rangeFrom,
-                        to: rangeTo,
-                        statusFilter,
-                        sourceFilter,
-                        pipeline,
-                        counts,
-                        jobs,
-                    }),
-                );
-            })
-            .get("/app/automation-users", async ({ render, session }) =>
-                render("automation-users", appPage(session, {
-                    title: "Automation Users — HammerByte",
-                    automationUsers: await getAllAutomationUsers(),
-                })),
-            )
-            .get("/app/content-publish", ({ render, session }) =>
-                render("content-publish", appPage(session, {
-                    title: "Content Publishing — HammerByte",
-                })),
-            )
-            .get("/app/content-publish-image", async ({ render, session }) =>
-                render("content-publish-start", appPage(session, {
-                    title: "Publish Image — HammerByte",
-                    automationUsers: await getAllAutomationUsers(),
-                })),
-            )
-            .get("/app/content-publish-video", async ({ render, session }) =>
-                render("content-publish-video-start", appPage(session, {
-                    title: "Publish Video — HammerByte",
-                    automationUsers: await getAllAutomationUsers(),
-                })),
-            )
-            .get("/app/content-publish-video-start", ({ redirect }) =>
-                redirect("/app/content-publish-video"),
-            )
-            .get("/app/content-publish-start", ({ redirect }) =>
-                redirect("/app/content-publish-image"),
-            )
-
-            .get("/app/content-publish-history", ({ redirect }) =>
-                redirect("/app/selenium?source=content_publish"),
-            )
-            .get("/app/linkedin", ({ render, session }) =>
-                render("linkedin", appPage(session, {
-                    title: "LinkedIn — HammerByte",
-                })),
-            )
-            .get("/app/linkedin-grow-network", async ({ render, session }) =>
-                render("linkedin-grow-network", appPage(session, {
-                    title: "GrowNetwork — HammerByte",
-                    designations: await getAllLinkedinDesignations(),
-                    linkedinUsers: (await getAllAutomationUsers()).filter((user) =>
-                        String(user.linkedin_cookie || "").trim(),
-                    ),
-                })),
-            )
-            .get("/app/linkedin-designations", async ({ render, session }) =>
-                render("linkedin-designations", appPage(session, {
-                    title: "LinkedIn Designations — HammerByte",
-                    designations: await getAllLinkedinDesignations(),
-                })),
-            )
-            .get("/app/linkedin-grow-network-history", ({ redirect }) =>
-                redirect("/app/selenium?source=linkedin"),
-            )
-            .get("/app/linkedin-search-network", async ({ render, session }) =>
-                render("linkedin-search-network", appPage(session, {
-                    title: "SearchNetwork — HammerByte",
-                    designations: await getAllLinkedinDesignations(),
-                    linkedinUsers: (await getAllAutomationUsers()).filter((user) =>
-                        String(user.linkedin_cookie || "").trim(),
-                    ),
-                })),
-            )
-            .get("/app/linkedin-search-network-history", ({ redirect }) =>
-                redirect("/app/selenium?source=linkedin"),
-            )
-            .get("/app/linkedin-messages", async ({ render, session }) =>
-                render("linkedin-messages", appPage(session, {
-                    title: "LinkedIn Messages — HammerByte",
-                    designations: await getAllLinkedinDesignations(),
-                    messages: await getAllLinkedinDesignationMessages(),
-                })),
-            )
-            .get("/app/linkedin-message-network", async ({ render, session }) => {
-                const designations = await getAllLinkedinDesignations();
-                const messages = await getAllLinkedinDesignationMessages();
-                const messageCounts = {};
-                for (const row of messages) {
-                    messageCounts[row.designation_id] = (messageCounts[row.designation_id] || 0) + 1;
-                }
-
-                return render("linkedin-message-network", appPage(session, {
-                    title: "MessageNetwork — HammerByte",
-                    designations,
-                    linkedinUsers: (await getAllAutomationUsers()).filter((user) =>
-                        String(user.linkedin_cookie || "").trim(),
-                    ),
-                    messageCounts,
-                }));
-            })
-            .get("/app/linkedin-message-network-history", ({ redirect }) =>
-                redirect("/app/selenium?source=linkedin"),
             ),
     );

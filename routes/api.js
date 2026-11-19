@@ -43,15 +43,6 @@ import tasks from "./apps/tasks.js";
 import taskComments from "./apps/task_comments.js";
 import taskAttachments from "./apps/task_attachments.js";
 import taskReminders from "./apps/task_reminders.js";
-import automationUsers from "./apps/automation_users.js";
-import contentPublish from "./apps/content_publish.js";
-import { getContentPublishPublicMedia } from "../services/content_publish.js";
-import selenium from "./apps/selenium.js";
-import linkedinDesignations from "./apps/linkedin_designations.js";
-import linkedinGrowNetwork from "./apps/linkedin_grow_network.js";
-import linkedinSearchNetwork from "./apps/linkedin_search_network.js";
-import linkedinDesignationMessages from "./apps/linkedin_designation_messages.js";
-import linkedinMessageNetwork from "./apps/linkedin_message_network.js";
 import roles from "./apps/roles.js";
 import authorities from "./apps/authorities.js";
 import roleAuthorities from "./apps/role_authorities.js";
@@ -60,9 +51,6 @@ import servers from "./apps/servers.js";
 import monitoredServers from "./apps/monitored_servers.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
-import canUseContentPublisher from "../middlewares/can_use_content_publisher.js";
-import contentPublisher from "./apps/content_publisher.js";
-import { CONTENT_PUBLISHER_SERVICE } from "../constants.js";
 import requireApiSession from "../middlewares/require_api_session.js";
 
 export const apiRoutes = new Elysia({ prefix: "/api" })
@@ -76,13 +64,6 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
     .group("/job-applications", publicJobApplications)
     .group("/contracts", contractsSign)
     .group("/servers", servers)
-    // Meta Instagram Graph API must fetch image_url without a session cookie.
-    .get("/content-publish/public-media/:token", getContentPublishPublicMedia, {
-        detail: {
-            tags: ["Content Publish"],
-            summary: "Public signed media URL for Instagram Graph publishing",
-        },
-    })
     .guard({ beforeHandle: [requireApiSession] }, (app) =>
         app
             .group("/monitored-servers", monitoredServers)
@@ -120,14 +101,6 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/task-comments", taskComments)
             .group("/task-attachments", taskAttachments)
             .group("/task-reminders", taskReminders)
-            .group("/automation-users", automationUsers)
-            .group("/content-publish", contentPublish)
-            .group("/selenium", selenium)
-            .group("/linkedin-designations", linkedinDesignations)
-            .group("/linkedin-grow-network", linkedinGrowNetwork)
-            .group("/linkedin-search-network", linkedinSearchNetwork)
-            .group("/linkedin-designation-messages", linkedinDesignationMessages)
-            .group("/linkedin-message-network", linkedinMessageNetwork)
             .group("/roles", roles)
             .group("/authorities", authorities)
             .group("/role-authorities", roleAuthorities)
@@ -141,8 +114,5 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             )
             .guard({ beforeHandle: [canUseMailer] }, (protectedApp) =>
                 protectedApp.group(`/${CONSTANTS.SAAS.SERVICES.MAILER}`, mailer),
-            )
-            .guard({ beforeHandle: [canUseContentPublisher] }, (protectedApp) =>
-                protectedApp.group(`/${CONTENT_PUBLISHER_SERVICE}`, contentPublisher),
             ),
     );

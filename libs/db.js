@@ -4,10 +4,7 @@ import { fromDbDateTime } from "./date.js";
 import {
     AUTHORITIES,
     AUTHORITY_DESCRIPTIONS,
-    CONTENT_PUBLISHER_SERVICE,
 } from "../constants.js";
-
-const seleniumMaxParallel = Math.max(1, Number(Bun.env.SELENIUM_MAX_PARALLEL) || 1);
 
 export const dbConnection = new SQL({
     adapter: Bun.env.MYSQL_DIALECT,
@@ -18,8 +15,7 @@ export const dbConnection = new SQL({
     password: Bun.env.MYSQL_PASSWORD,
     tls: false,
     allowPublicKeyRetrieval: true,
-    // Headroom for HTTP + selenium workers when SELENIUM_MAX_PARALLEL > 1
-    max: Math.max(1, seleniumMaxParallel + 2),
+    max: 4,
     onconnect: (client) => {
         logger.success("Connected to MySQL DataBase");
     },
@@ -738,191 +734,6 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS AUTOMATION_USERS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            instagram_cookie TEXT NULL,
-            instagram_user_id VARCHAR(64) NULL,
-            youtube_cookie TEXT NULL,
-            youtube_channel_id VARCHAR(128) NULL,
-            linkedin_cookie TEXT NULL,
-            linkedin_company_id VARCHAR(64) NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_automation_user_name (name)
-        )`,
-        `CREATE TABLE IF NOT EXISTS CONTENT_PUBLISH_RUNS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            status VARCHAR(32) NOT NULL DEFAULT 'queued',
-            media_id INT NOT NULL,
-            media_kind VARCHAR(16) NOT NULL DEFAULT 'image',
-            automation_user_id INT NULL,
-            user_name VARCHAR(255) NOT NULL,
-            instagram_caption TEXT NULL,
-            youtube_title VARCHAR(255) NULL,
-            youtube_description TEXT NULL,
-            linkedin_caption TEXT NULL,
-            source VARCHAR(32) NOT NULL DEFAULT 'user',
-            created_by INT NULL,
-            application_id INT NULL,
-            application_service_id INT NULL,
-            scheduled_by_name VARCHAR(255) NULL,
-            run_options TEXT NULL,
-            error_message TEXT NULL,
-            started_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            finished_on DATETIME NULL
-        )`,
-        `CREATE TABLE IF NOT EXISTS CONTENT_PUBLISH_RUN_TARGETS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            run_id INT NOT NULL,
-            platform VARCHAR(32) NOT NULL,
-            status VARCHAR(32) NOT NULL DEFAULT 'pending',
-            error_message TEXT NULL,
-            screenshot_files TEXT NULL,
-            CONSTRAINT fk_content_publish_run_targets_run
-                FOREIGN KEY (run_id)
-                REFERENCES CONTENT_PUBLISH_RUNS(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_DESIGNATIONS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_linkedin_designation_name (name)
-        )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_GROW_RUNS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            status VARCHAR(32) NOT NULL DEFAULT 'running',
-            per_account_limit INT NOT NULL,
-            created_by INT NULL,
-            error_message TEXT NULL,
-            started_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            finished_on DATETIME NULL
-        )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_GROW_RUN_ACCOUNTS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            run_id INT NOT NULL,
-            linkedin_user_id INT NULL,
-            user_name VARCHAR(255) NOT NULL,
-            sent_count INT NOT NULL DEFAULT 0,
-            status VARCHAR(32) NOT NULL DEFAULT 'pending',
-            CONSTRAINT fk_linkedin_grow_run_accounts_run
-                FOREIGN KEY (run_id)
-                REFERENCES LINKEDIN_GROW_RUNS(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_GROW_RUN_DESIGNATIONS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            run_id INT NOT NULL,
-            designation_name VARCHAR(255) NOT NULL,
-            CONSTRAINT fk_linkedin_grow_run_designations_run
-                FOREIGN KEY (run_id)
-                REFERENCES LINKEDIN_GROW_RUNS(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_SEARCH_RUNS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            status VARCHAR(32) NOT NULL DEFAULT 'running',
-            page_count INT NOT NULL,
-            created_by INT NULL,
-            error_message TEXT NULL,
-            started_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            finished_on DATETIME NULL
-        )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_SEARCH_RUN_ACCOUNTS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            run_id INT NOT NULL,
-            linkedin_user_id INT NULL,
-            user_name VARCHAR(255) NOT NULL,
-            sent_count INT NOT NULL DEFAULT 0,
-            status VARCHAR(32) NOT NULL DEFAULT 'pending',
-            CONSTRAINT fk_linkedin_search_run_accounts_run
-                FOREIGN KEY (run_id)
-                REFERENCES LINKEDIN_SEARCH_RUNS(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_SEARCH_RUN_DESIGNATIONS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            run_id INT NOT NULL,
-            designation_name VARCHAR(255) NOT NULL,
-            CONSTRAINT fk_linkedin_search_run_designations_run
-                FOREIGN KEY (run_id)
-                REFERENCES LINKEDIN_SEARCH_RUNS(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_DESIGNATION_MESSAGES (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            designation_id INT NOT NULL,
-            message TEXT NOT NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT fk_linkedin_designation_messages_designation
-                FOREIGN KEY (designation_id)
-                REFERENCES LINKEDIN_DESIGNATIONS(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_MESSAGE_RUNS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            status VARCHAR(32) NOT NULL DEFAULT 'running',
-            per_account_limit INT NOT NULL,
-            created_by INT NULL,
-            error_message TEXT NULL,
-            started_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            finished_on DATETIME NULL
-        )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_MESSAGE_RUN_ACCOUNTS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            run_id INT NOT NULL,
-            linkedin_user_id INT NULL,
-            user_name VARCHAR(255) NOT NULL,
-            sent_count INT NOT NULL DEFAULT 0,
-            status VARCHAR(32) NOT NULL DEFAULT 'pending',
-            CONSTRAINT fk_linkedin_message_run_accounts_run
-                FOREIGN KEY (run_id)
-                REFERENCES LINKEDIN_MESSAGE_RUNS(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS LINKEDIN_MESSAGE_RUN_DESIGNATIONS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            run_id INT NOT NULL,
-            designation_name VARCHAR(255) NOT NULL,
-            CONSTRAINT fk_linkedin_message_run_designations_run
-                FOREIGN KEY (run_id)
-                REFERENCES LINKEDIN_MESSAGE_RUNS(id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS SELENIUM_JOBS (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            type VARCHAR(64) NOT NULL,
-            source VARCHAR(64) NOT NULL,
-            title VARCHAR(255) NOT NULL,
-            status VARCHAR(32) NOT NULL DEFAULT 'queued',
-            payload TEXT NULL,
-            result_summary TEXT NULL,
-            error_message TEXT NULL,
-            created_by INT NULL,
-            domain_run_id INT NULL,
-            started_on DATETIME NULL,
-            finished_on DATETIME NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT fk_selenium_jobs_created_by
-                FOREIGN KEY (created_by)
-                REFERENCES USERS(id)
-                ON DELETE SET NULL
-                ON UPDATE CASCADE
-        )`,
-        `CREATE TABLE IF NOT EXISTS SELENIUM_PIPELINE_STATE (
-            id INT PRIMARY KEY,
-            paused BOOLEAN NOT NULL DEFAULT FALSE,
-            max_parallel INT NOT NULL DEFAULT 1,
-            updated_on DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )`,
         `CREATE TABLE IF NOT EXISTS SERVERS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(128) NOT NULL,
@@ -1210,7 +1021,6 @@ export async function generateDBTables() {
         )`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,
-        `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONTENT_PUBLISHER_SERVICE}', 'publish images and videos to Instagram LinkedIn YouTube', 0.00);`,
         `INSERT IGNORE INTO USERS (full_name, email, super_admin) VALUES ('Admin', 'support@hammerbyte.co.in', TRUE);`,
         `INSERT IGNORE INTO CONTRACT_ATTACHMENTS (title) VALUES ('Signature'), ('Selfie'), ('Aadhar'), ('PAN'), ('Passport');`,
         `INSERT IGNORE INTO ROLES (title) VALUES ('ADMIN');`,
