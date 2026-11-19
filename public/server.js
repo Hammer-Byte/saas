@@ -462,6 +462,8 @@
                 cooldown_seconds: Number(document.getElementById("metricer-cooldown")?.value || 900),
                 ram_enabled: Boolean(document.getElementById("metricer-ram-enabled")?.checked),
                 ram_percent: Number(document.getElementById("metricer-ram-percent")?.value || 90),
+                cpu_enabled: Boolean(document.getElementById("metricer-cpu-enabled")?.checked),
+                cpu_percent: Number(document.getElementById("metricer-cpu-percent")?.value || 90),
                 storage_enabled: Boolean(document.getElementById("metricer-storage-enabled")?.checked),
                 storage_percent: Number(document.getElementById("metricer-storage-percent")?.value || 90),
                 temp_enabled: Boolean(document.getElementById("metricer-temp-enabled")?.checked),

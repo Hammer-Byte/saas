@@ -12,6 +12,8 @@ export const DEFAULT_ALERT_CONFIG = {
         cooldown_seconds: 900,
         ram_enabled: true,
         ram_percent: 90,
+        cpu_enabled: true,
+        cpu_percent: 90,
         storage_enabled: true,
         storage_percent: 90,
         temp_enabled: false,
@@ -134,6 +136,12 @@ export function parseAlertConfig(raw) {
                 max: 100,
                 fallback: DEFAULT_ALERT_CONFIG.metricer.ram_percent,
             }),
+            cpu_enabled: metricerIn.cpu_enabled !== false,
+            cpu_percent: clampInt(metricerIn.cpu_percent, {
+                min: 1,
+                max: 100,
+                fallback: DEFAULT_ALERT_CONFIG.metricer.cpu_percent,
+            }),
             storage_enabled: metricerIn.storage_enabled !== false,
             storage_percent: clampInt(metricerIn.storage_percent, {
                 min: 1,
@@ -192,6 +200,20 @@ export function memoryUsagePercent(payload) {
         return null;
     }
     return Math.min(100, (used / total) * 100);
+}
+
+/** CPU utilization % from Metricer payload (`cpu.usagePercent`). */
+export function cpuUsagePercent(payload) {
+    const cpu = payload?.cpu;
+    if (!cpu || typeof cpu !== "object") {
+        return null;
+    }
+    const raw = cpu.usagePercent ?? cpu.percent ?? cpu.usage;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) {
+        return null;
+    }
+    return Math.min(100, n);
 }
 
 export function storageOverThreshold(payload, percentThreshold) {

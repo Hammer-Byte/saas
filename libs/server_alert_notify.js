@@ -5,6 +5,7 @@ import {
 } from "../db/servers.js";
 import {
     cooldownElapsed,
+    cpuUsagePercent,
     maxTemperatureCelsius,
     memoryUsagePercent,
     parseAlertConfig,
@@ -108,6 +109,33 @@ export async function evaluateMetricerAlerts({ server, payload }) {
                 });
                 state = await stampAlertState(server.id, state, "metricer_ram");
                 logger.info(`server #${server.id} metricer RAM alert sent (${detail})`);
+            }
+        }
+
+        if (metricer.cpu_enabled) {
+            const cpuPct = cpuUsagePercent(payload);
+            if (
+                cpuPct != null &&
+                cpuPct >= metricer.cpu_percent &&
+                cooldownElapsed(state.metricer_cpu, cooldown)
+            ) {
+                const detail = `CPU usage ${cpuPct.toFixed(1)}% (threshold ${metricer.cpu_percent}%)`;
+                notifySection({
+                    server,
+                    recipients: metricer.recipients,
+                    subject: `Server CPU alert — ${server.name}`,
+                    htmlBuilder: (recipientName) =>
+                        metricEmailHtml({
+                            recipientName,
+                            server,
+                            alertTitle: "CPU",
+                            alertDetail: detail,
+                            capturedAt,
+                        }),
+                    smsMessage: `HammerByte: ${server.name} CPU ${cpuPct.toFixed(0)}% >= ${metricer.cpu_percent}%`,
+                });
+                state = await stampAlertState(server.id, state, "metricer_cpu");
+                logger.info(`server #${server.id} metricer CPU alert sent (${detail})`);
             }
         }
 
