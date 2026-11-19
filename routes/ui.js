@@ -679,6 +679,7 @@ export const uiRoutes = new Elysia()
                 }
                 return render("server", appPage(session, {
                     title: `${server.name} — Servers — HammerByte`,
+                    projects: await getAllCustomerProjects(),
                     ...(await buildServerPageData(server)),
                 }));
             })

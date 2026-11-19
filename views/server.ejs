@@ -24,18 +24,21 @@
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
                 <div>
                     <h1 class="h3 mb-1"><%= server.name %></h1>
-                    <p class="text-secondary mb-0">
-                        <%= server.location %>
-                        <% if (server.project_id) { %>
-                            · <%= server.project_title || ("Project #" + server.project_id) %><% if (server.customer_name) { %> — <%= server.customer_name %><% } %>
-                        <% } %>
-                    </p>
+                    <p class="text-secondary mb-0"><%= server.location %></p>
                 </div>
                 <a href="/app/servers" class="btn btn-outline-secondary">Back to servers</a>
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm mb-4">
+        <div
+            class="card border-0 shadow-sm mb-4"
+            id="server-project-card"
+            data-id="<%= server.id %>"
+            data-name="<%= server.name %>"
+            data-location="<%= server.location %>"
+            data-active="<%= server.active ? '1' : '0' %>"
+            data-notes="<%= server.notes || '' %>"
+        >
             <div class="card-body p-4">
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
                     <h2 class="h5 mb-0">Status</h2>
@@ -48,6 +51,30 @@
                     <% } %>
                 </div>
                 <div class="row g-3 small">
+                    <div class="col-12">
+                        <div class="text-secondary mb-1">Project</div>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <select
+                                class="form-select form-select-sm"
+                                id="server-project-select"
+                                style="max-width: 28rem;"
+                            >
+                                <option value="">No project</option>
+                                <% (projects || []).forEach(function (project) { %>
+                                    <option
+                                        value="<%= project.id %>"
+                                        <%= Number(server.project_id) === Number(project.id) ? "selected" : "" %>
+                                    >
+                                        <%= project.title %><% if (project.customer_name) { %> — <%= project.customer_name %><% } %>
+                                    </option>
+                                <% }) %>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-primary" id="server-project-save-btn">
+                                Save
+                            </button>
+                            <span class="small d-none" id="server-project-feedback" role="status"></span>
+                        </div>
+                    </div>
                     <div class="col-md-6">
                         <div class="text-secondary">Tag</div>
                         <code><%= server.tag %></code>
