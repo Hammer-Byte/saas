@@ -720,6 +720,19 @@ export async function generateDBTables() {
         `ALTER TABLE GEM_TENDERS DROP COLUMN ai_confidence`,
         `ALTER TABLE GEM_TENDERS DROP COLUMN ai_analyzed`,
         `DROP TABLE IF EXISTS GEM_TENDER_AI_SETTINGS`,
+        `CREATE TABLE IF NOT EXISTS GEM_PUBLIC_TEXTS (
+            id INT PRIMARY KEY,
+            scope_text TEXT NOT NULL,
+            rules_text TEXT NOT NULL,
+            updated_by INT NULL,
+            updated_on DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_gem_public_texts_user
+                FOREIGN KEY (updated_by)
+                REFERENCES USERS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        )`,
+        `INSERT IGNORE INTO GEM_PUBLIC_TEXTS (id, scope_text, rules_text) VALUES (1, '', '')`,
         `CREATE TABLE IF NOT EXISTS GEM_TENDER_SCAN_RUNS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             status VARCHAR(32) NOT NULL DEFAULT 'running',

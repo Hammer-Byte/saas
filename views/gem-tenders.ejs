@@ -79,6 +79,20 @@
             <div class="d-flex flex-wrap align-items-center gap-2">
                 <button
                     type="button"
+                    class="btn btn-link text-decoration-none px-1"
+                    id="gem-tenders-scope-btn"
+                >
+                    Scope
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-link text-decoration-none px-1"
+                    id="gem-tenders-rules-btn"
+                >
+                    Rules
+                </button>
+                <button
+                    type="button"
                     class="btn btn-outline-secondary rounded-circle gem-tenders-refresh-btn"
                     id="gem-tenders-refresh-btn"
                     title="Refresh tenders"
@@ -1270,6 +1284,37 @@
                     <button type="submit" class="btn btn-primary" id="gem-add-tender-submit-btn">
                         Scan &amp; add
                     </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="gem-public-text-modal" tabindex="-1" aria-labelledby="gem-public-text-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <form id="gem-public-text-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="gem-public-text-modal-label">Edit text</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="gem-public-text-alert" class="alert d-none" role="alert"></div>
+                    <label for="gem-public-text-body" class="form-label" id="gem-public-text-field-label">Text</label>
+                    <textarea
+                        class="form-control font-monospace"
+                        id="gem-public-text-body"
+                        rows="16"
+                        maxlength="100000"
+                        spellcheck="true"
+                    ></textarea>
+                    <div class="form-text">
+                        Public at <code id="gem-public-text-public-path">/api/…</code> (plain text).
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="gem-public-text-save-btn">Save</button>
                 </div>
             </form>
         </div>

@@ -1828,6 +1828,104 @@
         setBulkStatus(`${payload.message || "Some tenders could not be changed"}. Still selected:`, "danger", failures);
     }
 
+    // ---------- Scope / Rules public texts ----------
+    const scopeBtn = document.getElementById("gem-tenders-scope-btn");
+    const rulesBtn = document.getElementById("gem-tenders-rules-btn");
+    const publicTextModalEl = document.getElementById("gem-public-text-modal");
+    const publicTextForm = document.getElementById("gem-public-text-form");
+    const publicTextTitle = document.getElementById("gem-public-text-modal-label");
+    const publicTextFieldLabel = document.getElementById("gem-public-text-field-label");
+    const publicTextBody = document.getElementById("gem-public-text-body");
+    const publicTextPath = document.getElementById("gem-public-text-public-path");
+    const publicTextAlert = document.getElementById("gem-public-text-alert");
+    const publicTextSaveBtn = document.getElementById("gem-public-text-save-btn");
+    let publicTextField = null;
+    let publicTextModal = null;
+    if (publicTextModalEl && window.bootstrap?.Modal) {
+        publicTextModal = window.bootstrap.Modal.getOrCreateInstance(publicTextModalEl);
+    }
+
+    function showPublicTextAlert(message, type = "danger") {
+        if (!publicTextAlert) return;
+        publicTextAlert.textContent = message || "";
+        publicTextAlert.className = `alert alert-${type}`;
+        publicTextAlert.classList.toggle("d-none", !message);
+    }
+
+    async function openPublicTextEditor(field) {
+        publicTextField = field === "rules_text" ? "rules_text" : "scope_text";
+        const isRules = publicTextField === "rules_text";
+        if (publicTextTitle) publicTextTitle.textContent = isRules ? "Rules" : "Scope";
+        if (publicTextFieldLabel) {
+            publicTextFieldLabel.textContent = isRules ? "Rules text" : "Scope text";
+        }
+        if (publicTextPath) {
+            publicTextPath.textContent = isRules ? "/api/rules" : "/api/scope";
+        }
+        if (publicTextBody) publicTextBody.value = "";
+        showPublicTextAlert("");
+        if (publicTextSaveBtn) publicTextSaveBtn.disabled = true;
+        publicTextModal?.show();
+
+        try {
+            const response = await fetch("/api/gem-tenders/texts", {
+                method: "GET",
+                credentials: "same-origin",
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showPublicTextAlert(data.error || "Failed to load text.");
+                return;
+            }
+            if (publicTextBody) {
+                publicTextBody.value = data.texts?.[publicTextField] || "";
+            }
+        } catch (error) {
+            console.error(error);
+            showPublicTextAlert("Failed to load text.");
+        } finally {
+            if (publicTextSaveBtn) publicTextSaveBtn.disabled = false;
+        }
+    }
+
+    scopeBtn?.addEventListener("click", () => {
+        void openPublicTextEditor("scope_text");
+    });
+    rulesBtn?.addEventListener("click", () => {
+        void openPublicTextEditor("rules_text");
+    });
+
+    publicTextForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!publicTextField) return;
+        const value = publicTextBody?.value ?? "";
+        if (publicTextSaveBtn) publicTextSaveBtn.disabled = true;
+        showPublicTextAlert("");
+        try {
+            const response = await fetch("/api/gem-tenders/texts", {
+                method: "PUT",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ [publicTextField]: value }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showPublicTextAlert(data.error || "Failed to save.");
+                return;
+            }
+            if (publicTextBody) {
+                publicTextBody.value = data.texts?.[publicTextField] ?? value;
+            }
+            publicTextModal?.hide();
+            window.alert(data.message || "Saved.");
+        } catch (error) {
+            console.error(error);
+            showPublicTextAlert("Failed to save.");
+        } finally {
+            if (publicTextSaveBtn) publicTextSaveBtn.disabled = false;
+        }
+    });
+
     // Wait until layout/filters settle so users don't see a half-filtered flash.
     window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {

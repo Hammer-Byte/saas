@@ -16,6 +16,10 @@ import {
     updateGemTender,
 } from "../../services/gem_tenders.js";
 import { fileGemTender } from "../../services/gem_tender_documents.js";
+import {
+    getGemPublicTextsApi,
+    updateGemPublicTextsApi,
+} from "../../services/gem_public_texts.js";
 
 /** Filed is excluded: it goes through POST /:id/file with documents. */
 const gemTenderManualStageLiteral = t.Union([
@@ -50,6 +54,22 @@ export default function (app) {
             detail: {
                 tags: ["GEM Tenders"],
                 summary: "Find GEM tenders by tender ID, buyer, category or assignee across all dates",
+            },
+        })
+        .get("/texts", getGemPublicTextsApi, {
+            detail: {
+                tags: ["GEM Tenders"],
+                summary: "Get editable scope and rules free texts",
+            },
+        })
+        .put("/texts", updateGemPublicTextsApi, {
+            body: t.Object({
+                scope_text: t.Optional(t.String({ maxLength: 100000 })),
+                rules_text: t.Optional(t.String({ maxLength: 100000 })),
+            }),
+            detail: {
+                tags: ["GEM Tenders"],
+                summary: "Update scope and/or rules free texts",
             },
         })
         .post("/bulk-change-stage", bulkChangeGemTenderStages, {

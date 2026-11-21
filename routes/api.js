@@ -52,12 +52,28 @@ import monitoredServers from "./apps/monitored_servers.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 import requireApiSession from "../middlewares/require_api_session.js";
+import {
+    getPublicRulesText,
+    getPublicScopeText,
+} from "../services/gem_public_texts.js";
 
 export const apiRoutes = new Elysia({ prefix: "/api" })
     .get("/status", () => ({
         status: "online",
         runtime: "Bun",
     }))
+    .get("/scope", getPublicScopeText, {
+        detail: {
+            tags: ["Public"],
+            summary: "Public free-text scope document",
+        },
+    })
+    .get("/rules", getPublicRulesText, {
+        detail: {
+            tags: ["Public"],
+            summary: "Public free-text rules document",
+        },
+    })
     .group("/authentication", authentication)
     .group("/user-authentication-tokens", userAuthenticationTokens)
     .group("/inquiries", inquiries)
