@@ -13,6 +13,7 @@ import {
     getServerByMappedTag,
     getServerByUnmappedOtp,
     markServerTagMappedById,
+    unmapServerTagById,
     updateServerAlertConfigById,
     updateServerById,
 } from "../db/servers.js";
@@ -280,6 +281,24 @@ export async function deleteServer({ params, set }) {
 
     await deleteServerById({ id: params.id });
     set.status = 204;
+}
+
+export async function unmapServerTag({ params, set }) {
+    const id = Number(params.id);
+    const existingServer = await getServerById({ id });
+    if (!existingServer) {
+        set.status = 404;
+        return { error: "Server not found" };
+    }
+    if (!existingServer.tag_mapped) {
+        set.status = 200;
+        return { message: "Tag already unmapped", server: existingServer };
+    }
+
+    await unmapServerTagById({ id });
+    const server = await getServerById({ id });
+    set.status = 200;
+    return { message: "Tag unmapped", server };
 }
 
 export async function loadServerAlertCandidates({ server }) {

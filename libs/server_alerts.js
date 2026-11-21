@@ -16,6 +16,7 @@ export const DEFAULT_ALERT_CONFIG = {
         cpu_percent: 90,
         storage_enabled: true,
         storage_percent: 90,
+        storage_drives: [],
         temp_enabled: false,
         temp_celsius: 80,
         recipients: [],
@@ -87,6 +88,23 @@ function normalizeRecipients(raw) {
     return out;
 }
 
+function normalizeStorageDrives(raw) {
+    if (!Array.isArray(raw)) {
+        return [];
+    }
+    const out = [];
+    const seen = new Set();
+    for (const entry of raw.slice(0, 64)) {
+        const name = String(entry || "").trim().slice(0, 128);
+        if (!name) continue;
+        const key = name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(name);
+    }
+    return out;
+}
+
 export function parseAlertConfig(raw) {
     if (!raw) {
         return structuredClone(DEFAULT_ALERT_CONFIG);
@@ -148,6 +166,7 @@ export function parseAlertConfig(raw) {
                 max: 100,
                 fallback: DEFAULT_ALERT_CONFIG.metricer.storage_percent,
             }),
+            storage_drives: normalizeStorageDrives(metricerIn.storage_drives),
             temp_enabled: Boolean(metricerIn.temp_enabled),
             temp_celsius: clampInt(metricerIn.temp_celsius, {
                 min: 1,
@@ -216,11 +235,23 @@ export function cpuUsagePercent(payload) {
     return Math.min(100, n);
 }
 
-export function storageOverThreshold(payload, percentThreshold) {
+export function storageOverThreshold(payload, percentThreshold, driveNames = null) {
     const storage = Array.isArray(payload?.storage) ? payload.storage : [];
+    const selected =
+        Array.isArray(driveNames) && driveNames.length
+            ? new Set(driveNames.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean))
+            : null;
+    // Empty selection = alert on no drives (explicit opt-in per drive).
+    if (Array.isArray(driveNames) && driveNames.length === 0) {
+        return [];
+    }
     const offenders = [];
     for (const disk of storage) {
         if (String(disk?.type || "") !== "Fixed") {
+            continue;
+        }
+        const name = String(disk.name || "").trim();
+        if (selected && !selected.has(name.toLowerCase())) {
             continue;
         }
         const total = Number(disk.totalGb);
@@ -231,7 +262,7 @@ export function storageOverThreshold(payload, percentThreshold) {
         const usedPct = Math.min(100, ((total - free) / total) * 100);
         if (usedPct >= percentThreshold) {
             offenders.push({
-                name: disk.name || "—",
+                name: name || "—",
                 label: disk.label || "",
                 used_percent: Math.round(usedPct * 10) / 10,
                 free_gb: Math.round(free * 10) / 10,
@@ -240,6 +271,26 @@ export function storageOverThreshold(payload, percentThreshold) {
         }
     }
     return offenders;
+}
+
+/** Fixed volumes from a metrics payload for alert UI checklists. */
+export function listFixedStorageDrives(payload) {
+    const storage = Array.isArray(payload?.storage) ? payload.storage : [];
+    const out = [];
+    const seen = new Set();
+    for (const disk of storage) {
+        if (String(disk?.type || "") !== "Fixed") continue;
+        const name = String(disk.name || "").trim();
+        if (!name) continue;
+        const key = name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({
+            name,
+            label: String(disk.label || "").trim(),
+        });
+    }
+    return out;
 }
 
 export function maxTemperatureCelsius(payload) {

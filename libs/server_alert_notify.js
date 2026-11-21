@@ -234,7 +234,11 @@ export async function evaluateMetricerAlerts({ server, payload }) {
     // --- Storage (independent) ---
     if (metricer.storage_enabled) {
         try {
-            const offenders = storageOverThreshold(payload, metricer.storage_percent);
+            const offenders = storageOverThreshold(
+                payload,
+                metricer.storage_percent,
+                metricer.storage_drives,
+            );
             if (!offenders.length) {
                 logger.info(`server #${server.id} metricer storage ok: under ${metricer.storage_percent}%`);
             } else if (!cooldownElapsed(state.metricer_storage, cooldown)) {

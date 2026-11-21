@@ -38,18 +38,10 @@
             data-location="<%= server.location %>"
             data-active="<%= server.active ? '1' : '0' %>"
             data-notes="<%= server.notes || '' %>"
+            data-tag-mapped="<%= server.tag_mapped ? '1' : '0' %>"
         >
             <div class="card-body p-4">
-                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
-                    <h2 class="h5 mb-0">Status</h2>
-                    <% if (aliveStatus === "alive") { %>
-                        <span class="badge text-bg-success">Alive</span>
-                    <% } else if (aliveStatus === "offline") { %>
-                        <span class="badge text-bg-danger">Offline</span>
-                    <% } else { %>
-                        <span class="badge text-bg-secondary">No ping yet</span>
-                    <% } %>
-                </div>
+                <h2 class="h5 mb-3">Server</h2>
                 <div class="row g-3 small">
                     <div class="col-12">
                         <div class="text-secondary mb-1">Project</div>
@@ -76,13 +68,20 @@
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="text-secondary">Tag</div>
-                        <code><%= server.tag %></code>
-                        <% if (server.tag_mapped) { %>
-                            <span class="badge text-bg-success ms-1">mapped</span>
-                        <% } else { %>
-                            <span class="badge text-bg-warning ms-1">pending</span>
-                        <% } %>
+                        <div class="text-secondary mb-1">Tag</div>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <code><%= server.tag %></code>
+                            <span
+                                id="server-tag-mapped-badge"
+                                class="badge <%= server.tag_mapped ? 'text-bg-success' : 'text-bg-warning' %>"
+                            ><%= server.tag_mapped ? "mapped" : "pending" %></span>
+                            <% if (server.tag_mapped) { %>
+                                <button type="button" class="btn btn-sm btn-outline-warning" id="server-unmap-tag-btn">
+                                    Unmap
+                                </button>
+                            <% } %>
+                            <span class="small d-none" id="server-unmap-feedback" role="status"></span>
+                        </div>
                     </div>
                     <div class="col-md-3">
                         <div class="text-secondary">OTP</div>
@@ -92,6 +91,23 @@
                         <div class="text-secondary">Active</div>
                         <%= server.active ? "Yes" : "No" %>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+                    <h2 class="h5 mb-0">Ping</h2>
+                    <% if (aliveStatus === "alive") { %>
+                        <span class="badge text-bg-success">Alive</span>
+                    <% } else if (aliveStatus === "offline") { %>
+                        <span class="badge text-bg-danger">Offline</span>
+                    <% } else { %>
+                        <span class="badge text-bg-secondary">No ping yet</span>
+                    <% } %>
+                </div>
+                <div class="row g-3 small">
                     <div class="col-md-6">
                         <div class="text-secondary">Last ping</div>
                         <% if (latestPing) { %>
@@ -394,127 +410,140 @@
                 <h2 class="h5 mb-0">Services</h2>
             </div>
             <div class="card-body px-4 pb-4">
-                <h3 class="h6">Dataer</h3>
-                <% if (!dataerRuns || !dataerRuns.length) { %>
-                    <p class="text-secondary small">No Dataer runs yet.</p>
-                <% } else { %>
-                    <div class="table-responsive mb-4">
-                        <table class="table table-sm table-hover align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Received</th>
-                                    <th>Finished</th>
-                                    <th>Host</th>
-                                    <th>Remote → Local</th>
-                                    <th>Success</th>
-                                    <th>Result</th>
-                                    <th>Duration</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% dataerRuns.forEach(function (run) { %>
-                                    <tr>
-                                        <td
-                                            data-readable-date="<%= run.received_on || '' %>"
-                                            data-date-format="DD/MM/YYYY HH:mm:ss"
-                                        ><%= run.received_on || "—" %></td>
-                                        <td><%= run.finished_at || "—" %></td>
-                                        <td><%= run.host || "—" %></td>
-                                        <td class="small">
-                                            <div><%= run.remote || "—" %></div>
-                                            <div class="text-secondary">→ <%= run.local_path || "—" %></div>
-                                        </td>
-                                        <td>
-                                            <% if (run.success) { %>
-                                                <span class="badge text-bg-success">ok</span>
-                                            <% } else if (run.success === false || run.success === 0) { %>
-                                                <span class="badge text-bg-danger">fail</span>
-                                            <% } else { %>
-                                                <span class="badge text-bg-secondary">—</span>
-                                            <% } %>
-                                        </td>
-                                        <td class="small"><%= run.result || "—" %></td>
-                                        <td><%= run.duration_seconds != null ? Number(run.duration_seconds).toFixed(1) + "s" : "—" %></td>
-                                        <td class="text-end">
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-outline-secondary run-detail-btn"
-                                                data-title="Dataer run detail"
-                                                data-detail="<%= encodeURIComponent(run.detail || '') %>"
-                                            >Detail</button>
-                                        </td>
-                                    </tr>
-                                <% }) %>
-                            </tbody>
-                        </table>
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="services-tab-dataer" data-bs-toggle="tab" data-bs-target="#services-pane-dataer" type="button" role="tab">Dataer</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="services-tab-dber" data-bs-toggle="tab" data-bs-target="#services-pane-dber" type="button" role="tab">DBer</button>
+                    </li>
+                </ul>
+                <div class="tab-content pt-3">
+                    <div class="tab-pane fade show active" id="services-pane-dataer" role="tabpanel">
+                        <% if (!dataerRuns || !dataerRuns.length) { %>
+                            <p class="text-secondary small mb-0">No Dataer runs yet.</p>
+                        <% } else { %>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Received</th>
+                                            <th>Finished</th>
+                                            <th>Host</th>
+                                            <th>Remote → Local</th>
+                                            <th>Status</th>
+                                            <th>Result</th>
+                                            <th>Duration</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% dataerRuns.forEach(function (run) { %>
+                                            <tr>
+                                                <td
+                                                    data-readable-date="<%= run.received_on || '' %>"
+                                                    data-date-format="DD/MM/YYYY HH:mm:ss"
+                                                ><%= run.received_on || "—" %></td>
+                                                <td><%= run.finished_at || "—" %></td>
+                                                <td><%= run.host || "—" %></td>
+                                                <td class="small">
+                                                    <div><%= run.remote || "—" %></div>
+                                                    <div class="text-secondary">→ <%= run.local_path || "—" %></div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge <%= run.run_status_badge || 'text-bg-secondary' %>"><%= run.run_status_label || "—" %></span>
+                                                </td>
+                                                <td class="small"><%= run.result || "—" %></td>
+                                                <td><%= run.duration_seconds != null ? Number(run.duration_seconds).toFixed(1) + "s" : "—" %></td>
+                                                <td class="text-end">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-outline-secondary run-detail-btn"
+                                                        title="Run detail"
+                                                        aria-label="Run detail"
+                                                        data-title="Dataer run detail"
+                                                        data-detail="<%= encodeURIComponent(run.detail || '') %>"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+                                                            <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.195-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/>
+                                                        </svg>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        <% }) %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <% } %>
                     </div>
-                <% } %>
-
-                <h3 class="h6">DBer</h3>
-                <% if (!dberRuns || !dberRuns.length) { %>
-                    <p class="text-secondary small mb-0">No DBer runs yet.</p>
-                <% } else { %>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Received</th>
-                                    <th>Finished</th>
-                                    <th>From</th>
-                                    <th>To</th>
-                                    <th>Success</th>
-                                    <th>Result</th>
-                                    <th>Duration</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% dberRuns.forEach(function (run) { %>
-                                    <tr>
-                                        <td
-                                            data-readable-date="<%= run.received_on || '' %>"
-                                            data-date-format="DD/MM/YYYY HH:mm:ss"
-                                        ><%= run.received_on || "—" %></td>
-                                        <td><%= run.finished_at || "—" %></td>
-                                        <td class="small">
-                                            <div><%= run.from_host || "—" %></div>
-                                            <div class="text-secondary"><%= run.from_database || "—" %></div>
-                                        </td>
-                                        <td class="small">
-                                            <div><%= run.to_host || "—" %></div>
-                                            <div class="text-secondary"><%= run.to_database || "—" %></div>
-                                        </td>
-                                        <td>
-                                            <% if (run.success) { %>
-                                                <span class="badge text-bg-success">ok</span>
-                                            <% } else if (run.success === false || run.success === 0) { %>
-                                                <span class="badge text-bg-danger">fail</span>
-                                            <% } else { %>
-                                                <span class="badge text-bg-secondary">—</span>
-                                            <% } %>
-                                        </td>
-                                        <td class="small">
-                                            <div><%= run.result || "—" %></div>
-                                            <% if (run.bacpac_path) { %>
-                                                <div class="text-secondary"><code class="small"><%= run.bacpac_path %></code></div>
-                                            <% } %>
-                                        </td>
-                                        <td><%= run.duration_seconds != null ? Number(run.duration_seconds).toFixed(1) + "s" : "—" %></td>
-                                        <td class="text-end">
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-outline-secondary run-detail-btn"
-                                                data-title="DBer run detail"
-                                                data-detail="<%= encodeURIComponent(run.detail || '') %>"
-                                            >Detail</button>
-                                        </td>
-                                    </tr>
-                                <% }) %>
-                            </tbody>
-                        </table>
+                    <div class="tab-pane fade" id="services-pane-dber" role="tabpanel">
+                        <% if (!dberRuns || !dberRuns.length) { %>
+                            <p class="text-secondary small mb-0">No DBer runs yet.</p>
+                        <% } else { %>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Received</th>
+                                            <th>Finished</th>
+                                            <th>From</th>
+                                            <th>To</th>
+                                            <th>Status</th>
+                                            <th>Result</th>
+                                            <th>Duration</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% dberRuns.forEach(function (run) { %>
+                                            <tr>
+                                                <td
+                                                    data-readable-date="<%= run.received_on || '' %>"
+                                                    data-date-format="DD/MM/YYYY HH:mm:ss"
+                                                ><%= run.received_on || "—" %></td>
+                                                <td><%= run.finished_at || "—" %></td>
+                                                <td class="small">
+                                                    <div><%= run.from_host || "—" %></div>
+                                                    <div class="text-secondary"><%= run.from_database || "—" %></div>
+                                                </td>
+                                                <td class="small">
+                                                    <div><%= run.to_host || "—" %></div>
+                                                    <div class="text-secondary"><%= run.to_database || "—" %></div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge <%= run.run_status_badge || 'text-bg-secondary' %>"><%= run.run_status_label || "—" %></span>
+                                                </td>
+                                                <td class="small">
+                                                    <div><%= run.result || "—" %></div>
+                                                    <% if (run.bacpac_path) { %>
+                                                        <div class="text-secondary"><code class="small"><%= run.bacpac_path %></code></div>
+                                                    <% } %>
+                                                </td>
+                                                <td><%= run.duration_seconds != null ? Number(run.duration_seconds).toFixed(1) + "s" : "—" %></td>
+                                                <td class="text-end">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-outline-secondary run-detail-btn"
+                                                        title="Run detail"
+                                                        aria-label="Run detail"
+                                                        data-title="DBer run detail"
+                                                        data-detail="<%= encodeURIComponent(run.detail || '') %>"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+                                                            <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.195-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/>
+                                                        </svg>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        <% }) %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <% } %>
                     </div>
-                <% } %>
+                </div>
             </div>
         </div>
 
@@ -623,6 +652,7 @@
     data-server-id="<%= server.id %>"
     data-alert-config="<%= encodeURIComponent(JSON.stringify(alertCfg)) %>"
     data-alert-candidates="<%= encodeURIComponent(JSON.stringify(candidates)) %>"
+    data-storage-drives="<%= encodeURIComponent(JSON.stringify(Array.isArray(metricStorageDrives) ? metricStorageDrives : [])) %>"
 >
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -765,6 +795,40 @@
                                 <label class="form-label small" for="metricer-cooldown">Cool off (seconds)</label>
                                 <input type="number" class="form-control form-control-sm" id="metricer-cooldown" min="60" max="86400" value="<%= metricerCfg.cooldown_seconds || 900 %>" />
                             </div>
+                            <div class="col-12">
+                                <div class="small fw-semibold mb-1">Storage drives</div>
+                                <p class="text-secondary small mb-2">Only selected Fixed volumes are checked against the storage % threshold.</p>
+                                <div id="metricer-storage-drives" class="border rounded p-2">
+                                    <%
+                                        const storageDriveOptions = Array.isArray(metricStorageDrives) ? metricStorageDrives : [];
+                                        const selectedDrives = Array.isArray(metricerCfg.storage_drives) ? metricerCfg.storage_drives : [];
+                                        const selectedDriveSet = new Set(selectedDrives.map(function (name) { return String(name || "").toLowerCase(); }));
+                                    %>
+                                    <% if (!storageDriveOptions.length) { %>
+                                        <p class="text-secondary small mb-0">No Fixed drives in latest metrics yet.</p>
+                                    <% } else { %>
+                                        <div class="row g-2">
+                                            <% storageDriveOptions.forEach(function (drive, index) {
+                                                const checked = selectedDriveSet.has(String(drive.name || "").toLowerCase());
+                                                const driveLabel = drive.name + (drive.label ? (" (" + drive.label + ")") : "");
+                                            %>
+                                                <div class="col-md-6">
+                                                    <div class="form-check mb-0">
+                                                        <input
+                                                            class="form-check-input metricer-storage-drive"
+                                                            type="checkbox"
+                                                            id="metricer-storage-drive-<%= index %>"
+                                                            value="<%= drive.name %>"
+                                                            <%= checked ? "checked" : "" %>
+                                                        />
+                                                        <label class="form-check-label small" for="metricer-storage-drive-<%= index %>"><%= driveLabel %></label>
+                                                    </div>
+                                                </div>
+                                            <% }) %>
+                                        </div>
+                                    <% } %>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -788,6 +852,7 @@
                 <pre class="small mb-0" id="run-detail-body" style="white-space: pre-wrap;"></pre>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" id="run-detail-copy-btn">Copy</button>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>

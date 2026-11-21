@@ -7,10 +7,30 @@ import { getCustomerEmailsByCustomerId } from "../db/customer_emails.js";
 import { getCustomerPhonesByCustomerId } from "../db/customer_phones.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
 import { serverAlertKindLabel } from "./server_alert_kinds.js";
-import { buildAlertCandidates, parseAlertConfig } from "./server_alerts.js";
+import { buildAlertCandidates, listFixedStorageDrives, parseAlertConfig } from "./server_alerts.js";
+import {
+    resolveServiceRunStatus,
+    serviceRunStatusBadgeClass,
+    serviceRunStatusLabel,
+} from "./server_run_status.js";
 
 const ALIVE_WITHIN_SECONDS = 180;
-const SERVICE_RUN_LIMIT = 25;
+const SERVICE_RUN_LIMIT = 15;
+
+function enrichServiceRuns(runs) {
+    return (Array.isArray(runs) ? runs : []).map((run) => {
+        const run_status = resolveServiceRunStatus({
+            success: run.success,
+            result: run.result,
+        });
+        return {
+            ...run,
+            run_status,
+            run_status_label: serviceRunStatusLabel(run_status),
+            run_status_badge: serviceRunStatusBadgeClass(run_status),
+        };
+    });
+}
 
 function parseMetricPayload(row) {
     if (!row?.payload) {
@@ -75,15 +95,17 @@ export async function buildServerPageData(server, { alertLogStart = null, alertL
         aliveStatus = secondsSincePing <= ALIVE_WITHIN_SECONDS ? "alive" : "offline";
     }
 
+    const metrics = parseMetricPayload(latestMetricRow);
     return {
         server,
         latestPing,
         aliveStatus,
         aliveWithinSeconds: ALIVE_WITHIN_SECONDS,
-        metrics: parseMetricPayload(latestMetricRow),
+        metrics,
         latestMetricReceivedOn: latestMetricRow?.received_on || null,
-        dataerRuns,
-        dberRuns,
+        metricStorageDrives: listFixedStorageDrives(metrics),
+        dataerRuns: enrichServiceRuns(dataerRuns),
+        dberRuns: enrichServiceRuns(dberRuns),
         alertConfig: parseAlertConfig(server.alert_config),
         alertCandidates,
         alertLogs: (alertLogs || []).map((row) => ({

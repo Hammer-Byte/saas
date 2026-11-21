@@ -24,12 +24,43 @@
             const modal = window.bootstrap?.Modal?.getOrCreateInstance(modalElement);
             modal?.show();
         });
+
+        const copyBtn = document.getElementById("run-detail-copy-btn");
+        copyBtn?.addEventListener("click", async () => {
+            const text = detailBody.textContent || "";
+            try {
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const area = document.createElement("textarea");
+                    area.value = text;
+                    document.body.appendChild(area);
+                    area.select();
+                    document.execCommand("copy");
+                    area.remove();
+                }
+                const previous = copyBtn.textContent;
+                copyBtn.textContent = "Copied";
+                setTimeout(() => {
+                    copyBtn.textContent = previous || "Copy";
+                }, 1200);
+            } catch (error) {
+                console.error(error);
+                copyBtn.textContent = "Copy failed";
+                setTimeout(() => {
+                    copyBtn.textContent = "Copy";
+                }, 1200);
+            }
+        });
     }
 
     const projectCard = document.getElementById("server-project-card");
     const projectSelect = document.getElementById("server-project-select");
     const projectSaveBtn = document.getElementById("server-project-save-btn");
     const projectFeedback = document.getElementById("server-project-feedback");
+    const unmapTagBtn = document.getElementById("server-unmap-tag-btn");
+    const unmapFeedback = document.getElementById("server-unmap-feedback");
+    const tagMappedBadge = document.getElementById("server-tag-mapped-badge");
 
     if (projectCard && projectSelect && projectSaveBtn) {
         function showProjectFeedback(message, isError) {
@@ -38,6 +69,50 @@
             projectFeedback.className = `small ${isError ? "text-danger" : "text-success"}`;
             projectFeedback.classList.remove("d-none");
         }
+
+        function showUnmapFeedback(message, isError) {
+            if (!unmapFeedback) return;
+            unmapFeedback.textContent = message;
+            unmapFeedback.className = `small ${isError ? "text-danger" : "text-success"}`;
+            unmapFeedback.classList.remove("d-none");
+        }
+
+        unmapTagBtn?.addEventListener("click", async () => {
+            const id = Number(projectCard.dataset.id);
+            if (!id) {
+                showUnmapFeedback("Missing server id.", true);
+                return;
+            }
+            if (!window.confirm("Unmap this tag? The agent must claim the OTP again to remap.")) {
+                return;
+            }
+            unmapTagBtn.disabled = true;
+            showUnmapFeedback("Unmapping…", false);
+            try {
+                const response = await fetch(`/api/monitored-servers/${id}/unmap`, {
+                    method: "PATCH",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    showUnmapFeedback(data.error || "Failed to unmap tag.", true);
+                    return;
+                }
+                projectCard.dataset.tagMapped = "0";
+                if (tagMappedBadge) {
+                    tagMappedBadge.className = "badge text-bg-warning";
+                    tagMappedBadge.textContent = "pending";
+                }
+                unmapTagBtn.classList.add("d-none");
+                showUnmapFeedback(data.message || "Tag unmapped", false);
+            } catch (error) {
+                console.error(error);
+                showUnmapFeedback("Failed to unmap tag.", true);
+            } finally {
+                unmapTagBtn.disabled = false;
+            }
+        });
 
         projectSaveBtn.addEventListener("click", async () => {
             const id = Number(projectCard.dataset.id);
@@ -466,6 +541,9 @@
                 cpu_percent: Number(document.getElementById("metricer-cpu-percent")?.value || 90),
                 storage_enabled: Boolean(document.getElementById("metricer-storage-enabled")?.checked),
                 storage_percent: Number(document.getElementById("metricer-storage-percent")?.value || 90),
+                storage_drives: Array.from(
+                    document.querySelectorAll("#metricer-storage-drives .metricer-storage-drive:checked"),
+                ).map((input) => input.value.trim()).filter(Boolean),
                 temp_enabled: Boolean(document.getElementById("metricer-temp-enabled")?.checked),
                 temp_celsius: Number(document.getElementById("metricer-temp-celsius")?.value || 80),
                 recipients: readRecipients(metricerRecipientsEl),

@@ -2,6 +2,7 @@ import { t } from "elysia";
 import {
     addServer,
     deleteServer,
+    unmapServerTag,
     updateServer,
     updateServerAlerts,
 } from "../../services/servers.js";
@@ -77,6 +78,15 @@ export default function (app) {
             detail: {
                 tags: ["Monitored Servers"],
                 summary: "Update server alert configuration",
+            },
+        })
+        .patch("/:id/unmap", unmapServerTag, {
+            params: t.Object({
+                id: t.Numeric({ minimum: 1 }),
+            }),
+            detail: {
+                tags: ["Monitored Servers"],
+                summary: "Unmap server tag (set tag_mapped false)",
             },
         });
 }

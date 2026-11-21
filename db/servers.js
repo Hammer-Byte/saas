@@ -64,6 +64,18 @@ export async function markServerTagMappedById({ id }) {
     });
 }
 
+export async function unmapServerTagById({ id }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET tag_mapped = FALSE
+            WHERE id = ${id} AND tag_mapped = TRUE
+        `,
+    ).catch((error) => {
+        logger.error(`unmapServerTagById: ${error}`);
+    });
+}
+
 export async function deleteServerById({ id }) {
     await executeSQLQuery((sql) => sql`DELETE FROM SERVERS WHERE id = ${id}`).catch((error) => {
         logger.error(`deleteServerById: ${error}`);
