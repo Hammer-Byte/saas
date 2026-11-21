@@ -73,5 +73,6 @@ export function serviceRunResultSummary(result) {
     if (!text) {
         return null;
     }
-    return text.replace(/^\s*(Partial|Failed)\s*[·\-–—:]?\s*/i, "").trim() || text;
+    // Keyword + any following spaces / bullets / punctuation (Unicode-safe).
+    return text.replace(/^\s*(Partial|Failed)\b[\s\W_]*/i, "").trim() || text;
 }

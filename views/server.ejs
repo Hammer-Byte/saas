@@ -435,14 +435,14 @@
                             <p class="text-secondary small mb-0">No Dataer runs yet.</p>
                         <% } else { %>
                             <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle mb-0">
+                                <table class="table table-sm table-hover align-middle mb-0 service-runs-table">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>Received</th>
-                                            <th>Finished</th>
+                                            <th class="service-run-when">Received</th>
+                                            <th class="service-run-when">Finished</th>
                                             <th>Host</th>
-                                            <th>Remote → Local</th>
-                                            <th>Status</th>
+                                            <th class="service-run-paths">Remote → Local</th>
+                                            <th class="service-run-status">Status</th>
                                             <th>Duration</th>
                                             <th></th>
                                         </tr>
@@ -451,16 +451,17 @@
                                         <% dataerRuns.forEach(function (run) { %>
                                             <tr>
                                                 <td
+                                                    class="service-run-when"
                                                     data-readable-date="<%= run.received_on || '' %>"
                                                     data-date-format="DD/MM/YYYY HH:mm:ss"
                                                 ><%= run.received_on || "—" %></td>
-                                                <td><%= run.finished_at || "—" %></td>
+                                                <td class="service-run-when"><%= run.finished_at || "—" %></td>
                                                 <td><%= run.host || "—" %></td>
-                                                <td class="small">
+                                                <td class="small service-run-paths">
                                                     <div><%= run.remote || "—" %></div>
                                                     <div class="text-secondary">→ <%= run.local_path || "—" %></div>
                                                 </td>
-                                                <td>
+                                                <td class="service-run-status">
                                                     <span class="badge <%= run.run_status_badge || 'text-bg-secondary' %>"><%= run.run_status_label || "—" %></span>
                                                     <% if (run.run_result_summary) { %>
                                                         <div class="small text-secondary mt-1"><%= run.run_result_summary %></div>
@@ -494,15 +495,14 @@
                             <p class="text-secondary small mb-0">No DBer runs yet.</p>
                         <% } else { %>
                             <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle mb-0">
+                                <table class="table table-sm table-hover align-middle mb-0 service-runs-table">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>Received</th>
-                                            <th>Finished</th>
+                                            <th class="service-run-when">Received</th>
+                                            <th class="service-run-when">Finished</th>
                                             <th>From</th>
                                             <th>To</th>
-                                            <th>Status</th>
-                                            <th>Result</th>
+                                            <th class="service-run-status">Status</th>
                                             <th>Duration</th>
                                             <th></th>
                                         </tr>
@@ -511,10 +511,11 @@
                                         <% dberRuns.forEach(function (run) { %>
                                             <tr>
                                                 <td
+                                                    class="service-run-when"
                                                     data-readable-date="<%= run.received_on || '' %>"
                                                     data-date-format="DD/MM/YYYY HH:mm:ss"
                                                 ><%= run.received_on || "—" %></td>
-                                                <td><%= run.finished_at || "—" %></td>
+                                                <td class="service-run-when"><%= run.finished_at || "—" %></td>
                                                 <td class="small">
                                                     <div><%= run.from_host || "—" %></div>
                                                     <div class="text-secondary"><%= run.from_database || "—" %></div>
@@ -523,13 +524,13 @@
                                                     <div><%= run.to_host || "—" %></div>
                                                     <div class="text-secondary"><%= run.to_database || "—" %></div>
                                                 </td>
-                                                <td>
+                                                <td class="service-run-status">
                                                     <span class="badge <%= run.run_status_badge || 'text-bg-secondary' %>"><%= run.run_status_label || "—" %></span>
-                                                </td>
-                                                <td class="small">
-                                                    <div><%= run.result || "—" %></div>
+                                                    <% if (run.run_result_summary) { %>
+                                                        <div class="small text-secondary mt-1"><%= run.run_result_summary %></div>
+                                                    <% } %>
                                                     <% if (run.bacpac_path) { %>
-                                                        <div class="text-secondary"><code class="small"><%= run.bacpac_path %></code></div>
+                                                        <div class="text-secondary mt-1"><code class="small"><%= run.bacpac_path %></code></div>
                                                     <% } %>
                                                 </td>
                                                 <td><%= run.duration_seconds != null ? Number(run.duration_seconds).toFixed(1) + "s" : "—" %></td>
@@ -904,6 +905,19 @@
     }
     .metrics-details[open] > summary::before {
         content: "▾";
+    }
+    .service-runs-table .service-run-when {
+        width: 1%;
+        white-space: nowrap;
+        font-size: 0.75rem;
+        vertical-align: top;
+    }
+    .service-runs-table .service-run-paths {
+        min-width: 15rem;
+    }
+    .service-runs-table .service-run-status {
+        max-width: 11rem;
+        vertical-align: top;
     }
 </style>
 
