@@ -549,8 +549,8 @@
                 storage_enabled: Boolean(document.getElementById("metricer-storage-enabled")?.checked),
                 storage_percent: Number(document.getElementById("metricer-storage-percent")?.value || 90),
                 storage_drives: Array.from(
-                    document.querySelectorAll("#metricer-storage-drives .metricer-storage-drive:checked"),
-                ).map((input) => input.value.trim()).filter(Boolean),
+                    document.getElementById("metricer-storage-drives")?.selectedOptions || [],
+                ).map((opt) => String(opt.value || "").trim()).filter(Boolean),
                 temp_enabled: Boolean(document.getElementById("metricer-temp-enabled")?.checked),
                 temp_celsius: Number(document.getElementById("metricer-temp-celsius")?.value || 80),
                 recipients: readRecipients(metricerRecipientsEl),

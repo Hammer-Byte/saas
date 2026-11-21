@@ -791,13 +791,6 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="metricer-storage-enabled" <%= metricerCfg.storage_enabled !== false ? "checked" : "" %> />
-                                    <label class="form-check-label" for="metricer-storage-enabled">Storage above %</label>
-                                </div>
-                                <input type="number" class="form-control form-control-sm mt-1" id="metricer-storage-percent" min="1" max="100" value="<%= metricerCfg.storage_percent || 90 %>" />
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="metricer-temp-enabled" <%= metricerCfg.temp_enabled ? "checked" : "" %> />
                                     <label class="form-check-label" for="metricer-temp-enabled">Temperature above °C</label>
                                 </div>
@@ -808,38 +801,37 @@
                                 <input type="number" class="form-control form-control-sm" id="metricer-cooldown" min="60" max="86400" value="<%= metricerCfg.cooldown_seconds || 900 %>" />
                             </div>
                             <div class="col-12">
-                                <div class="small fw-semibold mb-1">Storage drives</div>
-                                <p class="text-secondary small mb-2">Only selected Fixed volumes are checked against the storage % threshold.</p>
-                                <div id="metricer-storage-drives" class="border rounded p-2">
-                                    <%
-                                        const storageDriveOptions = Array.isArray(metricStorageDrives) ? metricStorageDrives : [];
-                                        const selectedDrives = Array.isArray(metricerCfg.storage_drives) ? metricerCfg.storage_drives : [];
-                                        const selectedDriveSet = new Set(selectedDrives.map(function (name) { return String(name || "").toLowerCase(); }));
-                                    %>
-                                    <% if (!storageDriveOptions.length) { %>
-                                        <p class="text-secondary small mb-0">No Fixed drives in latest metrics yet.</p>
-                                    <% } else { %>
-                                        <div class="row g-2">
-                                            <% storageDriveOptions.forEach(function (drive, index) {
-                                                const checked = selectedDriveSet.has(String(drive.name || "").toLowerCase());
-                                                const driveLabel = drive.name + (drive.label ? (" (" + drive.label + ")") : "");
-                                            %>
-                                                <div class="col-md-6">
-                                                    <div class="form-check mb-0">
-                                                        <input
-                                                            class="form-check-input metricer-storage-drive"
-                                                            type="checkbox"
-                                                            id="metricer-storage-drive-<%= index %>"
-                                                            value="<%= drive.name %>"
-                                                            <%= checked ? "checked" : "" %>
-                                                        />
-                                                        <label class="form-check-label small" for="metricer-storage-drive-<%= index %>"><%= driveLabel %></label>
-                                                    </div>
-                                                </div>
-                                            <% }) %>
-                                        </div>
-                                    <% } %>
+                                <%
+                                    const storageDriveOptions = Array.isArray(metricStorageDrives) ? metricStorageDrives : [];
+                                    const selectedDrives = Array.isArray(metricerCfg.storage_drives) ? metricerCfg.storage_drives : [];
+                                    const selectedDriveSet = new Set(selectedDrives.map(function (name) { return String(name || "").toLowerCase(); }));
+                                    const driveSelectSize = Math.min(Math.max(storageDriveOptions.length, 2), 6);
+                                %>
+                                <div class="small fw-semibold mb-1">Storage</div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="metricer-storage-enabled" <%= metricerCfg.storage_enabled !== false ? "checked" : "" %> />
+                                    <label class="form-check-label" for="metricer-storage-enabled">Storage above %</label>
                                 </div>
+                                <input type="number" class="form-control form-control-sm mt-1 mb-2" id="metricer-storage-percent" min="1" max="100" value="<%= metricerCfg.storage_percent || 90 %>" style="max-width: 8rem;" />
+                                <label class="form-label small mb-1" for="metricer-storage-drives">Drives</label>
+                                <% if (!storageDriveOptions.length) { %>
+                                    <p class="text-secondary small mb-0">No Fixed drives in latest metrics yet.</p>
+                                <% } else { %>
+                                    <select
+                                        id="metricer-storage-drives"
+                                        class="form-select form-select-sm"
+                                        multiple
+                                        size="<%= driveSelectSize %>"
+                                    >
+                                        <% storageDriveOptions.forEach(function (drive) {
+                                            const selected = selectedDriveSet.has(String(drive.name || "").toLowerCase());
+                                            const driveLabel = drive.name + (drive.label ? (" (" + drive.label + ")") : "");
+                                        %>
+                                            <option value="<%= drive.name %>" <%= selected ? "selected" : "" %>><%= driveLabel %></option>
+                                        <% }) %>
+                                    </select>
+                                    <p class="text-secondary small mt-1 mb-0">Only selected Fixed volumes are checked against the storage % threshold. Hold Ctrl/Cmd to select multiple.</p>
+                                <% } %>
                             </div>
                         </div>
                     </div>
