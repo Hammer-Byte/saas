@@ -66,3 +66,12 @@ export function serviceRunStatusLabel(status) {
     if (status === "failed") return "failed";
     return "—";
 }
+
+/** Count summary under the badge (strip leading Partial/Failed keyword). */
+export function serviceRunResultSummary(result) {
+    const text = String(result || "").trim();
+    if (!text) {
+        return null;
+    }
+    return text.replace(/^\s*(Partial|Failed)\s*[·\-–—:]?\s*/i, "").trim() || text;
+}

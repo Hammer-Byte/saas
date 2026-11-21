@@ -58,9 +58,8 @@
     const projectSelect = document.getElementById("server-project-select");
     const projectSaveBtn = document.getElementById("server-project-save-btn");
     const projectFeedback = document.getElementById("server-project-feedback");
-    const unmapTagBtn = document.getElementById("server-unmap-tag-btn");
+    const mappedToggle = document.getElementById("server-mapped-toggle");
     const unmapFeedback = document.getElementById("server-unmap-feedback");
-    const tagMappedBadge = document.getElementById("server-tag-mapped-badge");
 
     if (projectCard && projectSelect && projectSaveBtn) {
         function showProjectFeedback(message, isError) {
@@ -77,16 +76,26 @@
             unmapFeedback.classList.remove("d-none");
         }
 
-        unmapTagBtn?.addEventListener("click", async () => {
+        mappedToggle?.addEventListener("change", async () => {
+            // Turning on is not allowed from UI — agent must CREATE_TAG with OTP.
+            if (mappedToggle.checked) {
+                mappedToggle.checked = false;
+                showUnmapFeedback("Remap by claiming the OTP on the agent.", true);
+                return;
+            }
+
             const id = Number(projectCard.dataset.id);
             if (!id) {
+                mappedToggle.checked = true;
                 showUnmapFeedback("Missing server id.", true);
                 return;
             }
             if (!window.confirm("Unmap this tag? The agent must claim the OTP again to remap.")) {
+                mappedToggle.checked = true;
                 return;
             }
-            unmapTagBtn.disabled = true;
+
+            mappedToggle.disabled = true;
             showUnmapFeedback("Unmapping…", false);
             try {
                 const response = await fetch(`/api/monitored-servers/${id}/unmap`, {
@@ -96,21 +105,19 @@
                 });
                 const data = await response.json().catch(() => ({}));
                 if (!response.ok) {
+                    mappedToggle.checked = true;
                     showUnmapFeedback(data.error || "Failed to unmap tag.", true);
                     return;
                 }
                 projectCard.dataset.tagMapped = "0";
-                if (tagMappedBadge) {
-                    tagMappedBadge.className = "badge text-bg-warning";
-                    tagMappedBadge.textContent = "pending";
-                }
-                unmapTagBtn.classList.add("d-none");
+                mappedToggle.checked = false;
+                mappedToggle.disabled = true;
                 showUnmapFeedback(data.message || "Tag unmapped", false);
             } catch (error) {
                 console.error(error);
+                mappedToggle.checked = true;
+                mappedToggle.disabled = false;
                 showUnmapFeedback("Failed to unmap tag.", true);
-            } finally {
-                unmapTagBtn.disabled = false;
             }
         });
 

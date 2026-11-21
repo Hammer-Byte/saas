@@ -10,6 +10,7 @@ import { serverAlertKindLabel } from "./server_alert_kinds.js";
 import { buildAlertCandidates, listFixedStorageDrives, parseAlertConfig } from "./server_alerts.js";
 import {
     resolveServiceRunStatus,
+    serviceRunResultSummary,
     serviceRunStatusBadgeClass,
     serviceRunStatusLabel,
 } from "./server_run_status.js";
@@ -28,6 +29,7 @@ function enrichServiceRuns(runs) {
             run_status,
             run_status_label: serviceRunStatusLabel(run_status),
             run_status_badge: serviceRunStatusBadgeClass(run_status),
+            run_result_summary: serviceRunResultSummary(run.result),
         };
     });
 }

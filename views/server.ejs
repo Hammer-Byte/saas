@@ -42,14 +42,14 @@
         >
             <div class="card-body p-4">
                 <h2 class="h5 mb-3">Server</h2>
-                <div class="row g-3 small">
-                    <div class="col-12">
+                <div class="row g-3 small align-items-end">
+                    <div class="col-lg-4">
                         <div class="text-secondary mb-1">Project</div>
                         <div class="d-flex flex-wrap align-items-center gap-2">
                             <select
                                 class="form-select form-select-sm"
                                 id="server-project-select"
-                                style="max-width: 28rem;"
+                                style="min-width: 12rem; max-width: 100%;"
                             >
                                 <option value="">No project</option>
                                 <% (projects || []).forEach(function (project) { %>
@@ -67,28 +67,30 @@
                             <span class="small d-none" id="server-project-feedback" role="status"></span>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-lg-4">
                         <div class="text-secondary mb-1">Tag</div>
                         <div class="d-flex flex-wrap align-items-center gap-2">
-                            <code><%= server.tag %></code>
-                            <span
-                                id="server-tag-mapped-badge"
-                                class="badge <%= server.tag_mapped ? 'text-bg-success' : 'text-bg-warning' %>"
-                            ><%= server.tag_mapped ? "mapped" : "pending" %></span>
-                            <% if (server.tag_mapped) { %>
-                                <button type="button" class="btn btn-sm btn-outline-warning" id="server-unmap-tag-btn">
-                                    Unmap
-                                </button>
-                            <% } %>
+                            <code class="small text-break"><%= server.tag %></code>
+                            <div class="form-check form-switch mb-0">
+                                <input
+                                    class="form-check-input"
+                                    type="checkbox"
+                                    role="switch"
+                                    id="server-mapped-toggle"
+                                    <%= server.tag_mapped ? "checked" : "" %>
+                                    <%= server.tag_mapped ? "" : "disabled" %>
+                                />
+                                <label class="form-check-label" for="server-mapped-toggle">Mapped</label>
+                            </div>
                             <span class="small d-none" id="server-unmap-feedback" role="status"></span>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="text-secondary">OTP</div>
+                    <div class="col-6 col-lg-2">
+                        <div class="text-secondary mb-1">OTP</div>
                         <code><%= server.otp %></code>
                     </div>
-                    <div class="col-md-3">
-                        <div class="text-secondary">Active</div>
+                    <div class="col-6 col-lg-2">
+                        <div class="text-secondary mb-1">Active</div>
                         <%= server.active ? "Yes" : "No" %>
                     </div>
                 </div>
@@ -107,8 +109,16 @@
                         <span class="badge text-bg-secondary">No ping yet</span>
                     <% } %>
                 </div>
+                <%
+                    const pingPublicIp = metrics && metrics.publicIp && metrics.publicIp.value
+                        ? metrics.publicIp.value
+                        : null;
+                    const pingPublicIpSource = metrics && metrics.publicIp && metrics.publicIp.source
+                        ? metrics.publicIp.source
+                        : null;
+                %>
                 <div class="row g-3 small">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="text-secondary">Last ping</div>
                         <% if (latestPing) { %>
                             <span
@@ -122,9 +132,20 @@
                             <span class="text-secondary">—</span>
                         <% } %>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="text-secondary">Client timestamp</div>
                         <%= latestPing && latestPing.client_timestamp ? latestPing.client_timestamp : "—" %>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-secondary">Public IP</div>
+                        <% if (pingPublicIp) { %>
+                            <code class="small"><%= pingPublicIp %></code>
+                            <% if (pingPublicIpSource) { %>
+                                <span class="text-secondary">(<%= pingPublicIpSource %>)</span>
+                            <% } %>
+                        <% } else { %>
+                            <span class="text-secondary">—</span>
+                        <% } %>
                     </div>
                 </div>
             </div>
@@ -155,7 +176,6 @@
                         : null;
                     const memPctClass = memPct == null ? "bg-secondary" : memPct >= 90 ? "bg-danger" : memPct >= 75 ? "bg-warning" : "bg-success";
                     const userLabel = (metrics.userDomain ? metrics.userDomain + "\\" : "") + (metrics.userName || "—");
-                    const publicIp = metrics.publicIp && metrics.publicIp.value ? metrics.publicIp.value : "—";
                     const localIps = Array.isArray(metrics.localIps) && metrics.localIps.length ? metrics.localIps.join(", ") : "—";
                     const macs = Array.isArray(metrics.macAddresses) && metrics.macAddresses.length ? metrics.macAddresses.join(", ") : "—";
                     const cpuBits = [];
@@ -209,20 +229,11 @@
                                 <span class="text-secondary">OS</span>
                                 <div class="text-truncate" title="<%= metrics.osVersion || '' %>"><%= metrics.osVersion || "—" %></div>
                             </div>
-                            <div class="col-sm-6 col-lg-4">
-                                <span class="text-secondary">Public IP</span>
-                                <div>
-                                    <code class="small"><%= publicIp %></code>
-                                    <% if (metrics.publicIp && metrics.publicIp.source) { %>
-                                        <span class="text-secondary">(<%= metrics.publicIp.source %>)</span>
-                                    <% } %>
-                                </div>
-                            </div>
-                            <div class="col-sm-6 col-lg-4">
+                            <div class="col-sm-6">
                                 <span class="text-secondary">Local IPs</span>
                                 <div class="text-truncate" title="<%= localIps %>"><%= localIps %></div>
                             </div>
-                            <div class="col-sm-12 col-lg-4">
+                            <div class="col-sm-6">
                                 <span class="text-secondary">MACs</span>
                                 <div class="text-truncate" title="<%= macs %>"><code class="small"><%= macs %></code></div>
                             </div>
@@ -432,7 +443,6 @@
                                             <th>Host</th>
                                             <th>Remote → Local</th>
                                             <th>Status</th>
-                                            <th>Result</th>
                                             <th>Duration</th>
                                             <th></th>
                                         </tr>
@@ -452,8 +462,10 @@
                                                 </td>
                                                 <td>
                                                     <span class="badge <%= run.run_status_badge || 'text-bg-secondary' %>"><%= run.run_status_label || "—" %></span>
+                                                    <% if (run.run_result_summary) { %>
+                                                        <div class="small text-secondary mt-1"><%= run.run_result_summary %></div>
+                                                    <% } %>
                                                 </td>
-                                                <td class="small"><%= run.result || "—" %></td>
                                                 <td><%= run.duration_seconds != null ? Number(run.duration_seconds).toFixed(1) + "s" : "—" %></td>
                                                 <td class="text-end">
                                                     <button
