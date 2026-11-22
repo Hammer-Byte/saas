@@ -98,6 +98,8 @@ import {
     TASK_PRIORITY_LABELS,
     TASK_STATE_LABELS,
     TASK_STATES,
+    USER_LOGIN_EMAIL_LABELS,
+    USER_LOGIN_EMAILS,
     USER_LOGIN_METHOD_LABELS,
     USER_LOGIN_METHODS,
 } from "../constants.js";
@@ -932,6 +934,8 @@ export const uiRoutes = new Elysia()
                     allRoles: await getAllRoles(),
                     USER_LOGIN_METHODS,
                     USER_LOGIN_METHOD_LABELS,
+                    USER_LOGIN_EMAILS,
+                    USER_LOGIN_EMAIL_LABELS,
                     CONTRACT_BROKEN_BY,
                     CONTRACT_BROKEN_BY_LABELS,
                     clauses: clauses.map((clause) => ({
@@ -949,6 +953,8 @@ export const uiRoutes = new Elysia()
                     allRoles: await getAllRoles(),
                     USER_LOGIN_METHODS,
                     USER_LOGIN_METHOD_LABELS,
+                    USER_LOGIN_EMAILS,
+                    USER_LOGIN_EMAIL_LABELS,
                 })),
             )
             .get("/app/roles", async ({ render, session }) =>

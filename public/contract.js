@@ -314,6 +314,14 @@
                 personalEmailInput.value =
                     personalEmailInput.defaultValue || personalEmailInput.value;
             }
+            const professionalLoginRadio = transferUserForm.querySelector(
+                'input[name="login_email"][value="professional"]',
+            );
+            const personalLoginRadio = transferUserForm.querySelector(
+                'input[name="login_email"][value="personal"]',
+            );
+            if (professionalLoginRadio) professionalLoginRadio.checked = true;
+            if (personalLoginRadio) personalLoginRadio.checked = false;
             if (transferLoginMethodSelect) {
                 transferLoginMethodSelect.value = "otp";
             }
@@ -342,10 +350,14 @@
             .trim()
             .toLowerCase();
         const hourlyRateRaw = (transferUserForm.elements.namedItem("hourly_rate")?.value || "").trim();
+        const loginEmailSelected = transferUserForm.querySelector(
+            'input[name="login_email"]:checked',
+        );
         const payload = {
             email: professionalEmail,
             personal_email: personalEmail,
             login_method: loginMethod,
+            login_email: loginEmailSelected?.value === "personal" ? "personal" : "professional",
             hourly_rate: null,
             role_ids: Array.from(document.querySelectorAll(".transfer-user-role-checkbox:checked")).map(
                 (checkbox) => Number(checkbox.value),

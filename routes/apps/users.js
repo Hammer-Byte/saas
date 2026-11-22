@@ -1,5 +1,6 @@
 import { t } from "elysia";
 import {
+    USER_LOGIN_EMAILS,
     USER_LOGIN_METHODS,
     USER_PHONE_PATTERN,
     USER_PROFESSIONAL_EMAIL_PATTERN,
@@ -11,6 +12,11 @@ const loginMethodSchema = t.Union([
     t.Literal(USER_LOGIN_METHODS.OTP),
     t.Literal(USER_LOGIN_METHODS.PASSWORD),
     t.Literal(USER_LOGIN_METHODS.BOTH),
+]);
+
+const loginEmailSchema = t.Union([
+    t.Literal(USER_LOGIN_EMAILS.PROFESSIONAL),
+    t.Literal(USER_LOGIN_EMAILS.PERSONAL),
 ]);
 
 export default function (app) {
@@ -39,6 +45,7 @@ export default function (app) {
                     error: "Valid phone is required",
                 }),
                 login_method: loginMethodSchema,
+                login_email: loginEmailSchema,
                 password: t.Optional(t.String({ maxLength: 128 })),
                 hourly_rate: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
             }),
@@ -72,6 +79,7 @@ export default function (app) {
                     error: "Valid phone is required",
                 }),
                 login_method: loginMethodSchema,
+                login_email: loginEmailSchema,
                 password: t.Optional(t.String({ maxLength: 128 })),
                 hourly_rate: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
                 login_active: t.Optional(t.Boolean()),

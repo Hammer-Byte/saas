@@ -3,6 +3,8 @@
 <%
     const loginMethodLabels = USER_LOGIN_METHOD_LABELS || {};
     const loginMethods = USER_LOGIN_METHODS || {};
+    const loginEmailLabels = USER_LOGIN_EMAIL_LABELS || {};
+    const loginEmails = USER_LOGIN_EMAILS || {};
     const brokenByLabels = CONTRACT_BROKEN_BY_LABELS || {};
     const brokenByValues = CONTRACT_BROKEN_BY || {};
     const contractBroken = !!(contract.broken && contract.broken !== 0);
@@ -474,20 +476,7 @@
                             placeholder="name@hammerbyte.co.in"
                             required
                         />
-                        <div class="form-text">Must be an @hammerbyte.co.in address (login email).</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="transfer-user-phone" class="form-label">Phone</label>
-                        <input
-                            type="text"
-                            class="form-control"
-                            id="transfer-user-phone"
-                            name="phone"
-                            value="<%= contract.phone %>"
-                            maxlength="13"
-                            readonly
-                            required
-                        />
+                        <div class="form-text">Must be an @hammerbyte.co.in address.</div>
                     </div>
                     <div class="mb-3">
                         <label for="transfer-user-personal-email" class="form-label">Personal email</label>
@@ -501,6 +490,49 @@
                             required
                         />
                         <div class="form-text">Required. Prefills from contract email.</div>
+                    </div>
+                    <div class="mb-3">
+                        <span class="form-label d-block">Login with</span>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="form-check">
+                                <input
+                                    class="form-check-input"
+                                    type="radio"
+                                    name="login_email"
+                                    id="transfer-login-email-professional"
+                                    value="<%= loginEmails.PROFESSIONAL || 'professional' %>"
+                                    checked
+                                />
+                                <label class="form-check-label" for="transfer-login-email-professional">
+                                    <%= loginEmailLabels[loginEmails.PROFESSIONAL] || 'Professional email' %>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input
+                                    class="form-check-input"
+                                    type="radio"
+                                    name="login_email"
+                                    id="transfer-login-email-personal"
+                                    value="<%= loginEmails.PERSONAL || 'personal' %>"
+                                />
+                                <label class="form-check-label" for="transfer-login-email-personal">
+                                    <%= loginEmailLabels[loginEmails.PERSONAL] || 'Personal email' %>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="transfer-user-phone" class="form-label">Phone</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="transfer-user-phone"
+                            name="phone"
+                            value="<%= contract.phone %>"
+                            maxlength="13"
+                            readonly
+                            required
+                        />
                     </div>
                     <div class="mb-3">
                         <label for="transfer-user-hourly-rate" class="form-label">Rate per hour</label>

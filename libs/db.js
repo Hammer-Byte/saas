@@ -152,6 +152,7 @@ export async function generateDBTables() {
             personal_email VARCHAR(128) NOT NULL,
             phone VARCHAR(13) NOT NULL,
             login_method VARCHAR(16) NOT NULL DEFAULT 'otp',
+            login_email VARCHAR(16) NOT NULL DEFAULT 'professional',
             password_hash VARCHAR(255) NULL,
             hourly_rate DECIMAL(10, 2) NULL,
             login_active BOOLEAN NOT NULL DEFAULT TRUE,

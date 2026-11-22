@@ -25,7 +25,7 @@ import {
     getContractBySigningCode,
     updateContractById,
 } from "../db/contracts.js";
-import { getUserByEmail, updateUserLoginActiveById } from "../db/users.js";
+import { getUserByEmail, getUserByPersonalEmail, updateUserLoginActiveById } from "../db/users.js";
 import { deactivateUserAuthenticationTokensByUserId } from "../db/user_authentication_tokens.js";
 import { createUserRole, getUserRoleByUserAndRole } from "../db/user_roles.js";
 import { getRoleById } from "../db/roles.js";
@@ -542,7 +542,9 @@ export async function breakContract({ params, body, set }) {
 
     const contractEmail = String(existingContract.email || "").trim().toLowerCase();
     if (contractEmail) {
-        const linkedUser = await getUserByEmail({ email: contractEmail });
+        const linkedUser =
+            (await getUserByPersonalEmail({ personal_email: contractEmail })) ||
+            (await getUserByEmail({ email: contractEmail }));
         if (linkedUser) {
             await updateUserLoginActiveById({
                 id: linkedUser.id,
@@ -599,6 +601,7 @@ export async function transferContractToUser({ params, body, set }) {
         personal_email: body.personal_email,
         phone: existingContract.phone,
         login_method: body.login_method,
+        login_email: body.login_email,
         password: body.password,
         hourly_rate: body.hourly_rate,
     });

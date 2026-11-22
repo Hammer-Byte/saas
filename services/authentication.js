@@ -1,5 +1,5 @@
 import { ERRORS, USER_LOGIN_METHODS } from "../constants.js";
-import { getUserByEmail, updateUserLastLoginById } from "../db/users.js";
+import { getUserForLogin, updateUserLastLoginById } from "../db/users.js";
 import {
     createUserAuthenticationToken,
     getActiveUserAuthenticationTokenByToken,
@@ -70,7 +70,7 @@ export async function logout({ cookie, set }) {
 
 export async function getLoginMethod({ body, set }) {
     const email = body.email.trim().toLowerCase();
-    const user = await getUserByEmail({ email });
+    const user = await getUserForLogin({ email });
     if (!user) {
         set.status = 404;
         return { error: ERRORS.NO_SUCH_USER };
@@ -90,7 +90,7 @@ export async function getLoginMethod({ body, set }) {
 export async function loginWithPassword({ body, cookie, set }) {
     const email = body.email.trim().toLowerCase();
     const password = String(body.password || "");
-    const user = await getUserByEmail({ email });
+    const user = await getUserForLogin({ email });
 
     if (!user) {
         set.status = 401;

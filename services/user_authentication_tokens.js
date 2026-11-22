@@ -1,6 +1,6 @@
 import { filer, logger } from "@hammerbyte/utils";
 import { ERRORS, USER_LOGIN_METHODS } from "../constants.js";
-import { getUserByEmail, getUserById, updateUserLastLoginById } from "../db/users.js";
+import { getUserForLogin, getUserById, updateUserLastLoginById } from "../db/users.js";
 import {
     createUserAuthenticationToken,
     getUserAuthenticationTokenByTokenAndOtp,
@@ -13,7 +13,7 @@ import transporter from "../libs/transporter.js";
 
 export async function addUserAuthenticationToken({ body, set }) {
     const email = body.email.trim().toLowerCase();
-    const user = await getUserByEmail({ email });
+    const user = await getUserForLogin({ email });
 
     if (!user) {
         set.status = 404;
@@ -46,6 +46,7 @@ export async function addUserAuthenticationToken({ body, set }) {
         app_name: "HammerByte",
     });
 
+    // OTP goes to the address they used to sign in (professional or personal).
     transporter.transport({
         recipient: email,
         subject: "OTP for your account",

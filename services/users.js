@@ -1,5 +1,6 @@
 import {
     ERRORS,
+    USER_LOGIN_EMAILS,
     USER_LOGIN_METHODS,
     USER_PHONE_PATTERN,
     USER_PROFESSIONAL_EMAIL_DOMAIN,
@@ -8,6 +9,7 @@ import {
     createUser,
     deleteUserById,
     getUserByEmail,
+    getUserByPersonalEmail,
     getUserById,
     updateUserById,
     updateUserLoginActiveById,
@@ -15,6 +17,7 @@ import {
 import { deactivateUserAuthenticationTokensByUserId } from "../db/user_authentication_tokens.js";
 
 const LOGIN_METHOD_VALUES = new Set(Object.values(USER_LOGIN_METHODS));
+const LOGIN_EMAIL_VALUES = new Set(Object.values(USER_LOGIN_EMAILS));
 const PHONE_PATTERN = new RegExp(USER_PHONE_PATTERN);
 
 function sanitizeUser(user) {
@@ -26,6 +29,11 @@ function sanitizeUser(user) {
 function normalizeLoginMethod(value) {
     const method = String(value || USER_LOGIN_METHODS.OTP).trim().toLowerCase();
     return LOGIN_METHOD_VALUES.has(method) ? method : null;
+}
+
+function normalizeLoginEmail(value) {
+    const loginEmail = String(value || USER_LOGIN_EMAILS.PROFESSIONAL).trim().toLowerCase();
+    return LOGIN_EMAIL_VALUES.has(loginEmail) ? loginEmail : null;
 }
 
 function passwordRequiredForMethod(loginMethod) {
@@ -85,6 +93,7 @@ export async function createUserFromInput({
     personal_email,
     phone,
     login_method,
+    login_email,
     password,
     hourly_rate,
 }) {
@@ -103,6 +112,11 @@ export async function createUserFromInput({
         return { status: 400, error: "Invalid login method" };
     }
 
+    const loginEmail = normalizeLoginEmail(login_email);
+    if (!loginEmail) {
+        return { status: 400, error: ERRORS.LOGIN_EMAIL_INVALID };
+    }
+
     const passwordValue = String(password || "").trim();
     let passwordHash = null;
 
@@ -117,6 +131,14 @@ export async function createUserFromInput({
     if (personalEmailResult.error) {
         return { status: 400, error: personalEmailResult.error };
     }
+
+    const personalEmailOwner = await getUserByPersonalEmail({
+        personal_email: personalEmailResult.email,
+    });
+    if (personalEmailOwner) {
+        return { status: 409, error: ERRORS.PERSONAL_EMAIL_IN_USE };
+    }
+
     const phoneResult = normalizePhone(phone);
     if (phoneResult.error) {
         return { status: 400, error: phoneResult.error };
@@ -137,6 +159,7 @@ export async function createUserFromInput({
         personal_email: personalEmailResult.email,
         phone: phoneResult.phone,
         login_method: loginMethod,
+        login_email: loginEmail,
         password_hash: passwordHash,
         hourly_rate: hourlyRateResult.rate,
     });
@@ -157,6 +180,7 @@ export async function addUser({ body, set }) {
         personal_email: body.personal_email,
         phone: body.phone,
         login_method: body.login_method,
+        login_email: body.login_email,
         password: body.password,
         hourly_rate: body.hourly_rate,
     });
@@ -195,6 +219,12 @@ export async function updateUser({ body, set }) {
         return { error: "Invalid login method" };
     }
 
+    const loginEmail = normalizeLoginEmail(body.login_email);
+    if (!loginEmail) {
+        set.status = 400;
+        return { error: ERRORS.LOGIN_EMAIL_INVALID };
+    }
+
     const password = String(body.password || "").trim();
     const passwordProvided = password.length > 0;
     let passwordHash = existingUser.password_hash || null;
@@ -224,6 +254,15 @@ export async function updateUser({ body, set }) {
         set.status = 400;
         return { error: personalEmailResult.error };
     }
+
+    const personalEmailOwner = await getUserByPersonalEmail({
+        personal_email: personalEmailResult.email,
+    });
+    if (personalEmailOwner && personalEmailOwner.id !== existingUser.id) {
+        set.status = 409;
+        return { error: ERRORS.PERSONAL_EMAIL_IN_USE };
+    }
+
     const phoneResult = normalizePhone(body.phone);
     if (phoneResult.error) {
         set.status = 400;
@@ -242,6 +281,7 @@ export async function updateUser({ body, set }) {
         personal_email: personalEmailResult.email,
         phone: phoneResult.phone,
         login_method: loginMethod,
+        login_email: loginEmail,
         password_hash: passwordHash,
         hourly_rate: hourlyRateResult.rate,
         update_password: updatePassword,

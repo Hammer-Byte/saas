@@ -121,10 +121,24 @@
         setRolesSectionVisible(true);
     }
 
+    function setLoginEmailValue(value) {
+        const loginEmail = value === "personal" ? "personal" : "professional";
+        const professionalRadio = form.querySelector('input[name="login_email"][value="professional"]');
+        const personalRadio = form.querySelector('input[name="login_email"][value="personal"]');
+        if (professionalRadio) professionalRadio.checked = loginEmail === "professional";
+        if (personalRadio) personalRadio.checked = loginEmail === "personal";
+    }
+
+    function getLoginEmailValue() {
+        const selected = form.querySelector('input[name="login_email"]:checked');
+        return selected?.value === "personal" ? "personal" : "professional";
+    }
+
     function resetForm() {
         form.reset();
         idInput.value = "";
         if (loginMethodSelect) loginMethodSelect.value = "otp";
+        setLoginEmailValue("professional");
         if (loginActiveInput) loginActiveInput.checked = true;
         clearRoleCheckboxes();
         setRolesSectionVisible(false);
@@ -149,6 +163,7 @@
         if (personalEmailInput) personalEmailInput.value = row.dataset.personalEmail || "";
         if (hourlyRateInput) hourlyRateInput.value = row.dataset.hourlyRate || "";
         if (loginMethodSelect) loginMethodSelect.value = row.dataset.loginMethod || "otp";
+        setLoginEmailValue(row.dataset.loginEmail || "professional");
         if (loginActiveInput) loginActiveInput.checked = row.dataset.loginActive === "1";
         if (passwordInput) passwordInput.value = "";
         setLoginActiveSectionVisible(true);
@@ -294,6 +309,7 @@
             phone,
             personal_email: personalEmail.toLowerCase(),
             login_method: loginMethod,
+            login_email: getLoginEmailValue(),
             hourly_rate: null,
         };
 

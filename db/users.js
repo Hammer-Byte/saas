@@ -8,6 +8,7 @@ export async function createUser({
     personal_email,
     phone,
     login_method = "otp",
+    login_email = "professional",
     password_hash = null,
     hourly_rate = null,
 }) {
@@ -20,6 +21,7 @@ export async function createUser({
                     personal_email,
                     phone,
                     login_method,
+                    login_email,
                     password_hash,
                     hourly_rate,
                 },
@@ -28,6 +30,7 @@ export async function createUser({
                 "personal_email",
                 "phone",
                 "login_method",
+                "login_email",
                 "password_hash",
                 "hourly_rate",
             )}
@@ -46,6 +49,7 @@ export async function updateUserById({
     personal_email,
     phone,
     login_method,
+    login_email,
     password_hash = null,
     hourly_rate = null,
     update_password = false,
@@ -60,6 +64,7 @@ export async function updateUserById({
                     personal_email = ${personal_email},
                     phone = ${phone},
                     login_method = ${login_method},
+                    login_email = ${login_email},
                     password_hash = ${password_hash},
                     hourly_rate = ${hourly_rate}
                 WHERE id = ${id}
@@ -79,6 +84,7 @@ export async function updateUserById({
                 personal_email = ${personal_email},
                 phone = ${phone},
                 login_method = ${login_method},
+                login_email = ${login_email},
                 hourly_rate = ${hourly_rate}
             WHERE id = ${id}
         `,
@@ -132,6 +138,45 @@ export async function getUserByEmail({ email }) {
         });
 }
 
+export async function getUserByPersonalEmail({ personal_email }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *
+            FROM USERS
+            WHERE personal_email = ${personal_email}
+        `,
+    )
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getUserByPersonalEmail: ${error}`);
+            return null;
+        });
+}
+
+/** Resolve a user by the email they typed at login, respecting login_email. */
+export async function getUserForLogin({ email }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT *
+            FROM USERS
+            WHERE (
+                    login_email = 'professional'
+                    AND email = ${email}
+                )
+                OR (
+                    login_email = 'personal'
+                    AND personal_email = ${email}
+                )
+            LIMIT 1
+        `,
+    )
+        .then((result) => (result.length ? result[0] : null))
+        .catch((error) => {
+            logger.error(`getUserForLogin: ${error}`);
+            return null;
+        });
+}
+
 export async function getUserById({ id }) {
     return await executeSQLQuery(
         (sql) => sql`
@@ -157,6 +202,7 @@ export async function getAllUsers() {
                 personal_email,
                 phone,
                 login_method,
+                login_email,
                 hourly_rate,
                 login_active,
                 last_login,

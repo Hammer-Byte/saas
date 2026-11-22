@@ -1,6 +1,7 @@
 import { t } from "elysia";
 import {
     CONTRACT_BROKEN_BY,
+    USER_LOGIN_EMAILS,
     USER_LOGIN_METHODS,
     USER_PROFESSIONAL_EMAIL_PATTERN,
 } from "../../constants.js";
@@ -113,6 +114,10 @@ export default function (app) {
                     t.Literal(USER_LOGIN_METHODS.OTP),
                     t.Literal(USER_LOGIN_METHODS.PASSWORD),
                     t.Literal(USER_LOGIN_METHODS.BOTH),
+                ]),
+                login_email: t.Union([
+                    t.Literal(USER_LOGIN_EMAILS.PROFESSIONAL),
+                    t.Literal(USER_LOGIN_EMAILS.PERSONAL),
                 ]),
                 password: t.Optional(t.String({ maxLength: 128 })),
                 hourly_rate: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),

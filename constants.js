@@ -14,6 +14,8 @@ export const ERRORS = {
     EMAIL_INVALID: "Email is invalid",
     PROFESSIONAL_EMAIL_DOMAIN: "Professional email must be @hammerbyte.co.in",
     PERSONAL_EMAIL_REQUIRED: "Personal email is required",
+    LOGIN_EMAIL_INVALID: "Login email choice is invalid",
+    PERSONAL_EMAIL_IN_USE: "A user with this personal email already exists",
     NO_SUCH_USER: "No Such User Found",
     INVALID_OTP: "Invalid OTP",
     INVALID_PASSWORD: "Invalid email or password",
@@ -49,6 +51,17 @@ export const USER_LOGIN_METHOD_LABELS = {
     [USER_LOGIN_METHODS.OTP]: "Email OTP",
     [USER_LOGIN_METHODS.PASSWORD]: "Email password",
     [USER_LOGIN_METHODS.BOTH]: "OTP or password",
+};
+
+/** Which stored email address is used at the login screen. */
+export const USER_LOGIN_EMAILS = {
+    PROFESSIONAL: "professional",
+    PERSONAL: "personal",
+};
+
+export const USER_LOGIN_EMAIL_LABELS = {
+    [USER_LOGIN_EMAILS.PROFESSIONAL]: "Professional email",
+    [USER_LOGIN_EMAILS.PERSONAL]: "Personal email",
 };
 
 export const SWAGGER = {
