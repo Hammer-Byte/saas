@@ -42,47 +42,66 @@
         >
             <div class="card-body p-4">
                 <h2 class="h5 mb-3">Server</h2>
+                <%
+                    const canManageServerMapping =
+                        !!super_admin
+                        || (authorities || []).includes(AUTHORITIES.MANAGE_SERVER_MAPPING);
+                %>
                 <div class="server-meta-row d-flex flex-wrap align-items-end gap-3 small">
                     <div class="server-meta-field">
                         <div class="text-secondary mb-1">Project</div>
-                        <select class="form-select form-select-sm server-meta-project-select" id="server-project-select">
-                            <option value="">No project</option>
-                            <% (projects || []).forEach(function (project) { %>
-                                <option
-                                    value="<%= project.id %>"
-                                    <%= Number(server.project_id) === Number(project.id) ? "selected" : "" %>
-                                >
-                                    <%= project.title %><% if (project.customer_name) { %> — <%= project.customer_name %><% } %>
-                                </option>
-                            <% }) %>
-                        </select>
+                        <% if (canManageServerMapping) { %>
+                            <select class="form-select form-select-sm server-meta-project-select" id="server-project-select">
+                                <option value="">No project</option>
+                                <% (projects || []).forEach(function (project) { %>
+                                    <option
+                                        value="<%= project.id %>"
+                                        <%= Number(server.project_id) === Number(project.id) ? "selected" : "" %>
+                                    >
+                                        <%= project.title %><% if (project.customer_name) { %> — <%= project.customer_name %><% } %>
+                                    </option>
+                                <% }) %>
+                            </select>
+                        <% } else if (server.project_id) { %>
+                            <div>
+                                <%= server.project_title || ("Project #" + server.project_id) %><% if (server.customer_name) { %> — <%= server.customer_name %><% } %>
+                            </div>
+                        <% } else { %>
+                            <div class="text-secondary">—</div>
+                        <% } %>
                     </div>
-                    <div class="server-meta-save d-flex align-items-center gap-2">
-                        <button type="button" class="btn btn-sm btn-primary" id="server-project-save-btn">
-                            Save
-                        </button>
-                        <span class="small d-none" id="server-project-feedback" role="status"></span>
-                    </div>
+                    <% if (canManageServerMapping) { %>
+                        <div class="server-meta-save d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-primary" id="server-project-save-btn">
+                                Save
+                            </button>
+                            <span class="small d-none" id="server-project-feedback" role="status"></span>
+                        </div>
+                    <% } %>
                     <div class="server-meta-field">
                         <div class="text-secondary mb-1">Tag</div>
                         <code class="small text-break"><%= server.tag %></code>
                     </div>
                     <div class="server-meta-field">
                         <div class="text-secondary mb-1">Mapped</div>
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="form-check form-switch mb-0">
-                                <input
-                                    class="form-check-input"
-                                    type="checkbox"
-                                    role="switch"
-                                    id="server-mapped-toggle"
-                                    <%= server.tag_mapped ? "checked" : "" %>
-                                    <%= server.tag_mapped ? "" : "disabled" %>
-                                />
-                                <label class="form-check-label visually-hidden" for="server-mapped-toggle">Mapped</label>
+                        <% if (canManageServerMapping) { %>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="form-check form-switch mb-0">
+                                    <input
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        role="switch"
+                                        id="server-mapped-toggle"
+                                        <%= server.tag_mapped ? "checked" : "" %>
+                                        <%= server.tag_mapped ? "" : "disabled" %>
+                                    />
+                                    <label class="form-check-label visually-hidden" for="server-mapped-toggle">Mapped</label>
+                                </div>
+                                <span class="small d-none" id="server-unmap-feedback" role="status"></span>
                             </div>
-                            <span class="small d-none" id="server-unmap-feedback" role="status"></span>
-                        </div>
+                        <% } else { %>
+                            <div><%= server.tag_mapped ? "Yes" : "No" %></div>
+                        <% } %>
                     </div>
                     <div class="server-meta-field">
                         <div class="text-secondary mb-1">OTP</div>

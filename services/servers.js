@@ -1,4 +1,5 @@
 import { logger } from "@hammerbyte/utils";
+import { AUTHORITIES } from "../constants.js";
 import { getCustomerEmailsByCustomerId } from "../db/customer_emails.js";
 import { getCustomerPhonesByCustomerId } from "../db/customer_phones.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
@@ -17,9 +18,87 @@ import {
     updateServerAlertConfigById,
     updateServerById,
 } from "../db/servers.js";
+import { hasAuthority } from "../libs/app_page.js";
 import { evaluateMetricerAlerts } from "../libs/server_alert_notify.js";
 import { buildAlertCandidates, parseAlertConfig } from "../libs/server_alerts.js";
 import { generateOTP } from "../libs/utils.js";
+import { getCurrentUser } from "./authentication.js";
+
+export function canUseServers(currentUser) {
+    if (!currentUser?.id) {
+        return false;
+    }
+    if (currentUser.super_admin) {
+        return true;
+    }
+    return hasAuthority(currentUser.authorities, AUTHORITIES.USE_PAGE_SERVERS);
+}
+
+export function canAddServer(currentUser) {
+    if (!currentUser?.id) {
+        return false;
+    }
+    if (currentUser.super_admin) {
+        return true;
+    }
+    return hasAuthority(currentUser.authorities, AUTHORITIES.ADD_SERVER);
+}
+
+export function canManageServers(currentUser) {
+    if (!currentUser?.id) {
+        return false;
+    }
+    if (currentUser.super_admin) {
+        return true;
+    }
+    return hasAuthority(currentUser.authorities, AUTHORITIES.MANAGE_SERVERS);
+}
+
+export function canManageServerMapping(currentUser) {
+    if (!currentUser?.id) {
+        return false;
+    }
+    if (currentUser.super_admin) {
+        return true;
+    }
+    return hasAuthority(currentUser.authorities, AUTHORITIES.MANAGE_SERVER_MAPPING);
+}
+
+async function requireServerAuthority({ cookie, set, allowed }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized", currentUser: null };
+    }
+    if (!allowed(currentUser)) {
+        set.status = 403;
+        return { error: "You do not have permission for this action", currentUser };
+    }
+    return { currentUser };
+}
+
+function sameOptionalText(left, right) {
+    const a = left == null || String(left).trim() === "" ? null : String(left).trim();
+    const b = right == null || String(right).trim() === "" ? null : String(right).trim();
+    return a === b;
+}
+
+function isMappingOnlyUpdate({ body, existingServer }) {
+    const name = String(body.name || "").trim();
+    const location = String(body.location || "").trim();
+    const notes =
+        body.notes == null || String(body.notes).trim() === ""
+            ? null
+            : String(body.notes).trim();
+    const active = Boolean(body.active);
+
+    return (
+        name === String(existingServer.name || "").trim() &&
+        location === String(existingServer.location || "").trim() &&
+        sameOptionalText(notes, existingServer.notes) &&
+        active === Boolean(existingServer.active)
+    );
+}
 
 async function allocateServerOtp() {
     for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -198,7 +277,16 @@ async function handleDber({ body, set }) {
     return { ok: true };
 }
 
-export async function addServer({ body, set }) {
+export async function addServer({ body, cookie, set }) {
+    const gate = await requireServerAuthority({
+        cookie,
+        set,
+        allowed: canAddServer,
+    });
+    if (gate.error) {
+        return { error: gate.error };
+    }
+
     const projectResult = await resolveProjectId({
         project_id: body.project_id ?? null,
         set,
@@ -238,11 +326,28 @@ export async function addServer({ body, set }) {
     return { message: "Server created", server };
 }
 
-export async function updateServer({ body, set }) {
+export async function updateServer({ body, cookie, set }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+    }
+
     const existingServer = await getServerById({ id: body.id });
     if (!existingServer) {
         set.status = 404;
         return { error: "Server not found" };
+    }
+
+    const fullEdit = canManageServers(currentUser);
+    const mappingOnly =
+        !fullEdit &&
+        canManageServerMapping(currentUser) &&
+        isMappingOnlyUpdate({ body, existingServer });
+
+    if (!fullEdit && !mappingOnly) {
+        set.status = 403;
+        return { error: "You do not have permission for this action" };
     }
 
     const projectResult = await resolveProjectId({
@@ -272,7 +377,16 @@ export async function updateServer({ body, set }) {
     return { message: "Server updated", server };
 }
 
-export async function deleteServer({ params, set }) {
+export async function deleteServer({ params, cookie, set }) {
+    const gate = await requireServerAuthority({
+        cookie,
+        set,
+        allowed: canManageServers,
+    });
+    if (gate.error) {
+        return { error: gate.error };
+    }
+
     const existingServer = await getServerById({ id: params.id });
     if (!existingServer) {
         set.status = 404;
@@ -283,7 +397,16 @@ export async function deleteServer({ params, set }) {
     set.status = 204;
 }
 
-export async function unmapServerTag({ params, set }) {
+export async function unmapServerTag({ params, cookie, set }) {
+    const gate = await requireServerAuthority({
+        cookie,
+        set,
+        allowed: canManageServerMapping,
+    });
+    if (gate.error) {
+        return { error: gate.error };
+    }
+
     const id = Number(params.id);
     const existingServer = await getServerById({ id });
     if (!existingServer) {
@@ -320,7 +443,16 @@ export async function loadServerAlertCandidates({ server }) {
     });
 }
 
-export async function updateServerAlerts({ params, body, set }) {
+export async function updateServerAlerts({ params, body, cookie, set }) {
+    const gate = await requireServerAuthority({
+        cookie,
+        set,
+        allowed: canUseServers,
+    });
+    if (gate.error) {
+        return { error: gate.error };
+    }
+
     const id = Number(params.id);
     const existingServer = await getServerById({ id });
     if (!existingServer) {

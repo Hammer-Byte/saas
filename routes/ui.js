@@ -72,6 +72,7 @@ import { canManageTenderDocuments } from "../services/gem_tender_documents.js";
 import { relockStateOf } from "../services/gem_tenders.js";
 import { canManageInternalDocuments } from "../services/internal_documents.js";
 import { canUseJobs } from "../services/jobs.js";
+import { canUseServers } from "../services/servers.js";
 import {
     getActiveJobPositions,
     getAllJobPositions,
@@ -657,14 +658,32 @@ export const uiRoutes = new Elysia()
                     }),
                 );
             })
-            .get("/app/servers", async ({ render, session }) =>
-                render("servers", appPage(session, {
+            .get("/app/servers", async ({ render, session, redirect }) => {
+                if (
+                    !canUseServers({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+                return render("servers", appPage(session, {
                     title: "Servers — HammerByte",
                     servers: await getAllServers(),
                     projects: await getAllCustomerProjects(),
-                })),
-            )
+                }));
+            })
             .get("/app/servers/:id", async ({ render, session, params, redirect, query }) => {
+                if (
+                    !canUseServers({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
                 const server = await getServerById({ id: Number(params.id) });
                 if (!server) {
                     return redirect("/not-found");
