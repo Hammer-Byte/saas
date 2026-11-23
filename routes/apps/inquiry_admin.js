@@ -1,6 +1,10 @@
 import { t } from "elysia";
 import { ERRORS } from "../../constants.js";
-import { addManualInquiry, updateInquiry } from "../../services/inquiries.js";
+import {
+    addManualInquiry,
+    bulkChangeInquiryStates,
+    updateInquiry,
+} from "../../services/inquiries.js";
 
 export default function (app) {
     return app
@@ -29,41 +33,38 @@ export default function (app) {
                         t.Null(),
                     ]),
                 ),
-                institute_name: t.Optional(
+                organization: t.Optional(
                     t.Union([
                         t.String({ maxLength: 128 }),
                         t.Literal(""),
                         t.Null(),
                     ]),
                 ),
-                city: t.Optional(
-                    t.Union([
-                        t.String({ maxLength: 64 }),
-                        t.Literal(""),
-                        t.Null(),
-                    ]),
-                ),
-                quote: t.Optional(
-                    t.Union([t.String(), t.Literal(""), t.Null()]),
-                ),
-                state: t.Optional(
-                    t.Union([
-                        t.Literal("new"),
-                        t.Literal("assigned"),
-                        t.Literal("in_progress"),
-                        t.Literal("potential"),
-                        t.Literal("ignored"),
-                        t.Literal("closed"),
-                        t.Literal("canceled"),
-                    ]),
-                ),
-                assignee_user_id: t.Optional(
-                    t.Union([t.Numeric({ minimum: 1 }), t.Null()]),
+                note: t.Optional(
+                    t.Union([t.String({ minLength: 1 }), t.Literal(""), t.Null()]),
                 ),
             }),
             detail: {
                 tags: ["Inquiries"],
                 summary: "Manually create an inquiry",
+            },
+        })
+        .post("/bulk-change-state", bulkChangeInquiryStates, {
+            body: t.Object({
+                ids: t.Array(t.Numeric({ minimum: 1 }), { minItems: 1 }),
+                state: t.Union([
+                    t.Literal("new"),
+                    t.Literal("assigned"),
+                    t.Literal("in_progress"),
+                    t.Literal("potential"),
+                    t.Literal("ignored"),
+                    t.Literal("closed"),
+                    t.Literal("canceled"),
+                ]),
+            }),
+            detail: {
+                tags: ["Inquiries"],
+                summary: "Bulk change inquiry state",
             },
         })
         .patch("/:id", updateInquiry, {
@@ -114,7 +115,7 @@ export default function (app) {
                         t.Null(),
                     ]),
                 ),
-                institute_name: t.Optional(
+                organization: t.Optional(
                     t.Union([
                         t.String({ maxLength: 128 }),
                         t.Literal(""),

@@ -40,7 +40,7 @@ export default function (app) {
                     t.Null(),
                 ]),
             ),
-            institute_name: t.Optional(
+            organization: t.Optional(
                 t.Union([
                     t.String({
                         minLength: 1,
@@ -65,7 +65,7 @@ export default function (app) {
             tags: ["Inquiries"],
             summary: "Submit a contact inquiry",
             description:
-                "Stores a website inquiry. Phone is required; full_name, email, source, institute_name, and city are optional.",
+                "Stores a website inquiry. Phone is required; full_name, email, source, organization, and city are optional.",
         },
     });
 }

@@ -216,6 +216,9 @@
         if (tableWrap) tableWrap.classList.toggle("d-none", visibleCount === 0);
         if (emptyState) emptyState.classList.toggle("d-none", visibleCount !== 0);
         if (loadingState) loadingState.classList.add("d-none");
+        if (typeof syncBulkStateBar === "function") {
+            syncBulkStateBar();
+        }
     }
 
     function finishListLoading() {
@@ -434,21 +437,16 @@
             return;
         }
 
-        const assigneeValue = String(
-            document.getElementById("inquiry-add-assignee")?.value || "",
-        ).trim();
         const payload = {
             phone,
             full_name:
                 String(document.getElementById("inquiry-add-full-name")?.value || "").trim() ||
                 null,
             email: String(document.getElementById("inquiry-add-email")?.value || "").trim() || null,
-            institute_name:
-                String(document.getElementById("inquiry-add-institute")?.value || "").trim() ||
+            organization:
+                String(document.getElementById("inquiry-add-organization")?.value || "").trim() ||
                 null,
-            city: String(document.getElementById("inquiry-add-city")?.value || "").trim() || null,
-            quote: String(document.getElementById("inquiry-add-quote")?.value || "").trim() || null,
-            assignee_user_id: assigneeValue ? Number(assigneeValue) : null,
+            note: String(document.getElementById("inquiry-add-note")?.value || "").trim() || null,
         };
 
         if (addSubmitBtn) addSubmitBtn.disabled = true;
@@ -470,6 +468,134 @@
             console.error(error);
         } finally {
             if (addSubmitBtn) addSubmitBtn.disabled = false;
+        }
+    });
+
+    const selectAllCheckbox = document.getElementById("inquiries-select-all");
+    const bulkStateBar = document.getElementById("inquiries-bulk-state-bar");
+    const bulkStateSelect = document.getElementById("inquiries-bulk-state");
+    const bulkStateBtn = document.getElementById("inquiries-bulk-state-btn");
+    const bulkClearBtn = document.getElementById("inquiries-bulk-clear-btn");
+    const bulkStateStatus = document.getElementById("inquiries-bulk-state-status");
+    const selectedCountLabel = document.getElementById("inquiries-selected-count");
+
+    function visibleInquiryRows() {
+        return Array.from(tableBody?.querySelectorAll("tr.inquiry-row") || []).filter(
+            (row) => !row.classList.contains("d-none"),
+        );
+    }
+
+    function selectedInquiryIds() {
+        return visibleInquiryRows()
+            .map((row) => row.querySelector(".inquiry-select"))
+            .filter((checkbox) => checkbox?.checked)
+            .map((checkbox) => Number(checkbox.value))
+            .filter((id) => id >= 1);
+    }
+
+    function syncBulkStateBar() {
+        if (!bulkStateBar) return;
+        const selectedIds = selectedInquiryIds();
+        const hasSelection = selectedIds.length > 0;
+        bulkStateBar.classList.toggle("d-none", !hasSelection);
+        if (selectedCountLabel) {
+            selectedCountLabel.textContent = `${selectedIds.length} selected`;
+        }
+        if (bulkStateBtn) {
+            bulkStateBtn.disabled = !(hasSelection && String(bulkStateSelect?.value || "").trim());
+        }
+
+        if (selectAllCheckbox) {
+            const visibleCheckboxes = visibleInquiryRows()
+                .map((row) => row.querySelector(".inquiry-select"))
+                .filter(Boolean);
+            const checkedCount = visibleCheckboxes.filter((checkbox) => checkbox.checked).length;
+            selectAllCheckbox.checked =
+                visibleCheckboxes.length > 0 && checkedCount === visibleCheckboxes.length;
+            selectAllCheckbox.indeterminate =
+                checkedCount > 0 && checkedCount < visibleCheckboxes.length;
+        }
+    }
+
+    function clearInquirySelection() {
+        for (const row of Array.from(tableBody?.querySelectorAll("tr.inquiry-row") || [])) {
+            const checkbox = row.querySelector(".inquiry-select");
+            if (checkbox) checkbox.checked = false;
+        }
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        }
+        if (bulkStateSelect) bulkStateSelect.value = "";
+        if (bulkStateStatus) {
+            bulkStateStatus.classList.add("d-none");
+            bulkStateStatus.textContent = "";
+        }
+        syncBulkStateBar();
+    }
+
+    tableBody?.addEventListener("change", (event) => {
+        if (event.target?.classList?.contains("inquiry-select")) {
+            syncBulkStateBar();
+        }
+    });
+
+    selectAllCheckbox?.addEventListener("change", () => {
+        const checked = !!selectAllCheckbox.checked;
+        for (const row of visibleInquiryRows()) {
+            const checkbox = row.querySelector(".inquiry-select");
+            if (checkbox) checkbox.checked = checked;
+        }
+        syncBulkStateBar();
+    });
+
+    bulkStateSelect?.addEventListener("change", () => {
+        syncBulkStateBar();
+    });
+
+    bulkClearBtn?.addEventListener("click", () => {
+        clearInquirySelection();
+    });
+
+    bulkStateBtn?.addEventListener("click", async () => {
+        const ids = selectedInquiryIds();
+        const state = String(bulkStateSelect?.value || "").trim();
+        if (!ids.length || !state) return;
+
+        if (bulkStateBtn) bulkStateBtn.disabled = true;
+        if (bulkStateStatus) {
+            bulkStateStatus.classList.remove("d-none");
+            bulkStateStatus.classList.remove("text-danger");
+            bulkStateStatus.classList.add("text-secondary");
+            bulkStateStatus.textContent = "Updating…";
+        }
+
+        try {
+            const response = await fetch("/api/inquiries/bulk-change-state", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids, state }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (bulkStateStatus) {
+                    bulkStateStatus.classList.remove("text-secondary");
+                    bulkStateStatus.classList.add("text-danger");
+                    bulkStateStatus.textContent = data.error || "Failed to change state";
+                }
+                return;
+            }
+            window.location.reload();
+        } catch (error) {
+            console.error(error);
+            if (bulkStateStatus) {
+                bulkStateStatus.classList.remove("text-secondary");
+                bulkStateStatus.classList.add("text-danger");
+                bulkStateStatus.textContent = "Failed to change state";
+            }
+        } finally {
+            syncBulkStateBar();
         }
     });
 })();

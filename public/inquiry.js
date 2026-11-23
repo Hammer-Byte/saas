@@ -72,8 +72,9 @@
             full_name: String(document.getElementById("inquiry-full-name")?.value || "").trim() || null,
             phone: String(document.getElementById("inquiry-phone")?.value || "").trim(),
             email: String(document.getElementById("inquiry-email")?.value || "").trim() || null,
-            institute_name:
-                String(document.getElementById("inquiry-institute")?.value || "").trim() || null,
+            organization:
+                String(document.getElementById("inquiry-organization")?.value || "").trim() ||
+                null,
             city: String(document.getElementById("inquiry-city")?.value || "").trim() || null,
         });
         if (result) {

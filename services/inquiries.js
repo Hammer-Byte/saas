@@ -4,6 +4,7 @@ import {
     INQUIRY_STATES,
 } from "../constants.js";
 import { createInquiryActivity } from "../db/inquiry_activities.js";
+import { createInquiryNote } from "../db/inquiry_notes.js";
 import {
     createInquiry,
     getInquiryById,
@@ -49,6 +50,10 @@ function quotePreview(value) {
     return text.length > 120 ? `${text.slice(0, 117)}...` : text;
 }
 
+function notePreview(value) {
+    return quotePreview(value);
+}
+
 export async function logInquiryActivity({ inquiry_id, user_id, activity }) {
     return await createInquiryActivity({
         inquiry_id,
@@ -75,13 +80,42 @@ async function sendCreateEmails({ inquiry }) {
     notifyInquireeReceived({ inquiry });
 }
 
+function potentialFieldsForStateChange({ inquiry, previousState, nextState }) {
+    let nextPotentialEnteredOn = inquiry.potential_entered_on || null;
+    let nextFollowup1Reminder = inquiry.followup_1_reminder_sent_on || null;
+    let nextFollowup2Reminder = inquiry.followup_2_reminder_sent_on || null;
+    let nextFollowup3Reminder = inquiry.followup_3_reminder_sent_on || null;
+
+    if (previousState !== INQUIRY_STATES.POTENTIAL && nextState === INQUIRY_STATES.POTENTIAL) {
+        nextPotentialEnteredOn = getIstDateTime();
+        nextFollowup1Reminder = null;
+        nextFollowup2Reminder = null;
+        nextFollowup3Reminder = null;
+    } else if (
+        previousState === INQUIRY_STATES.POTENTIAL &&
+        nextState !== INQUIRY_STATES.POTENTIAL
+    ) {
+        nextPotentialEnteredOn = null;
+        nextFollowup1Reminder = null;
+        nextFollowup2Reminder = null;
+        nextFollowup3Reminder = null;
+    }
+
+    return {
+        nextPotentialEnteredOn,
+        nextFollowup1Reminder,
+        nextFollowup2Reminder,
+        nextFollowup3Reminder,
+    };
+}
+
 export async function addInquiry({ body, set }) {
     const inquiryId = await createInquiry({
         full_name: asText(body.full_name),
         phone: body.phone,
         email: asText(body.email),
         source: asText(body.source),
-        institute_name: asText(body.institute_name),
+        organization: asText(body.organization),
         city: asText(body.city),
         state: INQUIRY_STATES.NEW,
     });
@@ -112,39 +146,13 @@ export async function addManualInquiry({ body, cookie, set }) {
         return { error: "Only admins can add inquiries manually" };
     }
 
-    let assigneeUserId = body.assignee_user_id != null ? Number(body.assignee_user_id) : null;
-    if (assigneeUserId != null && !(assigneeUserId >= 1)) {
-        set.status = 400;
-        return { error: "Invalid assignee" };
-    }
-
-    let state = normalizeInquiryState(body.state || INQUIRY_STATES.NEW);
-    if (assigneeUserId != null && state === INQUIRY_STATES.NEW) {
-        state = INQUIRY_STATES.ASSIGNED;
-    }
-
-    if (assigneeUserId != null) {
-        const assigneeUser = await getUserById({ id: assigneeUserId });
-        if (!assigneeUser) {
-            set.status = 400;
-            return { error: "Assignee not found" };
-        }
-    }
-
-    const potentialEnteredOn =
-        state === INQUIRY_STATES.POTENTIAL ? getIstDateTime() : null;
-
     const inquiryId = await createInquiry({
         full_name: asText(body.full_name),
         phone: body.phone,
         email: asText(body.email),
         source: INQUIRY_SOURCES.MANUAL,
-        institute_name: asText(body.institute_name),
-        city: asText(body.city),
-        state,
-        assignee_user_id: assigneeUserId,
-        quote: asText(body.quote),
-        potential_entered_on: potentialEnteredOn,
+        organization: asText(body.organization),
+        state: INQUIRY_STATES.NEW,
     });
 
     if (!inquiryId) {
@@ -152,26 +160,31 @@ export async function addManualInquiry({ body, cookie, set }) {
         return { error: "Failed to create inquiry" };
     }
 
-    const inquiry = await getInquiryById({ id: inquiryId });
-
     await logInquiryActivity({
         inquiry_id: inquiryId,
         user_id: currentUser.id,
         activity: "Created inquiry manually",
     });
 
+    const note = asText(body.note);
+    if (note) {
+        const noteId = await createInquiryNote({
+            inquiry_id: inquiryId,
+            user_id: currentUser.id,
+            note,
+        });
+        if (noteId) {
+            await logInquiryActivity({
+                inquiry_id: inquiryId,
+                user_id: currentUser.id,
+                activity: `Added note: "${notePreview(note)}"`,
+            });
+        }
+    }
+
+    const inquiry = await getInquiryById({ id: inquiryId });
     if (inquiry) {
         await sendCreateEmails({ inquiry });
-        if (assigneeUserId != null) {
-            const assigneeUser = await getUserById({ id: assigneeUserId });
-            if (assigneeUser) {
-                notifyInquiryAssigned({
-                    inquiry,
-                    assigneeUser,
-                    assignedByUser: currentUser,
-                });
-            }
-        }
     }
 
     set.status = 201;
@@ -276,15 +289,15 @@ export async function updateInquiry({ params, body, cookie, set }) {
     let nextPhone = inquiry.phone;
     let nextEmail = inquiry.email;
     let nextSource = inquiry.source;
-    let nextInstituteName = inquiry.institute_name;
+    let nextOrganization = inquiry.organization;
     let nextCity = inquiry.city;
 
     if (isAdmin) {
         if (body.full_name !== undefined) nextFullName = asText(body.full_name);
         if (body.phone !== undefined) nextPhone = String(body.phone || "").trim();
         if (body.email !== undefined) nextEmail = asText(body.email);
-        if (body.institute_name !== undefined) {
-            nextInstituteName = asText(body.institute_name);
+        if (body.organization !== undefined) {
+            nextOrganization = asText(body.organization);
         }
         if (body.city !== undefined) nextCity = asText(body.city);
         if (body.source !== undefined) nextSource = asText(body.source);
@@ -297,25 +310,16 @@ export async function updateInquiry({ params, body, cookie, set }) {
 
     const nextQuote = body.quote !== undefined ? asText(body.quote) : previousQuote;
 
-    let nextPotentialEnteredOn = inquiry.potential_entered_on || null;
-    let nextFollowup1Reminder = inquiry.followup_1_reminder_sent_on || null;
-    let nextFollowup2Reminder = inquiry.followup_2_reminder_sent_on || null;
-    let nextFollowup3Reminder = inquiry.followup_3_reminder_sent_on || null;
-
-    if (previousState !== INQUIRY_STATES.POTENTIAL && nextState === INQUIRY_STATES.POTENTIAL) {
-        nextPotentialEnteredOn = getIstDateTime();
-        nextFollowup1Reminder = null;
-        nextFollowup2Reminder = null;
-        nextFollowup3Reminder = null;
-    } else if (
-        previousState === INQUIRY_STATES.POTENTIAL &&
-        nextState !== INQUIRY_STATES.POTENTIAL
-    ) {
-        nextPotentialEnteredOn = null;
-        nextFollowup1Reminder = null;
-        nextFollowup2Reminder = null;
-        nextFollowup3Reminder = null;
-    }
+    const {
+        nextPotentialEnteredOn,
+        nextFollowup1Reminder,
+        nextFollowup2Reminder,
+        nextFollowup3Reminder,
+    } = potentialFieldsForStateChange({
+        inquiry,
+        previousState,
+        nextState,
+    });
 
     const activities = [];
 
@@ -369,6 +373,9 @@ export async function updateInquiry({ params, body, cookie, set }) {
     if (nextEmail !== inquiry.email) {
         activities.push("Updated email");
     }
+    if (nextOrganization !== inquiry.organization) {
+        activities.push("Updated organization");
+    }
 
     await updateInquiryById({
         id: inquiry.id,
@@ -376,7 +383,7 @@ export async function updateInquiry({ params, body, cookie, set }) {
         phone: nextPhone,
         email: nextEmail,
         source: nextSource,
-        institute_name: nextInstituteName,
+        organization: nextOrganization,
         city: nextCity,
         state: nextState,
         assignee_user_id: nextAssigneeUserId,
@@ -407,4 +414,92 @@ export async function updateInquiry({ params, body, cookie, set }) {
 
     set.status = 200;
     return { message: "Inquiry updated", inquiry: updatedInquiry };
+}
+
+export async function bulkChangeInquiryStates({ body, cookie, set }) {
+    const currentUser = await getCurrentUser({ cookie });
+    if (!currentUser?.id) {
+        set.status = 401;
+        return { error: "Unauthorized" };
+    }
+
+    if (!isInquiryAdminUser(currentUser)) {
+        set.status = 403;
+        return { error: "Only admins can bulk change inquiry state" };
+    }
+
+    const nextState = normalizeInquiryState(body.state);
+    if (!STATE_VALUES.has(nextState) || body.state === undefined) {
+        set.status = 400;
+        return { error: "Invalid state" };
+    }
+
+    const ids = Array.isArray(body.ids)
+        ? [...new Set(body.ids.map((id) => Number(id)).filter((id) => id >= 1))]
+        : [];
+    if (!ids.length) {
+        set.status = 400;
+        return { error: "No inquiries selected" };
+    }
+
+    let updatedCount = 0;
+    let skippedCount = 0;
+    const errors = [];
+
+    for (const id of ids) {
+        const inquiry = await getInquiryById({ id });
+        if (!inquiry) {
+            errors.push({ id, error: "Inquiry not found" });
+            continue;
+        }
+
+        const previousState = normalizeInquiryState(inquiry.state);
+        if (previousState === nextState) {
+            skippedCount += 1;
+            continue;
+        }
+
+        const {
+            nextPotentialEnteredOn,
+            nextFollowup1Reminder,
+            nextFollowup2Reminder,
+            nextFollowup3Reminder,
+        } = potentialFieldsForStateChange({
+            inquiry,
+            previousState,
+            nextState,
+        });
+
+        await updateInquiryById({
+            id: inquiry.id,
+            full_name: inquiry.full_name,
+            phone: inquiry.phone,
+            email: inquiry.email,
+            source: inquiry.source,
+            organization: inquiry.organization,
+            city: inquiry.city,
+            state: nextState,
+            assignee_user_id: inquiry.assignee_user_id,
+            quote: inquiry.quote,
+            potential_entered_on: nextPotentialEnteredOn,
+            followup_1_reminder_sent_on: nextFollowup1Reminder,
+            followup_2_reminder_sent_on: nextFollowup2Reminder,
+            followup_3_reminder_sent_on: nextFollowup3Reminder,
+        });
+
+        await logInquiryActivity({
+            inquiry_id: inquiry.id,
+            user_id: currentUser.id,
+            activity: `Changed state from ${stateLabel(previousState)} to ${stateLabel(nextState)}`,
+        });
+        updatedCount += 1;
+    }
+
+    set.status = 200;
+    return {
+        message: "Bulk state change complete",
+        updated: updatedCount,
+        skipped: skippedCount,
+        errors,
+    };
 }

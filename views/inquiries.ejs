@@ -84,8 +84,32 @@
         <p class="text-secondary small mb-3" id="inquiries-filter-status" role="status"></p>
         <div id="inquiry-add-alert" class="alert d-none" role="alert"></div>
 
+        <% if (isAdmin) { %>
+            <div
+                id="inquiries-bulk-state-bar"
+                class="card border-0 shadow-sm mb-3 d-none"
+            >
+                <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-2">
+                    <span class="small text-secondary" id="inquiries-selected-count">0 selected</span>
+                    <select class="form-select form-select-sm" id="inquiries-bulk-state" style="max-width: 220px;">
+                        <option value="">Choose state…</option>
+                        <% stateValues.forEach(function (state) { %>
+                            <option value="<%= state %>"><%= stateLabels[state] || state %></option>
+                        <% }) %>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-primary" id="inquiries-bulk-state-btn" disabled>
+                        Apply state
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="inquiries-bulk-clear-btn">
+                        Clear selection
+                    </button>
+                    <span class="small text-danger d-none" id="inquiries-bulk-state-status" role="status"></span>
+                </div>
+            </div>
+        <% } %>
+
         <div
-            class="offcanvas offcanvas-end"
+            class="offcanvas offcanvas-end inquiries-filters-panel"
             tabindex="-1"
             id="inquiries-filters-panel"
             aria-labelledby="inquiries-filters-panel-label"
@@ -359,6 +383,17 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light sticky-top">
                             <tr>
+                                <% if (isAdmin) { %>
+                                    <th scope="col" style="width: 2.5rem;">
+                                        <input
+                                            type="checkbox"
+                                            class="form-check-input"
+                                            id="inquiries-select-all"
+                                            title="Select all visible"
+                                            aria-label="Select all visible"
+                                        />
+                                    </th>
+                                <% } %>
                                 <th scope="col">ID</th>
                                 <th scope="col">Created</th>
                                 <th scope="col">Name</th>
@@ -390,6 +425,16 @@
                                     data-open-slot="<%= openSlot %>"
                                     data-search="<%= [inquiry.full_name, inquiry.phone, inquiry.email].filter(Boolean).join(' ').toLowerCase() %>"
                                 >
+                                    <% if (isAdmin) { %>
+                                        <td>
+                                            <input
+                                                type="checkbox"
+                                                class="form-check-input inquiry-select"
+                                                value="<%= inquiry.id %>"
+                                                aria-label="Select inquiry #<%= inquiry.id %>"
+                                            />
+                                        </td>
+                                    <% } %>
                                     <td>
                                         <a href="/app/inquiries/<%= inquiry.id %>" target="_blank" rel="noopener noreferrer">
                                             #<%= inquiry.id %>
@@ -453,25 +498,12 @@
                             <input type="email" class="form-control" id="inquiry-add-email" maxlength="255" />
                         </div>
                         <div class="mb-3">
-                            <label for="inquiry-add-institute" class="form-label">Institute</label>
-                            <input type="text" class="form-control" id="inquiry-add-institute" maxlength="128" />
-                        </div>
-                        <div class="mb-3">
-                            <label for="inquiry-add-city" class="form-label">City</label>
-                            <input type="text" class="form-control" id="inquiry-add-city" maxlength="64" />
-                        </div>
-                        <div class="mb-3">
-                            <label for="inquiry-add-assignee" class="form-label">Assignee</label>
-                            <select class="form-select" id="inquiry-add-assignee">
-                                <option value="">Unassigned</option>
-                                <% (users || []).forEach(function (user) { %>
-                                    <option value="<%= user.id %>"><%= user.full_name %> (<%= user.email %>)</option>
-                                <% }) %>
-                            </select>
+                            <label for="inquiry-add-organization" class="form-label">Organization</label>
+                            <input type="text" class="form-control" id="inquiry-add-organization" maxlength="128" />
                         </div>
                         <div class="mb-0">
-                            <label for="inquiry-add-quote" class="form-label">Quote</label>
-                            <textarea class="form-control" id="inquiry-add-quote" rows="2"></textarea>
+                            <label for="inquiry-add-note" class="form-label">Note</label>
+                            <textarea class="form-control" id="inquiry-add-note" rows="3"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -495,6 +527,11 @@
     .inquiries-table-scroll thead th {
         z-index: 1;
     }
+    #inquiries-bulk-state-bar {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
     .inquiries-filter-clear-x {
         width: 2rem;
         min-width: 2rem;
@@ -512,10 +549,19 @@
         text-overflow: ellipsis;
         white-space: nowrap;
     }
-    .inquiries-multi-filter-menu {
-        max-height: 240px;
+    /* Keep checkbox menus in document flow so offcanvas overflow does not hide them. */
+    .inquiries-filters-panel .inquiries-multi-filter .dropdown-menu {
+        position: static !important;
+        transform: none !important;
+        float: none;
+        width: 100%;
+        margin-top: 0.35rem;
+        max-height: 220px;
         overflow: auto;
-        min-width: 100%;
+        display: none;
+    }
+    .inquiries-filters-panel .inquiries-multi-filter .dropdown-menu.show {
+        display: block;
     }
     .inquiries-multi-filter-menu .form-check {
         margin-bottom: 0.25rem;

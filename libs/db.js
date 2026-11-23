@@ -258,7 +258,7 @@ export async function generateDBTables() {
             phone VARCHAR(13) NOT NULL,
             email VARCHAR(255) NULL,
             source VARCHAR(64) NULL,
-            institute_name VARCHAR(128) NULL,
+            organization VARCHAR(128) NULL,
             city VARCHAR(64) NULL,
             state VARCHAR(32) NOT NULL DEFAULT 'new',
             assignee_user_id INT NULL,
