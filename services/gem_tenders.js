@@ -220,7 +220,7 @@ function parseIds(rawIds) {
 
 /** Patch fields for an eligibility choice (lock + clear stage on negative choices). */
 function eligibilityPatch({ choice, previousStage }) {
-    const patch = { ...eligibilityFlags(choice) };
+    const patch = { ...eligibilityFlags(choice), requires_review: false };
     if (choice === GEM_TENDER_ELIGIBILITY_CHOICES.ELIGIBLE) {
         if (!previousStage) {
             patch.stage = GEM_TENDER_STAGES.WAITING_FOR_DOCS;
@@ -387,6 +387,7 @@ export async function updateGemTender({ params, body, cookie, set }) {
         bodyHasField(body, "category_group_id") ||
         bodyHasField(body, "tender_category_id") ||
         bodyHasField(body, "eligibility") ||
+        bodyHasField(body, "requires_review") ||
         bodyHasField(body, "stage") ||
         bodyHasField(body, "quote");
 
@@ -395,7 +396,7 @@ export async function updateGemTender({ params, body, cookie, set }) {
         return { error: "Unlock this tender before making changes" };
     }
 
-    // Category / eligibility / stage / quote: existing assignee or super admin only.
+    // Category / eligibility / requires review / stage / quote: existing assignee or super admin only.
     if (touchingWork) {
         if (!(previousAssigneeUserId >= 1)) {
             set.status = 400;
@@ -507,6 +508,32 @@ export async function updateGemTender({ params, body, cookie, set }) {
     const eligibilityChanging = nextChoice !== previousChoice;
     const nextEligible = nextChoice === GEM_TENDER_ELIGIBILITY_CHOICES.ELIGIBLE;
 
+    // ---- Requires review (non-locking holding flag; assignee required to mark on) ----
+    const previousRequiresReview = !!Number(gemTender.requires_review);
+    let nextRequiresReview = previousRequiresReview;
+    if (bodyHasField(body, "requires_review")) {
+        nextRequiresReview = !!body.requires_review;
+        if (previousStage === GEM_TENDER_STAGES.FILED) {
+            set.status = 400;
+            return { error: "Requires review cannot change after the tender is filed" };
+        }
+    }
+    if (eligibilityChanging) {
+        nextRequiresReview = false;
+    }
+    // Unassigning clears the holding flag with the rest of the work state.
+    if (
+        assigneeChanging &&
+        nextAssigneeUserId == null &&
+        previousStage !== GEM_TENDER_STAGES.FILED
+    ) {
+        nextRequiresReview = false;
+    }
+    if (nextRequiresReview && !(nextAssigneeUserId >= 1)) {
+        set.status = 400;
+        return { error: "Assign someone before marking requires review" };
+    }
+
     // ---- Stage ----
     const patch = { id: gemTender.id };
     const activities = [];
@@ -521,6 +548,13 @@ export async function updateGemTender({ params, body, cookie, set }) {
                 previousStage,
                 patch: choicePatch,
             }),
+        );
+    }
+
+    if (nextRequiresReview !== previousRequiresReview) {
+        patch.requires_review = nextRequiresReview;
+        activities.push(
+            nextRequiresReview ? "Marked requires review" : "Cleared requires review",
         );
     }
 
@@ -963,6 +997,7 @@ export async function bulkAssignGemTenders({ body, cookie, set }) {
             if (unassign) {
                 const previousStage = knownStageOrNull(gemTender.stage);
                 const previousChoice = eligibilityChoiceOf(gemTender);
+                const previousRequiresReview = !!Number(gemTender.requires_review);
                 const patch = { id: gemTender.id, assignee_user_id: null };
                 const activities = [`Changed assignee from ${previousAssigneeName} to Unassigned`];
                 if (previousStage !== GEM_TENDER_STAGES.FILED) {
@@ -975,6 +1010,10 @@ export async function bulkAssignGemTenders({ body, cookie, set }) {
                         activities.push(
                             `Changed eligibility from ${eligibilityLabel(previousChoice)} to Not decided`,
                         );
+                    }
+                    if (previousRequiresReview) {
+                        patch.requires_review = false;
+                        activities.push("Cleared requires review");
                     }
                 }
                 await updateGemTenderById(patch);

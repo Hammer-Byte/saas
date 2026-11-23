@@ -10,6 +10,7 @@
         { unassigned: "Unassigned", assigned: "Assigned", eligible: "Eligible" },
         pipelineStageLabels,
         {
+            requires_review: "Requires review",
             ineligible: (GEM_TENDER_ELIGIBILITY_CHOICE_LABELS || {}).ineligible || "Not eligible",
             out_of_scope: (GEM_TENDER_ELIGIBILITY_CHOICE_LABELS || {}).out_of_scope || "Out of scope",
             missed: "Missed",
@@ -24,6 +25,7 @@
         if (Number(tender.out_of_scope)) return "out_of_scope";
         if (pipelineStageLabels[tender.stage]) return tender.stage;
         if (Number(tender.eligible)) return "eligible";
+        if (Number(tender.requires_review)) return "requires_review";
         return tender.assignee_user_id ? "assigned" : "unassigned";
     };
     const mseDisplay = function (value) {
@@ -158,6 +160,9 @@
                     </button>
                     <button type="button" class="btn btn-sm gem-quick-view" data-view="needs_decision" title="Assigned, not locked, eligibility not decided yet">
                         Needs decision <span class="badge gem-quick-view-count"></span>
+                    </button>
+                    <button type="button" class="btn btn-sm gem-quick-view" data-view="requires_review" title="Marked requires review (holding flag)">
+                        Requires review <span class="badge gem-quick-view-count"></span>
                     </button>
                     <button type="button" class="btn btn-sm gem-quick-view" data-view="in_progress" title="Eligible and not filed yet">
                         In progress <span class="badge gem-quick-view-count"></span>
@@ -842,6 +847,7 @@
                                         data-tender-category-name="<%= tender.tender_category_name || '' %>"
                                         data-locked="<%= isLocked ? '1' : '0' %>"
                                         data-hidden="<%= isHidden ? '1' : '0' %>"
+                                        data-requires-review="<%= Number(tender.requires_review) ? '1' : '0' %>"
                                         data-assignee-user-id="<%= tender.assignee_user_id != null ? tender.assignee_user_id : '' %>"
                                         data-stage="<%= stage %>"
                                         data-past-experience="<%= tender.required_past_experice_years || '' %>"
@@ -1153,6 +1159,11 @@
         color: #164e63;
         background: #cffafe;
         border-color: #67e8f9;
+    }
+    .gem-tender-stage-requires_review {
+        color: #854d0e;
+        background: #fef9c3;
+        border-color: #fde047;
     }
     .gem-tender-stage-waiting_for_docs {
         color: #713f12;

@@ -1,6 +1,6 @@
 (() => {
     // Bumped when a filter default changes so old saved filters don't override it.
-    const FILTERS_STORAGE_KEY = "gem-tenders-filters-v5";
+    const FILTERS_STORAGE_KEY = "gem-tenders-filters-v6";
     const COLUMNS_STORAGE_KEY = "gem-tenders-columns";
     const ALWAYS_VISIBLE_COLUMNS = new Set(["select", "tenderId"]);
     const DEFAULT_VISIBLE_COLUMNS = [
@@ -133,6 +133,7 @@
         if (Number(tender.out_of_scope)) return "out_of_scope";
         if (PIPELINE_STAGES.has(String(tender.stage || ""))) return String(tender.stage);
         if (Number(tender.eligible)) return "eligible";
+        if (Number(tender.requires_review)) return "requires_review";
         return tender.assignee_user_id ? "assigned" : "unassigned";
     }
     const currentUserId = Number(bulkBar?.dataset.currentUserId || 0);
@@ -617,6 +618,7 @@
                     data-tender-category-name="${escapeHtml(tenderCategoryName)}"
                     data-locked="${isLocked ? "1" : "0"}"
                     data-hidden="${isHidden ? "1" : "0"}"
+                    data-requires-review="${Number(tender.requires_review) ? "1" : "0"}"
                     data-assignee-user-id="${escapeHtml(assigneeUserId)}"
                     data-stage="${escapeHtml(stage)}"
                     data-past-experience="${escapeHtml(pastExperience)}"
@@ -1135,7 +1137,12 @@
             case "mine":
                 return currentUserId > 0 && Number(row.dataset.assigneeUserId || 0) === currentUserId;
             case "needs_decision":
-                return status === "assigned" && row.dataset.locked !== "1";
+                return (
+                    (status === "assigned" || status === "requires_review") &&
+                    row.dataset.locked !== "1"
+                );
+            case "requires_review":
+                return status === "requires_review" || row.dataset.requiresReview === "1";
             case "in_progress":
                 return status === "eligible" || (PIPELINE_STAGES.has(status) && status !== "filed");
             case "ending_soon": {

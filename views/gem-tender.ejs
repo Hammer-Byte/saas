@@ -39,7 +39,11 @@
     if (Number(tender.ineligible)) statusBadges.push({ label: "Not eligible", variant: "secondary" });
     if (Number(tender.out_of_scope)) statusBadges.push({ label: "Out of scope", variant: "secondary" });
     if (isEligible) statusBadges.push({ label: "Eligible", variant: "success" });
+    if (Number(tender.requires_review)) {
+        statusBadges.push({ label: "Requires review", variant: "warning text-dark" });
+    }
     if (!assigneeUserId) statusBadges.push({ label: "Unassigned", variant: "light text-dark border" });
+    const requiresReview = !!Number(tender.requires_review);
 
     const mseDisplay = function (value) {
         if (value === true || value === 1 || value === "1") return "Yes";
@@ -145,6 +149,7 @@
             data-id="<%= tender.id %>"
             data-stage="<%= currentStage || '' %>"
             data-eligibility="<%= eligibilityChoice %>"
+            data-requires-review="<%= requiresReview ? '1' : '0' %>"
             data-assignee-user-id="<%= assigneeUserId || '' %>"
             data-tender-category-id="<%= tender.tender_category_id != null ? tender.tender_category_id : '' %>"
             data-current-user-id="<%= currentUserId %>"
@@ -322,6 +327,24 @@
                             </div>
                         <% }) %>
                     </fieldset>
+                    <div class="mb-2">
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="gem-tender-requires-review"
+                                autocomplete="off"
+                                <%= requiresReview ? "checked" : "" %>
+                                <%= !canChooseEligibility ? "disabled" : "" %>
+                            />
+                            <label class="form-check-label" for="gem-tender-requires-review">
+                                Requires review
+                            </label>
+                        </div>
+                        <p class="form-text mb-0">
+                            Holding flag only — does not lock the tender. Cleared when eligibility is set. Assignee required to mark.
+                        </p>
+                    </div>
                 <% } %>
 
                 <% if (isLocked) { %>

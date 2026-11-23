@@ -4,6 +4,7 @@
     const stageSelect = document.getElementById("gem-tender-stage");
     const tenderCategorySelect = document.getElementById("gem-tender-category");
     const eligibilityFieldset = document.getElementById("gem-tender-eligibility");
+    const requiresReviewCheckbox = document.getElementById("gem-tender-requires-review");
     const unlockButton = document.getElementById("gem-tender-unlock-btn");
     const lockButton = document.getElementById("gem-tender-lock-btn");
     const assigneeSelect = document.querySelector("select#gem-tender-assignee");
@@ -198,6 +199,16 @@
         if (!(await applyPatch({ eligibility }))) {
             eligibilityFieldset.disabled = false;
             restore();
+        }
+    });
+
+    requiresReviewCheckbox?.addEventListener("change", async () => {
+        const previous = detail.dataset.requiresReview === "1";
+        const requires_review = !!requiresReviewCheckbox.checked;
+        requiresReviewCheckbox.disabled = true;
+        if (!(await applyPatch({ requires_review }))) {
+            requiresReviewCheckbox.checked = previous;
+            requiresReviewCheckbox.disabled = false;
         }
     });
 

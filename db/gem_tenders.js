@@ -443,6 +443,7 @@ export async function updateGemTenderById(patch = {}) {
         "eligible",
         "ineligible",
         "out_of_scope",
+        "requires_review",
         "missed",
         "unattended",
     ]) {
@@ -534,6 +535,8 @@ export async function updateGemTenderById(patch = {}) {
                         return sql`UPDATE GEM_TENDERS SET ineligible = ${value} WHERE id = ${id}`;
                     case "out_of_scope":
                         return sql`UPDATE GEM_TENDERS SET out_of_scope = ${value} WHERE id = ${id}`;
+                    case "requires_review":
+                        return sql`UPDATE GEM_TENDERS SET requires_review = ${value} WHERE id = ${id}`;
                     case "missed":
                         return sql`UPDATE GEM_TENDERS SET missed = ${value} WHERE id = ${id}`;
                     case "unattended":

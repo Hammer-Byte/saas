@@ -164,6 +164,7 @@ export default function (app) {
                 quote: t.Optional(t.String()),
                 stage: t.Optional(gemTenderManualStageLiteral),
                 eligibility: t.Optional(gemTenderEligibilityLiteral),
+                requires_review: t.Optional(t.Boolean()),
                 assignee_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
                 assign_to_me: t.Optional(t.Boolean()),
                 category_group_id: t.Optional(

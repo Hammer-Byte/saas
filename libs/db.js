@@ -626,6 +626,7 @@ export async function generateDBTables() {
             eligible BOOLEAN NOT NULL DEFAULT FALSE,
             ineligible BOOLEAN NOT NULL DEFAULT FALSE,
             out_of_scope BOOLEAN NOT NULL DEFAULT FALSE,
+            requires_review TINYINT(1) NOT NULL DEFAULT 0,
             missed BOOLEAN NOT NULL DEFAULT FALSE,
             unattended BOOLEAN NOT NULL DEFAULT FALSE,
             filed BOOLEAN NOT NULL DEFAULT FALSE,
