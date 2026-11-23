@@ -82,6 +82,15 @@
             specificationLinks = [];
         }
     }
+    const bidMediaId =
+        tender.document_media_id != null && Number(tender.document_media_id) >= 1
+            ? Number(tender.document_media_id)
+            : null;
+    const bidOpenHref = bidMediaId
+        ? `/api/media/${bidMediaId}`
+        : tender.document || null;
+    const hasOriginalSources =
+        !!tender.document || specificationLinks.some(function (link) { return !!link.url; });
 %>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -108,8 +117,8 @@
                     <%= tender.tender_id %>
                 </p>
                 <h1 class="h3 mb-1">
-                    <% if (tender.document) { %>
-                        <a href="<%= tender.document %>" target="_blank" rel="noopener noreferrer">
+                    <% if (bidOpenHref) { %>
+                        <a href="<%= bidOpenHref %>" target="_blank" rel="noopener noreferrer">
                             <%= tender.tender_id %>
                         </a>
                     <% } else { %>
@@ -356,8 +365,12 @@
                     <div class="col-md-4"><strong>Buyer name</strong><br /><%= tender.buyer_name || "-" %></div>
                     <div class="col-md-4">
                         <strong>Bid document</strong><br />
-                        <% if (tender.document) { %>
-                            <a href="<%= tender.document %>" target="_blank" rel="noopener noreferrer">Open bid PDF</a>
+                        <% if (bidMediaId) { %>
+                            <a href="/api/media/<%= bidMediaId %>" target="_blank" rel="noopener noreferrer">Open bid PDF</a>
+                        <% } else if (tender.document) { %>
+                            <span class="text-secondary">Not cached</span>
+                            ·
+                            <a href="<%= tender.document %>" target="_blank" rel="noopener noreferrer">GeM link</a>
                         <% } else { %>
                             -
                         <% } %>
@@ -366,11 +379,24 @@
                         <strong>Specification / Scope of Work</strong><br />
                         <% if (specificationLinks.length) { %>
                             <ul class="mb-0 ps-3">
-                                <% specificationLinks.forEach(function (link) { %>
+                                <% specificationLinks.forEach(function (link) {
+                                    const mediaId = link.media_id != null && Number(link.media_id) >= 1
+                                        ? Number(link.media_id)
+                                        : null;
+                                %>
                                     <li>
-                                        <a href="<%= link.url %>" target="_blank" rel="noopener noreferrer">
-                                            <%= link.label || "Specification" %>
-                                        </a>
+                                        <% if (mediaId) { %>
+                                            <a href="/api/media/<%= mediaId %>" target="_blank" rel="noopener noreferrer">
+                                                <%= link.label || "Specification" %>
+                                            </a>
+                                        <% } else { %>
+                                            <span><%= link.label || "Specification" %></span>
+                                            <span class="text-secondary">(not cached)</span>
+                                            <% if (link.url) { %>
+                                                ·
+                                                <a href="<%= link.url %>" target="_blank" rel="noopener noreferrer">GeM link</a>
+                                            <% } %>
+                                        <% } %>
                                     </li>
                                 <% }) %>
                             </ul>
@@ -378,6 +404,30 @@
                             -
                         <% } %>
                     </div>
+                    <% if (hasOriginalSources) { %>
+                        <div class="col-12 mt-2 pt-2 border-top">
+                            <strong>Original source</strong>
+                            <p class="text-secondary small mb-2">GeM URLs (use if HammerByte cache is missing or you need the live source).</p>
+                            <ul class="mb-0 ps-3">
+                                <% if (tender.document) { %>
+                                    <li>
+                                        Bid document:
+                                        <a href="<%= tender.document %>" target="_blank" rel="noopener noreferrer">
+                                            <%= tender.document %>
+                                        </a>
+                                    </li>
+                                <% } %>
+                                <% specificationLinks.forEach(function (link) { %>
+                                    <li>
+                                        <%= link.label || "Specification" %>:
+                                        <a href="<%= link.url %>" target="_blank" rel="noopener noreferrer">
+                                            <%= link.url %>
+                                        </a>
+                                    </li>
+                                <% }) %>
+                            </ul>
+                        </div>
+                    <% } %>
                 </div>
             </div>
         </div>

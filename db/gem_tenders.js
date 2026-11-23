@@ -27,6 +27,7 @@ export async function createGemTender({
     tender_category_id = null,
     tender_id,
     document = null,
+    document_media_id = null,
     start_date_time = null,
     end_date_time = null,
     ministry = null,
@@ -52,6 +53,10 @@ export async function createGemTender({
     const emdValue = Number(emd_amount);
     const safeEmdAmount =
         Number.isFinite(emdValue) && emdValue > 0 ? Math.round(emdValue * 100) / 100 : 0;
+    const documentMediaId =
+        document_media_id != null && Number(document_media_id) >= 1
+            ? Number(document_media_id)
+            : null;
 
     return await executeSQLQuery(
         (sql) => sql`
@@ -67,6 +72,7 @@ export async function createGemTender({
                             : null,
                     tender_id,
                     document,
+                    document_media_id: documentMediaId,
                     start_date_time: toDbDateTime(start_date_time),
                     end_date_time: toDbDateTime(end_date_time),
                     ministry,
@@ -90,6 +96,7 @@ export async function createGemTender({
                 "tender_category_id",
                 "tender_id",
                 "document",
+                "document_media_id",
                 "start_date_time",
                 "end_date_time",
                 "ministry",
@@ -120,6 +127,7 @@ export async function createGemTender({
 export async function updateGemTenderScanDetailsById({
     id,
     document = null,
+    document_media_id = null,
     start_date_time = null,
     end_date_time = null,
     ministry = null,
@@ -145,12 +153,17 @@ export async function updateGemTenderScanDetailsById({
     const emdValue = Number(emd_amount);
     const safeEmdAmount =
         Number.isFinite(emdValue) && emdValue > 0 ? Math.round(emdValue * 100) / 100 : 0;
+    const documentMediaId =
+        document_media_id != null && Number(document_media_id) >= 1
+            ? Number(document_media_id)
+            : null;
 
     await executeSQLQuery(
         (sql) => sql`
             UPDATE GEM_TENDERS
             SET
                 document = ${document},
+                document_media_id = ${documentMediaId},
                 start_date_time = ${toDbDateTime(start_date_time)},
                 end_date_time = ${toDbDateTime(end_date_time)},
                 ministry = ${ministry},
@@ -173,6 +186,52 @@ export async function updateGemTenderScanDetailsById({
         `,
     ).catch((error) => {
         logger.error(`updateGemTenderScanDetailsById: ${error}`);
+    });
+}
+
+/** Closed/rejected tenders that still have cached bid or specification media. */
+export async function getGemTendersWithCachedSourceMediaForCleanup() {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT id, document_media_id, specification_links
+            FROM GEM_TENDERS
+            WHERE (
+                out_of_scope = TRUE
+                OR missed = TRUE
+                OR unattended = TRUE
+                OR ineligible = TRUE
+            )
+            AND (
+                document_media_id IS NOT NULL
+                OR (
+                    specification_links IS NOT NULL
+                    AND specification_links LIKE '%media_id%'
+                )
+            )
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getGemTendersWithCachedSourceMediaForCleanup: ${error}`);
+            return [];
+        });
+}
+
+export async function clearGemTenderCachedSourceMedia({ id, specification_links = null }) {
+    const tenderId = Number(id);
+    if (!(tenderId >= 1)) {
+        return;
+    }
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE GEM_TENDERS
+            SET
+                document_media_id = NULL,
+                specification_links = ${serializeSpecificationLinks(specification_links)}
+            WHERE id = ${tenderId}
+        `,
+    ).catch((error) => {
+        logger.error(`clearGemTenderCachedSourceMedia: ${error}`);
     });
 }
 
@@ -421,6 +480,19 @@ export async function updateGemTenderById(patch = {}) {
                 : null;
         pushAssignment("tender_category_id", categoryId);
     }
+    if (has("document_media_id")) {
+        const mediaId =
+            patch.document_media_id != null && Number(patch.document_media_id) >= 1
+                ? Number(patch.document_media_id)
+                : null;
+        pushAssignment("document_media_id", mediaId);
+    }
+    if (has("specification_links")) {
+        pushAssignment(
+            "specification_links",
+            serializeSpecificationLinks(patch.specification_links),
+        );
+    }
     if (has("locked")) {
         const locked = !!patch.locked;
         pushAssignment("locked", locked ? 1 : 0);
@@ -478,6 +550,10 @@ export async function updateGemTenderById(patch = {}) {
                         return sql`UPDATE GEM_TENDERS SET category_group_id = ${value} WHERE id = ${id}`;
                     case "tender_category_id":
                         return sql`UPDATE GEM_TENDERS SET tender_category_id = ${value} WHERE id = ${id}`;
+                    case "document_media_id":
+                        return sql`UPDATE GEM_TENDERS SET document_media_id = ${value} WHERE id = ${id}`;
+                    case "specification_links":
+                        return sql`UPDATE GEM_TENDERS SET specification_links = ${value} WHERE id = ${id}`;
                     case "locked":
                         return sql`UPDATE GEM_TENDERS SET locked = ${value} WHERE id = ${id}`;
                     case "lock_message":

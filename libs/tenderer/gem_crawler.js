@@ -8,6 +8,10 @@ import {
     getGemTenderByTenderId,
     updateGemTenderScanDetailsById,
 } from "../../db/gem_tenders.js";
+import {
+    enrichSpecificationLinksWithMedia,
+    ensureBidDocumentMedia,
+} from "../gem_tender_source_files.js";
 
 const DELAY_SHORT = 1000;
 
@@ -1014,27 +1018,54 @@ function sameScanNumber(left, right) {
     return safeLeft === safeRight;
 }
 
-function normalizeSpecificationLinks(value) {
+function normalizeSpecificationLinks(value, { keepMedia = false } = {}) {
     if (value == null || value === "") {
         return [];
     }
     if (Array.isArray(value)) {
         return value
             .filter((item) => item && item.url)
-            .map((item) => ({
-                url: String(item.url).trim(),
-                label: item.label != null ? String(item.label).trim() : "",
-            }))
+            .map((item) => {
+                const link = {
+                    url: String(item.url).trim(),
+                    label: item.label != null ? String(item.label).trim() : "",
+                };
+                if (keepMedia) {
+                    const mediaId = Number(item.media_id);
+                    if (mediaId >= 1) {
+                        link.media_id = mediaId;
+                    }
+                }
+                return link;
+            })
             .sort((left, right) => left.url.localeCompare(right.url));
     }
     if (typeof value === "string") {
         try {
-            return normalizeSpecificationLinks(JSON.parse(value));
+            return normalizeSpecificationLinks(JSON.parse(value), { keepMedia });
         } catch {
             return [];
         }
     }
     return [];
+}
+
+function collectSpecificationMediaIds(value) {
+    return normalizeSpecificationLinks(value, { keepMedia: true })
+        .map((item) => Number(item.media_id))
+        .filter((id) => id >= 1)
+        .sort((a, b) => a - b);
+}
+
+function sameCachedMediaState(existingTender, nextDetails) {
+    const existingBid = Number(existingTender?.document_media_id) || 0;
+    const nextBid = Number(nextDetails?.document_media_id) || 0;
+    if (existingBid !== nextBid) {
+        return false;
+    }
+    const left = collectSpecificationMediaIds(existingTender?.specification_links).join(",");
+    const right = collectSpecificationMediaIds(nextDetails?.specification_links).join(",");
+    return left === right;
 }
 
 function sameSpecificationLinks(left, right) {
@@ -1089,15 +1120,31 @@ function preferScanText(nextValue, existingValue) {
     return existing || null;
 }
 
-function buildScanDetailsForUpsert({ document, gemTenderDetails, existingTender = null }) {
+function buildScanDetailsForUpsert({
+    document,
+    document_media_id = null,
+    gemTenderDetails,
+    existingTender = null,
+}) {
     const nextSpecificationLinks = hasSpecificationLinks(gemTenderDetails.specification_links)
         ? gemTenderDetails.specification_links
         : existingTender
-          ? normalizeSpecificationLinks(existingTender.specification_links)
+          ? normalizeSpecificationLinks(existingTender.specification_links, {
+                keepMedia: true,
+            })
           : gemTenderDetails.specification_links;
+
+    const documentMediaId =
+        document_media_id != null && Number(document_media_id) >= 1
+            ? Number(document_media_id)
+            : existingTender?.document_media_id != null &&
+                Number(existingTender.document_media_id) >= 1
+              ? Number(existingTender.document_media_id)
+              : null;
 
     return {
         document: document || existingTender?.document || null,
+        document_media_id: documentMediaId,
         start_date_time: gemTenderDetails.start_date_time,
         end_date_time: gemTenderDetails.end_date_time,
         ministry: gemTenderDetails.ministry,
@@ -1174,6 +1221,7 @@ export const processTender = async ({
     tender_id,
     document = null,
     buffer = null,
+    cookieHeader = "",
     existingTender = null,
 }) => {
     try {
@@ -1190,6 +1238,28 @@ export const processTender = async ({
                 ? Number(tender_category_id)
                 : null;
 
+        const document_media_id = await ensureBidDocumentMedia({
+            buffer: pdfBuffer,
+            tenderId: tender_id,
+            existingMediaId: existingTender?.document_media_id,
+        });
+
+        const existingSpecLinks = normalizeSpecificationLinks(
+            existingTender?.specification_links,
+            { keepMedia: true },
+        );
+        const baseSpecLinks = hasSpecificationLinks(gemTenderDetails.specification_links)
+            ? normalizeSpecificationLinks(gemTenderDetails.specification_links)
+            : existingSpecLinks;
+
+        gemTenderDetails.specification_links =
+            (await enrichSpecificationLinksWithMedia({
+                specificationLinks: baseSpecLinks,
+                existingLinks: existingSpecLinks,
+                cookieHeader,
+                tenderId: tender_id,
+            })) || null;
+
         // category_group_id / tender_category_id are set only on insert; never overwritten on re-scan.
         if (!existingTender) {
             const tenderRowId = await createGemTender({
@@ -1197,6 +1267,7 @@ export const processTender = async ({
                 tender_category_id: resolvedTenderCategoryId,
                 tender_id,
                 document,
+                document_media_id,
                 ...gemTenderDetails,
             });
 
@@ -1210,11 +1281,14 @@ export const processTender = async ({
 
         const nextDetails = buildScanDetailsForUpsert({
             document,
+            document_media_id,
             gemTenderDetails,
             existingTender,
         });
 
-        if (!scanDetailsDiffer(existingTender, nextDetails)) {
+        const detailsChanged = scanDetailsDiffer(existingTender, nextDetails);
+        const mediaChanged = !sameCachedMediaState(existingTender, nextDetails);
+        if (!detailsChanged && !mediaChanged) {
             logger.info(`Tender unchanged, skipping update: ${tender_id}`);
             return false;
         }
@@ -1229,7 +1303,7 @@ export const processTender = async ({
         logger.error(`Failed to process tender ${tender_id}: ${error}`);
         return false;
     } finally {
-        // Local PDF is only needed for pdftotext; DB keeps the GeM URL.
+        // Temp PDF is only needed for pdftotext; MEDIA keeps the durable copy.
         await removeLocalTenderPdf(tenderFile, tender_id);
     }
 };
@@ -1377,6 +1451,10 @@ export const searchTendersByKeyword = async (
                         driver,
                         tender,
                     );
+                    const cookies = await driver.manage().getCookies();
+                    const cookieHeader = cookies
+                        .map((cookie) => `${cookie.name}=${cookie.value}`)
+                        .join("; ");
                     const changed = await processTender({
                         tenderFile,
                         category_group_id: resolvedCategoryGroupId,
@@ -1384,6 +1462,7 @@ export const searchTendersByKeyword = async (
                         tender_id: tenderId,
                         document,
                         buffer,
+                        cookieHeader,
                         existingTender,
                     });
                     if (changed) {

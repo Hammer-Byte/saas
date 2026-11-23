@@ -603,6 +603,7 @@ export async function generateDBTables() {
             tender_category_id INT NULL,
             tender_id VARCHAR(128) NOT NULL,
             document VARCHAR(512) NULL,
+            document_media_id INT NULL,
             start_date_time VARCHAR(64) NULL,
             end_date_time VARCHAR(64) NULL,
             ministry VARCHAR(255) NULL,
@@ -649,6 +650,11 @@ export async function generateDBTables() {
             CONSTRAINT fk_gem_tenders_assignee
                 FOREIGN KEY (assignee_user_id)
                 REFERENCES USERS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_gem_tenders_document_media
+                FOREIGN KEY (document_media_id)
+                REFERENCES MEDIA(id)
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,

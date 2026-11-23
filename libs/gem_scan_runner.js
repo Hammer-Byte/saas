@@ -5,6 +5,7 @@ import {
 } from "../db/gem_tender_scan_runs.js";
 import { toDbDateTime } from "./date.js";
 import { openHeadlessFirefox, quitDriver } from "./gem_browser.js";
+import { cleanupCachedSourceMediaForClosedTenders } from "./gem_tender_source_files.js";
 import { searchTendersByKeyword } from "./tenderer/gem_crawler.js";
 import { GEM_SEARCH_MODES } from "./tenderer/gem_pom.js";
 
@@ -48,6 +49,8 @@ async function runGemScan({ runId, keywords }) {
     let tenderCount = 0;
 
     try {
+        await cleanupCachedSourceMediaForClosedTenders();
+
         driver = await openHeadlessFirefox({ label: "gem-scan" });
 
         for (const keyword of keywordList) {
