@@ -23,10 +23,12 @@ export const DEFAULT_ALERT_CONFIG = {
     },
     dataer: {
         enabled: false,
+        skip_success_alerts: false,
         recipients: [],
     },
     dber: {
         enabled: false,
+        skip_success_alerts: false,
         recipients: [],
     },
 };
@@ -177,10 +179,12 @@ export function parseAlertConfig(raw) {
         },
         dataer: {
             enabled: Boolean(dataerIn.enabled),
+            skip_success_alerts: Boolean(dataerIn.skip_success_alerts),
             recipients: normalizeRecipients(dataerIn.recipients),
         },
         dber: {
             enabled: Boolean(dberIn.enabled),
+            skip_success_alerts: Boolean(dberIn.skip_success_alerts),
             recipients: normalizeRecipients(dberIn.recipients),
         },
     };

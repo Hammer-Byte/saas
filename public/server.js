@@ -202,6 +202,7 @@
     const pingerRecipientsEl = document.getElementById("pinger-recipients");
     const metricerRecipientsEl = document.getElementById("metricer-recipients");
     const dataerRecipientsEl = document.getElementById("dataer-recipients");
+    const dberRecipientsEl = document.getElementById("dber-recipients");
 
     if (
         !alertsModal
@@ -209,6 +210,7 @@
         || !pingerRecipientsEl
         || !metricerRecipientsEl
         || !dataerRecipientsEl
+        || !dberRecipientsEl
     ) {
         return;
     }
@@ -333,6 +335,9 @@
         }
         if (section === "dataer") {
             return dataerRecipientsEl;
+        }
+        if (section === "dber") {
+            return dberRecipientsEl;
         }
         return pingerRecipientsEl;
     }
@@ -519,6 +524,11 @@
             mergeRecipientRows(candidates, config.dataer?.recipients || []),
             "dataer",
         );
+        renderRecipients(
+            dberRecipientsEl,
+            mergeRecipientRows(candidates, config.dber?.recipients || []),
+            "dber",
+        );
     }
 
     hydrateAlertRecipients();
@@ -602,9 +612,14 @@
             },
             dataer: {
                 enabled: Boolean(document.getElementById("dataer-enabled")?.checked),
+                skip_success_alerts: Boolean(document.getElementById("dataer-skip-success")?.checked),
                 recipients: readRecipients(dataerRecipientsEl),
             },
-            dber: { enabled: false, recipients: [] },
+            dber: {
+                enabled: Boolean(document.getElementById("dber-enabled")?.checked),
+                skip_success_alerts: Boolean(document.getElementById("dber-skip-success")?.checked),
+                recipients: readRecipients(dberRecipientsEl),
+            },
         };
 
         alertsSaveBtn.disabled = true;

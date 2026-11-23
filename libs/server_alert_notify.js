@@ -14,6 +14,7 @@ import {
     parseAlertState,
     storageOverThreshold,
 } from "./server_alerts.js";
+import { resolveServiceRunStatus } from "./server_run_status.js";
 import transporter from "./transporter.js";
 
 const METRICER_REQUIRES_PING_WITHIN_SECONDS = 180;
@@ -332,23 +333,87 @@ function asDisplayText(value, maxLength = 512) {
     return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
 }
 
+function escapeAlertDetailHtml(detail) {
+    return String(detail || "")
+        .split("\n")
+        .map((line) =>
+            String(line)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;"),
+        )
+        .join("<br>");
+}
+
+function formatDurationSeconds(value) {
+    if (value == null || !Number.isFinite(Number(value))) {
+        return "—";
+    }
+    return `${Number(value).toFixed(1)}s`;
+}
+
+function asNameList(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
 function buildDataerAlertDetail(body) {
     const result = asDisplayText(body?.result, 256);
     const host = asDisplayText(body?.host, 256);
     const remote = asDisplayText(body?.remote, 256);
     const local = asDisplayText(body?.local, 256);
     const finishedAt = asDisplayText(body?.finishedAt, 64);
-    const duration =
-        body?.durationSeconds != null && Number.isFinite(Number(body.durationSeconds))
-            ? `${Number(body.durationSeconds).toFixed(1)}s`
-            : "—";
     return [
         `Result: ${result}`,
         `Host: ${host}`,
         `Remote → Local: ${remote} → ${local}`,
         `Finished: ${finishedAt}`,
-        `Duration: ${duration}`,
+        `Duration: ${formatDurationSeconds(body?.durationSeconds)}`,
     ].join("\n");
+}
+
+function buildDberAlertDetail(body) {
+    const result = asDisplayText(body?.result, 256);
+    const fromHost = asDisplayText(body?.fromHost, 256);
+    const toHost = body?.importToTarget === false ? "—" : asDisplayText(body?.toHost, 256);
+    const eventNames = [
+        ...new Set([...asNameList(body?.failedDatabases), ...asNameList(body?.succeededDatabases)]),
+    ];
+    const databases =
+        eventNames.length > 0
+            ? eventNames.join(", ")
+            : asNameList(body?.databases).join(", ") || "—";
+    const finishedAt = asDisplayText(body?.finishedAt, 64);
+    const lines = [
+        `Result: ${result}`,
+        `From → To: ${fromHost} → ${toHost}`,
+        `Databases: ${databases}`,
+        `Finished: ${finishedAt}`,
+        `Duration: ${formatDurationSeconds(body?.durationSeconds)}`,
+    ];
+    const bacpacPath = String(body?.bacpacPath || "").trim();
+    if (bacpacPath) {
+        lines.push(`Bacpac: ${asDisplayText(bacpacPath, 256)}`);
+    }
+    return lines.join("\n");
+}
+
+function shouldSkipSuccessAlert({ skipSuccessAlerts, body }) {
+    if (!skipSuccessAlerts) {
+        return false;
+    }
+    const status = resolveServiceRunStatus({
+        success: body?.success,
+        result: body?.result,
+        successCount: body?.successCount,
+        failedCount: body?.failedCount,
+        succeededDatabases: body?.succeededDatabases,
+        failedDatabases: body?.failedDatabases,
+    });
+    return status === "success";
 }
 
 /**
@@ -374,19 +439,18 @@ export async function evaluateDataerAlerts({ server, body }) {
             logger.info(`server #${server.id} dataer alerts skipped: no email/SMS enabled`);
             return;
         }
+        if (
+            shouldSkipSuccessAlert({
+                skipSuccessAlerts: dataer.skip_success_alerts,
+                body,
+            })
+        ) {
+            logger.info(`server #${server.id} dataer alerts skipped: success only`);
+            return;
+        }
 
         const detail = buildDataerAlertDetail(body);
         const detailOneLine = asDisplayText(detail.replace(/\n/g, " · "), 512);
-        const detailHtml = detail
-            .split("\n")
-            .map((line) =>
-                String(line)
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;"),
-            )
-            .join("<br>");
         const finishedAt = asDisplayText(body.finishedAt, 64);
         const result = asDisplayText(body.result, 160);
         const remote = asDisplayText(body.remote, 120);
@@ -400,7 +464,7 @@ export async function evaluateDataerAlerts({ server, body }) {
                     recipientName,
                     server,
                     alertTitle: "Dataer path sync",
-                    alertDetail: detailHtml,
+                    alertDetail: escapeAlertDetailHtml(detail),
                     capturedAt: finishedAt,
                 }),
             smsMessage: `HammerByte: ${server.name} Dataer · ${remote} → ${local} · ${result}`,
@@ -421,6 +485,78 @@ export async function evaluateDataerAlerts({ server, body }) {
         logger.info(`server #${server.id} dataer alert sent`);
     } catch (error) {
         logger.error(`evaluateDataerAlerts: ${error}`);
+    }
+}
+
+/**
+ * Notify on every accepted DBer job publish when DBer alerts are enabled.
+ */
+export async function evaluateDberAlerts({ server, body }) {
+    try {
+        if (!server?.id || !body || typeof body !== "object") {
+            return;
+        }
+
+        const config = parseAlertConfig(server.alert_config);
+        const dber = config.dber;
+        if (!dber.enabled) {
+            logger.info(`server #${server.id} dber alerts skipped: disabled`);
+            return;
+        }
+        if (!dber.recipients.length) {
+            logger.info(`server #${server.id} dber alerts skipped: no recipients`);
+            return;
+        }
+        if (!dber.recipients.some(recipientCanNotify)) {
+            logger.info(`server #${server.id} dber alerts skipped: no email/SMS enabled`);
+            return;
+        }
+        if (
+            shouldSkipSuccessAlert({
+                skipSuccessAlerts: dber.skip_success_alerts,
+                body,
+            })
+        ) {
+            logger.info(`server #${server.id} dber alerts skipped: success only`);
+            return;
+        }
+
+        const detail = buildDberAlertDetail(body);
+        const detailOneLine = asDisplayText(detail.replace(/\n/g, " · "), 512);
+        const finishedAt = asDisplayText(body.finishedAt, 64);
+        const result = asDisplayText(body.result, 160);
+        const fromHost = asDisplayText(body.fromHost, 80);
+        const toHost = body?.importToTarget === false ? "—" : asDisplayText(body.toHost, 80);
+        const delivery = notifySection({
+            server,
+            recipients: dber.recipients,
+            subject: `DBer sync — ${server.name}`,
+            htmlBuilder: (recipientName) =>
+                metricEmailHtml({
+                    recipientName,
+                    server,
+                    alertTitle: "DBer database sync",
+                    alertDetail: escapeAlertDetailHtml(detail),
+                    capturedAt: finishedAt,
+                }),
+            smsMessage: `HammerByte: ${server.name} DBer · ${fromHost} → ${toHost} · ${result}`,
+        });
+
+        if (
+            !(await logDeliveredAlert({
+                server,
+                kind: "dber_result",
+                detail: detailOneLine,
+                delivery,
+            }))
+        ) {
+            logger.info(`server #${server.id} dber alert not delivered (no mediums)`);
+            return;
+        }
+
+        logger.info(`server #${server.id} dber alert sent`);
+    } catch (error) {
+        logger.error(`evaluateDberAlerts: ${error}`);
     }
 }
 
