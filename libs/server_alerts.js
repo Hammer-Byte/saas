@@ -176,11 +176,11 @@ export function parseAlertConfig(raw) {
             recipients: normalizeRecipients(metricerIn.recipients),
         },
         dataer: {
-            enabled: false,
+            enabled: Boolean(dataerIn.enabled),
             recipients: normalizeRecipients(dataerIn.recipients),
         },
         dber: {
-            enabled: false,
+            enabled: Boolean(dberIn.enabled),
             recipients: normalizeRecipients(dberIn.recipients),
         },
     };

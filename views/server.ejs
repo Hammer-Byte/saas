@@ -719,7 +719,7 @@
             </div>
             <div class="card-body px-4 pb-4">
                 <p class="text-secondary small mb-3">
-                    Sent alerts are listed below. Configure Pinger / Metricer recipients and thresholds with the button above.
+                    Sent alerts are listed below. Configure Pinger / Metricer / Dataer recipients and thresholds with the button above.
                 </p>
                 <form class="row g-2 align-items-end mb-3" method="get" action="/app/servers/<%= server.id %>">
                     <div class="col-sm-4 col-md-3">
@@ -794,9 +794,10 @@
 </main>
 
 <%
-    const alertCfg = typeof alertConfig === "object" && alertConfig ? alertConfig : { pinger: {}, metricer: {} };
+    const alertCfg = typeof alertConfig === "object" && alertConfig ? alertConfig : { pinger: {}, metricer: {}, dataer: {} };
     const pingerCfg = alertCfg.pinger || {};
     const metricerCfg = alertCfg.metricer || {};
+    const dataerCfg = alertCfg.dataer || {};
     const candidates = Array.isArray(alertCandidates) ? alertCandidates : [];
 %>
 
@@ -827,7 +828,7 @@
                         <button class="nav-link" id="alerts-tab-metricer" data-bs-toggle="tab" data-bs-target="#alerts-pane-metricer" type="button" role="tab">Metricer</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link disabled" type="button" tabindex="-1" aria-disabled="true">Dataer</button>
+                        <button class="nav-link" id="alerts-tab-dataer" data-bs-toggle="tab" data-bs-target="#alerts-pane-dataer" type="button" role="tab">Dataer</button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link disabled" type="button" tabindex="-1" aria-disabled="true">DBer</button>
@@ -977,6 +978,46 @@
                                     </select>
                                     <p class="text-secondary small mt-1 mb-0">Only selected Fixed volumes are checked against the storage % threshold. Hold Ctrl/Cmd to select multiple.</p>
                                 <% } %>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="alerts-pane-dataer" role="tabpanel">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="dataer-enabled" <%= dataerCfg.enabled ? "checked" : "" %> />
+                            <label class="form-check-label" for="dataer-enabled">Enable Dataer alerts</label>
+                        </div>
+                        <p class="text-secondary small mb-3">
+                            When enabled, each Dataer path sync result published by the utility is emailed/SMS’d to the recipients below (result counts and remote → local paths).
+                        </p>
+                        <h3 class="h6">Whom</h3>
+                        <div id="dataer-recipients" class="mb-2"></div>
+                        <div class="mb-3 alert-add-person" data-section="dataer">
+                            <button class="btn btn-sm btn-outline-secondary alert-add-person-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#dataer-add-person-body" aria-expanded="false" aria-controls="dataer-add-person-body">
+                                Add person
+                            </button>
+                            <div class="collapse mt-2" id="dataer-add-person-body">
+                                <div class="border rounded p-2">
+                                    <div class="small fw-semibold mb-2 alert-add-person-title">Add person</div>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="dataer-add-name">Name</label>
+                                            <input type="text" class="form-control form-control-sm alert-add-name" id="dataer-add-name" maxlength="128" autocomplete="off" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="dataer-add-email">Email</label>
+                                            <input type="email" class="form-control form-control-sm alert-add-email" id="dataer-add-email" maxlength="255" autocomplete="off" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="dataer-add-phone">Phone / mobile</label>
+                                            <input type="text" class="form-control form-control-sm alert-add-phone" id="dataer-add-phone" maxlength="20" autocomplete="off" />
+                                        </div>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                        <button type="button" class="btn btn-sm btn-primary alert-add-person-btn">Add</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary alert-add-person-cancel d-none">Cancel</button>
+                                    </div>
+                                    <div class="small text-danger d-none mt-1 alert-add-person-error"></div>
+                                </div>
                             </div>
                         </div>
                     </div>

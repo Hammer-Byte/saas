@@ -6,6 +6,7 @@ export const SERVER_ALERT_KIND_LABELS = {
     metricer_cpu: "Metricer — CPU",
     metricer_storage: "Metricer — Storage",
     metricer_temp: "Metricer — Temperature",
+    dataer_result: "Dataer — sync result",
 };
 
 export function serverAlertKindLabel(kind) {

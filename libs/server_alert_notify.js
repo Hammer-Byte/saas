@@ -321,6 +321,109 @@ export async function evaluateMetricerAlerts({ server, payload }) {
     }
 }
 
+function asDisplayText(value, maxLength = 512) {
+    const text = String(value ?? "").trim();
+    if (!text) {
+        return "—";
+    }
+    if (text.length <= maxLength) {
+        return text;
+    }
+    return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
+}
+
+function buildDataerAlertDetail(body) {
+    const result = asDisplayText(body?.result, 256);
+    const host = asDisplayText(body?.host, 256);
+    const remote = asDisplayText(body?.remote, 256);
+    const local = asDisplayText(body?.local, 256);
+    const finishedAt = asDisplayText(body?.finishedAt, 64);
+    const duration =
+        body?.durationSeconds != null && Number.isFinite(Number(body.durationSeconds))
+            ? `${Number(body.durationSeconds).toFixed(1)}s`
+            : "—";
+    return [
+        `Result: ${result}`,
+        `Host: ${host}`,
+        `Remote → Local: ${remote} → ${local}`,
+        `Finished: ${finishedAt}`,
+        `Duration: ${duration}`,
+    ].join("\n");
+}
+
+/**
+ * Notify on every accepted Dataer job publish when Dataer alerts are enabled.
+ */
+export async function evaluateDataerAlerts({ server, body }) {
+    try {
+        if (!server?.id || !body || typeof body !== "object") {
+            return;
+        }
+
+        const config = parseAlertConfig(server.alert_config);
+        const dataer = config.dataer;
+        if (!dataer.enabled) {
+            logger.info(`server #${server.id} dataer alerts skipped: disabled`);
+            return;
+        }
+        if (!dataer.recipients.length) {
+            logger.info(`server #${server.id} dataer alerts skipped: no recipients`);
+            return;
+        }
+        if (!dataer.recipients.some(recipientCanNotify)) {
+            logger.info(`server #${server.id} dataer alerts skipped: no email/SMS enabled`);
+            return;
+        }
+
+        const detail = buildDataerAlertDetail(body);
+        const detailOneLine = asDisplayText(detail.replace(/\n/g, " · "), 512);
+        const detailHtml = detail
+            .split("\n")
+            .map((line) =>
+                String(line)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;"),
+            )
+            .join("<br>");
+        const finishedAt = asDisplayText(body.finishedAt, 64);
+        const result = asDisplayText(body.result, 160);
+        const remote = asDisplayText(body.remote, 120);
+        const local = asDisplayText(body.local, 120);
+        const delivery = notifySection({
+            server,
+            recipients: dataer.recipients,
+            subject: `Dataer sync — ${server.name}`,
+            htmlBuilder: (recipientName) =>
+                metricEmailHtml({
+                    recipientName,
+                    server,
+                    alertTitle: "Dataer path sync",
+                    alertDetail: detailHtml,
+                    capturedAt: finishedAt,
+                }),
+            smsMessage: `HammerByte: ${server.name} Dataer · ${remote} → ${local} · ${result}`,
+        });
+
+        if (
+            !(await logDeliveredAlert({
+                server,
+                kind: "dataer_result",
+                detail: detailOneLine,
+                delivery,
+            }))
+        ) {
+            logger.info(`server #${server.id} dataer alert not delivered (no mediums)`);
+            return;
+        }
+
+        logger.info(`server #${server.id} dataer alert sent`);
+    } catch (error) {
+        logger.error(`evaluateDataerAlerts: ${error}`);
+    }
+}
+
 export async function evaluatePingerMissedAlert({
     server,
     secondsSincePing,

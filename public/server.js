@@ -201,8 +201,15 @@
     const alertsFormAlert = document.getElementById("server-alerts-form-alert");
     const pingerRecipientsEl = document.getElementById("pinger-recipients");
     const metricerRecipientsEl = document.getElementById("metricer-recipients");
+    const dataerRecipientsEl = document.getElementById("dataer-recipients");
 
-    if (!alertsModal || !alertsSaveBtn || !pingerRecipientsEl || !metricerRecipientsEl) {
+    if (
+        !alertsModal
+        || !alertsSaveBtn
+        || !pingerRecipientsEl
+        || !metricerRecipientsEl
+        || !dataerRecipientsEl
+    ) {
         return;
     }
 
@@ -321,7 +328,13 @@
     }
 
     function recipientsContainerForSection(section) {
-        return section === "metricer" ? metricerRecipientsEl : pingerRecipientsEl;
+        if (section === "metricer") {
+            return metricerRecipientsEl;
+        }
+        if (section === "dataer") {
+            return dataerRecipientsEl;
+        }
+        return pingerRecipientsEl;
     }
 
     function personFormForSection(section) {
@@ -501,6 +514,11 @@
             mergeRecipientRows(candidates, config.metricer?.recipients || []),
             "metricer",
         );
+        renderRecipients(
+            dataerRecipientsEl,
+            mergeRecipientRows(candidates, config.dataer?.recipients || []),
+            "dataer",
+        );
     }
 
     hydrateAlertRecipients();
@@ -582,7 +600,10 @@
                 temp_celsius: Number(document.getElementById("metricer-temp-celsius")?.value || 80),
                 recipients: readRecipients(metricerRecipientsEl),
             },
-            dataer: { enabled: false, recipients: [] },
+            dataer: {
+                enabled: Boolean(document.getElementById("dataer-enabled")?.checked),
+                recipients: readRecipients(dataerRecipientsEl),
+            },
             dber: { enabled: false, recipients: [] },
         };
 

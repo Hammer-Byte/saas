@@ -20,7 +20,7 @@ import {
     updateServerUtilityCredentialsById,
 } from "../db/servers.js";
 import { hasAuthority } from "../libs/app_page.js";
-import { evaluateMetricerAlerts } from "../libs/server_alert_notify.js";
+import { evaluateDataerAlerts, evaluateMetricerAlerts } from "../libs/server_alert_notify.js";
 import { buildAlertCandidates, parseAlertConfig } from "../libs/server_alerts.js";
 import { parseServersBasicCredentials } from "../libs/servers_basic_credentials.js";
 import { generateOTP } from "../libs/utils.js";
@@ -293,6 +293,9 @@ async function handleDataer({ body, headers, set }) {
         client_timestamp: asNullableString(body.timestamp, 64),
         payload: JSON.stringify(body),
     });
+
+    const server = (await getServerById({ id: tagResult.mappedServer.id })) || tagResult.mappedServer;
+    await evaluateDataerAlerts({ server, body });
     await captureUtilityCredentials({ serverId: tagResult.mappedServer.id, headers });
 
     set.status = 201;
