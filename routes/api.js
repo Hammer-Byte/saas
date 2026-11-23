@@ -49,6 +49,7 @@ import roleAuthorities from "./apps/role_authorities.js";
 import userRoles from "./apps/user_roles.js";
 import servers from "./apps/servers.js";
 import monitoredServers from "./apps/monitored_servers.js";
+import requireServersBasicAuth from "../middlewares/require_servers_basic_auth.js";
 import canUseMailer from "../middlewares/can_use_mailer.js";
 import canUseBucketizer from "../middlewares/can_use_bucketizer.js";
 import requireApiSession from "../middlewares/require_api_session.js";
@@ -79,7 +80,9 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
     .group("/inquiries", inquiries)
     .group("/job-applications", publicJobApplications)
     .group("/contracts", contractsSign)
-    .group("/servers", servers)
+    .guard({ beforeHandle: [requireServersBasicAuth] }, (app) =>
+        app.group("/servers", servers),
+    )
     .guard({ beforeHandle: [requireApiSession] }, (app) =>
         app
             .group("/monitored-servers", monitoredServers)

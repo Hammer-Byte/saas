@@ -572,20 +572,21 @@ export const uiRoutes = new Elysia()
                     }),
                 }));
             })
-            .get("/app/internal-documents", async ({ render, session }) => {
-                const canManage = canManageInternalDocuments({
-                    id: session?.id,
-                    super_admin: !!session?.super_admin,
-                    authorities: session?.authorities ?? [],
-                });
+            .get("/app/internal-documents", async ({ render, session, redirect }) => {
+                if (
+                    !canManageInternalDocuments({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
                 return render(
                     "internal-documents",
                     appPage(session, {
                         title: "Internal Documents — HammerByte",
-                        canManageInternalDocuments: canManage,
-                        documents: await getAllInternalDocuments(
-                            canManage ? {} : { visibility: "everyone" },
-                        ),
+                        documents: await getAllInternalDocuments(),
                     }),
                 );
             })

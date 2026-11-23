@@ -54,6 +54,33 @@
         });
     }
 
+    const utilityPasswordEl = document.getElementById("server-utility-password");
+    const utilityPasswordToggle = document.getElementById("server-utility-password-toggle");
+    if (utilityPasswordEl && utilityPasswordToggle) {
+        utilityPasswordToggle.addEventListener("click", () => {
+            const hidden = utilityPasswordEl.dataset.hidden !== "0";
+            let password = utilityPasswordEl.dataset.password || "";
+            try {
+                password = decodeURIComponent(password);
+            } catch (error) {
+                // keep raw value if decode fails
+            }
+            if (hidden) {
+                utilityPasswordEl.textContent = password;
+                utilityPasswordEl.dataset.hidden = "0";
+                utilityPasswordToggle.title = "Hide password";
+                utilityPasswordToggle.setAttribute("aria-label", "Hide password");
+                utilityPasswordToggle.setAttribute("aria-pressed", "true");
+            } else {
+                utilityPasswordEl.textContent = "••••••••";
+                utilityPasswordEl.dataset.hidden = "1";
+                utilityPasswordToggle.title = "Show password";
+                utilityPasswordToggle.setAttribute("aria-label", "Show password");
+                utilityPasswordToggle.setAttribute("aria-pressed", "false");
+            }
+        });
+    }
+
     const projectCard = document.getElementById("server-project-card");
     const projectSelect = document.getElementById("server-project-select");
     const projectSaveBtn = document.getElementById("server-project-save-btn");

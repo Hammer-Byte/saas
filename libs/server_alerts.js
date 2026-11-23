@@ -247,7 +247,7 @@ export function storageOverThreshold(payload, percentThreshold, driveNames = nul
     }
     const offenders = [];
     for (const disk of storage) {
-        if (String(disk?.type || "") !== "Fixed") {
+        if (!isFixedStorageDrive(disk)) {
             continue;
         }
         const name = String(disk.name || "").trim();
@@ -273,13 +273,18 @@ export function storageOverThreshold(payload, percentThreshold, driveNames = nul
     return offenders;
 }
 
+function isFixedStorageDrive(disk) {
+    const kind = String(disk?.type || disk?.driveType || "").trim();
+    return kind.toLowerCase() === "fixed";
+}
+
 /** Fixed volumes from a metrics payload for alert UI checklists. */
 export function listFixedStorageDrives(payload) {
     const storage = Array.isArray(payload?.storage) ? payload.storage : [];
     const out = [];
     const seen = new Set();
     for (const disk of storage) {
-        if (String(disk?.type || "") !== "Fixed") continue;
+        if (!isFixedStorageDrive(disk)) continue;
         const name = String(disk.name || "").trim();
         if (!name) continue;
         const key = name.toLowerCase();

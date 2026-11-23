@@ -12,9 +12,6 @@ export default function (app) {
             body: t.Object({
                 file: t.File({ error: ERRORS.FILE_REQUIRED }),
                 description: t.Optional(t.String({ maxLength: 512 })),
-                visibility: t.Optional(
-                    t.Union([t.Literal("everyone"), t.Literal("restricted")]),
-                ),
             }),
             detail: {
                 tags: ["Internal Documents"],
@@ -28,13 +25,10 @@ export default function (app) {
             body: t.Object({
                 file: t.Optional(t.File()),
                 description: t.Optional(t.String({ maxLength: 512 })),
-                visibility: t.Optional(
-                    t.Union([t.Literal("everyone"), t.Literal("restricted")]),
-                ),
             }),
             detail: {
                 tags: ["Internal Documents"],
-                summary: "Update description, visibility, and optionally replace the file",
+                summary: "Update description and optionally replace the file",
             },
         })
         .delete("/:id", deleteInternalDocument, {

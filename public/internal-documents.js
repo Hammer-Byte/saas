@@ -1,6 +1,4 @@
 (() => {
-    const page = document.getElementById("internal-documents-page");
-    const canManage = page?.dataset.canManage === "1";
     const form = document.getElementById("document-form");
     const formAlert = document.getElementById("document-form-alert");
     const pageAlert = document.getElementById("internal-documents-alert");
@@ -26,7 +24,6 @@
     const idInput = form?.elements.namedItem("id");
     const fileInput = form?.elements.namedItem("file");
     const descriptionInput = form?.elements.namedItem("description");
-    const visibilityInput = form?.elements.namedItem("visibility");
     const fileHint = document.getElementById("document-file-hint");
 
     function showAlert(target, message, type) {
@@ -62,13 +59,11 @@
     function resetForm() {
         form?.reset();
         if (idInput) idInput.value = "";
-        if (visibilityInput) visibilityInput.value = "restricted";
         hideAlert(formAlert);
         hideUploadProgress();
     }
 
     function openAddModal() {
-        if (!canManage) return;
         resetForm();
         if (modalLabel) modalLabel.textContent = "Add document";
         if (submitButton) submitButton.textContent = "Upload";
@@ -77,17 +72,12 @@
     }
 
     function openEditModal(row) {
-        if (!canManage) return;
         hideAlert(formAlert);
         hideUploadProgress();
         if (modalLabel) modalLabel.textContent = "Edit document";
         if (submitButton) submitButton.textContent = "Save";
         if (idInput) idInput.value = row.dataset.id || "";
         if (descriptionInput) descriptionInput.value = row.dataset.description || "";
-        if (visibilityInput) {
-            visibilityInput.value =
-                row.dataset.visibility === "everyone" ? "everyone" : "restricted";
-        }
         if (fileInput) {
             fileInput.value = "";
             fileInput.required = false;
@@ -110,7 +100,6 @@
     }
 
     function syncBulkBar() {
-        if (!canManage) return;
         const selected = selectedCheckboxes();
         const count = selected.length;
         if (selectedCountLabel) {
@@ -237,7 +226,6 @@
     });
 
     bulkDeleteBtn?.addEventListener("click", async () => {
-        if (!canManage) return;
         const selected = selectedCheckboxes();
         if (!selected.length) return;
 
@@ -285,7 +273,6 @@
     });
 
     tableBody?.addEventListener("click", async (event) => {
-        if (!canManage) return;
         const row = event.target.closest("tr[data-id]");
         if (!row) return;
 
@@ -325,13 +312,10 @@
 
     form?.addEventListener("submit", async (event) => {
         event.preventDefault();
-        if (!canManage) return;
         hideAlert(formAlert);
 
         const documentId = Number(idInput?.value || 0);
         const description = descriptionInput?.value?.trim() || "";
-        const visibility =
-            visibilityInput?.value === "everyone" ? "everyone" : "restricted";
         const uploadedFile = fileInput?.files?.[0] || null;
         const isEdit = Number.isInteger(documentId) && documentId > 0;
 
@@ -353,7 +337,6 @@
         }
         if (fileInput) fileInput.disabled = true;
         if (descriptionInput) descriptionInput.disabled = true;
-        if (visibilityInput) visibilityInput.disabled = true;
 
         const replacingFile = !!uploadedFile;
         if (replacingFile) {
@@ -366,7 +349,6 @@
                 body.append("file", uploadedFile);
             }
             body.append("description", description);
-            body.append("visibility", visibility);
 
             let ok;
             let status;
@@ -419,7 +401,6 @@
             }
             if (fileInput) fileInput.disabled = false;
             if (descriptionInput) descriptionInput.disabled = false;
-            if (visibilityInput) visibilityInput.disabled = false;
         }
     });
 

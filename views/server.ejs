@@ -108,6 +108,42 @@
                         <code><%= server.otp %></code>
                     </div>
                     <div class="server-meta-field">
+                        <div class="text-secondary mb-1">Utility user</div>
+                        <% if (server.utility_username) { %>
+                            <code class="small"><%= server.utility_username %></code>
+                        <% } else { %>
+                            <div class="text-secondary">—</div>
+                        <% } %>
+                    </div>
+                    <div class="server-meta-field">
+                        <div class="text-secondary mb-1">Utility password</div>
+                        <% if (server.utility_password) { %>
+                            <div class="d-flex align-items-center gap-2">
+                                <code
+                                    class="small"
+                                    id="server-utility-password"
+                                    data-password="<%= encodeURIComponent(server.utility_password) %>"
+                                    data-hidden="1"
+                                >••••••••</code>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary py-0 px-1"
+                                    id="server-utility-password-toggle"
+                                    title="Show password"
+                                    aria-label="Show password"
+                                    aria-pressed="false"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
+                                        <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        <% } else { %>
+                            <div class="text-secondary">—</div>
+                        <% } %>
+                    </div>
+                    <div class="server-meta-field">
                         <div class="text-secondary mb-1">Active</div>
                         <div><%= server.active ? "Yes" : "No" %></div>
                     </div>
@@ -406,7 +442,7 @@
                     </details>
 
                     <% if (metrics.processes && Array.isArray(metrics.processes.items) && metrics.processes.items.length) { %>
-                        <details class="metrics-details">
+                        <details class="metrics-details mb-2">
                             <summary class="small fw-semibold">Top processes (<%= Math.min(10, metrics.processes.items.length) %>)</summary>
                             <div class="table-responsive mt-2">
                                 <table class="table table-sm align-middle mb-0 metrics-table">
@@ -428,6 +464,96 @@
                                     </tbody>
                                 </table>
                             </div>
+                        </details>
+                    <% } %>
+
+                    <%
+                        const hardwareHealth = metrics.hardwareHealth && typeof metrics.hardwareHealth === "object"
+                            ? metrics.hardwareHealth
+                            : null;
+                        const hardwareDisks = hardwareHealth && Array.isArray(hardwareHealth.disks)
+                            ? hardwareHealth.disks
+                            : [];
+                        const hardwareModules = hardwareHealth && Array.isArray(hardwareHealth.memoryModules)
+                            ? hardwareHealth.memoryModules
+                            : [];
+                    %>
+                    <% if (hardwareHealth) { %>
+                        <details class="metrics-details">
+                            <summary class="small fw-semibold">Hardware health</summary>
+                            <% if (hardwareHealth.unavailable || hardwareHealth.skipped) { %>
+                                <p class="text-secondary small mb-0 mt-2">
+                                    <%= hardwareHealth.error || (hardwareHealth.skipped ? "Skipped (e.g. virtual machine)." : "Unavailable.") %>
+                                </p>
+                            <% } else { %>
+                                <% if (hardwareHealth.checkedAt || hardwareHealth.nextDueAt) { %>
+                                    <p class="text-secondary small mt-2 mb-2">
+                                        <% if (hardwareHealth.checkedAt) { %>Checked <%= hardwareHealth.checkedAt %><% } %>
+                                        <% if (hardwareHealth.checkedAt && hardwareHealth.nextDueAt) { %> · <% } %>
+                                        <% if (hardwareHealth.nextDueAt) { %>Next due <%= hardwareHealth.nextDueAt %><% } %>
+                                    </p>
+                                <% } %>
+                                <% if (hardwareDisks.length) { %>
+                                    <div class="small fw-semibold mb-1">Disks</div>
+                                    <div class="table-responsive mb-2">
+                                        <table class="table table-sm align-middle mb-0 metrics-table">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Media</th>
+                                                    <th>Health</th>
+                                                    <th class="text-end">Size</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <% hardwareDisks.forEach(function (disk) { %>
+                                                    <tr>
+                                                        <td class="small"><%= disk.name || "—" %></td>
+                                                        <td class="small"><%= disk.mediaType || "—" %></td>
+                                                        <td class="small">
+                                                            <%= disk.healthStatus || "—" %><% if (disk.healthPercent != null) { %> (<%= disk.healthPercent %>%)<% } %>
+                                                            <% if (disk.predictFailure) { %>
+                                                                <span class="badge text-bg-danger ms-1">predict failure</span>
+                                                            <% } %>
+                                                        </td>
+                                                        <td class="small text-end"><%= disk.sizeGb != null ? (Number(disk.sizeGb).toFixed(0) + " GB") : "—" %></td>
+                                                    </tr>
+                                                <% }) %>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <% } %>
+                                <% if (hardwareModules.length) { %>
+                                    <div class="small fw-semibold mb-1">Memory modules</div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle mb-0 metrics-table">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Bank</th>
+                                                    <th class="text-end">Capacity</th>
+                                                    <th class="text-end">Speed</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <% hardwareModules.forEach(function (module) { %>
+                                                    <tr>
+                                                        <td class="small"><%= module.name || "—" %></td>
+                                                        <td class="small"><%= module.bankLabel || "—" %></td>
+                                                        <td class="small text-end"><%= module.capacityGb != null ? (Number(module.capacityGb).toFixed(0) + " GB") : "—" %></td>
+                                                        <td class="small text-end"><%= module.speedMhz != null ? (module.speedMhz + " MHz") : "—" %></td>
+                                                        <td class="small"><%= module.status || "—" %></td>
+                                                    </tr>
+                                                <% }) %>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <% } %>
+                                <% if (!hardwareDisks.length && !hardwareModules.length) { %>
+                                    <p class="text-secondary small mb-0 mt-2">No disk or memory module details in this sample.</p>
+                                <% } %>
+                            <% } %>
                         </details>
                     <% } %>
                 <% } %>

@@ -17,10 +17,12 @@ import {
     unmapServerTagById,
     updateServerAlertConfigById,
     updateServerById,
+    updateServerUtilityCredentialsById,
 } from "../db/servers.js";
 import { hasAuthority } from "../libs/app_page.js";
 import { evaluateMetricerAlerts } from "../libs/server_alert_notify.js";
 import { buildAlertCandidates, parseAlertConfig } from "../libs/server_alerts.js";
+import { parseServersBasicCredentials } from "../libs/servers_basic_credentials.js";
 import { generateOTP } from "../libs/utils.js";
 import { getCurrentUser } from "./authentication.js";
 
@@ -154,6 +156,37 @@ function asNullableBoolean(value) {
     return Boolean(value);
 }
 
+function asStringNameList(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+/** Prefer this-event DB names, then job databases[], then legacy fromDatabase/toDatabase. */
+function resolveDberDatabaseColumns(body) {
+    const legacyFrom = asNullableString(body.fromDatabase, 256);
+    const legacyTo = asNullableString(body.toDatabase, 256);
+    const eventNames = [
+        ...new Set([
+            ...asStringNameList(body.failedDatabases),
+            ...asStringNameList(body.succeededDatabases),
+        ]),
+    ];
+    const jobNames = asStringNameList(body.databases);
+    const label =
+        eventNames.length > 0
+            ? eventNames.join(", ")
+            : jobNames.length > 0
+              ? jobNames.join(", ")
+              : null;
+    const clipped = label ? label.slice(0, 256) : null;
+    return {
+        from_database: legacyFrom || clipped,
+        to_database: legacyTo || (body.importToTarget ? clipped : null),
+    };
+}
+
 async function resolveMappedServerFromTag({ body, set }) {
     const tag = asNullableString(body.TAG);
     if (!tag) {
@@ -170,7 +203,19 @@ async function resolveMappedServerFromTag({ body, set }) {
     return { mappedServer };
 }
 
-async function handleCreateTag({ body, set }) {
+async function captureUtilityCredentials({ serverId, headers }) {
+    const credentials = parseServersBasicCredentials(headers);
+    if (!serverId || !credentials) {
+        return;
+    }
+    await updateServerUtilityCredentialsById({
+        id: serverId,
+        utility_username: credentials.username || null,
+        utility_password: credentials.password || null,
+    });
+}
+
+async function handleCreateTag({ body, headers, set }) {
     const otp = String(body.otp || "").trim();
     if (!/^\d{4}$/.test(otp)) {
         set.status = 401;
@@ -184,12 +229,13 @@ async function handleCreateTag({ body, set }) {
     }
 
     await markServerTagMappedById({ id: existingServer.id });
+    await captureUtilityCredentials({ serverId: existingServer.id, headers });
 
     set.status = 201;
     return { tag_id: existingServer.tag };
 }
 
-async function handlePinger({ body, set }) {
+async function handlePinger({ body, headers, set }) {
     const tagResult = await resolveMappedServerFromTag({ body, set });
     if (tagResult.error) {
         return { error: tagResult.error };
@@ -200,12 +246,13 @@ async function handlePinger({ body, set }) {
         client_timestamp: asNullableString(body.timestamp, 64),
         payload: JSON.stringify(body),
     });
+    await captureUtilityCredentials({ serverId: tagResult.mappedServer.id, headers });
 
     set.status = 201;
     return { ok: true };
 }
 
-async function handleMetricer({ body, set }) {
+async function handleMetricer({ body, headers, set }) {
     const tagResult = await resolveMappedServerFromTag({ body, set });
     if (tagResult.error) {
         return { error: tagResult.error };
@@ -220,12 +267,13 @@ async function handleMetricer({ body, set }) {
     // Fresh row picks up latest alert_config/state for cooldown stamps.
     const server = (await getServerById({ id: tagResult.mappedServer.id })) || tagResult.mappedServer;
     await evaluateMetricerAlerts({ server, payload: body });
+    await captureUtilityCredentials({ serverId: tagResult.mappedServer.id, headers });
 
     set.status = 201;
     return { ok: true };
 }
 
-async function handleDataer({ body, set }) {
+async function handleDataer({ body, headers, set }) {
     const tagResult = await resolveMappedServerFromTag({ body, set });
     if (tagResult.error) {
         return { error: tagResult.error };
@@ -245,23 +293,26 @@ async function handleDataer({ body, set }) {
         client_timestamp: asNullableString(body.timestamp, 64),
         payload: JSON.stringify(body),
     });
+    await captureUtilityCredentials({ serverId: tagResult.mappedServer.id, headers });
 
     set.status = 201;
     return { ok: true };
 }
 
-async function handleDber({ body, set }) {
+async function handleDber({ body, headers, set }) {
     const tagResult = await resolveMappedServerFromTag({ body, set });
     if (tagResult.error) {
         return { error: tagResult.error };
     }
 
+    const databaseColumns = resolveDberDatabaseColumns(body);
+
     await createServerDberRun({
         server_id: tagResult.mappedServer.id,
         from_host: asNullableString(body.fromHost, 256),
-        from_database: asNullableString(body.fromDatabase, 256),
+        from_database: databaseColumns.from_database,
         to_host: asNullableString(body.toHost, 256),
-        to_database: asNullableString(body.toDatabase, 256),
+        to_database: databaseColumns.to_database,
         interval_seconds: asNullableNumber(body.intervalSeconds),
         success: asNullableBoolean(body.success),
         result: asNullableString(body.result, 512),
@@ -272,6 +323,7 @@ async function handleDber({ body, set }) {
         client_timestamp: asNullableString(body.timestamp, 64),
         payload: JSON.stringify(body),
     });
+    await captureUtilityCredentials({ serverId: tagResult.mappedServer.id, headers });
 
     set.status = 201;
     return { ok: true };
@@ -487,23 +539,23 @@ export async function updateServerAlerts({ params, body, cookie, set }) {
     };
 }
 
-export async function handleServerRequest({ body, set }) {
+export async function handleServerRequest({ body, headers, set }) {
     const type = String(body?.TYPE || "").trim();
 
     if (type === "CREATE_TAG") {
-        return handleCreateTag({ body, set });
+        return handleCreateTag({ body, headers, set });
     }
     if (type === "PINGER") {
-        return handlePinger({ body, set });
+        return handlePinger({ body, headers, set });
     }
     if (type === "Metricer") {
-        return handleMetricer({ body, set });
+        return handleMetricer({ body, headers, set });
     }
     if (type === "Dataer") {
-        return handleDataer({ body, set });
+        return handleDataer({ body, headers, set });
     }
     if (type === "DBer") {
-        return handleDber({ body, set });
+        return handleDber({ body, headers, set });
     }
 
     set.status = 401;

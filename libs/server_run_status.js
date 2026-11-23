@@ -1,10 +1,8 @@
 /**
- * Derive success | partial | failed | unknown from Dataer/DBer result text.
- * result is plain text (not JSON), e.g.:
- *   "Partial · success - 4 , failed - 2 , skipped - 194549"
- *   "success - 0 , failed - 0 , skipped - 1362991"
- *   "Partial · OK 4/35 · Failed 2/35"
- *   "Failed · OK 0/35 · Failed 2/35"
+ * Derive success | partial | failed | unknown from Dataer/DBer run fields.
+ *
+ * Prefer contract count/array fields when present; fall back to result text
+ * (legacy shapes) and finally the success boolean.
  */
 
 function statusFromCounts(okCount, failedCount) {
@@ -17,7 +15,45 @@ function statusFromCounts(okCount, failedCount) {
     return "partial";
 }
 
-export function resolveServiceRunStatus({ success, result } = {}) {
+function asFiniteCount(value) {
+    if (value == null || value === "") {
+        return null;
+    }
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+}
+
+function asNameList(value) {
+    if (!Array.isArray(value)) {
+        return null;
+    }
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+export function resolveServiceRunStatus({
+    success,
+    result,
+    successCount,
+    failedCount,
+    succeededDatabases,
+    failedDatabases,
+} = {}) {
+    let okCount = asFiniteCount(successCount);
+    let failed = asFiniteCount(failedCount);
+
+    const succeededNames = asNameList(succeededDatabases);
+    const failedNames = asNameList(failedDatabases);
+    if (okCount == null && succeededNames) {
+        okCount = succeededNames.length;
+    }
+    if (failed == null && failedNames) {
+        failed = failedNames.length;
+    }
+
+    if (okCount != null && failed != null) {
+        return statusFromCounts(okCount, failed);
+    }
+
     const text = String(result || "").trim();
     if (text) {
         if (/^\s*Partial\b/i.test(text)) {
@@ -30,17 +66,33 @@ export function resolveServiceRunStatus({ success, result } = {}) {
         const dataerOk = text.match(/success\s*-\s*(\d+)/i);
         const dataerFailed = text.match(/failed\s*-\s*(\d+)/i);
         if (dataerOk || dataerFailed) {
-            const okCount = dataerOk ? Number(dataerOk[1]) : 0;
-            const failedCount = dataerFailed ? Number(dataerFailed[1]) : 0;
-            return statusFromCounts(okCount, failedCount);
+            return statusFromCounts(
+                dataerOk ? Number(dataerOk[1]) : 0,
+                dataerFailed ? Number(dataerFailed[1]) : 0,
+            );
+        }
+
+        // Backuprer DBer rollup: "1 success · 0 failed · 2 skipped" (also tolerates "synced").
+        const synced = text.match(/(\d+)\s*synced\b/i);
+        const successWord = text.match(/(\d+)\s*success\b/i);
+        const skipped = text.match(/(\d+)\s*skipped\b/i);
+        const failedMatch = text.match(/(\d+)\s*failed\b/i);
+        if (synced || successWord || skipped || failedMatch) {
+            const okFromRollup =
+                (synced ? Number(synced[1]) : 0)
+                + (successWord ? Number(successWord[1]) : 0)
+                + (skipped ? Number(skipped[1]) : 0);
+            const failedFromRollup = failedMatch ? Number(failedMatch[1]) : 0;
+            return statusFromCounts(okFromRollup, failedFromRollup);
         }
 
         const dberOk = text.match(/\bOK\s+(\d+)\s*\/\s*(\d+)/i);
         const dberFailed = text.match(/\bFailed\s+(\d+)\s*\/\s*(\d+)/i);
         if (dberOk || dberFailed) {
-            const okCount = dberOk ? Number(dberOk[1]) : 0;
-            const failedCount = dberFailed ? Number(dberFailed[1]) : 0;
-            return statusFromCounts(okCount, failedCount);
+            return statusFromCounts(
+                dberOk ? Number(dberOk[1]) : 0,
+                dberFailed ? Number(dberFailed[1]) : 0,
+            );
         }
     }
 

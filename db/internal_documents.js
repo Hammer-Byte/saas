@@ -1,18 +1,13 @@
 import { logger } from "@hammerbyte/utils";
 import { executeSQLQuery } from "../libs/db.js";
 
-export async function createInternalDocument({
-    media_id,
-    description = null,
-    visibility = "restricted",
-}) {
+export async function createInternalDocument({ media_id, description = null }) {
     return await executeSQLQuery(
         (sql) => sql`
             INSERT INTO INTERNAL_DOCUMENTS ${sql(
-                { media_id, description, visibility },
+                { media_id, description },
                 "media_id",
                 "description",
-                "visibility",
             )}
         `,
     )
@@ -60,28 +55,17 @@ export async function getInternalDocumentByMediaId({ media_id }) {
         });
 }
 
-export async function getAllInternalDocuments({ visibility = null } = {}) {
-    const query =
-        visibility == null
-            ? (sql) => sql`
-                SELECT
-                    INTERNAL_DOCUMENTS.*,
-                    MEDIA.name AS media_name
-                FROM INTERNAL_DOCUMENTS
-                INNER JOIN MEDIA ON MEDIA.id = INTERNAL_DOCUMENTS.media_id
-                ORDER BY INTERNAL_DOCUMENTS.created_on DESC
-            `
-            : (sql) => sql`
-                SELECT
-                    INTERNAL_DOCUMENTS.*,
-                    MEDIA.name AS media_name
-                FROM INTERNAL_DOCUMENTS
-                INNER JOIN MEDIA ON MEDIA.id = INTERNAL_DOCUMENTS.media_id
-                WHERE INTERNAL_DOCUMENTS.visibility = ${visibility}
-                ORDER BY INTERNAL_DOCUMENTS.created_on DESC
-            `;
-
-    return await executeSQLQuery(query)
+export async function getAllInternalDocuments() {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                INTERNAL_DOCUMENTS.*,
+                MEDIA.name AS media_name
+            FROM INTERNAL_DOCUMENTS
+            INNER JOIN MEDIA ON MEDIA.id = INTERNAL_DOCUMENTS.media_id
+            ORDER BY INTERNAL_DOCUMENTS.created_on DESC
+        `,
+    )
         .then((result) => Array.from(result ?? []))
         .catch((error) => {
             logger.error(`getAllInternalDocuments: ${error}`);
@@ -89,16 +73,11 @@ export async function getAllInternalDocuments({ visibility = null } = {}) {
         });
 }
 
-export async function updateInternalDocumentById({
-    id,
-    description = null,
-    visibility = "restricted",
-}) {
+export async function updateInternalDocumentById({ id, description = null }) {
     await executeSQLQuery(
         (sql) => sql`
             UPDATE INTERNAL_DOCUMENTS
-            SET description = ${description},
-                visibility = ${visibility}
+            SET description = ${description}
             WHERE id = ${id}
         `,
     ).catch((error) => {

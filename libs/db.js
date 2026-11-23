@@ -418,7 +418,6 @@ export async function generateDBTables() {
             id INT AUTO_INCREMENT PRIMARY KEY,
             media_id INT NOT NULL,
             description VARCHAR(512) NULL,
-            visibility VARCHAR(16) NOT NULL DEFAULT 'restricted',
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT fk_internal_documents_media
                 FOREIGN KEY (media_id)
@@ -760,6 +759,8 @@ export async function generateDBTables() {
             tag CHAR(36) NOT NULL,
             tag_mapped BOOLEAN NOT NULL DEFAULT FALSE,
             otp CHAR(4) NOT NULL,
+            utility_username VARCHAR(128) NULL,
+            utility_password VARCHAR(255) NULL,
             alert_config MEDIUMTEXT NULL,
             alert_state MEDIUMTEXT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -772,6 +773,8 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
+        `ALTER TABLE SERVERS ADD COLUMN utility_username VARCHAR(128) NULL`,
+        `ALTER TABLE SERVERS ADD COLUMN utility_password VARCHAR(255) NULL`,
         `CREATE TABLE IF NOT EXISTS SERVER_PINGS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             server_id INT NOT NULL,

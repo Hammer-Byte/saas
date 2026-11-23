@@ -40,7 +40,7 @@ export async function getMedia({ params, cookie, set }) {
     }
 
     const internalDocument = await getInternalDocumentByMediaId({ media_id: media.id });
-    if (internalDocument?.visibility === "restricted") {
+    if (internalDocument) {
         const currentUser = await getCurrentUser({ cookie });
         if (!canManageInternalDocuments(currentUser)) {
             set.status = 403;

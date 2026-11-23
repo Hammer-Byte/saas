@@ -18,8 +18,6 @@ import { AUTHORITIES } from "../constants.js";
 import { hasAuthority } from "../libs/app_page.js";
 import { getCurrentUser } from "./authentication.js";
 
-const VISIBILITY_VALUES = new Set(["everyone", "restricted"]);
-
 export function canManageInternalDocuments(currentUser) {
     if (!currentUser?.id) {
         return false;
@@ -28,11 +26,6 @@ export function canManageInternalDocuments(currentUser) {
         return true;
     }
     return hasAuthority(currentUser.authorities, AUTHORITIES.MANAGE_INTERNAL_DOCUMENTS);
-}
-
-function normalizeVisibility(value) {
-    const visibility = String(value || "restricted").trim().toLowerCase();
-    return VISIBILITY_VALUES.has(visibility) ? visibility : null;
 }
 
 async function requireManager({ cookie, set }) {
@@ -97,12 +90,6 @@ export async function addInternalDocument({ body, cookie, set }) {
             return { error: "File is required" };
         }
 
-        const visibility = normalizeVisibility(body.visibility);
-        if (!visibility) {
-            set.status = 400;
-            return { error: "Visibility must be everyone or restricted" };
-        }
-
         logger.info(
             `addInternalDocument start | name=${uploadedFile.name} size=${uploadedFile.size} type=${uploadedFile.type}`,
         );
@@ -121,7 +108,6 @@ export async function addInternalDocument({ body, cookie, set }) {
         const id = await createInternalDocument({
             media_id: mediaId,
             description: body.description?.trim() || null,
-            visibility,
         });
 
         if (!id) {
@@ -164,12 +150,6 @@ export async function updateInternalDocument({ params, body, cookie, set }) {
             return { error: "Internal document not found" };
         }
 
-        const visibility = normalizeVisibility(body.visibility);
-        if (!visibility) {
-            set.status = 400;
-            return { error: "Visibility must be everyone or restricted" };
-        }
-
         const uploadedFile =
             body.file && typeof body.file === "object" && Number(body.file.size || 0) > 0
                 ? body.file
@@ -200,7 +180,6 @@ export async function updateInternalDocument({ params, body, cookie, set }) {
         await updateInternalDocumentById({
             id: internalDocument.id,
             description: body.description?.trim() || null,
-            visibility,
         });
 
         const updated = await getInternalDocumentById({ id: internalDocument.id });

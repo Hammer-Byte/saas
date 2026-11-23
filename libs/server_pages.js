@@ -18,31 +18,122 @@ import {
 const ALIVE_WITHIN_SECONDS = 180;
 const SERVICE_RUN_LIMIT = 15;
 
-function enrichServiceRuns(runs) {
-    return (Array.isArray(runs) ? runs : []).map((run) => {
-        const run_status = resolveServiceRunStatus({
-            success: run.success,
-            result: run.result,
-        });
-        return {
-            ...run,
-            run_status,
-            run_status_label: serviceRunStatusLabel(run_status),
-            run_status_badge: serviceRunStatusBadgeClass(run_status),
-            run_result_summary: serviceRunResultSummary(run.result),
-        };
-    });
-}
-
-function parseMetricPayload(row) {
-    if (!row?.payload) {
+function parseJsonObject(value) {
+    if (value == null) {
         return null;
     }
+    if (typeof value === "object") {
+        return value;
+    }
     try {
-        return typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload;
+        return JSON.parse(value);
     } catch {
         return null;
     }
+}
+
+function asNameList(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function formatDatabaseLabel(names) {
+    if (!names.length) {
+        return null;
+    }
+    return names.join(", ");
+}
+
+/**
+ * Normalize Metricer payload shapes for the detail UI.
+ * Contract sends processes as an array; older payloads used { count, items }.
+ * Storage may use driveType (contract) or type (legacy).
+ */
+export function normalizeMetricerPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+        return payload;
+    }
+
+    const normalized = { ...payload };
+
+    if (Array.isArray(normalized.processes)) {
+        normalized.processes = {
+            count: normalized.processes.length,
+            items: normalized.processes,
+        };
+    } else if (normalized.processes && typeof normalized.processes === "object") {
+        const items = Array.isArray(normalized.processes.items)
+            ? normalized.processes.items
+            : [];
+        const count =
+            normalized.processes.count != null && Number.isFinite(Number(normalized.processes.count))
+                ? Number(normalized.processes.count)
+                : items.length;
+        normalized.processes = { count, items };
+    }
+
+    if (Array.isArray(normalized.storage)) {
+        normalized.storage = normalized.storage.map((disk) => {
+            if (!disk || typeof disk !== "object") {
+                return disk;
+            }
+            return {
+                ...disk,
+                type: disk.type || disk.driveType || "",
+            };
+        });
+    }
+
+    return normalized;
+}
+
+function enrichServiceRun(run) {
+    const payload = parseJsonObject(run.payload);
+    const succeededDatabases = asNameList(payload?.succeededDatabases);
+    const failedDatabases = asNameList(payload?.failedDatabases);
+    const databases = asNameList(payload?.databases);
+    const eventNames = [...new Set([...failedDatabases, ...succeededDatabases])];
+    const databaseLabel =
+        formatDatabaseLabel(eventNames) ||
+        formatDatabaseLabel(databases) ||
+        null;
+
+    const from_database = run.from_database || databaseLabel;
+    const to_database =
+        run.to_database ||
+        (payload?.importToTarget ? databaseLabel : run.to_database) ||
+        null;
+
+    const run_status = resolveServiceRunStatus({
+        success: run.success,
+        result: run.result,
+        successCount: payload?.successCount,
+        failedCount: payload?.failedCount,
+        succeededDatabases: succeededDatabases.length ? succeededDatabases : undefined,
+        failedDatabases: failedDatabases.length ? failedDatabases : undefined,
+    });
+
+    return {
+        ...run,
+        from_database,
+        to_database,
+        succeeded_databases: succeededDatabases,
+        failed_databases: failedDatabases,
+        run_status,
+        run_status_label: serviceRunStatusLabel(run_status),
+        run_status_badge: serviceRunStatusBadgeClass(run_status),
+        run_result_summary: serviceRunResultSummary(run.result),
+    };
+}
+
+function enrichServiceRuns(runs) {
+    return (Array.isArray(runs) ? runs : []).map(enrichServiceRun);
+}
+
+function parseMetricPayload(row) {
+    return normalizeMetricerPayload(parseJsonObject(row?.payload));
 }
 
 async function loadAlertCandidatesForServer(server) {
@@ -67,25 +158,25 @@ async function loadAlertCandidatesForServer(server) {
 export async function buildServerPageData(server, { alertLogStart = null, alertLogEnd = null } = {}) {
     const [latestPing, latestMetricRow, dataerRuns, dberRuns, alertCandidates, alertLogs] =
         await Promise.all([
-        getLatestServerPingByServerId({ server_id: server.id }),
-        getLatestServerMetricByServerId({ server_id: server.id }),
-        getRecentServerDataerRunsByServerId({
-            server_id: server.id,
-            limit: SERVICE_RUN_LIMIT,
-        }),
-        getRecentServerDberRunsByServerId({
-            server_id: server.id,
-            limit: SERVICE_RUN_LIMIT,
-        }),
-        loadAlertCandidatesForServer(server),
-        alertLogStart && alertLogEnd
-            ? getServerAlertLogsByServerIdAndDateRange({
-                  server_id: server.id,
-                  start: alertLogStart,
-                  end: alertLogEnd,
-              })
-            : Promise.resolve([]),
-    ]);
+            getLatestServerPingByServerId({ server_id: server.id }),
+            getLatestServerMetricByServerId({ server_id: server.id }),
+            getRecentServerDataerRunsByServerId({
+                server_id: server.id,
+                limit: SERVICE_RUN_LIMIT,
+            }),
+            getRecentServerDberRunsByServerId({
+                server_id: server.id,
+                limit: SERVICE_RUN_LIMIT,
+            }),
+            loadAlertCandidatesForServer(server),
+            alertLogStart && alertLogEnd
+                ? getServerAlertLogsByServerIdAndDateRange({
+                      server_id: server.id,
+                      start: alertLogStart,
+                      end: alertLogEnd,
+                  })
+                : Promise.resolve([]),
+        ]);
 
     const secondsSincePing =
         latestPing?.seconds_since_received == null

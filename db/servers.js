@@ -64,6 +64,21 @@ export async function markServerTagMappedById({ id }) {
     });
 }
 
+/** Store Configurer username/password captured from Basic header (display only; not used for auth). */
+export async function updateServerUtilityCredentialsById({ id, utility_username, utility_password }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE SERVERS
+            SET
+                utility_username = ${utility_username},
+                utility_password = ${utility_password}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`updateServerUtilityCredentialsById: ${error}`);
+    });
+}
+
 export async function unmapServerTagById({ id }) {
     await executeSQLQuery(
         (sql) => sql`
