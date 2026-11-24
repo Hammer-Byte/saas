@@ -251,6 +251,25 @@ export async function getGemTenderByTenderId({ tender_id }) {
         });
 }
 
+/** All known GeM bid numbers — used to skip re-download during scan. */
+export async function getAllGemTenderIds() {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT tender_id
+            FROM GEM_TENDERS
+        `,
+    )
+        .then((rows) =>
+            (rows || [])
+                .map((row) => String(row?.tender_id || "").trim())
+                .filter(Boolean),
+        )
+        .catch((error) => {
+            logger.error(`getAllGemTenderIds: ${error}`);
+            return [];
+        });
+}
+
 export async function getAllGemTenders({ from, to }) {
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
     if (!datePattern.test(String(from || "")) || !datePattern.test(String(to || ""))) {

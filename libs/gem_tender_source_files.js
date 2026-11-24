@@ -1,4 +1,4 @@
-import { unlink } from "fs/promises";
+import { copyFile, rename, unlink } from "fs/promises";
 import { join } from "path";
 import { filer, logger } from "@hammerbyte/utils";
 import { createMedia, deleteMediaById, getMediaById } from "../db/media.js";
@@ -161,28 +161,61 @@ export async function enrichSpecificationLinksWithMedia({
     return enriched;
 }
 
+/**
+ * Promote a downloaded bid PDF into MEDIA (rename/move preferred; buffer fallback).
+ * Returns { mediaId, promoted } — promoted=true means tenderFile was moved into DIRECTORY_MEDIA.
+ */
 export async function ensureBidDocumentMedia({
-    buffer,
+    buffer = null,
+    tenderFile = null,
     tenderId,
     existingMediaId = null,
 }) {
     const existing = Number(existingMediaId);
     if (existing >= 1) {
-        return existing;
+        return { mediaId: existing, promoted: false };
     }
-    if (!buffer?.length) {
-        return null;
-    }
+
     const safeId = String(tenderId || "bid").replace(/[^\w.\-/]+/g, "_").slice(0, 48);
+    const mediaName = `${safeId}.pdf`;
+    const dir = mediaDirectory();
+
+    if (tenderFile && dir) {
+        const file = `${filer.generateRandomFileName()}.pdf`;
+        const diskPath = join(dir, file);
+        try {
+            try {
+                await rename(tenderFile, diskPath);
+            } catch (renameError) {
+                // Cross-device or other rename failure: copy then remove source.
+                await copyFile(tenderFile, diskPath);
+                await unlink(tenderFile).catch(() => {});
+            }
+            const id = await createMedia({ name: mediaName, file });
+            if (!id) {
+                await unlink(diskPath).catch(() => {});
+            } else {
+                logger.info(`Cached bid PDF media for ${tenderId} (promoted download)`);
+                return { mediaId: Number(id), promoted: true };
+            }
+        } catch (error) {
+            logger.error(`ensureBidDocumentMedia promote failed for ${tenderId}: ${error}`);
+            await unlink(diskPath).catch(() => {});
+        }
+    }
+
+    if (!buffer?.length) {
+        return { mediaId: null, promoted: false };
+    }
     const mediaId = await saveGemSourceBufferToMedia({
-        name: `${safeId}.pdf`,
+        name: mediaName,
         buffer,
         extension: "pdf",
     });
     if (mediaId) {
         logger.info(`Cached bid PDF media for ${tenderId}`);
     }
-    return mediaId;
+    return { mediaId: mediaId || null, promoted: false };
 }
 
 /**

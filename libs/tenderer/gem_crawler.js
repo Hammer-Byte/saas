@@ -5,7 +5,7 @@ import { toDbDateTime } from "../date.js";
 import { GEM_SEARCH_MODES, GemAllBidsPage, GemPage } from "./gem_pom.js";
 import {
     createGemTender,
-    getGemTenderByTenderId,
+    getAllGemTenderIds,
     updateGemTenderScanDetailsById,
 } from "../../db/gem_tenders.js";
 import {
@@ -1224,6 +1224,7 @@ export const processTender = async ({
     cookieHeader = "",
     existingTender = null,
 }) => {
+    let bidPromoted = false;
     try {
         const pdfBuffer = buffer || (await readFile(tenderFile));
         const pdfText = await readTenderText(tenderFile);
@@ -1238,11 +1239,15 @@ export const processTender = async ({
                 ? Number(tender_category_id)
                 : null;
 
-        const document_media_id = await ensureBidDocumentMedia({
+        // After pdftotext, promote the same download into MEDIA (avoid rewrite + delete).
+        const bidMedia = await ensureBidDocumentMedia({
             buffer: pdfBuffer,
+            tenderFile,
             tenderId: tender_id,
             existingMediaId: existingTender?.document_media_id,
         });
+        const document_media_id = bidMedia?.mediaId ?? null;
+        bidPromoted = !!bidMedia?.promoted;
 
         const existingSpecLinks = normalizeSpecificationLinks(
             existingTender?.specification_links,
@@ -1303,8 +1308,10 @@ export const processTender = async ({
         logger.error(`Failed to process tender ${tender_id}: ${error}`);
         return false;
     } finally {
-        // Temp PDF is only needed for pdftotext; MEDIA keeps the durable copy.
-        await removeLocalTenderPdf(tenderFile, tender_id);
+        // Promoted download already lives under DIRECTORY_MEDIA; only clean leftover temp.
+        if (!bidPromoted) {
+            await removeLocalTenderPdf(tenderFile, tender_id);
+        }
     }
 };
 
@@ -1339,6 +1346,9 @@ export const searchTendersByKeyword = async (
 
     await ensureTenderStorage();
 
+    const knownTenderIds = new Set(await getAllGemTenderIds());
+    logger.info(`Scan skip cache loaded: ${knownTenderIds.size} existing tender id(s)`);
+
     let page;
 
     if (GEM_BID_NUMBER.test(searchKeyword)) {
@@ -1348,7 +1358,7 @@ export const searchTendersByKeyword = async (
         await page.setBidNumber(searchKeyword);
     } else if (search_mode === GEM_SEARCH_MODES.ALL_BIDS) {
         page = new GemAllBidsPage(driver, GEM_URL);
-    await page.open();
+        await page.open();
         await page.selectSearchType(!!exact_search);
         await page.setKeyword(searchKeyword);
         logger.info(
@@ -1442,9 +1452,10 @@ export const searchTendersByKeyword = async (
                     continue;
                 }
 
-                const existingTender = await getGemTenderByTenderId({
-                    tender_id: tenderId,
-                });
+                if (knownTenderIds.has(tenderId)) {
+                    logger.info(`Skipping already-inserted tender: ${tenderId}`);
+                    continue;
+                }
 
                 try {
                     const { tenderFile, document, buffer } = await downloadTender(
@@ -1463,16 +1474,17 @@ export const searchTendersByKeyword = async (
                         document,
                         buffer,
                         cookieHeader,
-                        existingTender,
+                        existingTender: null,
                     });
                     if (changed) {
+                        knownTenderIds.add(tenderId);
                         changedCount += 1;
                     }
-            } catch (error) {
-                logger.error(`Failed download ${tenderId}: ${error}`);
-            }
+                } catch (error) {
+                    logger.error(`Failed download ${tenderId}: ${error}`);
+                }
 
-            await sleep(driver, DELAY_SHORT);
+                await sleep(driver, DELAY_SHORT);
             }
         }
 
