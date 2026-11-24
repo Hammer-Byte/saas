@@ -1,8 +1,12 @@
 import { logger } from "@hammerbyte/utils";
 import { getActiveServersForPingAlerts } from "../db/servers.js";
 import { getLatestServerPingByServerId } from "../db/server_pings.js";
-import { parseAlertConfig } from "./server_alerts.js";
-import { evaluatePingerMissedAlert } from "./server_alert_notify.js";
+import { parseAlertConfig, parseAlertState } from "./server_alerts.js";
+import {
+    evaluatePingerMissedAlert,
+    flushPendingDataerAlerts,
+    flushPendingDberAlerts,
+} from "./server_alert_notify.js";
 
 const CHECK_INTERVAL_MS = 30 * 1000;
 
@@ -36,12 +40,35 @@ export async function checkServerPingAlerts() {
     }
 }
 
+/** Flush Dataer/DBer digests buffered during cooloff once the interval has elapsed. */
+export async function checkServerJobAlertDigests() {
+    try {
+        const servers = await getActiveServersForPingAlerts();
+        for (const server of servers) {
+            const config = parseAlertConfig(server.alert_config);
+            const state = parseAlertState(server.alert_state);
+            if (config.dataer.enabled && Array.isArray(state.dataer_pending) && state.dataer_pending.length) {
+                await flushPendingDataerAlerts({ server });
+            }
+            if (config.dber.enabled && Array.isArray(state.dber_pending) && state.dber_pending.length) {
+                await flushPendingDberAlerts({ server });
+            }
+        }
+    } catch (error) {
+        logger.error(`checkServerJobAlertDigests: ${error}`);
+    }
+}
+
 export function startServerPingAlertWatcher() {
-    checkServerPingAlerts().catch((error) => {
+    const tick = async () => {
+        await checkServerPingAlerts();
+        await checkServerJobAlertDigests();
+    };
+    tick().catch((error) => {
         logger.error(`startServerPingAlertWatcher initial: ${error}`);
     });
     setInterval(() => {
-        checkServerPingAlerts().catch((error) => {
+        tick().catch((error) => {
             logger.error(`startServerPingAlertWatcher tick: ${error}`);
         });
     }, CHECK_INTERVAL_MS);

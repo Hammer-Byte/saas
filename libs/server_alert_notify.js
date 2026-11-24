@@ -401,6 +401,8 @@ function buildDberAlertDetail(body) {
     return lines.join("\n");
 }
 
+const JOB_ALERT_PENDING_MAX = 50;
+
 function shouldSkipSuccessAlert({ skipSuccessAlerts, body }) {
     if (!skipSuccessAlerts) {
         return false;
@@ -416,8 +418,193 @@ function shouldSkipSuccessAlert({ skipSuccessAlerts, body }) {
     return status === "success";
 }
 
+function asPendingList(value) {
+    return Array.isArray(value) ? value.filter((entry) => entry && typeof entry === "object") : [];
+}
+
+function appendPendingEntry(list, entry) {
+    const next = [...asPendingList(list), entry];
+    while (next.length > JOB_ALERT_PENDING_MAX) {
+        next.shift();
+    }
+    return next;
+}
+
+function combineJobAlertDetail(pending) {
+    const entries = asPendingList(pending);
+    if (entries.length === 0) {
+        return "";
+    }
+    if (entries.length === 1) {
+        return String(entries[0].detail || "").trim();
+    }
+    return entries
+        .map((entry, index) => {
+            const finishedAt = asDisplayText(entry.finishedAt, 64);
+            const header = finishedAt !== "—" ? `── ${index + 1} · ${finishedAt} ──` : `── ${index + 1} ──`;
+            return `${header}\n${String(entry.detail || "").trim()}`;
+        })
+        .join("\n\n");
+}
+
+async function saveAlertStatePatch(serverId, currentState, patch) {
+    const next = { ...parseAlertState(currentState), ...patch };
+    await updateServerAlertStateById({ id: serverId, alert_state: next });
+    return next;
+}
+
+async function deliverDataerDigest({ server, recipients, pending }) {
+    const entries = asPendingList(pending);
+    if (!entries.length) {
+        return false;
+    }
+    const detail = combineJobAlertDetail(entries);
+    const detailOneLine = asDisplayText(detail.replace(/\n/g, " · "), 512);
+    const latest = entries[entries.length - 1] || {};
+    const finishedAt = asDisplayText(latest.finishedAt, 64);
+    const result = asDisplayText(latest.result, 160);
+    const count = entries.length;
+    const subject =
+        count > 1 ? `Dataer sync — ${server.name} (${count})` : `Dataer sync — ${server.name}`;
+    const alertTitle = count > 1 ? `Dataer path sync (${count} results)` : "Dataer path sync";
+    const smsMessage =
+        count > 1
+            ? `HammerByte: ${server.name} Dataer · ${count} results · latest: ${result}`
+            : `HammerByte: ${server.name} Dataer · ${asDisplayText(latest.remote, 80)} → ${asDisplayText(latest.local, 80)} · ${result}`;
+    const delivery = notifySection({
+        server,
+        recipients,
+        subject,
+        htmlBuilder: (recipientName) =>
+            metricEmailHtml({
+                recipientName,
+                server,
+                alertTitle,
+                alertDetail: escapeAlertDetailHtml(detail),
+                capturedAt: finishedAt,
+            }),
+        smsMessage,
+    });
+    return logDeliveredAlert({
+        server,
+        kind: "dataer_result",
+        detail: detailOneLine,
+        delivery,
+    });
+}
+
+async function deliverDberDigest({ server, recipients, pending }) {
+    const entries = asPendingList(pending);
+    if (!entries.length) {
+        return false;
+    }
+    const detail = combineJobAlertDetail(entries);
+    const detailOneLine = asDisplayText(detail.replace(/\n/g, " · "), 512);
+    const latest = entries[entries.length - 1] || {};
+    const finishedAt = asDisplayText(latest.finishedAt, 64);
+    const result = asDisplayText(latest.result, 160);
+    const count = entries.length;
+    const subject =
+        count > 1 ? `DBer sync — ${server.name} (${count})` : `DBer sync — ${server.name}`;
+    const alertTitle = count > 1 ? `DBer database sync (${count} results)` : "DBer database sync";
+    const smsMessage =
+        count > 1
+            ? `HammerByte: ${server.name} DBer · ${count} results · latest: ${result}`
+            : `HammerByte: ${server.name} DBer · ${asDisplayText(latest.fromHost, 80)} → ${asDisplayText(latest.toHost, 80)} · ${result}`;
+    const delivery = notifySection({
+        server,
+        recipients,
+        subject,
+        htmlBuilder: (recipientName) =>
+            metricEmailHtml({
+                recipientName,
+                server,
+                alertTitle,
+                alertDetail: escapeAlertDetailHtml(detail),
+                capturedAt: finishedAt,
+            }),
+        smsMessage,
+    });
+    return logDeliveredAlert({
+        server,
+        kind: "dber_result",
+        detail: detailOneLine,
+        delivery,
+    });
+}
+
 /**
- * Notify on every accepted Dataer job publish when Dataer alerts are enabled.
+ * Flush buffered Dataer results once cooloff has elapsed (ingest or watcher).
+ */
+export async function flushPendingDataerAlerts({ server }) {
+    try {
+        if (!server?.id) {
+            return;
+        }
+        const config = parseAlertConfig(server.alert_config);
+        const dataer = config.dataer;
+        if (!dataer.enabled || !dataer.recipients.length || !dataer.recipients.some(recipientCanNotify)) {
+            return;
+        }
+        const state = parseAlertState(server.alert_state);
+        const pending = asPendingList(state.dataer_pending);
+        if (!pending.length) {
+            return;
+        }
+        if (!cooldownElapsed(state.dataer_result, dataer.cooldown_seconds)) {
+            return;
+        }
+        if (!(await deliverDataerDigest({ server, recipients: dataer.recipients, pending }))) {
+            logger.info(`server #${server.id} dataer digest not delivered (no mediums)`);
+            return;
+        }
+        await saveAlertStatePatch(server.id, server.alert_state, {
+            dataer_pending: [],
+            dataer_result: stampNow(),
+        });
+        logger.info(`server #${server.id} dataer digest sent (${pending.length})`);
+    } catch (error) {
+        logger.error(`flushPendingDataerAlerts: ${error}`);
+    }
+}
+
+/**
+ * Flush buffered DBer results once cooloff has elapsed (ingest or watcher).
+ */
+export async function flushPendingDberAlerts({ server }) {
+    try {
+        if (!server?.id) {
+            return;
+        }
+        const config = parseAlertConfig(server.alert_config);
+        const dber = config.dber;
+        if (!dber.enabled || !dber.recipients.length || !dber.recipients.some(recipientCanNotify)) {
+            return;
+        }
+        const state = parseAlertState(server.alert_state);
+        const pending = asPendingList(state.dber_pending);
+        if (!pending.length) {
+            return;
+        }
+        if (!cooldownElapsed(state.dber_result, dber.cooldown_seconds)) {
+            return;
+        }
+        if (!(await deliverDberDigest({ server, recipients: dber.recipients, pending }))) {
+            logger.info(`server #${server.id} dber digest not delivered (no mediums)`);
+            return;
+        }
+        await saveAlertStatePatch(server.id, server.alert_state, {
+            dber_pending: [],
+            dber_result: stampNow(),
+        });
+        logger.info(`server #${server.id} dber digest sent (${pending.length})`);
+    } catch (error) {
+        logger.error(`flushPendingDberAlerts: ${error}`);
+    }
+}
+
+/**
+ * Queue Dataer results during cooloff; send one combined alert when cooloff allows.
  */
 export async function evaluateDataerAlerts({ server, body }) {
     try {
@@ -449,47 +636,51 @@ export async function evaluateDataerAlerts({ server, body }) {
             return;
         }
 
-        const detail = buildDataerAlertDetail(body);
-        const detailOneLine = asDisplayText(detail.replace(/\n/g, " · "), 512);
-        const finishedAt = asDisplayText(body.finishedAt, 64);
-        const result = asDisplayText(body.result, 160);
-        const remote = asDisplayText(body.remote, 120);
-        const local = asDisplayText(body.local, 120);
-        const delivery = notifySection({
-            server,
-            recipients: dataer.recipients,
-            subject: `Dataer sync — ${server.name}`,
-            htmlBuilder: (recipientName) =>
-                metricEmailHtml({
-                    recipientName,
-                    server,
-                    alertTitle: "Dataer path sync",
-                    alertDetail: escapeAlertDetailHtml(detail),
-                    capturedAt: finishedAt,
-                }),
-            smsMessage: `HammerByte: ${server.name} Dataer · ${remote} → ${local} · ${result}`,
-        });
+        const entry = {
+            detail: buildDataerAlertDetail(body),
+            finishedAt: asDisplayText(body.finishedAt, 64),
+            result: asDisplayText(body.result, 160),
+            remote: asDisplayText(body.remote, 120),
+            local: asDisplayText(body.local, 120),
+        };
+
+        const fresh = (await getServerById({ id: server.id })) || server;
+        const state = parseAlertState(fresh.alert_state);
+        const pending = appendPendingEntry(state.dataer_pending, entry);
+        const section = parseAlertConfig(fresh.alert_config).dataer;
+
+        if (!cooldownElapsed(state.dataer_result, section.cooldown_seconds)) {
+            await saveAlertStatePatch(fresh.id, fresh.alert_state, { dataer_pending: pending });
+            logger.info(
+                `server #${server.id} dataer alert buffered (${pending.length}, cooloff ${section.cooldown_seconds}s)`,
+            );
+            return;
+        }
 
         if (
-            !(await logDeliveredAlert({
-                server,
-                kind: "dataer_result",
-                detail: detailOneLine,
-                delivery,
+            !(await deliverDataerDigest({
+                server: fresh,
+                recipients: section.recipients,
+                pending,
             }))
         ) {
+            await saveAlertStatePatch(fresh.id, fresh.alert_state, { dataer_pending: pending });
             logger.info(`server #${server.id} dataer alert not delivered (no mediums)`);
             return;
         }
 
-        logger.info(`server #${server.id} dataer alert sent`);
+        await saveAlertStatePatch(fresh.id, fresh.alert_state, {
+            dataer_pending: [],
+            dataer_result: stampNow(),
+        });
+        logger.info(`server #${server.id} dataer digest sent (${pending.length})`);
     } catch (error) {
         logger.error(`evaluateDataerAlerts: ${error}`);
     }
 }
 
 /**
- * Notify on every accepted DBer job publish when DBer alerts are enabled.
+ * Queue DBer results during cooloff; send one combined alert when cooloff allows.
  */
 export async function evaluateDberAlerts({ server, body }) {
     try {
@@ -521,40 +712,44 @@ export async function evaluateDberAlerts({ server, body }) {
             return;
         }
 
-        const detail = buildDberAlertDetail(body);
-        const detailOneLine = asDisplayText(detail.replace(/\n/g, " · "), 512);
-        const finishedAt = asDisplayText(body.finishedAt, 64);
-        const result = asDisplayText(body.result, 160);
-        const fromHost = asDisplayText(body.fromHost, 80);
-        const toHost = body?.importToTarget === false ? "—" : asDisplayText(body.toHost, 80);
-        const delivery = notifySection({
-            server,
-            recipients: dber.recipients,
-            subject: `DBer sync — ${server.name}`,
-            htmlBuilder: (recipientName) =>
-                metricEmailHtml({
-                    recipientName,
-                    server,
-                    alertTitle: "DBer database sync",
-                    alertDetail: escapeAlertDetailHtml(detail),
-                    capturedAt: finishedAt,
-                }),
-            smsMessage: `HammerByte: ${server.name} DBer · ${fromHost} → ${toHost} · ${result}`,
-        });
+        const entry = {
+            detail: buildDberAlertDetail(body),
+            finishedAt: asDisplayText(body.finishedAt, 64),
+            result: asDisplayText(body.result, 160),
+            fromHost: asDisplayText(body.fromHost, 80),
+            toHost: body?.importToTarget === false ? "—" : asDisplayText(body.toHost, 80),
+        };
+
+        const fresh = (await getServerById({ id: server.id })) || server;
+        const state = parseAlertState(fresh.alert_state);
+        const pending = appendPendingEntry(state.dber_pending, entry);
+        const section = parseAlertConfig(fresh.alert_config).dber;
+
+        if (!cooldownElapsed(state.dber_result, section.cooldown_seconds)) {
+            await saveAlertStatePatch(fresh.id, fresh.alert_state, { dber_pending: pending });
+            logger.info(
+                `server #${server.id} dber alert buffered (${pending.length}, cooloff ${section.cooldown_seconds}s)`,
+            );
+            return;
+        }
 
         if (
-            !(await logDeliveredAlert({
-                server,
-                kind: "dber_result",
-                detail: detailOneLine,
-                delivery,
+            !(await deliverDberDigest({
+                server: fresh,
+                recipients: section.recipients,
+                pending,
             }))
         ) {
+            await saveAlertStatePatch(fresh.id, fresh.alert_state, { dber_pending: pending });
             logger.info(`server #${server.id} dber alert not delivered (no mediums)`);
             return;
         }
 
-        logger.info(`server #${server.id} dber alert sent`);
+        await saveAlertStatePatch(fresh.id, fresh.alert_state, {
+            dber_pending: [],
+            dber_result: stampNow(),
+        });
+        logger.info(`server #${server.id} dber digest sent (${pending.length})`);
     } catch (error) {
         logger.error(`evaluateDberAlerts: ${error}`);
     }

@@ -613,11 +613,13 @@
             dataer: {
                 enabled: Boolean(document.getElementById("dataer-enabled")?.checked),
                 skip_success_alerts: Boolean(document.getElementById("dataer-skip-success")?.checked),
+                cooldown_seconds: Number(document.getElementById("dataer-cooldown")?.value || 600),
                 recipients: readRecipients(dataerRecipientsEl),
             },
             dber: {
                 enabled: Boolean(document.getElementById("dber-enabled")?.checked),
                 skip_success_alerts: Boolean(document.getElementById("dber-skip-success")?.checked),
+                cooldown_seconds: Number(document.getElementById("dber-cooldown")?.value || 600),
                 recipients: readRecipients(dberRecipientsEl),
             },
         };

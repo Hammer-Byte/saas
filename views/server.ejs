@@ -991,8 +991,14 @@
                             <input class="form-check-input" type="checkbox" id="dataer-skip-success" <%= dataerCfg.skip_success_alerts ? "checked" : "" %> />
                             <label class="form-check-label" for="dataer-skip-success">Skip success alerts</label>
                         </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label small" for="dataer-cooldown">Cool off (seconds)</label>
+                                <input type="number" class="form-control form-control-sm" id="dataer-cooldown" min="60" max="86400" value="<%= dataerCfg.cooldown_seconds || 600 %>" />
+                            </div>
+                        </div>
                         <p class="text-secondary small mb-3">
-                            When enabled, each Dataer path sync result is emailed/SMS’d (result counts and remote → local). With Skip success alerts, pure success runs are silent; partial and failed still notify.
+                            Results are buffered during cool off, then sent as one combined alert. With Skip success alerts, pure success runs stay silent; partial and failed still queue.
                         </p>
                         <h3 class="h6">Whom</h3>
                         <div id="dataer-recipients" class="mb-2"></div>
@@ -1035,8 +1041,14 @@
                             <input class="form-check-input" type="checkbox" id="dber-skip-success" <%= dberCfg.skip_success_alerts ? "checked" : "" %> />
                             <label class="form-check-label" for="dber-skip-success">Skip success alerts</label>
                         </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label small" for="dber-cooldown">Cool off (seconds)</label>
+                                <input type="number" class="form-control form-control-sm" id="dber-cooldown" min="60" max="86400" value="<%= dberCfg.cooldown_seconds || 600 %>" />
+                            </div>
+                        </div>
                         <p class="text-secondary small mb-3">
-                            When enabled, each DBer database run result is emailed/SMS’d (result rollup and from → to). With Skip success alerts, pure success runs are silent; partial and failed still notify.
+                            Results are buffered during cool off, then sent as one combined alert. With Skip success alerts, pure success runs stay silent; partial and failed still queue.
                         </p>
                         <h3 class="h6">Whom</h3>
                         <div id="dber-recipients" class="mb-2"></div>

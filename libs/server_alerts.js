@@ -24,11 +24,13 @@ export const DEFAULT_ALERT_CONFIG = {
     dataer: {
         enabled: false,
         skip_success_alerts: false,
+        cooldown_seconds: 600,
         recipients: [],
     },
     dber: {
         enabled: false,
         skip_success_alerts: false,
+        cooldown_seconds: 600,
         recipients: [],
     },
 };
@@ -180,11 +182,21 @@ export function parseAlertConfig(raw) {
         dataer: {
             enabled: Boolean(dataerIn.enabled),
             skip_success_alerts: Boolean(dataerIn.skip_success_alerts),
+            cooldown_seconds: clampInt(dataerIn.cooldown_seconds, {
+                min: 60,
+                max: 86400,
+                fallback: DEFAULT_ALERT_CONFIG.dataer.cooldown_seconds,
+            }),
             recipients: normalizeRecipients(dataerIn.recipients),
         },
         dber: {
             enabled: Boolean(dberIn.enabled),
             skip_success_alerts: Boolean(dberIn.skip_success_alerts),
+            cooldown_seconds: clampInt(dberIn.cooldown_seconds, {
+                min: 60,
+                max: 86400,
+                fallback: DEFAULT_ALERT_CONFIG.dber.cooldown_seconds,
+            }),
             recipients: normalizeRecipients(dberIn.recipients),
         },
     };
