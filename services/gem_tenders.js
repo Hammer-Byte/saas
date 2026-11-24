@@ -219,12 +219,10 @@ function parseIds(rawIds) {
 }
 
 /** Patch fields for an eligibility choice (lock + clear stage on negative choices). */
-function eligibilityPatch({ choice, previousStage }) {
+function eligibilityPatch({ choice }) {
     const patch = { ...eligibilityFlags(choice), requires_review: false };
     if (choice === GEM_TENDER_ELIGIBILITY_CHOICES.ELIGIBLE) {
-        if (!previousStage) {
-            patch.stage = GEM_TENDER_STAGES.WAITING_FOR_DOCS;
-        }
+        // Leave stage unset until the user picks one from the dropdown.
         return patch;
     }
     patch.stage = null;
@@ -539,7 +537,7 @@ export async function updateGemTender({ params, body, cookie, set }) {
     const activities = [];
 
     if (eligibilityChanging) {
-        const choicePatch = eligibilityPatch({ choice: nextChoice, previousStage });
+        const choicePatch = eligibilityPatch({ choice: nextChoice });
         Object.assign(patch, choicePatch);
         activities.push(
             ...eligibilityActivities({
@@ -898,7 +896,7 @@ export async function bulkSetGemTenderEligibility({ body, cookie, set }) {
             const previousStage = knownStageOrNull(gemTender.stage);
             if (previousStage === GEM_TENDER_STAGES.FILED) return { error: "Already filed" };
 
-            const choicePatch = eligibilityPatch({ choice, previousStage });
+            const choicePatch = eligibilityPatch({ choice });
             await updateGemTenderById({ id: gemTender.id, ...choicePatch });
             return {
                 activities: eligibilityActivities({
