@@ -1,0 +1,41 @@
+<%- include('common/header') %>
+<%- include('common/app-navbar') %>
+
+<main class="hb-main">
+    <div class="container hb-page">
+        <%- include('common/page-header', {
+            breadcrumbs: [{ href: '/app', label: 'App' }, { href: '/app/internal-documents', label: 'Internal documents' }, { label: document.media_name || ('Document #' + document.id) }],
+            heading: document.media_name || ("Document #" + document.id),
+            subtitle: document.description || "Internal document",
+        }) %>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">ID</dt><dd class="col-sm-9"><%= document.id %></dd>
+                    <dt class="col-sm-3">File</dt>
+                    <dd class="col-sm-9">
+                        <% if (document.media_id) { %>
+                            <a href="/api/media/<%= document.media_id %>" target="_blank" rel="noopener noreferrer">
+                                <%= document.media_name || "Open file" %>
+                            </a>
+                        <% } else { %>
+                            —
+                        <% } %>
+                    </dd>
+                    <dt class="col-sm-3">Description</dt><dd class="col-sm-9"><%= document.description || "—" %></dd>
+                    <dt class="col-sm-3">Created On</dt>
+                    <dd class="col-sm-9">
+                        <span data-readable-date="<%= document.created_on || '' %>" data-date-format="DD/MM/YYYY HH:mm"></span>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <a href="/app/internal-documents" class="btn btn-outline-secondary btn-sm">Back to documents</a>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<%- include('common/footer') %>

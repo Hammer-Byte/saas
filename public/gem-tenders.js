@@ -1,6 +1,6 @@
 (() => {
     // Bumped when a filter default changes so old saved filters don't override it.
-    const FILTERS_STORAGE_KEY = "gem-tenders-filters-v6";
+    const FILTERS_STORAGE_KEY = "gem-tenders-filters-v7";
     const COLUMNS_STORAGE_KEY = "gem-tenders-columns";
     const ALWAYS_VISIBLE_COLUMNS = new Set(["select", "tenderId"]);
     const DEFAULT_VISIBLE_COLUMNS = [
@@ -21,12 +21,20 @@
     const fromInput = document.getElementById("gem-tenders-from");
     const toInput = document.getElementById("gem-tenders-to");
     const categoryFilter = document.getElementById("gem-filter-category");
-    const stageFilter = document.getElementById("gem-filter-stage");
+    const pipelineStageFilter = document.getElementById("gem-filter-pipeline-stage");
+    const pipelineStageWrap = document.getElementById("gem-filter-pipeline-wrap");
+    const eligibilityFilterRoot = document.getElementById("gem-filter-eligibility");
     const assigneeFilter = document.getElementById("gem-filter-assignee");
-    const multiFilters = [categoryFilter, stageFilter, assigneeFilter].filter(Boolean);
+    const multiFilters = [categoryFilter, pipelineStageFilter, assigneeFilter].filter(Boolean);
     const includeHiddenFilter = document.getElementById("gem-filter-include-hidden");
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
     const lockedFilter = document.getElementById("gem-filter-locked");
+    const ELIGIBILITY_FILTER_VALUES = new Set(["eligible", "ineligible", "out_of_scope"]);
+    const ELIGIBILITY_FILTER_LABELS = {
+        eligible: "Eligible",
+        ineligible: "Not eligible",
+        out_of_scope: "Out of scope",
+    };
 
     function normalizePositiveNumber(raw) {
         const value = Number(String(raw ?? "").trim());
@@ -36,6 +44,47 @@
 
     function normalizeLockedFilter(raw) {
         return ["locked", "unlocked"].includes(raw) ? raw : "";
+    }
+
+    function normalizeEligibilityFilter(raw) {
+        const value = String(raw || "").trim();
+        return ELIGIBILITY_FILTER_VALUES.has(value) ? value : "";
+    }
+
+    function selectedEligibilityRadio() {
+        const checked = eligibilityFilterRoot?.querySelector(
+            'input[name="gem-filter-eligibility"]:checked',
+        );
+        return normalizeEligibilityFilter(checked?.value);
+    }
+
+    function setEligibilityRadio(value) {
+        const next = normalizeEligibilityFilter(value);
+        const inputs = eligibilityFilterRoot?.querySelectorAll(
+            'input[name="gem-filter-eligibility"]',
+        );
+        if (!inputs?.length) return;
+        let matched = false;
+        for (const input of inputs) {
+            const isMatch = String(input.value || "") === next;
+            input.checked = isMatch;
+            if (isMatch) matched = true;
+        }
+        if (!matched) {
+            const any = eligibilityFilterRoot.querySelector(
+                'input[name="gem-filter-eligibility"][value=""]',
+            );
+            if (any) any.checked = true;
+        }
+        syncPipelineStageVisibility(next);
+    }
+
+    function syncPipelineStageVisibility(eligibility = selectedEligibilityRadio()) {
+        const show = eligibility === "eligible";
+        pipelineStageWrap?.classList.toggle("d-none", !show);
+        if (!show) {
+            setSelectedMultiValues(pipelineStageFilter, []);
+        }
     }
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
     const refreshBtn = document.getElementById("gem-tenders-refresh-btn");
@@ -52,7 +101,6 @@
     const searchModeBackBtn = document.getElementById("gem-tenders-search-back-btn");
     const QUICK_VIEWS = new Set(quickViewButtons.map((button) => button.dataset.view));
     const HIDDEN_VIEWS = new Set(["missed", "rejected"]);
-    const HIDDEN_STATUSES = new Set(["missed", "unattended", "ineligible", "out_of_scope"]);
     /** When set, the table shows an all-dates search for this text instead of the date range. */
     let searchMode = "";
     const tableEl = document.getElementById("gem-tenders-table");
@@ -101,10 +149,11 @@
             from: from || "",
             to: to || "",
             categories: [],
-            stages: [],
+            eligibility: "",
+            pipelineStages: [],
             assignees: [],
             search: "",
-            includeHidden: true,
+            includeHidden: false,
             quantityUpto: "",
             locked: "",
             view: "all",
@@ -223,11 +272,14 @@
             if (!column) continue;
             columns[column] = String(select.value || "").trim();
         }
+        const eligibility = selectedEligibilityRadio();
         return {
             from: normalizeDateInput(fromInput?.value || "", pageFrom),
             to: normalizeDateInput(toInput?.value || "", pageTo),
             categories: selectedMultiValues(categoryFilter),
-            stages: selectedMultiValues(stageFilter),
+            eligibility,
+            pipelineStages:
+                eligibility === "eligible" ? selectedMultiValues(pipelineStageFilter) : [],
             assignees: selectedMultiValues(assigneeFilter),
             search: String(searchInput?.value || "").trim(),
             includeHidden: !!includeHiddenFilter?.checked,
@@ -243,7 +295,11 @@
         if (fromInput && filters.from) fromInput.value = filters.from;
         if (toInput && filters.to) toInput.value = filters.to;
         setSelectedMultiValues(categoryFilter, filters.categories || []);
-        setSelectedMultiValues(stageFilter, filters.stages || []);
+        setEligibilityRadio(filters.eligibility || "");
+        setSelectedMultiValues(
+            pipelineStageFilter,
+            filters.eligibility === "eligible" ? filters.pipelineStages || [] : [],
+        );
         setSelectedMultiValues(assigneeFilter, filters.assignees || []);
         if (searchInput) searchInput.value = filters.search || "";
         if (includeHiddenFilter) includeHiddenFilter.checked = !!filters.includeHidden;
@@ -613,6 +669,8 @@
                 const rowId = Number(tender.id || 0);
 
                 return `<tr
+                    class="hb-row-link"
+                    data-href="/app/gem-tenders/${escapeHtml(rowId)}"
                     data-id="${escapeHtml(rowId)}"
                     data-tender-category-id="${escapeHtml(tenderCategoryId)}"
                     data-tender-category-name="${escapeHtml(tenderCategoryName)}"
@@ -639,11 +697,7 @@
                         />
                     </td>
                     <td data-col="tenderId">
-                        <a
-                            href="/app/gem-tenders/${escapeHtml(rowId)}"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >${escapeHtml(tenderId)}</a>
+                        <a href="/app/gem-tenders/${escapeHtml(rowId)}">${escapeHtml(tenderId)}</a>
                     </td>
                     <td
                         data-col="endAt"
@@ -1209,9 +1263,21 @@
             });
         }
 
+        if (appliedFilters.eligibility) {
+            chips.push({
+                label: `Eligibility: ${ELIGIBILITY_FILTER_LABELS[appliedFilters.eligibility] || appliedFilters.eligibility}`,
+                clear: () => setEligibilityRadio(""),
+            });
+        }
+
         const multiChipSpecs = [
             [categoryFilter, appliedFilters.categories],
-            [stageFilter, appliedFilters.stages],
+            [
+                pipelineStageFilter,
+                appliedFilters.eligibility === "eligible"
+                    ? appliedFilters.pipelineStages
+                    : [],
+            ],
             [assigneeFilter, appliedFilters.assignees],
         ];
         for (const [root, values] of multiChipSpecs) {
@@ -1329,7 +1395,10 @@
             .split(/\s+/)
             .filter(Boolean);
         const selectedCategories = (appliedFilters.categories || []).map(String);
-        const selectedStages = (appliedFilters.stages || []).map(String);
+        const eligibility = normalizeEligibilityFilter(appliedFilters.eligibility);
+        const selectedPipelineStages = (appliedFilters.pipelineStages || [])
+            .map(String)
+            .filter((stage) => PIPELINE_STAGES.has(stage));
         const selectedAssignees = (appliedFilters.assignees || []).map(String);
         const includeHidden = !!appliedFilters.includeHidden || !!searchMode;
         const lockedMode = String(appliedFilters.locked || "");
@@ -1363,8 +1432,18 @@
                     value === "none" ? !rowCategoryId : rowCategoryId === value,
                 );
 
-            const matchesStage =
-                !selectedStages.length || selectedStages.includes(rowStage);
+            let matchesEligibility = true;
+            if (eligibility === "eligible") {
+                matchesEligibility =
+                    rowStage === "eligible" || PIPELINE_STAGES.has(rowStage);
+                if (matchesEligibility && selectedPipelineStages.length) {
+                    matchesEligibility = selectedPipelineStages.includes(rowStage);
+                }
+            } else if (eligibility === "ineligible") {
+                matchesEligibility = rowStage === "ineligible";
+            } else if (eligibility === "out_of_scope") {
+                matchesEligibility = rowStage === "out_of_scope";
+            }
 
             const rowAssigneeId = String(row.dataset.assigneeUserId || "");
             const matchesAssignee =
@@ -1398,19 +1477,21 @@
 
             const matchesBase =
                 matchesCategory &&
-                matchesStage &&
+                matchesEligibility &&
                 matchesAssignee &&
                 matchesSearch &&
                 matchesColumns &&
                 matchesQuantity &&
                 matchesLocked;
 
-            // Hidden (closed) tenders show when asked for explicitly: the checkbox, their status, or their quick view.
+            // Hidden (closed) tenders show when asked for explicitly: the checkbox,
+            // Not eligible / Out of scope radios, or their quick view.
             const isHiddenRow = row.dataset.hidden === "1";
+            const eligibilityShowsHidden =
+                (eligibility === "ineligible" && rowStage === "ineligible") ||
+                (eligibility === "out_of_scope" && rowStage === "out_of_scope");
             const hiddenAllowed =
-                includeHidden ||
-                !isHiddenRow ||
-                (HIDDEN_STATUSES.has(rowStage) && selectedStages.includes(rowStage));
+                includeHidden || !isHiddenRow || eligibilityShowsHidden;
             const showableIn = (key) =>
                 matchesBase &&
                 (hiddenAllowed || HIDDEN_VIEWS.has(key)) &&
@@ -1471,11 +1552,10 @@
         const categories = Array.isArray(filters.categories)
             ? filters.categories
             : [];
-        const stages = Array.isArray(filters.stages)
-            ? filters.stages
-            : filters.stage != null && filters.stage !== ""
-              ? [filters.stage]
-              : [];
+        const eligibility = normalizeEligibilityFilter(filters.eligibility);
+        const pipelineStages = Array.isArray(filters.pipelineStages)
+            ? filters.pipelineStages
+            : [];
         const assignees = Array.isArray(filters.assignees)
             ? filters.assignees
             : filters.assignee != null && filters.assignee !== ""
@@ -1494,10 +1574,16 @@
             from: normalizeDateInput(filters.from, pageFrom),
             to: normalizeDateInput(filters.to, pageTo),
             categories: categories.map(String).filter(Boolean),
-            stages: stages.map(String).filter((stage) => !!stage && !!stageLabels[stage]),
+            eligibility,
+            pipelineStages:
+                eligibility === "eligible"
+                    ? pipelineStages
+                          .map(String)
+                          .filter((stage) => PIPELINE_STAGES.has(stage))
+                    : [],
             assignees: assignees.map(String).filter(Boolean),
             search: String(filters.search || "").trim(),
-            includeHidden: filters.includeHidden !== false,
+            includeHidden: !!filters.includeHidden,
             quantityUpto: normalizePositiveNumber(filters.quantityUpto),
             locked: normalizeLockedFilter(filters.locked),
             view: QUICK_VIEWS.has(filters.view) ? filters.view : "all",
@@ -1528,6 +1614,12 @@
         });
     }
 
+    eligibilityFilterRoot?.addEventListener("change", (event) => {
+        if (event.target?.name !== "gem-filter-eligibility") return;
+        syncPipelineStageVisibility(selectedEligibilityRadio());
+        void commitFilters();
+    });
+
     appliedFilters = normalizeStoredFilters({
         ...emptyFilters(),
         ...(storedFilters || {}),
@@ -1537,6 +1629,7 @@
     const urlView = new URL(window.location.href).searchParams.get("view");
     if (QUICK_VIEWS.has(urlView)) appliedFilters.view = urlView;
     writeFiltersToDom(appliedFilters);
+    syncPipelineStageVisibility(appliedFilters.eligibility);
 
     function startOfIndianQuarterKey(dateKey) {
         const year = Number(dateKey.slice(0, 4));

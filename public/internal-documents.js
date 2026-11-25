@@ -26,19 +26,6 @@
     const descriptionInput = form?.elements.namedItem("description");
     const fileHint = document.getElementById("document-file-hint");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     function setUploadProgress(percent, statusText) {
         const value = Math.max(0, Math.min(100, Math.round(percent)));
         progressWrap?.classList.remove("d-none");

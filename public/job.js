@@ -13,19 +13,6 @@
     const bulkClearBtn = document.getElementById("applicants-bulk-clear-btn");
     const jobId = Number(page?.dataset.jobId || 0);
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     function visibleRows() {
         if (!tableBody) return [];
         return [...tableBody.querySelectorAll("tr[data-id]")].filter(

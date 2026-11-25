@@ -61,19 +61,6 @@
     const taskFormAlert = document.getElementById("task-form-alert");
     const taskSubmitButton = document.getElementById("task-submit-btn");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     function readStoredFilters() {
         try {
             const raw = window.localStorage.getItem(FILTERS_STORAGE_KEY);

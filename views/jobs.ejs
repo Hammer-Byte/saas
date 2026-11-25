@@ -1,17 +1,6 @@
 <%- include('common/header') %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar') %>
 
 <main class="bg-light min-vh-100">
     <div class="container py-5" id="jobs-page">
@@ -56,7 +45,7 @@
                         No job openings yet.
                     </div>
                 <% } else { %>
-                    <div id="jobs-empty" class="p-4 text-center text-secondary d-none">
+                    <div id="jobs-filter-empty" class="p-4 text-center text-secondary d-none">
                         No jobs match your search.
                     </div>
                     <div class="table-responsive" id="jobs-table-wrap">
@@ -65,7 +54,7 @@
                                 <tr>
                                     <th
                                         scope="col"
-                                        class="jobs-sortable"
+                                        class="hb-sortable jobs-sortable"
                                         data-sort-key="id"
                                         role="button"
                                         tabindex="0"
@@ -73,7 +62,7 @@
                                     >ID</th>
                                     <th
                                         scope="col"
-                                        class="jobs-sortable"
+                                        class="hb-sortable jobs-sortable"
                                         data-sort-key="title"
                                         role="button"
                                         tabindex="0"
@@ -81,7 +70,7 @@
                                     >Title</th>
                                     <th
                                         scope="col"
-                                        class="jobs-sortable"
+                                        class="hb-sortable jobs-sortable"
                                         data-sort-key="experience"
                                         role="button"
                                         tabindex="0"
@@ -89,7 +78,7 @@
                                     >Experience</th>
                                     <th
                                         scope="col"
-                                        class="jobs-sortable"
+                                        class="hb-sortable jobs-sortable"
                                         data-sort-key="active"
                                         role="button"
                                         tabindex="0"
@@ -97,7 +86,7 @@
                                     >Active</th>
                                     <th
                                         scope="col"
-                                        class="jobs-sortable"
+                                        class="hb-sortable jobs-sortable"
                                         data-sort-key="applications"
                                         role="button"
                                         tabindex="0"
@@ -105,7 +94,7 @@
                                     >Applications</th>
                                     <th
                                         scope="col"
-                                        class="jobs-sortable"
+                                        class="hb-sortable jobs-sortable"
                                         data-sort-key="created"
                                         role="button"
                                         tabindex="0"
@@ -126,8 +115,7 @@
                                         data-applications="<%= Number(job.application_count || 0) %>"
                                         data-created="<%= job.created_on || '' %>"
                                         data-href="/app/jobs/<%= job.id %>"
-                                        class="job-row"
-                                        style="cursor: pointer;"
+                                        class="job-row hb-row-link"
                                     >
                                         <td><%= job.id %></td>
                                         <td><%= job.title %></td>
@@ -143,24 +131,31 @@
                                             data-date-format="DD/MM/YYYY HH:mm:ss"
                                         ></td>
                                         <td class="text-end">
-                                            <div class="d-inline-flex gap-1 justify-content-end">
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-sm btn-outline-secondary job-edit-btn"
-                                                    title="Edit"
-                                                    aria-label="Edit"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-sm btn-outline-danger job-delete-btn"
-                                                    title="Delete"
-                                                    aria-label="Delete"
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
+                                            <div class="d-inline-flex gap-1 justify-content-end hb-icon-actions">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary hb-icon-btn job-edit-btn"
+                                                title="Edit"
+                                                aria-label="Edit"
+                                                
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger hb-icon-btn job-delete-btn"
+                                                title="Delete"
+                                                aria-label="Delete"
+                                                
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                                                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
                                         </td>
                                     </tr>
                                 <% }) %>

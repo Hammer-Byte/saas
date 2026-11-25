@@ -5,19 +5,6 @@
     const signButton = document.getElementById("sign-contract-btn");
     const fileInputs = Array.from(document.querySelectorAll(".required-attachment-file"));
 
-    function showAlert(message, type) {
-        if (!signAlert) return;
-        signAlert.textContent = message;
-        signAlert.className = `alert alert-${type}`;
-        signAlert.classList.remove("d-none");
-    }
-
-    function hideAlert() {
-        if (!signAlert) return;
-        signAlert.classList.add("d-none");
-        signAlert.textContent = "";
-    }
-
     function setUploadStatus(requiredAttachmentId, message, state) {
         const statusElement = document.getElementById(
             `required-attachment-status-${requiredAttachmentId}`,
@@ -112,25 +99,25 @@
 
     fileInputs.forEach((fileInput) => {
         fileInput.addEventListener("change", () => {
-            hideAlert();
+            hideAlert(signAlert);
             uploadRequiredDocument(fileInput);
         });
     });
 
     readContractCheckbox?.addEventListener("change", () => {
-        hideAlert();
+        hideAlert(signAlert);
         updateSignButton();
     });
 
     signButton?.addEventListener("click", async () => {
         const signing_code = signingPanel?.dataset.signingCode;
         if (!signing_code || !allDocumentsAttached() || !readContractCheckbox?.checked) {
-            showAlert("Upload all required attachments and confirm the agreement acknowledgment.", "danger");
+            showAlert(signAlert, "Upload all required attachments and confirm the agreement acknowledgment.", "danger");
             return;
         }
 
         signButton.disabled = true;
-        hideAlert();
+        hideAlert(signAlert);
 
         try {
             const response = await fetch("/api/contracts/sign", {
@@ -141,7 +128,7 @@
             const data = await response.json().catch(() => ({}));
 
             if (!response.ok) {
-                showAlert(data.error || "Failed to sign contract.", "danger");
+                showAlert(signAlert, data.error || "Failed to sign contract.", "danger");
                 updateSignButton();
                 return;
             }
@@ -167,7 +154,7 @@
             window.location.reload();
         } catch (error) {
             console.error(error);
-            showAlert("Failed to sign contract.", "danger");
+            showAlert(signAlert, "Failed to sign contract.", "danger");
             updateSignButton();
         }
     });

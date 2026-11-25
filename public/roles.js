@@ -14,19 +14,6 @@
 
     const roleAuthorityIds = new Map();
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     function resetForm() {
         form?.reset();
         const idInput = form?.elements.namedItem("id");
@@ -209,4 +196,21 @@
             if (submitButton) submitButton.disabled = false;
         }
     });
+
+    const __hbTable = document.getElementById("roles-table");
+    if (__hbTable?.tBodies?.[0]) {
+        bindClientSearch({
+            input: "#roles-search",
+            rows: "#roles-table tbody tr",
+            emptyElement: "#roles-empty",
+            tableWrap: "#roles-table-wrap",
+        });
+        bindSortableHeaders({
+            table: __hbTable,
+            getValue(row, sortKey) {
+                if (sortKey === "id" || sortKey === "amount" || sortKey === "cost" || sortKey === "total" || sortKey === "pending") { return Number(row.dataset[sortKey] || row.dataset.id || 0); } return row.dataset[sortKey] ?? row.textContent;
+            },
+        });
+    }
+
 })();

@@ -14,19 +14,6 @@
     const interviewMeetingLink = document.getElementById("interview-meeting-link");
     const interviewSubmitBtn = document.getElementById("interview-submit-btn");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     async function setDecision(decision) {
         const confirmed = await window.showConfirm({
             title: decision === "selected" ? "Mark selected?" : "Mark rejected?",

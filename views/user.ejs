@@ -1,0 +1,38 @@
+<%- include('common/header') %>
+<%- include('common/app-navbar') %>
+
+<main class="hb-main">
+    <div class="container hb-page">
+        <%- include('common/page-header', {
+            breadcrumbs: [{ href: '/app', label: 'App' }, { href: '/app/users', label: 'Users' }, { label: user.full_name }],
+            heading: user.full_name,
+            subtitle: user.email,
+        }) %>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">ID</dt><dd class="col-sm-9"><%= user.id %></dd>
+                    <dt class="col-sm-3">Professional email</dt><dd class="col-sm-9"><%= user.email %></dd>
+                    <dt class="col-sm-3">Personal email</dt><dd class="col-sm-9"><%= user.personal_email || "—" %></dd>
+                    <dt class="col-sm-3">Phone</dt><dd class="col-sm-9"><%= user.phone || "—" %></dd>
+                    <dt class="col-sm-3">Rate / hr</dt><dd class="col-sm-9"><%= user.hourly_rate != null ? Number(user.hourly_rate).toFixed(2) : "—" %></dd>
+                    <dt class="col-sm-3">Login</dt>
+                    <dd class="col-sm-9">
+                        <% if (user.login_active !== false && user.login_active !== 0) { %>
+                            <span class="badge text-bg-success">Active</span>
+                        <% } else { %>
+                            <span class="badge text-bg-danger">Blocked</span>
+                        <% } %>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <a href="/app/users" class="btn btn-outline-secondary btn-sm">Back to users</a>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<%- include('common/footer') %>

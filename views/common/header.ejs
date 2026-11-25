@@ -12,6 +12,12 @@
         integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
         crossorigin="anonymous"
     />
+    <link rel="stylesheet" href="/public/app.css" />
+    <% if (typeof extraStylesheets !== "undefined" && Array.isArray(extraStylesheets)) { %>
+        <% extraStylesheets.forEach(function (href) { %>
+            <link rel="stylesheet" href="<%= href %>" />
+        <% }) %>
+    <% } %>
 </head>
 
 <body>

@@ -1,0 +1,33 @@
+<%
+    const emptyId = typeof emptyId !== "undefined" ? emptyId : "";
+    const loadingId = typeof loadingId !== "undefined" ? loadingId : "";
+    const tableWrapId = typeof tableWrapId !== "undefined" ? tableWrapId : "";
+    const emptyText = typeof emptyText !== "undefined" ? emptyText : "No records found.";
+    const loadingText = typeof loadingText !== "undefined" ? loadingText : "Loading…";
+    const hasRows = typeof hasRows !== "undefined" ? !!hasRows : true;
+    const showLoading = typeof showLoading !== "undefined" ? !!showLoading : false;
+%>
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <% if (loadingId) { %>
+            <div
+                id="<%= loadingId %>"
+                class="hb-loading <%= showLoading ? '' : 'd-none' %>"
+            >
+                <%= loadingText %>
+            </div>
+        <% } %>
+        <div
+            <% if (emptyId) { %>id="<%= emptyId %>"<% } %>
+            class="hb-empty <%= hasRows || showLoading ? 'd-none' : '' %>"
+        >
+            <%= emptyText %>
+        </div>
+        <div
+            class="table-responsive <%= !hasRows || showLoading ? 'd-none' : '' %>"
+            <% if (tableWrapId) { %>id="<%= tableWrapId %>"<% } %>
+        >
+            <%- tableHtml %>
+        </div>
+    </div>
+</div>

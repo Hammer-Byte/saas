@@ -41,6 +41,7 @@ import gemTenderComments from "./apps/gem_tender_comments.js";
 import gemTenderDocuments from "./apps/gem_tender_documents.js";
 import tasks from "./apps/tasks.js";
 import taskComments from "./apps/task_comments.js";
+import entityComments from "./apps/entity_comments.js";
 import taskAttachments from "./apps/task_attachments.js";
 import taskReminders from "./apps/task_reminders.js";
 import roles from "./apps/roles.js";
@@ -118,6 +119,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/inquiry-followups", inquiryFollowups)
             .group("/tasks", tasks)
             .group("/task-comments", taskComments)
+            .group("/entity-comments", entityComments)
             .group("/task-attachments", taskAttachments)
             .group("/task-reminders", taskReminders)
             .group("/roles", roles)

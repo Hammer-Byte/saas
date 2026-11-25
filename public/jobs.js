@@ -8,7 +8,7 @@
     const openAddButton = document.getElementById("open-add-job-btn");
     const searchInput = document.getElementById("jobs-search");
     const tableBody = document.getElementById("jobs-tbody");
-    const emptyState = document.getElementById("jobs-empty");
+    const emptyState = document.getElementById("jobs-filter-empty") || document.getElementById("jobs-empty");
     const tableWrap = document.getElementById("jobs-table-wrap");
 
     const idInput = form?.elements.namedItem("id");
@@ -17,19 +17,6 @@
     const descriptionInput = form?.elements.namedItem("description");
     const replyEmailInput = form?.elements.namedItem("reply_email");
     const activeInput = form?.elements.namedItem("active");
-
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
 
     function resetForm() {
         form?.reset();

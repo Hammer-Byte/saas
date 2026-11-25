@@ -1,20 +1,9 @@
 <%- include('common/header') %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar') %>
 
-<main class="bg-light min-vh-100">
-    <div class="container py-5">
+<main class="hb-main">
+    <div class="container hb-page">
         <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
@@ -38,28 +27,32 @@
 
         <div id="servers-alert" class="alert d-none" role="alert"></div>
 
+        <%- include('common/table-filters', { searchId: "servers-search", searchPlaceholder: "Search servers…" }) %>
+
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
                 <div id="servers-empty" class="p-4 p-md-5 text-center text-secondary <%= servers && servers.length ? 'd-none' : '' %>">
                     No servers found.
                 </div>
                 <div class="table-responsive <%= !servers || !servers.length ? 'd-none' : '' %>" id="servers-table-wrap">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0" id="servers-table">
                         <thead class="table-light">
                             <tr>
-                                <th scope="col">Name</th>
-                                <th scope="col">Location</th>
-                                <th scope="col">Project</th>
-                                <th scope="col">Tag</th>
-                                <th scope="col">Mapped</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="name">Name</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="location">Location</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="project">Project</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="tag">Tag</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="tagMapped">Mapped</th>
                                 <th scope="col">OTP</th>
-                                <th scope="col">Active</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="active">Active</th>
                                 <th scope="col" class="text-end">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="servers-tbody">
                             <% (servers || []).forEach(function (server) { %>
                                 <tr
+                                    class="hb-row-link"
+                                    data-href="/app/servers/<%= server.id %>"
                                     data-id="<%= server.id %>"
                                     data-name="<%= server.name %>"
                                     data-location="<%= server.location %>"
@@ -96,10 +89,10 @@
                                         <% } %>
                                     </td>
                                     <td class="text-end">
-                                        <div class="d-inline-flex gap-1 justify-content-end">
+                                        <div class="d-inline-flex gap-1 justify-content-end hb-icon-actions">
                                             <a
                                                 href="/app/servers/<%= server.id %>"
-                                                class="btn btn-sm btn-outline-primary server-icon-btn"
+                                                class="btn btn-sm btn-outline-primary hb-icon-btn"
                                                 title="Open"
                                                 aria-label="Open"
                                             >
@@ -111,7 +104,7 @@
                                             <% if ((authorities || []).includes(AUTHORITIES.MANAGE_SERVERS) || super_admin) { %>
                                                 <button
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-secondary server-edit-btn server-icon-btn"
+                                                    class="btn btn-sm btn-outline-secondary server-edit-btn hb-icon-btn"
                                                     title="Edit"
                                                     aria-label="Edit"
                                                 >
@@ -121,7 +114,7 @@
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-danger server-delete-btn server-icon-btn"
+                                                    class="btn btn-sm btn-outline-danger server-delete-btn hb-icon-btn"
                                                     title="Delete"
                                                     aria-label="Delete"
                                                 >
@@ -199,17 +192,6 @@
     </div>
 </div>
 <% } %>
-
-<style>
-    .server-icon-btn {
-        width: 2rem;
-        height: 2rem;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-</style>
 
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>

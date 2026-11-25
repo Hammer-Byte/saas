@@ -1,28 +1,29 @@
 (() => {
     const form = document.getElementById("customer-form");
     const formAlert = document.getElementById("customer-form-alert");
+    const table = document.getElementById("customers-table");
 
-    document.querySelectorAll(".customer-row[data-href]").forEach((row) => {
-        row.addEventListener("click", () => {
-            window.location.href = row.dataset.href;
+    if (table?.tBodies?.[0]) {
+        bindClientSearch({
+            input: "#customers-search",
+            rows: "#customers-table tbody tr",
+            emptyElement: "#customers-empty",
+            tableWrap: "#customers-table-wrap",
         });
-        row.addEventListener("keydown", (event) => {
-            if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                window.location.href = row.dataset.href;
-            }
+
+        bindSortableHeaders({
+            table,
+            getValue(row, sortKey) {
+                if (sortKey === "id") {
+                    return Number(row.dataset.id || 0);
+                }
+                return row.dataset[sortKey] ?? row.textContent;
+            },
         });
-    });
+    }
 
     if (!form) {
         return;
-    }
-
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
     }
 
     form.addEventListener("submit", async (event) => {

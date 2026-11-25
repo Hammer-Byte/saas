@@ -4,14 +4,15 @@ import { CONSTANTS } from "@hammerbyte/utils";
 import requireSession from "../middlewares/require_session.js";
 import { getCurrentUser } from "../services/authentication.js";
 import { appPage } from "../libs/app_page.js";
-import { getAllRoles } from "../db/roles.js";
+import { getAllRoles, getRoleById } from "../db/roles.js";
+import { getRoleAuthoritiesByRoleId } from "../db/role_authorities.js";
 import { getAllAuthorities } from "../db/authorities.js";
 import {
     getAllProjectApplications,
     getProjectApplicationById,
     getProjectApplicationsByProjectId,
 } from "../db/project_applications.js";
-import { getAllServices } from "../db/services.js";
+import { getAllServices, getServiceById } from "../db/services.js";
 import { getAllApplicationServicesByApplicationId, getApplicationServiceById } from "../db/application_services.js";
 import { getAllInquiries, getInquiryById } from "../db/inquiries.js";
 import { getAllInquiryActivitiesByInquiryId } from "../db/inquiry_activities.js";
@@ -33,10 +34,10 @@ import {
     getCustomerProjectsByCustomerId,
 } from "../db/customer_projects.js";
 import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
-import { getAllInternalDocuments } from "../db/internal_documents.js";
+import { getAllInternalDocuments, getInternalDocumentById } from "../db/internal_documents.js";
 import { getAllServers, getServerById } from "../db/servers.js";
 import { buildServerPageData } from "../libs/server_pages.js";
-import { getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
+import { getExpenseById, getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
 import {
     getAllCustomerInvoices,
     getCustomerInvoiceById,
@@ -47,7 +48,7 @@ import {
     getInvoicePaymentsByCreatedOnRange,
     getInvoicePaymentsByCustomerInvoiceId,
 } from "../db/invoice_payments.js";
-import { getAllUsers, getUserByEmail } from "../db/users.js";
+import { getAllUsers, getUserByEmail, getUserById } from "../db/users.js";
 import { getAllContracts, getContractById, getContractBySigningCode } from "../db/contracts.js";
 import { getContractClausesByContractId } from "../db/contract_clauses.js";
 import { getClauseSubclausesByContractId } from "../db/clause_subclauses.js";
@@ -145,6 +146,7 @@ function defaultDateRangeLookingBack({ daysBack = 30 } = {}) {
 }
 import { formatContractCreatedOn } from "../libs/contractor.js";
 import { isContractSigned } from "../services/contracts.js";
+import { listEntityComments } from "../services/entity_comments.js";
 
 const { SERVICES } = CONSTANTS.SAAS;
 const sharedAssetsDirectory = join(import.meta.dir, "../templates/assets");
@@ -440,6 +442,10 @@ export const uiRoutes = new Elysia()
                     start: rangeStart,
                     end: rangeEnd,
                     TASK_STATE_LABELS,
+                    entityComments: await listEntityComments({
+                        entity_type: "project",
+                        entity_id: customerProject.id,
+                    }),
                 }));
             })
             .get("/app/tasks", async ({ render, session }) =>
@@ -656,6 +662,10 @@ export const uiRoutes = new Elysia()
                             job_applicant_id: applicant.id,
                         }),
                         users: await getAllUsers(),
+                        entityComments: await listEntityComments({
+                            entity_type: "job_application",
+                            entity_id: applicant.id,
+                        }),
                     }),
                 );
             })
@@ -700,6 +710,10 @@ export const uiRoutes = new Elysia()
                     title: `${server.name} — Servers — HammerByte`,
                     projects: await getAllCustomerProjects(),
                     ...(await buildServerPageData(server, { alertLogStart, alertLogEnd })),
+                    entityComments: await listEntityComments({
+                        entity_type: "server",
+                        entity_id: server.id,
+                    }),
                 }));
             })
             .get("/app/expenses", async ({ render, session, query }) => {
@@ -814,6 +828,10 @@ export const uiRoutes = new Elysia()
                     customerPhones,
                     customerEmails,
                     customerProjects,
+                    entityComments: await listEntityComments({
+                        entity_type: "customer",
+                        entity_id: customer.id,
+                    }),
                 }));
             })
             .get("/app/invoices", async ({ render, session }) =>
@@ -849,6 +867,10 @@ export const uiRoutes = new Elysia()
                         hbt_sequence: invoice.hbt_sequence,
                         id: invoice.id,
                     })}`,
+                    entityComments: await listEntityComments({
+                        entity_type: "invoice",
+                        entity_id: invoice.id,
+                    }),
                 });
             })
             .get("/app/inquiries", async ({ render, session, query }) => {
@@ -964,6 +986,10 @@ export const uiRoutes = new Elysia()
                             (subclause) => subclause.clause_id === clause.id,
                         ),
                     })),
+                    entityComments: await listEntityComments({
+                        entity_type: "contract",
+                        entity_id: contract.id,
+                    }),
                 }));
             })
             .get("/app/users", async ({ render, session }) =>
@@ -977,6 +1003,16 @@ export const uiRoutes = new Elysia()
                     USER_LOGIN_EMAIL_LABELS,
                 })),
             )
+            .get("/app/users/:id", async ({ render, session, params, redirect }) => {
+                const user = await getUserById({ id: Number(params.id) });
+                if (!user) {
+                    return redirect("/not-found");
+                }
+                return render("user", appPage(session, {
+                    title: `${user.full_name} — Users — HammerByte`,
+                    user,
+                }));
+            })
             .get("/app/roles", async ({ render, session }) =>
                 render("roles", appPage(session, {
                     title: "Roles — HammerByte",
@@ -984,12 +1020,53 @@ export const uiRoutes = new Elysia()
                     allAuthorities: await getAllAuthorities(),
                 })),
             )
+            .get("/app/roles/:id", async ({ render, session, params, redirect }) => {
+                const role = await getRoleById({ id: Number(params.id) });
+                if (!role) {
+                    return redirect("/not-found");
+                }
+                return render("role", appPage(session, {
+                    title: `${role.title} — Roles — HammerByte`,
+                    role,
+                    roleAuthorities: await getRoleAuthoritiesByRoleId({ role_id: role.id }),
+                }));
+            })
             .get("/app/authorities", async ({ render, session }) =>
                 render("authorities", appPage(session, {
                     title: "Authorities — HammerByte",
                     allAuthorities: await getAllAuthorities(),
                 })),
             )
+            .get("/app/services/:id", async ({ render, session, params, redirect }) => {
+                const service = await getServiceById({ id: Number(params.id) });
+                if (!service) {
+                    return redirect("/not-found");
+                }
+                return render("service", appPage(session, {
+                    title: `${service.title} — Services — HammerByte`,
+                    service,
+                }));
+            })
+            .get("/app/expenses/:id", async ({ render, session, params, redirect }) => {
+                const expense = await getExpenseById({ id: Number(params.id) });
+                if (!expense) {
+                    return redirect("/not-found");
+                }
+                return render("expense", appPage(session, {
+                    title: `${expense.title} — Expenses — HammerByte`,
+                    expense,
+                }));
+            })
+            .get("/app/internal-documents/:id", async ({ render, session, params, redirect }) => {
+                const document = await getInternalDocumentById({ id: Number(params.id) });
+                if (!document) {
+                    return redirect("/not-found");
+                }
+                return render("internal-document", appPage(session, {
+                    title: `${document.media_name || "Document"} — Internal documents — HammerByte`,
+                    document,
+                }));
+            })
             .get("/app/gem-tenders", ({ render, session }) =>
                 render("gem-tenders-hub", appPage(session, {
                     title: "GEM Tenders — HammerByte",

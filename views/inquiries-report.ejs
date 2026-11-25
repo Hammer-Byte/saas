@@ -1,20 +1,9 @@
 <%- include('common/header') %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar', { wide: true }) %>
 
-<main class="bg-light min-vh-100">
-    <div class="container-fluid px-3 px-lg-4 py-4">
+<main class="hb-main">
+    <div class="container-fluid hb-page-wide">
         <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
@@ -226,7 +215,7 @@
 <script id="inquiries-report-data" type="application/json">
 <%- JSON.stringify(report.chart || { states: [], sources: [] }) %>
 </script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" defer></script>
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
 <script src="/public/inquiries-report.js" defer></script>

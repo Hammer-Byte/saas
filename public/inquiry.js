@@ -7,21 +7,8 @@
     const isAdmin = detail.dataset.isAdmin === "1";
     const alertElement = document.getElementById("inquiry-alert");
 
-    function showAlert(message, type = "danger") {
-        if (!alertElement) return;
-        alertElement.textContent = message;
-        alertElement.className = `alert alert-${type}`;
-        alertElement.classList.remove("d-none");
-    }
-
-    function hideAlert() {
-        if (!alertElement) return;
-        alertElement.classList.add("d-none");
-        alertElement.textContent = "";
-    }
-
     async function patchInquiry(payload) {
-        hideAlert();
+        hideAlert(alertElement);
         const response = await fetch(`/api/inquiries/${inquiryId}`, {
             method: "PATCH",
             credentials: "same-origin",
@@ -30,7 +17,7 @@
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-            showAlert(data.error || "Failed to update inquiry");
+            showAlert(alertElement, data.error || "Failed to update inquiry");
             return null;
         }
         return data;
@@ -62,7 +49,7 @@
         const quote = String(document.getElementById("inquiry-quote")?.value || "");
         const result = await patchInquiry({ quote });
         if (result) {
-            showAlert("Quote saved", "success");
+            showAlert(alertElement, "Quote saved", "success");
         }
     });
 
@@ -78,7 +65,7 @@
             city: String(document.getElementById("inquiry-city")?.value || "").trim() || null,
         });
         if (result) {
-            showAlert("Contact saved", "success");
+            showAlert(alertElement, "Contact saved", "success");
         }
     });
 
@@ -86,7 +73,7 @@
         event.preventDefault();
         const note = String(document.getElementById("inquiry-note-text")?.value || "").trim();
         if (!note) {
-            showAlert("Note is required");
+            showAlert(alertElement, "Note is required");
             return;
         }
         const response = await fetch("/api/inquiry-notes", {
@@ -97,7 +84,7 @@
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-            showAlert(data.error || "Failed to add note");
+            showAlert(alertElement, data.error || "Failed to add note");
             return;
         }
         window.location.reload();
@@ -134,7 +121,7 @@
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-            showAlert(data.error || "Failed to update note");
+            showAlert(alertElement, data.error || "Failed to update note");
             return;
         }
         window.location.reload();
@@ -159,7 +146,7 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                showAlert(data.error || "Failed to delete note");
+                showAlert(alertElement, data.error || "Failed to delete note");
                 return;
             }
             window.location.reload();
@@ -174,7 +161,7 @@
             document.getElementById("inquiry-followup-on")?.value || "",
         ).trim();
         if (!slot || !note) {
-            showAlert("Follow-up note is required");
+            showAlert(alertElement, "Follow-up note is required");
             return;
         }
 
@@ -198,7 +185,7 @@
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-            showAlert(data.error || "Failed to add follow-up");
+            showAlert(alertElement, data.error || "Failed to add follow-up");
             return;
         }
         window.location.reload();

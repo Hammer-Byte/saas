@@ -1,0 +1,29 @@
+<%- include('common/header') %>
+<%- include('common/app-navbar') %>
+
+<main class="hb-main">
+    <div class="container hb-page">
+        <%- include('common/page-header', {
+            breadcrumbs: [{ href: '/app', label: 'App' }, { href: '/app/services', label: 'Services' }, { label: service.title }],
+            heading: service.title,
+            subtitle: service.description,
+        }) %>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">ID</dt><dd class="col-sm-9"><%= service.id %></dd>
+                    <dt class="col-sm-3">Title</dt><dd class="col-sm-9"><%= service.title %></dd>
+                    <dt class="col-sm-3">Description</dt><dd class="col-sm-9"><%= service.description %></dd>
+                    <dt class="col-sm-3">Cost</dt><dd class="col-sm-9"><%= Number(service.cost || 0).toFixed(4) %></dd>
+                </dl>
+            </div>
+        </div>
+
+        <a href="/app/services" class="btn btn-outline-secondary btn-sm">Back to services</a>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<%- include('common/footer') %>

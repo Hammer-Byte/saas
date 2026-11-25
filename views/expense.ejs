@@ -1,0 +1,35 @@
+<%- include('common/header') %>
+<%- include('common/app-navbar') %>
+
+<main class="hb-main">
+    <div class="container hb-page">
+        <%- include('common/page-header', {
+            breadcrumbs: [{ href: '/app', label: 'App' }, { href: '/app/expenses', label: 'Expenses' }, { label: expense.title }],
+            heading: expense.title,
+            subtitle: expense.description || "Expense detail",
+        }) %>
+
+        <%- include('common/page-alert', { id: "expense-alert" }) %>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">ID</dt><dd class="col-sm-9"><%= expense.id %></dd>
+                    <dt class="col-sm-3">Date</dt>
+                    <dd class="col-sm-9">
+                        <span data-readable-date="<%= expense.expense_date %>" data-date-format="DD/MM/YYYY"></span>
+                    </dd>
+                    <dt class="col-sm-3">Amount</dt><dd class="col-sm-9"><%= Number(expense.amount || 0).toFixed(2) %></dd>
+                    <dt class="col-sm-3">Loaned</dt><dd class="col-sm-9"><%= expense.loaned ? "Yes" : "No" %></dd>
+                    <dt class="col-sm-3">Description</dt><dd class="col-sm-9"><%= expense.description || "—" %></dd>
+                </dl>
+            </div>
+        </div>
+
+        <a href="/app/expenses" class="btn btn-outline-secondary btn-sm">Back to expenses</a>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<%- include('common/footer') %>

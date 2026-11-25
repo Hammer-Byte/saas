@@ -16,19 +16,6 @@
     const descriptionInput = form.elements.namedItem("description");
     const costInput = form.elements.namedItem("cost");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     function resetForm() {
         form.reset();
         idInput.value = "";
@@ -139,4 +126,21 @@
             if (submitButton) submitButton.disabled = false;
         }
     });
+
+    const __hbTable = document.getElementById("services-table");
+    if (__hbTable?.tBodies?.[0]) {
+        bindClientSearch({
+            input: "#services-search",
+            rows: "#services-table tbody tr",
+            emptyElement: "#services-empty",
+            tableWrap: "#services-table-wrap",
+        });
+        bindSortableHeaders({
+            table: __hbTable,
+            getValue(row, sortKey) {
+                if (sortKey === "id" || sortKey === "amount" || sortKey === "cost" || sortKey === "total" || sortKey === "pending") { return Number(row.dataset[sortKey] || row.dataset.id || 0); } return row.dataset[sortKey] ?? row.textContent;
+            },
+        });
+    }
+
 })();

@@ -1,20 +1,9 @@
 <%- include('common/header') %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar') %>
 
-<main class="bg-light min-vh-100">
-    <div class="container py-5">
+<main class="hb-main">
+    <div class="container hb-page">
         <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
@@ -30,39 +19,49 @@
                 data-bs-target="#customer-modal"
                 id="open-add-customer-btn"
             >
-                Add Customer
+                Add customer
             </button>
         </div>
 
-        <div id="customers-alert" class="alert d-none" role="alert"></div>
+        <%- include('common/page-alert', { id: "customers-alert" }) %>
 
-        <div class="card border-0 shadow-sm">
-            <div class="card-body p-0">
-                <% if (!customers || customers.length === 0) { %>
-                    <div class="p-4 p-md-5 text-center text-secondary">
-                        No customers found.
-                    </div>
-                <% } else { %>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
+        <% if (!customers || customers.length === 0) { %>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4 p-md-5 text-center text-secondary">
+                    No customers found.
+                </div>
+            </div>
+        <% } else { %>
+            <%- include('common/table-filters', {
+                searchId: "customers-search",
+                searchPlaceholder: "Search customers…",
+            }) %>
+            <p class="text-secondary small mb-3 d-none" id="customers-empty" role="status">No customers match your search.</p>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive" id="customers-table-wrap">
+                        <table class="table table-hover align-middle mb-0" id="customers-table">
                             <thead class="table-light">
                                 <tr>
-                                    <th scope="col">ID</th>
-                                    <th scope="col">Full name</th>
-                                    <th scope="col">Company</th>
-                                    <th scope="col">PAN / GST</th>
-                                    <th scope="col">HSN</th>
-                                    <th scope="col">Address</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="id">ID</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="fullName">Full name</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="company">Company</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="panGst">PAN / GST</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="hsn">HSN</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="address">Address</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <% customers.forEach(function (customer) { %>
                                     <tr
-                                        class="customer-row"
-                                        role="link"
-                                        tabindex="0"
+                                        class="hb-row-link"
                                         data-href="/app/customers/<%= customer.id %>"
-                                        style="cursor: pointer"
+                                        data-id="<%= customer.id %>"
+                                        data-full-name="<%= customer.full_name %>"
+                                        data-company="<%= customer.company %>"
+                                        data-pan-gst="<%= customer.pan_gst || '' %>"
+                                        data-hsn="<%= customer.hsn || '' %>"
+                                        data-address="<%= customer.address %>"
                                     >
                                         <td><%= customer.id %></td>
                                         <td><%= customer.full_name %></td>
@@ -75,9 +74,9 @@
                             </tbody>
                         </table>
                     </div>
-                <% } %>
+                </div>
             </div>
-        </div>
+        <% } %>
     </div>
 </main>
 
@@ -130,5 +129,6 @@
 </div>
 
 <script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
 <script src="/public/customers.js" defer></script>
 <%- include('common/footer') %>

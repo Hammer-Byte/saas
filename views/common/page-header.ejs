@@ -1,0 +1,30 @@
+<%
+    const breadcrumbItems = typeof breadcrumbs !== "undefined" && Array.isArray(breadcrumbs)
+        ? breadcrumbs
+        : [];
+%>
+<div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+    <div>
+        <% if (breadcrumbItems.length) { %>
+            <p class="text-secondary small mb-1">
+                <% breadcrumbItems.forEach(function (item, index) { %>
+                    <% if (index > 0) { %> / <% } %>
+                    <% if (item.href) { %>
+                        <a href="<%= item.href %>" class="text-decoration-none"><%= item.label %></a>
+                    <% } else { %>
+                        <%= item.label %>
+                    <% } %>
+                <% }) %>
+            </p>
+        <% } %>
+        <h1 class="h3 mb-1"><%= heading %></h1>
+        <% if (typeof subtitle !== "undefined" && subtitle) { %>
+            <p class="text-secondary mb-0"><%= subtitle %></p>
+        <% } %>
+    </div>
+    <% if (typeof actions !== "undefined" && actions) { %>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <%- actions %>
+        </div>
+    <% } %>
+</div>

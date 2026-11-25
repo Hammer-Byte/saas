@@ -1,20 +1,9 @@
 <%- include('common/header') %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar') %>
 
-<main class="bg-light min-vh-100">
-    <div class="container py-5">
+<main class="hb-main">
+    <div class="container hb-page">
         <div class="mb-4">
             <p class="text-secondary small mb-1">
                 <a href="/app" class="text-decoration-none">App</a> / Projects
@@ -23,31 +12,40 @@
             <p class="text-secondary mb-0">All customer projects.</p>
         </div>
 
-        <div class="card border-0 shadow-sm">
-            <div class="card-body p-0">
-                <% if (!projects || projects.length === 0) { %>
-                    <div class="p-4 p-md-5 text-center text-secondary">
-                        No projects found.
-                    </div>
-                <% } else { %>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
+        <% if (!projects || projects.length === 0) { %>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4 p-md-5 text-center text-secondary">
+                    No projects found.
+                </div>
+            </div>
+        <% } else { %>
+            <%- include('common/table-filters', {
+                searchId: "projects-search",
+                searchPlaceholder: "Search projects…",
+                filterStatusId: "projects-filter-status",
+            }) %>
+            <p class="text-secondary small mb-3 d-none" id="projects-empty" role="status">No projects match your search.</p>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive" id="projects-table-wrap">
+                        <table class="table table-hover align-middle mb-0" id="projects-table">
                             <thead class="table-light">
                                 <tr>
-                                    <th scope="col">ID</th>
-                                    <th scope="col">Title</th>
-                                    <th scope="col">Description</th>
-                                    <th scope="col">Customer</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="id">ID</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="title">Title</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="description">Description</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="customer">Customer</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <% projects.forEach(function (project) { %>
                                     <tr
-                                        class="project-row"
-                                        role="link"
-                                        tabindex="0"
+                                        class="hb-row-link"
                                         data-href="/app/projects/<%= project.id %>"
-                                        style="cursor: pointer"
+                                        data-id="<%= project.id %>"
+                                        data-title="<%= project.title || '' %>"
+                                        data-description="<%= project.description || '' %>"
+                                        data-customer="<%= project.customer_name || '' %>"
                                     >
                                         <td><%= project.id %></td>
                                         <td><%= project.title %></td>
@@ -58,12 +56,13 @@
                             </tbody>
                         </table>
                     </div>
-                <% } %>
+                </div>
             </div>
-        </div>
+        <% } %>
     </div>
 </main>
 
 <script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
 <script src="/public/projects.js" defer></script>
 <%- include('common/footer') %>

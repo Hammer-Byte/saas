@@ -1,20 +1,9 @@
 <%- include('common/header') %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar') %>
 
-<main class="bg-light min-vh-100">
-    <div class="container py-5">
+<main class="hb-main">
+    <div class="container hb-page">
         <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
@@ -139,9 +128,11 @@
                         Select all categories
                     </label>
                 </div>
-                <div class="row g-3" id="gem-groups-list"></div>
-                <div class="card border-0 shadow-sm d-none" id="gem-groups-empty">
-                    <div class="card-body p-4 text-secondary">No groups yet. Add one to get started.</div>
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div id="gem-groups-list"></div>
+                        <div class="hb-empty d-none" id="gem-groups-empty">No groups yet. Add one to get started.</div>
+                    </div>
                 </div>
             </div>
 
@@ -190,7 +181,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <form class="modal-content" id="gem-keyword-form" novalidate>
             <div class="modal-header">
-                <h5 class="modal-title" id="gem-keyword-modal-title">Add keyword</h5>
+                <h2 class="modal-title h5" id="gem-keyword-modal-title">Add keyword</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -221,7 +212,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <form class="modal-content" id="gem-group-form" novalidate>
             <div class="modal-header">
-                <h5 class="modal-title" id="gem-group-modal-title">Add group</h5>
+                <h2 class="modal-title h5" id="gem-group-modal-title">Add group</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -255,7 +246,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <form class="modal-content" id="gem-category-form" novalidate>
             <div class="modal-header">
-                <h5 class="modal-title" id="gem-category-modal-title">Add GEM category</h5>
+                <h2 class="modal-title h5" id="gem-category-modal-title">Add GEM category</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -286,7 +277,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <form class="modal-content" id="gem-tender-category-form" novalidate>
             <div class="modal-header">
-                <h5 class="modal-title" id="gem-tender-category-modal-title">Add category</h5>
+                <h2 class="modal-title h5" id="gem-tender-category-modal-title">Add category</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">

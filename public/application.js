@@ -5,13 +5,6 @@
     const addServiceAlert = document.getElementById("add-service-alert");
     const servicesAlert = document.getElementById("application-services-alert");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
     if (form && alertBox) {
         const applicationId = form.dataset.applicationId;
 

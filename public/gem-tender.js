@@ -49,33 +49,6 @@
         },
     };
 
-    function showAlert(message, type) {
-        if (!alertElement) return;
-        alertElement.textContent = message;
-        alertElement.className = `alert alert-${type}`;
-        alertElement.classList.remove("d-none");
-    }
-
-    function showEditAlert(message, type) {
-        if (!editAlert) return;
-        editAlert.textContent = message;
-        editAlert.className = `alert alert-${type}`;
-        editAlert.classList.remove("d-none");
-    }
-
-    function hideEditAlert() {
-        if (!editAlert) return;
-        editAlert.classList.add("d-none");
-        editAlert.textContent = "";
-    }
-
-    function showFileAlert(message, type) {
-        if (!fileAlert) return;
-        fileAlert.textContent = message;
-        fileAlert.className = `alert alert-${type}`;
-        fileAlert.classList.remove("d-none");
-    }
-
     async function patchTender(payload) {
         const response = await fetch(`/api/gem-tenders/${tenderId}`, {
             method: "PATCH",
@@ -92,7 +65,7 @@
         try {
             const { response, data } = await patchTender(payload);
             if (!response.ok) {
-                showAlert(data.error || "Failed to update tender.", "danger");
+                showAlert(alertElement, data.error || "Failed to update tender.", "danger");
                 if (data.gemTender) {
                     window.setTimeout(() => window.location.reload(), 900);
                 }
@@ -102,7 +75,7 @@
             return true;
         } catch (error) {
             console.error(error);
-            showAlert("Failed to update tender.", "danger");
+            showAlert(alertElement, "Failed to update tender.", "danger");
             return false;
         }
     }
@@ -251,12 +224,12 @@
         event.preventDefault();
         const files = selectedFilingFiles();
         if (files.length < minFilingDocuments) {
-            showFileAlert(`Select at least ${minFilingDocuments} documents.`, "danger");
+            showAlert(fileAlert, `Select at least ${minFilingDocuments} documents.`, "danger");
             return;
         }
         const sizeCheck = window.validateUploadFiles?.(files);
         if (sizeCheck && !sizeCheck.ok) {
-            showFileAlert(sizeCheck.error, "danger");
+            showAlert(fileAlert, sizeCheck.error, "danger");
             return;
         }
 
@@ -272,13 +245,13 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                showFileAlert(data.error || "Failed to file tender.", "danger");
+                showAlert(fileAlert, data.error || "Failed to file tender.", "danger");
                 return;
             }
             window.location.reload();
         } catch (error) {
             console.error(error);
-            showFileAlert("Failed to file tender.", "danger");
+            showAlert(fileAlert, "Failed to file tender.", "danger");
         } finally {
             if (fileSubmitButton) fileSubmitButton.disabled = selectedFilingFiles().length < minFilingDocuments;
             if (fileFilesInput) fileFilesInput.disabled = false;
@@ -313,7 +286,7 @@
         if (uploadedFile) {
             const sizeCheck = window.validateUploadFiles?.(uploadedFile);
             if (sizeCheck && !sizeCheck.ok) {
-                showAlert(sizeCheck.error, "danger");
+                showAlert(alertElement, sizeCheck.error, "danger");
                 return;
             }
         }
@@ -335,13 +308,13 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                showAlert(data.error || "Failed to add comment.", "danger");
+                showAlert(alertElement, data.error || "Failed to add comment.", "danger");
                 return;
             }
             window.location.reload();
         } catch (error) {
             console.error(error);
-            showAlert("Failed to add comment.", "danger");
+            showAlert(alertElement, "Failed to add comment.", "danger");
         } finally {
             if (commentSubmitButton) commentSubmitButton.disabled = false;
             if (commentFile) commentFile.disabled = false;
@@ -353,7 +326,7 @@
         if (editButton) {
             const row = editButton.closest("li[data-id]");
             if (!row || Number(row.dataset.userId) !== currentUserId) return;
-            hideEditAlert();
+            hideAlert(editAlert);
             if (editIdInput) editIdInput.value = row.dataset.id || "";
             if (editTextInput) editTextInput.value = decodeComment(row.dataset.comment);
             window.bootstrap.Modal.getOrCreateInstance(editModalElement).show();
@@ -385,7 +358,7 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                showAlert(data.error || "Failed to delete comment.", "danger");
+                showAlert(alertElement, data.error || "Failed to delete comment.", "danger");
                 deleteButton.disabled = false;
                 return;
             }
@@ -393,7 +366,7 @@
             refreshCommentsEmpty();
         } catch (error) {
             console.error(error);
-            showAlert("Failed to delete comment.", "danger");
+            showAlert(alertElement, "Failed to delete comment.", "danger");
             deleteButton.disabled = false;
         }
     });
@@ -405,7 +378,7 @@
         if (!commentId || !comment) return;
 
         if (editSaveButton) editSaveButton.disabled = true;
-        hideEditAlert();
+        hideAlert(editAlert);
         try {
             const response = await fetch(`/api/gem-tender-comments/${commentId}`, {
                 method: "PATCH",
@@ -415,13 +388,13 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                showEditAlert(data.error || "Failed to update comment.", "danger");
+                showAlert(editAlert, data.error || "Failed to update comment.", "danger");
                 return;
             }
             window.location.reload();
         } catch (error) {
             console.error(error);
-            showEditAlert("Failed to update comment.", "danger");
+            showAlert(editAlert, "Failed to update comment.", "danger");
         } finally {
             if (editSaveButton) editSaveButton.disabled = false;
         }
@@ -660,7 +633,7 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                showAlert(data.error || "Failed to delete document.", "danger");
+                showAlert(alertElement, data.error || "Failed to delete document.", "danger");
                 deleteBtn.disabled = false;
                 return;
             }
@@ -670,7 +643,7 @@
             documentsTableWrap?.classList.toggle("d-none", remaining === 0);
         } catch (error) {
             console.error(error);
-            showAlert("Failed to delete document.", "danger");
+            showAlert(alertElement, "Failed to delete document.", "danger");
             deleteBtn.disabled = false;
         }
     });

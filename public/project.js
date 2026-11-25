@@ -25,19 +25,6 @@
     const addItemButton = document.getElementById("add-invoice-item-btn");
     const invoiceDateInput = document.getElementById("invoice-date");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     if (form) {
         const customerId = form.dataset.customerId;
         const projectId = form.dataset.projectId;

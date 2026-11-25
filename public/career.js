@@ -9,22 +9,9 @@
         return;
     }
 
-    function showAlert(message, type) {
-        if (!alertElement) return;
-        alertElement.textContent = message;
-        alertElement.className = `alert alert-${type}`;
-        alertElement.classList.remove("d-none");
-    }
-
-    function hideAlert() {
-        if (!alertElement) return;
-        alertElement.classList.add("d-none");
-        alertElement.textContent = "";
-    }
-
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        hideAlert();
+        hideAlert(alertElement);
 
         const fullName = String(form.elements.namedItem("full_name")?.value || "").trim();
         const email = String(form.elements.namedItem("email")?.value || "").trim();
@@ -34,18 +21,18 @@
         const resume = resumeInput?.files?.[0];
 
         if (!fullName || !email || !phone || !state || !city || !resume) {
-            showAlert("Please fill in all fields and attach a PDF resume.", "danger");
+            showAlert(alertElement, "Please fill in all fields and attach a PDF resume.", "danger");
             return;
         }
 
         const lowerName = resume.name.toLowerCase();
         if (!lowerName.endsWith(".pdf") && resume.type !== "application/pdf") {
-            showAlert("Resume must be a PDF file.", "danger");
+            showAlert(alertElement, "Resume must be a PDF file.", "danger");
             return;
         }
 
         if (Number(resume.size || 0) > RESUME_MAX_BYTES) {
-            showAlert("Resume must be 15 MB or smaller.", "danger");
+            showAlert(alertElement, "Resume must be 15 MB or smaller.", "danger");
             return;
         }
 
@@ -71,7 +58,7 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                showAlert(data.error || "Failed to submit application.", "danger");
+                showAlert(alertElement, data.error || "Failed to submit application.", "danger");
                 return;
             }
 
@@ -80,9 +67,9 @@
             if (countryInput) {
                 countryInput.value = "India";
             }
-            showAlert("Application submitted. We will contact you if you are shortlisted.", "success");
+            showAlert(alertElement, "Application submitted. We will contact you if you are shortlisted.", "success");
         } catch (error) {
-            showAlert(error?.message || "Failed to submit application.", "danger");
+            showAlert(alertElement, error?.message || "Failed to submit application.", "danger");
         } finally {
             if (submitButton) {
                 submitButton.disabled = false;

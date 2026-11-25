@@ -24,19 +24,6 @@
     const dateInput = form.elements.namedItem("expense_date");
     const loanedInput = form.elements.namedItem("loaned");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     function resetForm() {
         form.reset();
         idInput.value = "";
@@ -201,4 +188,21 @@
             if (submitButton) submitButton.disabled = false;
         }
     });
+
+    const expensesTable = document.getElementById("expenses-table");
+    if (expensesTable?.tBodies?.[0]) {
+        bindSortableHeaders({
+            table: expensesTable,
+            getValue(row, sortKey) {
+                if (sortKey === "amount") {
+                    return Number(row.dataset.amount || 0);
+                }
+                if (sortKey === "expenseDate") {
+                    return row.dataset.expenseDate || "";
+                }
+                return row.dataset[sortKey] ?? row.textContent;
+            },
+        });
+    }
+
 })();

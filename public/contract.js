@@ -43,19 +43,6 @@
         }
     }
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     async function moveViewIndex({ endpoint, button }) {
         if (button.disabled) {
             return;

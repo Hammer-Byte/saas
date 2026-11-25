@@ -38,19 +38,6 @@
     const reminderRecipientSelect = document.getElementById("task-reminder-recipient");
     const remindersList = document.getElementById("task-reminders-list");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     function syncStateSelects(fromQuick) {
         if (fromQuick && editStateSelect && quickStateSelect) {
             editStateSelect.value = quickStateSelect.value;

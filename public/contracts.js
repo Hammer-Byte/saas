@@ -4,13 +4,6 @@
     const pageAlert = document.getElementById("contracts-alert");
     const activeField = document.getElementById("active");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
     function selectedRequiredAttachments() {
         return Array.from(document.querySelectorAll(".required-attachment-checkbox:checked")).map(
             (checkbox) => Number(checkbox.value),
@@ -120,4 +113,21 @@
             if (submitButton) submitButton.disabled = false;
         }
     });
+
+    const __hbTable = document.getElementById("contracts-table");
+    if (__hbTable?.tBodies?.[0]) {
+        bindClientSearch({
+            input: "#contracts-search",
+            rows: "#contracts-table tbody tr",
+            emptyElement: "#contracts-empty-filter",
+            tableWrap: "#contracts-table-wrap",
+        });
+        bindSortableHeaders({
+            table: __hbTable,
+            getValue(row, sortKey) {
+                if (sortKey === "fullName") return row.dataset.fullName || ""; if (sortKey === "company") return row.dataset.company || ""; if (sortKey === "status") return row.dataset.status || ""; return row.dataset[sortKey] ?? row.textContent;
+            },
+        });
+    }
+
 })();

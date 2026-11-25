@@ -97,21 +97,10 @@
         !!tender.document || specificationLinks.some(function (link) { return !!link.url; });
 %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar') %>
 
-<main class="bg-light min-vh-100">
-    <div class="container py-5">
+<main class="hb-main">
+    <div class="container hb-page">
         <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
@@ -658,7 +647,7 @@
                                         <div class="d-inline-flex gap-1 justify-content-end">
                                             <a
                                                 href="/api/media/<%= document.media_id %>"
-                                                class="btn btn-sm btn-outline-primary document-icon-btn"
+                                                class="btn btn-sm btn-outline-primary hb-icon-btn"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 title="View"
@@ -672,7 +661,7 @@
                                             <% if (canManageDocs) { %>
                                                 <button
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-danger document-icon-btn gem-tender-document-delete-btn"
+                                                    class="btn btn-sm btn-outline-danger hb-icon-btn gem-tender-document-delete-btn"
                                                     title="Delete"
                                                     aria-label="Delete"
                                                 >
@@ -870,14 +859,6 @@
 <% } %>
 
 <style>
-    .document-icon-btn {
-        width: 2rem;
-        height: 2rem;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
     .gem-tender-timeline-track {
         display: flex;
         flex-wrap: wrap;

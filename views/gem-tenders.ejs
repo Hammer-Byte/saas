@@ -17,7 +17,6 @@
             unattended: "Unattended",
         },
     );
-    const stageValues = Object.keys(stageLabels);
     const tenderStatus = function (tender) {
         if (Number(tender.missed)) return "missed";
         if (Number(tender.unattended)) return "unattended";
@@ -42,18 +41,7 @@
     const currentUserId = Number(userId || 0);
 %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar', { wide: true }) %>
 
 <main class="bg-light gem-tenders-page">
     <div class="container-fluid px-3 px-lg-4 py-3 gem-tenders-page-inner">
@@ -473,10 +461,62 @@
                             </div>
                         </div>
 
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <span class="form-label d-block">Status</span>
-                                <div class="dropdown gem-multi-filter" id="gem-filter-stage" data-empty-label="All statuses" data-chip-label="Status">
+                        <div class="mb-3">
+                            <span class="form-label d-block">Eligibility</span>
+                            <div class="d-flex flex-wrap gap-3" id="gem-filter-eligibility" role="radiogroup" aria-label="Eligibility">
+                                <div class="form-check">
+                                    <input
+                                        class="form-check-input"
+                                        type="radio"
+                                        name="gem-filter-eligibility"
+                                        id="gem-filter-eligibility-any"
+                                        value=""
+                                        checked
+                                    />
+                                    <label class="form-check-label" for="gem-filter-eligibility-any">Any</label>
+                                </div>
+                                <div class="form-check">
+                                    <input
+                                        class="form-check-input"
+                                        type="radio"
+                                        name="gem-filter-eligibility"
+                                        id="gem-filter-eligibility-eligible"
+                                        value="eligible"
+                                    />
+                                    <label class="form-check-label" for="gem-filter-eligibility-eligible">Eligible</label>
+                                </div>
+                                <div class="form-check">
+                                    <input
+                                        class="form-check-input"
+                                        type="radio"
+                                        name="gem-filter-eligibility"
+                                        id="gem-filter-eligibility-ineligible"
+                                        value="ineligible"
+                                    />
+                                    <label class="form-check-label" for="gem-filter-eligibility-ineligible">Not eligible</label>
+                                </div>
+                                <div class="form-check">
+                                    <input
+                                        class="form-check-input"
+                                        type="radio"
+                                        name="gem-filter-eligibility"
+                                        id="gem-filter-eligibility-out_of_scope"
+                                        value="out_of_scope"
+                                    />
+                                    <label class="form-check-label" for="gem-filter-eligibility-out_of_scope">Out of scope</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3 d-none" id="gem-filter-pipeline-wrap">
+                            <div class="col-12 col-md-6">
+                                <span class="form-label d-block">Stage</span>
+                                <div
+                                    class="dropdown gem-multi-filter"
+                                    id="gem-filter-pipeline-stage"
+                                    data-empty-label="All stages"
+                                    data-chip-label="Stage"
+                                >
                                     <button
                                         class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
                                         type="button"
@@ -485,26 +525,29 @@
                                         data-bs-display="static"
                                         aria-expanded="false"
                                     >
-                                        <span class="gem-multi-filter-label">All statuses</span>
+                                        <span class="gem-multi-filter-label">All stages</span>
                                     </button>
                                     <div class="dropdown-menu gem-multi-filter-menu gem-multi-filter-menu-wide p-2 shadow">
-                                        <% stageValues.forEach(function (stage) { %>
+                                        <% Object.keys(pipelineStageLabels).forEach(function (stage) { %>
                                             <div class="form-check">
                                                 <input
                                                     class="form-check-input gem-multi-filter-option"
                                                     type="checkbox"
                                                     value="<%= stage %>"
-                                                    id="gem-filter-stage-<%= stage %>"
-                                                    data-label="<%= stageLabels[stage] %>"
+                                                    id="gem-filter-pipeline-<%= stage %>"
+                                                    data-label="<%= pipelineStageLabels[stage] %>"
                                                 />
-                                                <label class="form-check-label" for="gem-filter-stage-<%= stage %>">
-                                                    <%= stageLabels[stage] %>
+                                                <label class="form-check-label" for="gem-filter-pipeline-<%= stage %>">
+                                                    <%= pipelineStageLabels[stage] %>
                                                 </label>
                                             </div>
                                         <% }) %>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <span class="form-label d-block">Assignee</span>
                                 <div class="dropdown gem-multi-filter" id="gem-filter-assignee" data-empty-label="All assignees" data-chip-label="Assignee">
@@ -662,7 +705,7 @@
                                     class="form-check mb-1"
                                     title="Missed, unattended, not eligible and out of scope tenders"
                                 >
-                                    <input class="form-check-input" type="checkbox" id="gem-filter-include-hidden" checked />
+                                    <input class="form-check-input" type="checkbox" id="gem-filter-include-hidden" />
                                     <label class="form-check-label small" for="gem-filter-include-hidden">
                                         Include hidden
                                     </label>

@@ -8,13 +8,6 @@
     const itemsContainer = document.getElementById("invoice-items");
     const addItemButton = document.getElementById("add-invoice-item-btn");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
     function createItemRow() {
         const row = document.createElement("div");
         row.className = "invoice-item-row border rounded p-3";
@@ -208,4 +201,21 @@
             if (submitButton) submitButton.disabled = false;
         }
     });
+
+    const __hbTable = document.getElementById("invoices-table");
+    if (__hbTable?.tBodies?.[0]) {
+        bindClientSearch({
+            input: "#invoices-search",
+            rows: "#invoices-table tbody tr",
+            emptyElement: "#invoices-empty-filter",
+            tableWrap: "#invoices-table-wrap",
+        });
+        bindSortableHeaders({
+            table: __hbTable,
+            getValue(row, sortKey) {
+                if (["id","total","pending"].includes(sortKey)) return Number(row.dataset[sortKey] || 0); return row.dataset[sortKey] ?? row.textContent;
+            },
+        });
+    }
+
 })();

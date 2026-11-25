@@ -7,18 +7,7 @@
     const employees = reportData.byEmployee || [];
 %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar', { wide: true }) %>
 
 <main class="bg-light min-vh-100" id="tasks-sprint-report-page">
     <div class="container-fluid px-3 px-lg-4 py-4">
@@ -170,7 +159,7 @@
 <script>
     window.__SPRINT_BURN_CHARTS__ = <%- JSON.stringify((report && report.charts) || {}) %>;
 </script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
 <script src="/public/tasks-sprint-report.js" defer></script>

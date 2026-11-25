@@ -9,26 +9,54 @@ alwaysApply: false
 ## Stack
 
 - Templates: **EJS** under `views/` · Client JS/CSS under `public/`
-- Bootstrap **5.3.8** CDN · no React/PrimeReact in this app
+- Bootstrap **5.3.8** CDN · shared theme in `/public/app.css` · no React/Tailwind
 - Commit / push only when explicitly requested.
+
+## Design system
+
+- Tokens and admin utilities live in `/public/app.css` (linked from `common/header` after Bootstrap).
+- Brand primary: `#5c8aa5` (maps to `--bs-primary`).
+- Shared partials under `views/common/`:
+  - `app-navbar` — admin top bar (use instead of copy-pasted nav)
+  - `page-header` — breadcrumb + title + subtitle + actions
+  - `page-alert` — `#…-alert` slot
+  - `date-range` — from/to GET filter
+  - `table-filters` — search + filter row
+  - `list-table-shell` — card + empty/loading + table wrap
+  - `icon-actions` — edit / delete / view SVG icon buttons (`.hb-icon-btn`)
+  - `comments-panel` — detail-page comments
+  - `form-modal` — standard modal chrome
+- Page shells: `.hb-main` + `.hb-page` (standard) or `.hb-page-wide` (dense workflow lists).
 
 ## Page structure
 
 - App pages use `<%- include('common/header') %>` and `<%- include('common/footer') %>`.
+- Include `<%- include('common/app-navbar') %>` (pass `{ wide: true }` for fluid layout).
 - Pass `title` and `username` from guarded UI routes; wire logout via `/public/app.js`.
-- Page-specific script: `/public/<page>.js` with `defer`, after `/public/app.js`.
-- Date helpers: load `/public/utils.js` (after `app.js`, before the page script) when the page reads or writes dates. Use `getWritableDate(format, date)` before API sends and `getReadableDate(format, date)` for inputs/labels. Formats are call-site specific (`YYYY-MM-DD`, `YYYY-MM-DD HH:mm:ss`, `YYYY-MM`, …). Prefer `data-readable-date` + `data-date-format` for table cells (auto-filled by `utils.js`). Do not `slice` date strings.
-- Confirm dialogs: use `showConfirm({ title, description, choices })` from `/public/utils.js` (returns a Promise). Do not use `window.confirm`.
+- Always load `/public/utils.js` after `/public/app.js` and before the page script on app pages.
+- Page-specific script: `/public/<page>.js` with `defer`.
+- Date helpers: use `getWritableDate` / `getReadableDate` from `utils.js`. Prefer `data-readable-date` + `data-date-format`. Do not `slice` date strings.
+- Confirm dialogs: `showConfirm({ title, description, choices })` — never `window.confirm`.
+- Alerts: `showAlert(element, message, type)` / `hideAlert(element)` from `utils.js` — do not redefine locally.
 - Prefer schema-first on the backend; implement UI only when asked.
-- Use **flat** paths in links and redirects: `/app/projects/:id`, `/app/invoices/:id`, `/app/applications/:id`, `/app/application-services/:id`. Do not nest resources under parents in the URL.
+- Flat paths: `/app/projects/:id`, `/app/invoices/:id`, etc.
+
+## UX standards
+
+- **Lists:** tables only for multi-record collections (dashboard/hub cards are nav-only exceptions).
+- **Row navigation:** `data-href` on `<tr>` + `.hb-row-link`; `bindTableRowNavigation` runs globally from `utils.js`. Same-tab only (no `target="_blank"` for entity links).
+- **Filters:** search on text lists; column sort via `th.hb-sortable` + `data-sort-key` / `bindSortableHeaders`; date-range via `common/date-range` when dates exist.
+- **Actions:** edit/delete use `common/icon-actions` (same SVG buttons everywhere). Sentence case: `Add user`, `Save`, `Delete`.
+- **Detail pages:** row click opens detail; collaboration detail pages use `common/comments-panel` labeled **Comments**.
+- **Copy:** breadcrumbs `App / Section` or `App / Section / Record`; column headers consistent (`Created On`, `Due Date`).
+- **Modals:** `h2.modal-title.h5`; Cancel `btn-outline-secondary`; Save `btn-primary`.
 
 ## UI patterns
 
-- Match existing siblings: list page + Bootstrap modal for add; table row click for navigation when that pattern already exists.
-- Alerts: `#…-alert` / `#…-form-alert` with `alert` + `d-none`; show via toggling classes / text — match `showAlert` style used in sibling pages.
-- Forms: `novalidate` on dialog forms; client checks for UX, then `fetch` JSON to `/api/…` with `credentials: "same-origin"`.
-- On successful create/update/delete, reload the page (`window.location.reload()`) unless a sibling does otherwise.
-- Missing entities from UI routes → `/not-found`.
+- List page + Bootstrap modal for add when there is no separate create page.
+- Forms: `novalidate`; client checks for UX; `fetch` JSON to `/api/…` with `credentials: "same-origin"`.
+- On successful create/update/delete, `window.location.reload()` unless a sibling does otherwise.
+- Missing entities → `/not-found`.
 
 ## Type casts
 
@@ -38,7 +66,7 @@ Skip fluff casts (`Boolean(query)`, `String(count)`, `typeof username !== "undef
 
 - `Number(...)` on DOM / `dataset` / form `.value` before JSON API payloads
 - `Number(...).toFixed(2)` for DECIMAL money display in EJS and client JS
-- `Number(query.month)` / `Number(query.year)` when reading query strings in UI routes (those live in `routes/ui.js` but feed these views)
+- `Number(query.month)` / `Number(query.year)` when reading query strings in UI routes
 
 ```js
 // ❌ BAD
@@ -53,28 +81,25 @@ const payload = { id: Number(row.dataset.id), amount: Number(amountInput.value) 
 
 ## Helpers
 
-- Do **not** extract a helper for logic used in only one place — inline it. Extract only when the same block is used in two or more places in that file (e.g. shared `showAlert` / row builders reused by add + modal reset).
-- Prefer object spread over rebuilding an object field-by-field: `{ ...payload, id }` / `{ customer_invoice_id, ...payload }` — not `{ item: payload.item, cost: payload.cost, … }`. Only rebuild when renaming/omitting fields.
+- Shared UI helpers live in `/public/utils.js` (`showAlert`, `hideAlert`, `escapeHtml`, `bindTableRowNavigation`, `bindClientSearch`, `bindSortableHeaders`, `renderCommentItem`, dates, `showConfirm`, uploads).
+- Do **not** extract a page-local helper for logic used in only one place — inline it. Extract only when the same block is used in two or more places in that file.
+- Prefer object spread over rebuilding an object field-by-field.
 
 ## Naming
 
 - Page script file name mirrors the view: `views/customers.ejs` → `public/customers.js`.
 - DOM ids use kebab-case (`customer-form`, `invoice-items`).
-- API JSON bodies use snake_case field names matching the backend (`customer_id`, `due_date`, `full_name`).
+- API JSON bodies use snake_case field names matching the backend.
 - Never use short forms or cryptic abbreviations for variables or parameters — spell the word out:
 
 ```js
 // ❌ BAD
 const pl = { … };
 const btn = document.getElementById("…");
-const el = document.getElementById("…");
-const res = await fetch(…);
 
 // ✅ GOOD
 const payload = { … };
 const submitButton = document.getElementById("…");
-const modalElement = document.getElementById("…");
-const response = await fetch(…);
 ```
 
-  Also avoid truncations (`Btn` → `Button`, `El` → `Element`, `msg` → `message`) and single/double-letter stand-ins (`e`, `cb`, `fn` → `event`/`error`, `callback`, `handler`). Full short words and schema/DOM field names are fine (`id`, `row`, `form`, `query`, `amount`). Prefer `catch (error)`.
+  Also avoid truncations (`Btn` → `Button`, `El` → `Element`) and single/double-letter stand-ins. Prefer `catch (error)`.

@@ -1,0 +1,84 @@
+<%
+    const panelId = typeof id !== "undefined" ? id : "comments";
+    const panelTitle = typeof panelTitle !== "undefined" ? panelTitle : "Comments";
+    const formId = panelId + "-form";
+    const textId = panelId + "-text";
+    const submitId = panelId + "-submit-btn";
+    const listId = panelId + "-list";
+    const emptyId = panelId + "-empty";
+    const fileId = panelId + "-file";
+    const allowAttachments = typeof allowAttachments !== "undefined" ? !!allowAttachments : false;
+    const canAdd = typeof canAdd !== "undefined" ? !!canAdd : true;
+    const items = typeof comments !== "undefined" && Array.isArray(comments) ? comments : [];
+    const bodyField = typeof bodyField !== "undefined" ? bodyField : "comment";
+    const authorField = typeof authorField !== "undefined" ? authorField : "author_name";
+    const createdField = typeof createdField !== "undefined" ? createdField : "created_on";
+    const itemClass = typeof itemClass !== "undefined" ? itemClass : "hb-comment-item";
+    const editBtnClass = typeof editBtnClass !== "undefined" ? editBtnClass : "hb-comment-edit-btn";
+    const deleteBtnClass = typeof deleteBtnClass !== "undefined" ? deleteBtnClass : "hb-comment-delete-btn";
+    const canManage = typeof canManageComments !== "undefined" ? !!canManageComments : false;
+%>
+<div class="card border-0 shadow-sm hb-comments-panel" id="<%= panelId %>-panel">
+    <div class="card-header bg-white border-0 pt-3 pb-0">
+        <h2 class="h5 mb-0"><%= panelTitle %></h2>
+    </div>
+    <div class="card-body">
+        <% if (canAdd) { %>
+            <form id="<%= formId %>" class="mb-4" novalidate>
+                <label for="<%= textId %>" class="form-label">Add comment</label>
+                <textarea class="form-control" id="<%= textId %>" rows="3" required></textarea>
+                <% if (allowAttachments) { %>
+                    <label for="<%= fileId %>" class="form-label mt-2">Attachment (optional)</label>
+                    <input type="file" class="form-control" id="<%= fileId %>" />
+                <% } %>
+                <button type="submit" class="btn btn-primary mt-3" id="<%= submitId %>">
+                    Add comment
+                </button>
+            </form>
+        <% } %>
+        <div
+            id="<%= emptyId %>"
+            class="text-secondary <%= items.length ? 'd-none' : '' %>"
+        >
+            No comments yet.
+        </div>
+        <ul class="list-group list-group-flush" id="<%= listId %>">
+            <% items.forEach(function (comment) { %>
+                <li
+                    class="list-group-item px-0 <%= itemClass %>"
+                    data-id="<%= comment.id %>"
+                >
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                        <p class="hb-comment-meta mb-0">
+                            <strong><%= comment[authorField] || comment.created_by_name || "User" %></strong>
+                            <% if (comment[createdField]) { %>
+                                ·
+                                <span
+                                    data-readable-date="<%= comment[createdField] %>"
+                                    data-date-format="DD/MM/YYYY HH:mm"
+                                ><%= comment[createdField] %></span>
+                            <% } %>
+                        </p>
+                        <% if (canManage) { %>
+                            <div class="d-inline-flex gap-1">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary <%= editBtnClass %>"
+                                >
+                                    Edit
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger <%= deleteBtnClass %>"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        <% } %>
+                    </div>
+                    <p class="mb-0 hb-comment-body"><%= comment[bodyField] || comment.note || "" %></p>
+                </li>
+            <% }) %>
+        </ul>
+    </div>
+</div>

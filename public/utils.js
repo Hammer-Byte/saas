@@ -386,4 +386,265 @@
         date.setDate(date.getDate() + 6);
         return formatLocalDateKey(date);
     };
+
+    window.showAlert = function showAlert(element, message, type = "danger") {
+        if (!element) {
+            return;
+        }
+        element.className = `alert alert-${type}`;
+        element.textContent = message || "";
+        element.classList.remove("d-none");
+    };
+
+    window.hideAlert = function hideAlert(element) {
+        if (!element) {
+            return;
+        }
+        element.classList.add("d-none");
+        element.textContent = "";
+    };
+
+    window.escapeHtml = function escapeHtml(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    };
+
+    window.bindTableRowNavigation = function bindTableRowNavigation(root = document) {
+        const scope = typeof root === "string" ? document.querySelector(root) : root;
+        if (!scope) {
+            return;
+        }
+
+        function navigateFromRow(row) {
+            const href = row?.dataset?.href;
+            if (href) {
+                window.location.href = href;
+            }
+        }
+
+        scope.querySelectorAll("tr[data-href], .hb-row-link[data-href]").forEach((row) => {
+            row.classList.add("hb-row-link");
+            if (!row.hasAttribute("tabindex")) {
+                row.setAttribute("tabindex", "0");
+            }
+            if (!row.hasAttribute("role")) {
+                row.setAttribute("role", "link");
+            }
+        });
+
+        scope.addEventListener("click", (event) => {
+            const ignore = event.target.closest(
+                "a, button, input, select, textarea, label, .hb-icon-actions, .dropdown",
+            );
+            if (ignore) {
+                return;
+            }
+            const row = event.target.closest("tr[data-href], .hb-row-link[data-href]");
+            if (!row || !scope.contains(row)) {
+                return;
+            }
+            navigateFromRow(row);
+        });
+
+        scope.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") {
+                return;
+            }
+            const row = event.target.closest("tr[data-href], .hb-row-link[data-href]");
+            if (!row || !scope.contains(row) || event.target !== row) {
+                return;
+            }
+            event.preventDefault();
+            navigateFromRow(row);
+        });
+    };
+
+    window.bindClientSearch = function bindClientSearch({
+        input,
+        rows,
+        emptyElement = null,
+        tableWrap = null,
+        getText = null,
+        onFilter = null,
+    } = {}) {
+        const searchInput =
+            typeof input === "string" ? document.querySelector(input) : input;
+        const rowList =
+            typeof rows === "string"
+                ? Array.from(document.querySelectorAll(rows))
+                : Array.from(rows || []);
+        if (!searchInput || !rowList.length) {
+            return () => {};
+        }
+
+        const emptyNode =
+            typeof emptyElement === "string"
+                ? document.querySelector(emptyElement)
+                : emptyElement;
+        const wrapNode =
+            typeof tableWrap === "string" ? document.querySelector(tableWrap) : tableWrap;
+
+        function applyFilter() {
+            const query = String(searchInput.value || "")
+                .trim()
+                .toLowerCase();
+            let visibleCount = 0;
+            rowList.forEach((row) => {
+                const haystack = getText
+                    ? String(getText(row) || "").toLowerCase()
+                    : row.textContent.toLowerCase();
+                const match = !query || haystack.includes(query);
+                row.classList.toggle("d-none", !match);
+                if (match) {
+                    visibleCount += 1;
+                }
+            });
+            if (emptyNode) {
+                emptyNode.classList.toggle("d-none", visibleCount > 0);
+            }
+            if (wrapNode) {
+                wrapNode.classList.toggle("d-none", visibleCount === 0);
+            }
+            if (typeof onFilter === "function") {
+                onFilter({ query, visibleCount, total: rowList.length });
+            }
+        }
+
+        searchInput.addEventListener("input", applyFilter);
+        applyFilter();
+        return applyFilter;
+    };
+
+    window.bindSortableHeaders = function bindSortableHeaders({
+        table,
+        getValue,
+        onSort = null,
+    } = {}) {
+        const tableElement =
+            typeof table === "string" ? document.querySelector(table) : table;
+        if (!tableElement) {
+            return;
+        }
+        const headers = tableElement.querySelectorAll("th[data-sort-key], th.hb-sortable");
+        if (!headers.length) {
+            return;
+        }
+
+        headers.forEach((header) => {
+            header.classList.add("hb-sortable");
+            if (!header.querySelector(".hb-sort-indicator")) {
+                const indicator = document.createElement("span");
+                indicator.className = "hb-sort-indicator";
+                indicator.setAttribute("aria-hidden", "true");
+                header.appendChild(indicator);
+            }
+            if (!header.getAttribute("aria-sort")) {
+                header.setAttribute("aria-sort", "none");
+            }
+
+            header.addEventListener("click", () => {
+                const sortKey = header.dataset.sortKey;
+                if (!sortKey) {
+                    return;
+                }
+                const current = header.getAttribute("aria-sort");
+                const next =
+                    current === "ascending"
+                        ? "descending"
+                        : current === "descending"
+                          ? "ascending"
+                          : "ascending";
+                headers.forEach((other) => {
+                    if (other !== header) {
+                        other.setAttribute("aria-sort", "none");
+                    }
+                });
+                header.setAttribute("aria-sort", next);
+                const tbody = tableElement.tBodies[0];
+                if (!tbody) {
+                    return;
+                }
+                const rows = Array.from(tbody.rows);
+                const direction = next === "ascending" ? 1 : -1;
+                rows.sort((left, right) => {
+                    const leftValue = getValue
+                        ? getValue(left, sortKey)
+                        : left.dataset[sortKey] ?? left.textContent;
+                    const rightValue = getValue
+                        ? getValue(right, sortKey)
+                        : right.dataset[sortKey] ?? right.textContent;
+                    if (leftValue == null && rightValue == null) {
+                        return 0;
+                    }
+                    if (leftValue == null) {
+                        return 1;
+                    }
+                    if (rightValue == null) {
+                        return -1;
+                    }
+                    const leftNumber = Number(leftValue);
+                    const rightNumber = Number(rightValue);
+                    if (
+                        Number.isFinite(leftNumber) &&
+                        Number.isFinite(rightNumber) &&
+                        String(leftValue).trim() !== "" &&
+                        String(rightValue).trim() !== ""
+                    ) {
+                        return (leftNumber - rightNumber) * direction;
+                    }
+                    return (
+                        String(leftValue).localeCompare(String(rightValue), undefined, {
+                            numeric: true,
+                            sensitivity: "base",
+                        }) * direction
+                    );
+                });
+                rows.forEach((row) => tbody.appendChild(row));
+                if (typeof onSort === "function") {
+                    onSort({ sortKey, direction: next });
+                }
+            });
+        });
+    };
+
+    window.renderCommentItem = function renderCommentItem({
+        id,
+        author,
+        createdOn,
+        body,
+        itemClass = "hb-comment-item",
+        editBtnClass = "hb-comment-edit-btn",
+        deleteBtnClass = "hb-comment-delete-btn",
+        canManage = false,
+    } = {}) {
+        const createdLabel = createdOn
+            ? window.getReadableDate("DD/MM/YYYY HH:mm", createdOn) || createdOn
+            : "";
+        const manageHtml = canManage
+            ? `<div class="d-inline-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-secondary ${editBtnClass}">Edit</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger ${deleteBtnClass}">Delete</button>
+               </div>`
+            : "";
+        return `
+            <li class="list-group-item px-0 ${itemClass}" data-id="${window.escapeHtml(id)}">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                    <p class="hb-comment-meta mb-0">
+                        <strong>${window.escapeHtml(author || "User")}</strong>
+                        ${createdLabel ? ` · <span>${window.escapeHtml(createdLabel)}</span>` : ""}
+                    </p>
+                    ${manageHtml}
+                </div>
+                <p class="mb-0 hb-comment-body">${window.escapeHtml(body || "")}</p>
+            </li>
+        `;
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+        window.bindTableRowNavigation(document);
+    });
 })();

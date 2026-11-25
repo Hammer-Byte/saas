@@ -1,0 +1,53 @@
+<%
+    const formAction = typeof action !== "undefined" ? action : "";
+    const formMethod = typeof method !== "undefined" ? method : "get";
+    const startName = typeof startName !== "undefined" ? startName : "start";
+    const endName = typeof endName !== "undefined" ? endName : "end";
+    const startId = typeof startId !== "undefined" ? startId : startName;
+    const endId = typeof endId !== "undefined" ? endId : endName;
+    const startValue = typeof start !== "undefined" ? start : "";
+    const endValue = typeof end !== "undefined" ? end : "";
+    const startLabel = typeof startLabel !== "undefined" ? startLabel : "Start date";
+    const endLabel = typeof endLabel !== "undefined" ? endLabel : "End date";
+    const submitLabel = typeof submitLabel !== "undefined" ? submitLabel : "Apply range";
+    const formClass = typeof formClass !== "undefined" ? formClass : "card border-0 shadow-sm mb-4 hb-date-range";
+%>
+<form class="<%= formClass %>" method="<%= formMethod %>" action="<%= formAction %>">
+    <div class="card-body p-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="<%= startId %>" class="form-label"><%= startLabel %></label>
+                <input
+                    type="text"
+                    class="form-control js-date-input"
+                    id="<%= startId %>"
+                    name="<%= startName %>"
+                    placeholder="dd/mm/yyyy"
+                    autocomplete="off"
+                    inputmode="numeric"
+                    data-date-value="<%= startValue %>"
+                    value="<%= startValue %>"
+                    required
+                />
+            </div>
+            <div class="col-md-4">
+                <label for="<%= endId %>" class="form-label"><%= endLabel %></label>
+                <input
+                    type="text"
+                    class="form-control js-date-input"
+                    id="<%= endId %>"
+                    name="<%= endName %>"
+                    placeholder="dd/mm/yyyy"
+                    autocomplete="off"
+                    inputmode="numeric"
+                    data-date-value="<%= endValue %>"
+                    value="<%= endValue %>"
+                    required
+                />
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-outline-primary w-100"><%= submitLabel %></button>
+            </div>
+        </div>
+    </div>
+</form>

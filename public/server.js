@@ -117,7 +117,15 @@
                 showUnmapFeedback("Missing server id.", true);
                 return;
             }
-            if (!window.confirm("Unmap this tag? The agent must claim the OTP again to remap.")) {
+            const confirmed = await showConfirm({
+                title: "Unmap tag",
+                description: "Unmap this tag? The agent must claim the OTP again to remap.",
+                choices: [
+                    { label: "Cancel", value: false, variant: "outline-secondary" },
+                    { label: "Unmap", value: true, variant: "danger" },
+                ],
+            });
+            if (!confirmed) {
                 mappedToggle.checked = true;
                 return;
             }
@@ -499,13 +507,6 @@
             .filter((row) => row.email || row.phone);
     }
 
-    function showAlertsFeedback(message, isError) {
-        if (!alertsFormAlert) return;
-        alertsFormAlert.textContent = message;
-        alertsFormAlert.className = `alert alert-${isError ? "danger" : "success"}`;
-        alertsFormAlert.classList.remove("d-none");
-    }
-
     function hydrateAlertRecipients() {
         const config = decodeJsonAttr(alertsModal.dataset.alertConfig);
         const candidates = decodeJsonArrayAttr(alertsModal.dataset.alertCandidates);
@@ -583,7 +584,7 @@
     alertsSaveBtn.addEventListener("click", async () => {
         const serverId = Number(alertsModal.dataset.serverId);
         if (!serverId) {
-            showAlertsFeedback("Missing server id.", true);
+            showAlert(alertsFormAlert, "Missing server id.", "danger");
             return;
         }
 
@@ -625,7 +626,7 @@
         };
 
         alertsSaveBtn.disabled = true;
-        showAlertsFeedback("Saving…", false);
+        showAlert(alertsFormAlert, "Saving…", "success");
 
         try {
             const response = await fetch(`/api/monitored-servers/${serverId}/alerts`, {
@@ -636,16 +637,16 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                showAlertsFeedback(data.error || "Failed to save alerts.", true);
+                showAlert(alertsFormAlert, data.error || "Failed to save alerts.", "danger");
                 return;
             }
             if (data.alert_config) {
                 alertsModal.dataset.alertConfig = encodeURIComponent(JSON.stringify(data.alert_config));
             }
-            showAlertsFeedback(data.message || "Alert settings saved", false);
+            showAlert(alertsFormAlert, data.message || "Alert settings saved", "success");
         } catch (error) {
             console.error(error);
-            showAlertsFeedback("Failed to save alerts.", true);
+            showAlert(alertsFormAlert, "Failed to save alerts.", "danger");
         } finally {
             alertsSaveBtn.disabled = false;
         }

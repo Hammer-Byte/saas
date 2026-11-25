@@ -11,19 +11,20 @@
         integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
         crossorigin="anonymous"
     />
+    <link rel="stylesheet" href="/public/app.css" />
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark hb-navbar">
         <div class="container">
             <a class="navbar-brand" href="/">HammerByte</a>
             <div class="d-flex gap-2">
                 <a href="/" class="btn btn-sm btn-outline-light">Home</a>
-                <a href="/careers" class="btn btn-sm btn-warning">Careers</a>
+                <a href="/careers" class="btn btn-sm btn-outline-light">Careers</a>
             </div>
         </div>
     </nav>
 
-    <main class="container py-5">
+    <main class="container hb-page">
         <div class="mb-4">
             <p class="text-secondary small mb-1">
                 <a href="/careers" class="text-decoration-none">Careers</a> / <%= job.title %>

@@ -1,20 +1,9 @@
 <%- include('common/header') %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar') %>
 
-<main class="bg-light min-vh-100">
-    <div class="container py-5">
+<main class="hb-main">
+    <div class="container hb-page">
         <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
@@ -35,6 +24,9 @@
 
         <div id="contracts-alert" class="alert d-none" role="alert"></div>
 
+        <%- include('common/table-filters', { searchId: "contracts-search", searchPlaceholder: "Search contracts…" }) %>
+        <p class="text-secondary small mb-3 d-none" id="contracts-empty-filter" role="status">No contracts match your search.</p>
+
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
                 <% if (!contracts || contracts.length === 0) { %>
@@ -42,14 +34,14 @@
                         No contracts found.
                     </div>
                 <% } else { %>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
+                    <div class="table-responsive" id="contracts-table-wrap">
+                        <table class="table table-hover align-middle mb-0" id="contracts-table">
                             <thead class="table-light">
                                 <tr>
-                                    <th scope="col">Full name</th>
-                                    <th scope="col">Company</th>
-                                    <th scope="col">Status</th>
-                                    <th scope="col">Actions</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="fullName">Full name</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="company">Company</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="status">Status</th>
+                                    <th scope="col" class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -61,7 +53,13 @@
                                                 Number(contract.attached_media_count);
                                         const isBroken = !!(contract.broken && contract.broken !== 0);
                                     %>
-                                    <tr>
+                                    <tr
+                                        class="hb-row-link"
+                                        data-href="/app/contracts/<%= contract.id %>"
+                                        data-full-name="<%= contract.full_name %>"
+                                        data-company="<%= contract.company || '' %>"
+                                        data-status="<%= isBroken ? 'broken' : (isSigned ? 'signed' : 'unsigned') %>"
+                                    >
                                         <td><%= contract.full_name %></td>
                                         <td><%= contract.company || "-" %></td>
                                         <td>
@@ -74,29 +72,11 @@
                                                 <span class="badge text-bg-secondary">Unsigned</span>
                                             <% } %>
                                         </td>
-                                        <td>
-                                            <div class="d-flex gap-2 flex-wrap">
-                                                <a
-                                                    href="/contracts/<%= contract.signing_code %>/sign"
-                                                    class="btn btn-sm btn-outline-secondary"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    View
-                                                </a>
-                                                <a
-                                                    href="/app/contracts/<%= contract.id %>"
-                                                    class="btn btn-sm btn-outline-primary"
-                                                >
-                                                    Edit
-                                                </a>
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-sm btn-outline-danger contract-delete-btn"
-                                                    data-id="<%= contract.id %>"
-                                                >
-                                                    Delete
-                                                </button>
+                                        <td class="text-end">
+                                            <div class="d-inline-flex gap-1 justify-content-end hb-icon-actions">
+                                                <a href="/contracts/<%= contract.signing_code %>/sign" class="btn btn-sm btn-outline-primary hb-icon-btn" title="View" aria-label="View" target="_blank" rel="noopener noreferrer"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/></svg></a>
+                                                <a href="/app/contracts/<%= contract.id %>" class="btn btn-sm btn-outline-secondary hb-icon-btn" title="Edit" aria-label="Edit"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/></svg></a>
+                                                <button type="button" class="btn btn-sm btn-outline-danger hb-icon-btn contract-delete-btn" title="Delete" aria-label="Delete" data-id="<%= contract.id %>"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg></button>
                                             </div>
                                         </td>
                                     </tr>

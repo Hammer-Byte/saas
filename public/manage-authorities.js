@@ -6,19 +6,6 @@
     const openAddButton = document.getElementById("open-add-authority-btn");
     const modalLabel = document.getElementById("authority-modal-label");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     openAddButton?.addEventListener("click", () => {
         form?.reset();
         hideAlert(formAlert);
@@ -93,4 +80,21 @@
             if (submitButton) submitButton.disabled = false;
         }
     });
+
+    const __hbTable = document.getElementById("authorities-table");
+    if (__hbTable?.tBodies?.[0]) {
+        bindClientSearch({
+            input: "#authorities-search",
+            rows: "#authorities-table tbody tr",
+            emptyElement: "#authorities-empty",
+            tableWrap: "#authorities-table-wrap",
+        });
+        bindSortableHeaders({
+            table: __hbTable,
+            getValue(row, sortKey) {
+                if (sortKey === "id" || sortKey === "amount" || sortKey === "cost" || sortKey === "total" || sortKey === "pending") { return Number(row.dataset[sortKey] || row.dataset.id || 0); } return row.dataset[sortKey] ?? row.textContent;
+            },
+        });
+    }
+
 })();

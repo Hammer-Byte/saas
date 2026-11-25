@@ -34,19 +34,6 @@
             ? window.hasRequiredAuthority(window.AUTHORITIES?.MANAGE_USER_ROLES)
             : Boolean(rolesSection);
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     function clearRoleCheckboxes() {
         userRoleIds.clear();
         for (const checkbox of roleCheckboxes) {
@@ -454,4 +441,12 @@
             applySort();
         });
     }
+
+    bindClientSearch({
+        input: "#users-search",
+        rows: "#users-table tbody tr",
+        emptyElement: "#users-empty",
+        tableWrap: "#users-table-wrap",
+    });
+
 })();

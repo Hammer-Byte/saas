@@ -1,20 +1,9 @@
 <%- include('common/header') %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar') %>
 
-<main class="bg-light min-vh-100">
-    <div class="container py-5">
+<main class="hb-main">
+    <div class="container hb-page">
         <div class="mb-4">
             <p class="text-secondary small mb-1">
                 <a href="/app" class="text-decoration-none">App</a> /
@@ -121,6 +110,22 @@
             </div>
         </div>
     </div>
+
+        <div class="mt-4"
+            data-entity-comments
+            data-entity-type="customer"
+            data-entity-id="<%= customer.id %>"
+        >
+            <%- include('common/comments-panel', {
+                id: "customer-comments",
+                comments: typeof entityComments !== "undefined" ? entityComments : [],
+                canAdd: true,
+                canManageComments: true,
+                authorField: "author_name",
+                bodyField: "comment",
+                createdField: "created_on",
+            }) %>
+        </div>
 </main>
 
 <div class="modal fade" id="customer-project-modal" tabindex="-1" aria-labelledby="customer-project-modal-label" aria-hidden="true">
@@ -154,4 +159,6 @@
 <script src="/public/app.js" defer></script>
 <script src="/public/utils.js" defer></script>
 <script src="/public/customer.js" defer></script>
+<script src="/public/entity-comments.js" defer></script>
+
 <%- include('common/footer') %>

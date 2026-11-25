@@ -1,7 +1,20 @@
+:root {
+    --hb-primary: #5c8aa5;
+    --hb-primary-dark: #4a758c;
+    --hb-ink: #1d354d;
+    --hb-paper: #f5f6f7;
+    --hb-accent-stat: #4f7f9a;
+    --hb-accent-export: #457b9d;
+    --hb-services-bg: #a8dadc;
+    --hb-spotlight: #1c3553;
+    --hb-footer: #1d354d;
+    --hb-font-body: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
 body {
-    font-family: Roboto, sans-serif;
+    font-family: var(--hb-font-body);
     margin: 0;
-    background: #f5f6f7;
+    background: var(--hb-paper);
 }
 
 html {
@@ -40,8 +53,8 @@ html {
     top: 0;
     margin: 1rem;
     background: transparent;
-    color: #5c8aa5;
-    border: 1px solid #5c8aa5;
+    color: var(--hb-primary);
+    border: 1px solid var(--hb-primary);
     padding: 10px 22px;
     border-radius: 40px;
     font-size: 15px;
@@ -50,7 +63,7 @@ html {
 }
 
 .header-contact-btn:hover {
-    background: #5c8aa5;
+    background: var(--hb-primary);
     color: #fff;
 }
 
@@ -59,7 +72,7 @@ html {
     right: 0;
     top: 0;
     margin: 1rem;
-    background: #5c8aa5;
+    background: var(--hb-primary);
     color: #fff;
     border: none;
     padding: 10px 22px;
@@ -71,7 +84,7 @@ html {
 }
 
 .app-entry-btn:hover {
-    background: #4a758c;
+    background: var(--hb-primary-dark);
 }
 
 .container {
@@ -137,7 +150,7 @@ html {
 .hero-content .hero-cta {
     margin-top: 30px;
     display: inline-block;
-    background: #5c8aa5;
+    background: var(--hb-primary);
     color: white;
     border: none;
     padding: 15px 35px;
@@ -558,7 +571,7 @@ html {
 }
 
 .faq {
-    background: #f5f6f7;
+    background: var(--hb-paper);
     padding: 60px 20px;
 }
 
@@ -642,7 +655,7 @@ html {
 }
 
 .footer-section {
-    background: #1D354D;
+    background: var(--hb-footer);
     color: white;
     padding: 60px 20px 20px;
     font-family: Arial;

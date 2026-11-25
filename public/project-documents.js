@@ -15,19 +15,6 @@
     const fileInput = form?.elements.namedItem("file");
     const descriptionInput = form?.elements.namedItem("description");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     function resetForm() {
         form?.reset();
         if (idInput) idInput.value = "";

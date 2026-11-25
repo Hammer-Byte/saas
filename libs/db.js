@@ -1082,6 +1082,21 @@ export async function generateDBTables() {
             FROM USERS
             CROSS JOIN ROLES
             WHERE USERS.super_admin = TRUE;`,
+        `CREATE TABLE IF NOT EXISTS ENTITY_COMMENTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            entity_type VARCHAR(32) NOT NULL,
+            entity_id INT NOT NULL,
+            user_id INT NOT NULL,
+            comment TEXT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_entity_comments_entity (entity_type, entity_id),
+            CONSTRAINT fk_entity_comments_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
     ];
 
     for (const table of requiredTables) {

@@ -68,17 +68,6 @@
     const editIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/></svg>`;
     const deleteIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>`;
 
-    function showAlert(message, type = "danger") {
-        alertElement.textContent = message;
-        alertElement.className = `alert alert-${type}`;
-        window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    function showFormAlert(formAlertElement, message) {
-        formAlertElement.textContent = message;
-        formAlertElement.classList.remove("d-none");
-    }
-
     function escapeHtml(value) {
         return String(value ?? "")
             .replace(/&/g, "&amp;")
@@ -205,7 +194,8 @@
     async function loadScanKeywords() {
         const { ok, data } = await apiRequest("/api/gem-scan-keywords");
         if (!ok) {
-            showAlert(data.error || "Failed to load keywords.");
+            showAlert(alertElement, data.error || "Failed to load keywords.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             return;
         }
         state.scanKeywords = data.keywords || [];
@@ -238,11 +228,11 @@
         const keyword = keywordInput.value.trim();
         const tenderCategoryId = Number(keywordTenderCategorySelect.value || 0);
         if (!keyword) {
-            showFormAlert(keywordFormAlert, "Keyword is required.");
+            showAlert(keywordFormAlert, "Keyword is required.");
             return;
         }
         if (!tenderCategoryId) {
-            showFormAlert(keywordFormAlert, "HammerByte category is required.");
+            showAlert(keywordFormAlert, "HammerByte category is required.");
             return;
         }
 
@@ -258,14 +248,14 @@
                 },
             );
             if (!ok) {
-                showFormAlert(keywordFormAlert, data.error || "Failed to save keyword.");
+                showAlert(keywordFormAlert, data.error || "Failed to save keyword.");
                 return;
             }
             bootstrap.Modal.getOrCreateInstance(keywordModalElement).hide();
             await loadScanKeywords();
         } catch (error) {
             console.error(error);
-            showFormAlert(keywordFormAlert, "Failed to save keyword.");
+            showAlert(keywordFormAlert, "Failed to save keyword.");
         } finally {
             keywordSubmitButton.disabled = false;
         }
@@ -310,18 +300,21 @@
                 : scanKeyword.tender_category_id,
         };
         if (!payload.tender_category_id) {
-            showAlert("HammerByte category is required.");
+            showAlert(alertElement, "HammerByte category is required.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             renderKeywords();
             return;
         }
         try {
             const { ok, data } = await apiRequest(`/api/gem-scan-keywords/${id}`, "PATCH", payload);
             if (!ok) {
-                showAlert(data.error || "Failed to update keyword.");
+                showAlert(alertElement, data.error || "Failed to update keyword.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             }
         } catch (error) {
             console.error(error);
-            showAlert("Failed to update keyword.");
+            showAlert(alertElement, "Failed to update keyword.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
         }
         await loadScanKeywords();
     });
@@ -347,13 +340,15 @@
             try {
                 const { ok, data } = await apiRequest(`/api/gem-scan-keywords/${id}`, "DELETE");
                 if (!ok) {
-                    showAlert(data.error || "Failed to delete keyword.");
+                    showAlert(alertElement, data.error || "Failed to delete keyword.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
                     return;
                 }
                 await loadScanKeywords();
             } catch (error) {
                 console.error(error);
-                showAlert("Failed to delete keyword.");
+                showAlert(alertElement, "Failed to delete keyword.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             }
         }
     });
@@ -378,32 +373,39 @@
             }
         }
         groupsEmpty.classList.toggle("d-none", state.groups.length > 0);
-        groupsList.innerHTML = state.groups
-            .map((group) => {
-                const groupCategories = state.categories.filter(
-                    (category) => Number(category.group_id) === Number(group.id),
-                );
-                const selectedCount = groupCategories.filter((category) =>
-                    selectedCategoryIds.has(category.id),
-                ).length;
-                const allSelected =
-                    groupCategories.length > 0 && selectedCount === groupCategories.length;
-                return `
-                <div class="col-12 col-lg-6">
-                    <div class="card border-0 shadow-sm h-100 gem-group-card" data-id="${group.id}">
-                        <div class="card-body p-4">
-                            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
-                                <h3 class="h6 mb-0 fw-semibold">${escapeHtml(group.name)}</h3>
-                                <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-secondary gem-group-edit-btn" title="Edit group" aria-label="Edit group">${editIcon}</button>
-                                    <button type="button" class="btn btn-outline-danger gem-group-delete-btn" title="Delete group" aria-label="Delete group">${deleteIcon}</button>
-                                </div>
-                            </div>
-                            <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
-                                <select class="form-select form-select-sm w-auto gem-group-tender-category" aria-label="HammerByte category">
-                                    ${tenderCategoryOptions(group.tender_category_id, "No HammerByte category")}
-                                </select>
-                                <div class="form-check mb-0">
+        if (!state.groups.length) {
+            groupsList.innerHTML = "";
+            syncAdvanceScanControls();
+            return;
+        }
+        groupsList.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="gem-groups-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Group</th>
+                            <th scope="col">HammerByte category</th>
+                            <th scope="col">GEM categories</th>
+                            <th scope="col" class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${state.groups
+                            .map((group) => {
+                                const groupCategories = state.categories.filter(
+                                    (category) => Number(category.group_id) === Number(group.id),
+                                );
+                                const selectedCount = groupCategories.filter((category) =>
+                                    selectedCategoryIds.has(category.id),
+                                ).length;
+                                const allSelected =
+                                    groupCategories.length > 0 &&
+                                    selectedCount === groupCategories.length;
+                                return `
+                        <tr class="gem-group-card" data-id="${group.id}">
+                            <td>
+                                <div class="fw-semibold">${escapeHtml(group.name)}</div>
+                                <div class="form-check mt-2 mb-0">
                                     <input
                                         class="form-check-input gem-group-select-all"
                                         type="checkbox"
@@ -413,47 +415,62 @@
                                     />
                                     <label class="form-check-label small" for="gem-group-select-all-${group.id}">Select all in group</label>
                                 </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center border-top pt-3 mb-2">
-                                <span class="small text-secondary">GEM categories (${groupCategories.length})</span>
-                                <button type="button" class="btn btn-sm btn-outline-primary gem-category-add-btn">+ Add</button>
-                            </div>
-                            ${
-                                groupCategories.length
-                                    ? groupCategories
-                                          .map(
-                                              (category) => `
-                            <div class="d-flex align-items-center gap-2 py-1 gem-category-row" data-id="${category.id}">
-                                <div class="form-check mb-0 flex-grow-1">
-                                    <input
-                                        class="form-check-input gem-category-check"
-                                        type="checkbox"
-                                        id="gem-category-check-${category.id}"
-                                        ${selectedCategoryIds.has(category.id) ? "checked" : ""}
-                                    />
-                                    <label class="form-check-label small" for="gem-category-check-${category.id}">${escapeHtml(category.name)}</label>
+                            </td>
+                            <td>
+                                <select class="form-select form-select-sm gem-group-tender-category" aria-label="HammerByte category">
+                                    ${tenderCategoryOptions(group.tender_category_id, "No HammerByte category")}
+                                </select>
+                            </td>
+                            <td>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small text-secondary">${groupCategories.length} categories</span>
+                                    <button type="button" class="btn btn-sm btn-outline-primary gem-category-add-btn">Add</button>
                                 </div>
-                                <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-secondary gem-category-edit-btn" title="Edit category" aria-label="Edit category">${editIcon}</button>
-                                    <button type="button" class="btn btn-outline-danger gem-category-delete-btn" title="Delete category" aria-label="Delete category">${deleteIcon}</button>
+                                ${
+                                    groupCategories.length
+                                        ? groupCategories
+                                              .map(
+                                                  (category) => `
+                                <div class="d-flex align-items-center gap-2 py-1 gem-category-row" data-id="${category.id}">
+                                    <div class="form-check mb-0 flex-grow-1">
+                                        <input
+                                            class="form-check-input gem-category-check"
+                                            type="checkbox"
+                                            id="gem-category-check-${category.id}"
+                                            ${selectedCategoryIds.has(category.id) ? "checked" : ""}
+                                        />
+                                        <label class="form-check-label small" for="gem-category-check-${category.id}">${escapeHtml(category.name)}</label>
+                                    </div>
+                                    <div class="d-inline-flex gap-1 hb-icon-actions">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary hb-icon-btn gem-category-edit-btn" title="Edit" aria-label="Edit">${editIcon}</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger hb-icon-btn gem-category-delete-btn" title="Delete" aria-label="Delete">${deleteIcon}</button>
+                                    </div>
+                                </div>`,
+                                              )
+                                              .join("")
+                                        : `<p class="text-secondary small mb-0">No GEM categories in this group yet.</p>`
+                                }
+                            </td>
+                            <td class="text-end">
+                                <div class="d-inline-flex gap-1 justify-content-end hb-icon-actions">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary hb-icon-btn gem-group-edit-btn" title="Edit" aria-label="Edit">${editIcon}</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger hb-icon-btn gem-group-delete-btn" title="Delete" aria-label="Delete">${deleteIcon}</button>
                                 </div>
-                            </div>`,
-                                          )
-                                          .join("")
-                                    : `<p class="text-secondary small mb-0">No GEM categories in this group yet.</p>`
-                            }
-                        </div>
-                    </div>
-                </div>`;
-            })
-            .join("");
+                            </td>
+                        </tr>`;
+                            })
+                            .join("")}
+                    </tbody>
+                </table>
+            </div>`;
         syncAdvanceScanControls();
     }
 
     async function loadGroups() {
         const { ok, data } = await apiRequest("/api/gem-category-groups");
         if (!ok) {
-            showAlert(data.error || "Failed to load groups.");
+            showAlert(alertElement, data.error || "Failed to load groups.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             return;
         }
         state.groups = data.groups || [];
@@ -463,7 +480,8 @@
     async function loadCategories() {
         const { ok, data } = await apiRequest("/api/gem-categories");
         if (!ok) {
-            showAlert(data.error || "Failed to load GEM categories.");
+            showAlert(alertElement, data.error || "Failed to load GEM categories.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             return;
         }
         state.categories = data.categories || [];
@@ -506,7 +524,7 @@
         const id = Number(groupIdInput.value || 0);
         const name = groupNameInput.value.trim();
         if (!name) {
-            showFormAlert(groupFormAlert, "Group name is required.");
+            showAlert(groupFormAlert, "Group name is required.");
             return;
         }
 
@@ -521,14 +539,14 @@
                 },
             );
             if (!ok) {
-                showFormAlert(groupFormAlert, data.error || "Failed to save group.");
+                showAlert(groupFormAlert, data.error || "Failed to save group.");
                 return;
             }
             bootstrap.Modal.getOrCreateInstance(groupModalElement).hide();
             await loadGroups();
         } catch (error) {
             console.error(error);
-            showFormAlert(groupFormAlert, "Failed to save group.");
+            showAlert(groupFormAlert, "Failed to save group.");
         } finally {
             groupSubmitButton.disabled = false;
         }
@@ -540,7 +558,7 @@
         const id = Number(categoryIdInput.value || 0);
         const name = categoryNameInput.value.trim();
         if (!name) {
-            showFormAlert(categoryFormAlert, "Category name is required.");
+            showAlert(categoryFormAlert, "Category name is required.");
             return;
         }
 
@@ -552,14 +570,14 @@
                 { group_id: Number(categoryGroupIdInput.value), name },
             );
             if (!ok) {
-                showFormAlert(categoryFormAlert, data.error || "Failed to save category.");
+                showAlert(categoryFormAlert, data.error || "Failed to save category.");
                 return;
             }
             bootstrap.Modal.getOrCreateInstance(categoryModalElement).hide();
             await Promise.all([loadCategories(), loadGroups()]);
         } catch (error) {
             console.error(error);
-            showFormAlert(categoryFormAlert, "Failed to save category.");
+            showAlert(categoryFormAlert, "Failed to save category.");
         } finally {
             categorySubmitButton.disabled = false;
         }
@@ -607,11 +625,13 @@
                     },
                 );
                 if (!ok) {
-                    showAlert(data.error || "Failed to update group.");
+                    showAlert(alertElement, data.error || "Failed to update group.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
                 }
             } catch (error) {
                 console.error(error);
-                showAlert("Failed to update group.");
+                showAlert(alertElement, "Failed to update group.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             }
             await loadGroups();
         }
@@ -638,13 +658,15 @@
             try {
                 const { ok, data } = await apiRequest(`/api/gem-category-groups/${groupId}`, "DELETE");
                 if (!ok) {
-                    showAlert(data.error || "Failed to delete group.");
+                    showAlert(alertElement, data.error || "Failed to delete group.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
                     return;
                 }
                 await Promise.all([loadGroups(), loadCategories()]);
             } catch (error) {
                 console.error(error);
-                showAlert("Failed to delete group.");
+                showAlert(alertElement, "Failed to delete group.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             }
             return;
         }
@@ -673,13 +695,15 @@
             try {
                 const { ok, data } = await apiRequest(`/api/gem-categories/${category.id}`, "DELETE");
                 if (!ok) {
-                    showAlert(data.error || "Failed to delete GEM category.");
+                    showAlert(alertElement, data.error || "Failed to delete GEM category.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
                     return;
                 }
                 await Promise.all([loadCategories(), loadGroups()]);
             } catch (error) {
                 console.error(error);
-                showAlert("Failed to delete GEM category.");
+                showAlert(alertElement, "Failed to delete GEM category.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             }
             return;
         }
@@ -701,7 +725,8 @@
         const keywordIds = Array.from(selectedKeywordIds);
         const categoryIds = Array.from(selectedCategoryIds);
         if (!keywordIds.length && !categoryIds.length) {
-            showAlert("Select at least one keyword or GEM category to scan.");
+            showAlert(alertElement, "Select at least one keyword or GEM category to scan.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             return;
         }
         scannerScanButton.disabled = true;
@@ -711,18 +736,21 @@
                 category_ids: categoryIds,
             });
             if (!ok) {
-                showAlert(data.error || "Failed to queue scan.");
+                showAlert(alertElement, data.error || "Failed to queue scan.");
+                window.scrollTo({ top: 0, behavior: "smooth" });
                 renderAll();
                 return;
             }
-            showAlert(
+            showAlert(alertElement, 
                 data.message || "Scan queued. Track it under History.",
                 "success",
             );
+            window.scrollTo({ top: 0, behavior: "smooth" });
             renderAll();
         } catch (error) {
             console.error(error);
-            showAlert("Failed to queue scan.");
+            showAlert(alertElement, "Failed to queue scan.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             renderAll();
         }
     });
@@ -765,7 +793,8 @@
     async function loadTenderCategories() {
         const { ok, data } = await apiRequest("/api/gem-tender-categories");
         if (!ok) {
-            showAlert(data.error || "Failed to load categories.");
+            showAlert(alertElement, data.error || "Failed to load categories.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             return;
         }
         state.tenderCategories = data.categories || [];
@@ -796,7 +825,7 @@
         const id = Number(tenderCategoryIdInput.value || 0);
         const name = tenderCategoryNameInput.value.trim();
         if (!name) {
-            showFormAlert(tenderCategoryFormAlert, "Category name is required.");
+            showAlert(tenderCategoryFormAlert, "Category name is required.");
             return;
         }
 
@@ -808,14 +837,14 @@
                 { name },
             );
             if (!ok) {
-                showFormAlert(tenderCategoryFormAlert, data.error || "Failed to save category.");
+                showAlert(tenderCategoryFormAlert, data.error || "Failed to save category.");
                 return;
             }
             bootstrap.Modal.getOrCreateInstance(tenderCategoryModalElement).hide();
             await Promise.all([loadTenderCategories(), loadScanKeywords(), loadGroups()]);
         } catch (error) {
             console.error(error);
-            showFormAlert(tenderCategoryFormAlert, "Failed to save category.");
+            showAlert(tenderCategoryFormAlert, "Failed to save category.");
         } finally {
             tenderCategorySubmitButton.disabled = false;
         }
@@ -842,13 +871,15 @@
             try {
                 const { ok, data } = await apiRequest(`/api/gem-tender-categories/${id}`, "DELETE");
                 if (!ok) {
-                    showAlert(data.error || "Failed to delete category.");
+                    showAlert(alertElement, data.error || "Failed to delete category.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
                     return;
                 }
                 await Promise.all([loadTenderCategories(), loadScanKeywords(), loadGroups()]);
             } catch (error) {
                 console.error(error);
-                showAlert("Failed to delete category.");
+                showAlert(alertElement, "Failed to delete category.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
             }
         }
     });

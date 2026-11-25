@@ -19,19 +19,6 @@
     const notesInput = form.elements.namedItem("notes");
     const activeInput = form.elements.namedItem("active");
 
-    function showAlert(target, message, type) {
-        if (!target) return;
-        target.textContent = message;
-        target.className = `alert alert-${type}`;
-        target.classList.remove("d-none");
-    }
-
-    function hideAlert(target) {
-        if (!target) return;
-        target.classList.add("d-none");
-        target.textContent = "";
-    }
-
     function resetForm() {
         form.reset();
         idInput.value = "";
@@ -153,4 +140,21 @@
             if (submitButton) submitButton.disabled = false;
         }
     });
+
+    const __hbTable = document.getElementById("servers-table");
+    if (__hbTable?.tBodies?.[0]) {
+        bindClientSearch({
+            input: "#servers-search",
+            rows: "#servers-table tbody tr",
+            emptyElement: "#servers-empty",
+            tableWrap: "#servers-table-wrap",
+        });
+        bindSortableHeaders({
+            table: __hbTable,
+            getValue(row, sortKey) {
+                if (sortKey === "active" || sortKey === "tagMapped") return Number(row.dataset[sortKey] || row.dataset.active || 0); return row.dataset[sortKey] ?? row.textContent;
+            },
+        });
+    }
+
 })();

@@ -1,17 +1,6 @@
 <%- include('common/header') %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar') %>
 
 <main class="bg-light min-vh-100">
     <div class="container py-5" id="internal-documents-page">
@@ -103,7 +92,7 @@
                             </thead>
                             <tbody id="documents-tbody">
                                 <% documents.forEach(function (document) { %>
-                                    <tr
+                                    <tr class="hb-row-link" data-href="/app/internal-documents/<%= document.id %>"
                                         data-id="<%= document.id %>"
                                         data-name="<%= document.media_name || '' %>"
                                         data-description="<%= document.description || '' %>"
@@ -126,7 +115,7 @@
                                             <div class="d-inline-flex gap-1 justify-content-end">
                                                 <a
                                                     href="/api/media/<%= document.media_id %>"
-                                                    class="btn btn-sm btn-outline-primary document-icon-btn"
+                                                    class="btn btn-sm btn-outline-primary hb-icon-btn"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     title="View"
@@ -139,7 +128,7 @@
                                                 </a>
                                                 <button
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-secondary document-edit-btn document-icon-btn"
+                                                    class="btn btn-sm btn-outline-secondary document-edit-btn hb-icon-btn"
                                                     title="Edit"
                                                     aria-label="Edit"
                                                 >
@@ -149,7 +138,7 @@
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-danger document-delete-btn document-icon-btn"
+                                                    class="btn btn-sm btn-outline-danger document-delete-btn hb-icon-btn"
                                                     title="Delete"
                                                     aria-label="Delete"
                                                 >
@@ -170,17 +159,6 @@
         </div>
     </div>
 </main>
-
-<style>
-    .document-icon-btn {
-        width: 2rem;
-        height: 2rem;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-</style>
 
 <div class="modal fade" id="document-modal" tabindex="-1" aria-labelledby="document-modal-label" aria-hidden="true">
     <div class="modal-dialog">

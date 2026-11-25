@@ -1,20 +1,9 @@
 <%- include('common/header') %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar') %>
 
-<main class="bg-light min-vh-100">
-    <div class="container py-5">
+<main class="hb-main">
+    <div class="container hb-page">
         <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
@@ -29,11 +18,14 @@
                 data-bs-toggle="modal"
                 data-bs-target="#invoice-modal"
             >
-                Add Invoice
+                Add invoice
             </button>
         </div>
 
         <div id="invoices-alert" class="alert d-none" role="alert"></div>
+
+        <%- include('common/table-filters', { searchId: "invoices-search", searchPlaceholder: "Search invoices…" }) %>
+        <p class="text-secondary small mb-3 d-none" id="invoices-empty-filter" role="status">No invoices match your search.</p>
 
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
@@ -42,18 +34,18 @@
                         No invoices found.
                     </div>
                 <% } else { %>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
+                    <div class="table-responsive" id="invoices-table-wrap">
+                        <table class="table table-hover align-middle mb-0" id="invoices-table">
                             <thead class="table-light">
                                 <tr>
-                                    <th scope="col">ID</th>
-                                    <th scope="col">Customer</th>
-                                    <th scope="col">Project</th>
-                                    <th scope="col">Due date</th>
-                                    <th scope="col">Total</th>
-                                    <th scope="col">Pending</th>
-                                    <th scope="col">Status</th>
-                                    <th scope="col">Actions</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="id">ID</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="customer">Customer</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="project">Project</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="dueDate">Due date</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="total">Total</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="pending">Pending</th>
+                                    <th scope="col" class="hb-sortable" data-sort-key="status">Status</th>
+                                    <th scope="col" class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -70,11 +62,15 @@
                                         }
                                     %>
                                     <tr
-                                        class="invoice-row"
-                                        role="link"
-                                        tabindex="0"
+                                        class="invoice-row hb-row-link"
                                         data-href="/app/invoices/<%= invoice.id %>"
-                                        style="cursor: pointer;"
+                                        data-id="<%= invoice.id %>"
+                                        data-customer="<%= invoice.customer_name || '' %>"
+                                        data-project="<%= invoice.project_title || '' %>"
+                                        data-due-date="<%= invoice.due_date || '' %>"
+                                        data-total="<%= grandTotal %>"
+                                        data-pending="<%= pendingTotal %>"
+                                        data-status="<%= billStatus %>"
                                     >
                                         <td>
                                             <%= resolveInvoiceNumber({
@@ -88,14 +84,10 @@
                                         <td><%= grandTotal.toFixed(2) %></td>
                                         <td><%= pendingTotal.toFixed(2) %></td>
                                         <td><%= billStatus %></td>
-                                        <td>
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-outline-danger invoice-delete-btn"
-                                                data-id="<%= invoice.id %>"
-                                            >
-                                                Delete
-                                            </button>
+                                        <td class="text-end">
+                                            <div class="d-inline-flex gap-1 justify-content-end hb-icon-actions">
+                                            <button type="button" class="btn btn-sm btn-outline-danger hb-icon-btn invoice-delete-btn" title="Delete" aria-label="Delete" data-id="<%= invoice.id %>"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg></button>
+                                        </div>
                                         </td>
                                     </tr>
                                 <% }) %>

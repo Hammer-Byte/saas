@@ -7,21 +7,10 @@
     const loginEmails = USER_LOGIN_EMAILS || {};
 %>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/app">HammerByte App</a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white-50 small">
-                Signed in as <strong class="text-white"><%= username || "user" %></strong>
-            </span>
-            <a href="/app" class="btn btn-sm btn-outline-light">Dashboard</a>
-            <button type="button" id="logout-btn" class="btn btn-sm btn-warning">Logout</button>
-        </div>
-    </div>
-</nav>
+<%- include('common/app-navbar') %>
 
-<main class="bg-light min-vh-100">
-    <div class="container py-5">
+<main class="hb-main">
+    <div class="container hb-page">
         <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
@@ -37,11 +26,13 @@
                 data-bs-target="#user-modal"
                 id="open-add-user-btn"
             >
-                Add User
+                Add user
             </button>
         </div>
 
         <div id="users-alert" class="alert d-none" role="alert"></div>
+
+        <%- include('common/table-filters', { searchId: "users-search", searchPlaceholder: "Search users…" }) %>
 
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
@@ -59,7 +50,7 @@
                                 <th scope="col">Personal email</th>
                                 <th
                                     scope="col"
-                                    class="users-sortable"
+                                    class="hb-sortable users-sortable"
                                     data-sort-key="hourlyRate"
                                     aria-sort="none"
                                 >
@@ -68,7 +59,7 @@
                                 <th scope="col">Login method</th>
                                 <th
                                     scope="col"
-                                    class="users-sortable"
+                                    class="hb-sortable users-sortable"
                                     data-sort-key="loginActive"
                                     aria-sort="descending"
                                 >
@@ -76,7 +67,7 @@
                                 </th>
                                 <th
                                     scope="col"
-                                    class="users-sortable"
+                                    class="hb-sortable users-sortable"
                                     data-sort-key="lastLogin"
                                     aria-sort="none"
                                 >
@@ -90,6 +81,8 @@
                                 <% const method = user.login_method || loginMethods.OTP || "otp"; %>
                                 <% const loginActive = user.login_active !== false && user.login_active !== 0; %>
                                 <tr
+                                    class="hb-row-link"
+                                    data-href="/app/users/<%= user.id %>"
                                     data-id="<%= user.id %>"
                                     data-full-name="<%= user.full_name %>"
                                     data-email="<%= user.email %>"
@@ -128,10 +121,10 @@
                                         <% } %>
                                     </td>
                                     <td class="text-end">
-                                        <div class="d-inline-flex gap-1 justify-content-end">
+                                        <div class="d-inline-flex gap-1 justify-content-end hb-icon-actions">
                                             <button
                                                 type="button"
-                                                class="btn btn-sm btn-outline-secondary user-edit-btn user-icon-btn"
+                                                class="btn btn-sm btn-outline-secondary user-edit-btn hb-icon-btn"
                                                 title="Edit"
                                                 aria-label="Edit"
                                             >
@@ -141,7 +134,7 @@
                                             </button>
                                             <button
                                                 type="button"
-                                                class="btn btn-sm btn-outline-danger user-delete-btn user-icon-btn"
+                                                class="btn btn-sm btn-outline-danger user-delete-btn hb-icon-btn"
                                                 title="Delete"
                                                 aria-label="Delete"
                                             >
@@ -344,15 +337,6 @@
 </div>
 
 <style>
-    .user-icon-btn {
-        width: 2rem;
-        height: 2rem;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
     /* Form sits between modal-content and header/body/footer; keep Bootstrap scroll layout working. */
     #user-modal .modal-dialog-scrollable .modal-content > .user-modal-form {
         display: flex;
