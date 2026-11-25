@@ -153,7 +153,7 @@
                                 id="task-edit-expected-hours"
                                 name="expected_hours"
                                 min="0"
-                                max="8"
+                                max="9"
                                 step="0.25"
                                 value="<%= task.expected_hours != null ? task.expected_hours : '' %>"
                             />
@@ -166,7 +166,7 @@
                                 id="task-edit-actual-hours"
                                 name="actual_hours"
                                 min="0"
-                                max="8"
+                                max="9"
                                 step="0.25"
                                 value="<%= task.actual_hours != null ? task.actual_hours : '' %>"
                             />
@@ -286,7 +286,7 @@
                         </div>
                     </div>
                     <% if (canEditTask) { %>
-                        <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                        <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 mt-3">
                             <button type="submit" class="btn btn-primary" id="task-save-btn">Save</button>
                             <button type="button" class="btn btn-outline-secondary" id="task-duplicate-btn">Duplicate</button>
                             <button
@@ -303,52 +303,62 @@
                 </form>
 
                 <hr class="my-3" />
-                <label class="form-label">Attachments</label>
-                <div id="task-attachments-list" class="mb-2">
-                    <% if (!(attachments || []).length) { %>
-                        <p class="text-secondary small mb-2" id="task-attachments-empty">No attachments yet.</p>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <label class="form-label mb-0">Attachments</label>
+                    <% if (canEditTask) { %>
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline-primary"
+                            id="task-attachment-add-btn"
+                            data-bs-toggle="modal"
+                            data-bs-target="#task-attachment-modal"
+                        >
+                            Add
+                        </button>
                     <% } %>
-                    <ul class="list-group list-group-flush">
-                        <% (attachments || []).forEach(function (attachment) { %>
-                            <li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2" data-id="<%= attachment.id %>">
-                                <div>
-                                    <a href="/api/media/<%= attachment.media_id %>" target="_blank" rel="noopener">
-                                        <%= attachment.media_name || attachment.description || ("File #" + attachment.media_id) %>
-                                    </a>
-                                    <% if (attachment.description) { %>
-                                        <div class="small text-secondary"><%= attachment.description %></div>
-                                    <% } %>
-                                </div>
-                                <% if (canEditTask) { %>
-                                    <button type="button" class="btn btn-sm btn-outline-danger task-attachment-delete-btn">Remove</button>
-                                <% } %>
-                            </li>
-                        <% }) %>
-                    </ul>
                 </div>
-                <% if (canEditTask) { %>
-                    <form id="task-attachment-form" class="row g-2 align-items-end" novalidate>
-                        <div class="col-md-7">
-                            <input type="file" class="form-control form-control-sm" id="task-attachment-file" required />
-                        </div>
-                        <div class="col-md-3">
-                            <input
-                                type="text"
-                                class="form-control form-control-sm"
-                                id="task-attachment-description"
-                                placeholder="Note (optional)"
-                            />
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-sm btn-outline-primary w-100" id="task-attachment-submit-btn">
-                                Upload
-                            </button>
-                        </div>
-                        <div class="col-12">
-                            <div id="task-attachment-form-alert" class="alert d-none mb-0" role="alert"></div>
-                        </div>
-                    </form>
-                <% } %>
+                <div id="task-attachments-list" class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">File</th>
+                                <th scope="col">Note</th>
+                                <% if (canEditTask) { %>
+                                    <th scope="col" class="text-end" style="width: 3rem;"></th>
+                                <% } %>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (!(attachments || []).length) { %>
+                                <tr id="task-attachments-empty">
+                                    <td colspan="<%= canEditTask ? 3 : 2 %>" class="text-secondary text-center py-3">No attachments yet.</td>
+                                </tr>
+                            <% } %>
+                            <% (attachments || []).forEach(function (attachment) { %>
+                                <tr data-id="<%= attachment.id %>">
+                                    <td>
+                                        <a href="/api/media/<%= attachment.media_id %>" target="_blank" rel="noopener">
+                                            <%= attachment.media_name || ("File #" + attachment.media_id) %>
+                                        </a>
+                                    </td>
+                                    <td class="text-secondary"><%= attachment.description || "—" %></td>
+                                    <% if (canEditTask) { %>
+                                        <td class="text-end">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger hb-icon-btn task-attachment-delete-btn"
+                                                title="Delete"
+                                                aria-label="Delete"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>
+                                            </button>
+                                        </td>
+                                    <% } %>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -550,6 +560,42 @@
                     <button type="submit" class="btn btn-primary" id="task-move-to-invoice-submit" <%= invoices.length ? '' : 'disabled' %>>
                         Add to invoice
                     </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<% } %>
+
+<% if (canEditTask) { %>
+<div class="modal fade" id="task-attachment-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="task-attachment-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Add attachment</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="task-attachment-form-alert" class="alert d-none" role="alert"></div>
+                    <div class="mb-3">
+                        <label for="task-attachment-file" class="form-label">File</label>
+                        <input type="file" class="form-control" id="task-attachment-file" required />
+                    </div>
+                    <div class="mb-0">
+                        <label for="task-attachment-description" class="form-label">Note</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="task-attachment-description"
+                            maxlength="255"
+                            placeholder="Optional note"
+                        />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="task-attachment-submit-btn">Add</button>
                 </div>
             </form>
         </div>

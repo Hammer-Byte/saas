@@ -9,6 +9,7 @@ import { startGemTenderUnattendedWatcher } from "./libs/gem_tender_unattended.js
 import { startInquiryFollowupReminderWatcher } from "./libs/inquiry_followup_remind.js";
 import { startJobInterviewReminderWatcher } from "./libs/job_interview_remind.js";
 import { startServerPingAlertWatcher } from "./libs/server_ping_alert_watch.js";
+import { startTaskOverdueAlertWatcher } from "./libs/task_overdue_alert.js";
 
 logger.init({
     saveLogs: false,
@@ -35,6 +36,8 @@ try {
     logger.success("Job Interview Reminder Watcher Ready");
     startServerPingAlertWatcher();
     logger.success("Server Ping Alert Watcher Ready");
+    startTaskOverdueAlertWatcher();
+    logger.success("Task Overdue Alert Watcher Ready");
     allowTraffic();
 } catch (error) {
     logger.error(`Application Exited - ${error.message}`);

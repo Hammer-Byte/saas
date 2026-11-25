@@ -887,6 +887,7 @@ export async function generateDBTables() {
             reviewer_user_id INT NULL,
             created_by_user_id INT NOT NULL,
             sprint_week_start DATE NULL,
+            overdue_alert_sent_on DATETIME NULL,
             customer_invoice_id INT NULL,
             invoice_item_id INT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -936,6 +937,7 @@ export async function generateDBTables() {
             ELSE 'p3'
         END`,
         `ALTER TABLE TASKS MODIFY COLUMN priority VARCHAR(16) NOT NULL DEFAULT 'p3'`,
+        `ALTER TABLE TASKS ADD COLUMN overdue_alert_sent_on DATETIME NULL`,
         `CREATE TABLE IF NOT EXISTS TASK_EFFORTS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             task_id INT NOT NULL,

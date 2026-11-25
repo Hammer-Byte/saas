@@ -61,7 +61,34 @@ function trimmedOrNull(value) {
     return text || null;
 }
 
-const TASK_HOURS_MAX = 8;
+const TASK_HOURS_MAX = 9;
+
+function formatActivityScalar(value) {
+    if (value == null || value === "") {
+        return "—";
+    }
+    return String(value);
+}
+
+function sameOptionalNumber(left, right) {
+    const a = left == null || left === "" ? null : Number(left);
+    const b = right == null || right === "" ? null : Number(right);
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return Number.isFinite(a) && Number.isFinite(b) && a === b;
+}
+
+function sameOptionalText(left, right) {
+    const a = left == null || left === "" ? null : String(left);
+    const b = right == null || right === "" ? null : String(right);
+    return a === b;
+}
+
+function sameDateTime(left, right) {
+    const a = left == null || left === "" ? null : String(left).slice(0, 19).replace("T", " ");
+    const b = right == null || right === "" ? null : String(right).slice(0, 19).replace("T", " ");
+    return a === b;
+}
 
 function normalizeHours(value) {
     if (value == null || value === "") {
@@ -210,11 +237,6 @@ export async function addTask({ body, cookie, set }) {
         return { error: "Invalid priority" };
     }
 
-    if (state !== TASK_STATES.BACKLOG) {
-        set.status = 400;
-        return { error: "New tasks must start in backlog" };
-    }
-
     let projectId = normalizeOptionalProjectId(body.project_id);
     if (projectId != null && !isTaskAdminUser(currentUser)) {
         set.status = 403;
@@ -260,8 +282,40 @@ export async function addTask({ body, cookie, set }) {
         return { error: actualHoursResult.error };
     }
 
-    // Backlog is a shared stack across sprints — no week until pulled into work.
-    const sprintWeekStart = null;
+    // Default to the current sprint week. No week means backlog.
+    let sprintWeekStart =
+        body.sprint_week_start === null || body.sprint_week_start === ""
+            ? null
+            : normalizeSprintWeekStart(
+                  body.sprint_week_start != null ? body.sprint_week_start : getMondayDate(),
+              );
+    if (
+        body.sprint_week_start != null &&
+        body.sprint_week_start !== "" &&
+        sprintWeekStart == null
+    ) {
+        set.status = 400;
+        return { error: "Invalid sprint week" };
+    }
+
+    let nextState = state;
+    if (!sprintWeekStart) {
+        nextState = TASK_STATES.BACKLOG;
+    } else if (nextState === TASK_STATES.BACKLOG) {
+        nextState = TASK_STATES.ANALYZING;
+    }
+
+    const startAt = normalizeDateField(body.start_at);
+    const endAt = normalizeDateField(body.end_at);
+    const sprintDateCheck = validateDatesWithinSprintWeek({
+        start_at: startAt,
+        end_at: endAt,
+        sprint_week_start: sprintWeekStart,
+    });
+    if (sprintDateCheck.error) {
+        set.status = 400;
+        return { error: sprintDateCheck.error };
+    }
 
     const taskId = await createTask({
         title,
@@ -269,10 +323,10 @@ export async function addTask({ body, cookie, set }) {
         expected_hours: expectedHoursResult.hours,
         actual_hours: actualHoursResult.hours,
         charge: null,
-        start_at: normalizeDateField(body.start_at),
-        end_at: normalizeDateField(body.end_at),
+        start_at: startAt,
+        end_at: endAt,
         completed_on: completedOn,
-        state,
+        state: nextState,
         priority,
         blocked_reason: null,
         project_id: projectId,
@@ -296,7 +350,9 @@ export async function addTask({ body, cookie, set }) {
     await logTaskActivity({
         task_id: taskId,
         user_id: currentUser.id,
-        activity: "Created task",
+        activity: sprintWeekStart
+            ? `Created task for sprint week starting ${sprintWeekStart}`
+            : "Created task in backlog",
     });
 
     const task = await getTaskById({ id: taskId });
@@ -464,7 +520,7 @@ export async function updateTask({ body, cookie, set }) {
         set.status = 400;
         return { error: expectedHoursResult.error };
     }
-    const actualHoursResult = validateTaskHours(body.actual_hours, "Actual hours");
+    const actualHoursResult = validateTaskHours(body.actual_hours, "Burnt efforts");
     if (actualHoursResult.error) {
         set.status = 400;
         return { error: actualHoursResult.error };
@@ -520,10 +576,12 @@ export async function updateTask({ body, cookie, set }) {
         return { error: sprintDateCheck.error };
     }
 
+    const nextDescription = trimmedOrNull(body.description);
+
     await updateTaskById({
         id: existingTask.id,
         title,
-        description: trimmedOrNull(body.description),
+        description: nextDescription,
         expected_hours: expectedHoursResult.hours,
         actual_hours: actualHoursResult.hours,
         charge: existingTask.charge,
@@ -559,6 +617,36 @@ export async function updateTask({ body, cookie, set }) {
     }
 
     const activities = [];
+    if (!sameOptionalText(existingTask.title, title)) {
+        activities.push(
+            `Changed title from "${formatActivityScalar(existingTask.title)}" to "${formatActivityScalar(title)}"`,
+        );
+    }
+    if (!sameOptionalText(existingTask.description, nextDescription)) {
+        activities.push(
+            nextDescription ? "Updated description" : "Cleared description",
+        );
+    }
+    if (!sameOptionalNumber(existingTask.expected_hours, expectedHoursResult.hours)) {
+        activities.push(
+            `Changed expected hours from ${formatActivityScalar(existingTask.expected_hours)} to ${formatActivityScalar(expectedHoursResult.hours)}`,
+        );
+    }
+    if (!sameOptionalNumber(existingTask.actual_hours, actualHoursResult.hours)) {
+        activities.push(
+            `Changed burnt efforts from ${formatActivityScalar(existingTask.actual_hours)} to ${formatActivityScalar(actualHoursResult.hours)}`,
+        );
+    }
+    if (!sameDateTime(existingTask.start_at, startAt)) {
+        activities.push(
+            `Changed start from ${formatActivityScalar(existingTask.start_at && String(existingTask.start_at).slice(0, 16))} to ${formatActivityScalar(startAt && String(startAt).slice(0, 16))}`,
+        );
+    }
+    if (!sameDateTime(existingTask.end_at, endAt)) {
+        activities.push(
+            `Changed end from ${formatActivityScalar(existingTask.end_at && String(existingTask.end_at).slice(0, 16))} to ${formatActivityScalar(endAt && String(endAt).slice(0, 16))}`,
+        );
+    }
     if (stateChanging) {
         activities.push(
             `Changed state from ${stateLabel(previousState)} to ${stateLabel(state)}`,
@@ -588,11 +676,20 @@ export async function updateTask({ body, cookie, set }) {
             );
         }
     }
+    const previousProjectId =
+        existingTask.project_id != null ? Number(existingTask.project_id) : null;
+    if (projectId !== previousProjectId) {
+        activities.push(
+            projectId != null
+                ? `Changed project to #${projectId}`
+                : "Cleared project",
+        );
+    }
     if (sprintChanging) {
         activities.push(
             sprintWeekStart
                 ? `Moved to sprint week starting ${sprintWeekStart}`
-                : "Removed from sprint week",
+                : "Moved to backlog (no sprint week)",
         );
     }
 

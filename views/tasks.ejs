@@ -345,8 +345,8 @@
                         </div>
                         <div class="col-md-4">
                             <label for="task-expected-hours" class="form-label">Expected hours</label>
-                            <input type="number" class="form-control" id="task-expected-hours" name="expected_hours" min="0" max="8" step="0.25" />
-                            <div class="form-text">Max 8 hours.</div>
+                            <input type="number" class="form-control" id="task-expected-hours" name="expected_hours" min="0" max="9" step="0.25" />
+                            <div class="form-text">Max 9 hours.</div>
                         </div>
                         <div class="col-md-4">
                             <label for="task-start-at" class="form-label">Start</label>
@@ -355,6 +355,21 @@
                         <div class="col-md-4">
                             <label for="task-end-at" class="form-label">End</label>
                             <input type="datetime-local" class="form-control" id="task-end-at" name="end_at" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="task-create-sprint-week" class="form-label">Sprint week</label>
+                            <select class="form-select" id="task-create-sprint-week" name="sprint_week_start">
+                                <option value="">Backlog (no week)</option>
+                                <% (sprintWeekOptions || []).forEach(function (week) { %>
+                                    <option
+                                        value="<%= week.value %>"
+                                        <%= week.isCurrent ? "selected" : "" %>
+                                    >
+                                        <%= week.label %><%= week.isCurrent ? " (current)" : "" %>
+                                    </option>
+                                <% }) %>
+                            </select>
+                            <div class="form-text">Defaults to this week. Clear for backlog.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="task-assignee" class="form-label">Assignee</label>
@@ -390,9 +405,6 @@
                                     </option>
                                 <% }) %>
                             </select>
-                        </div>
-                        <div class="col-12">
-                            <div class="form-text">New tasks land in Backlog. Pull them into a sprint from the Backlog page or board.</div>
                         </div>
                     </div>
                 </div>

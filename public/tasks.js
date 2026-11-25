@@ -787,6 +787,20 @@
         });
     }
 
+    const taskModal = document.getElementById("task-modal");
+    const createSprintWeekSelect = document.getElementById("task-create-sprint-week");
+    taskModal?.addEventListener("show.bs.modal", () => {
+        if (!createSprintWeekSelect) return;
+        const week = selectedSprintWeek || window.getMondayDate?.(new Date()) || "";
+        if (!week) return;
+        const hasOption = Array.from(createSprintWeekSelect.options).some(
+            (option) => option.value === week,
+        );
+        if (hasOption) {
+            createSprintWeekSelect.value = week;
+        }
+    });
+
     taskForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
         hideAlert(taskFormAlert);
@@ -809,12 +823,21 @@
             return;
         }
 
-        const payload = { title, priority, state: "backlog", sprint_week_start: null };
+        const sprintWeekRaw = createSprintWeekSelect?.value || "";
+        const sprintWeek = sprintWeekRaw.trim()
+            ? window.getMondayDate?.(sprintWeekRaw) || sprintWeekRaw.trim()
+            : null;
+        const payload = {
+            title,
+            priority,
+            state: sprintWeek ? "analyzing" : "backlog",
+            sprint_week_start: sprintWeek,
+        };
         if (description) payload.description = description;
         if (expectedHoursRaw !== "") {
             const expectedHours = Number(expectedHoursRaw);
-            if (!Number.isFinite(expectedHours) || expectedHours < 0 || expectedHours > 8) {
-                showAlert(taskFormAlert, "Expected hours must be between 0 and 8.", "danger");
+            if (!Number.isFinite(expectedHours) || expectedHours < 0 || expectedHours > 9) {
+                showAlert(taskFormAlert, "Expected hours must be between 0 and 9.", "danger");
                 return;
             }
             payload.expected_hours = expectedHours;
@@ -834,6 +857,31 @@
                 return;
             }
             payload.end_at = endAt;
+        }
+        if (sprintWeek && (payload.start_at || payload.end_at)) {
+            const sunday = window.getSundayDate?.(sprintWeek);
+            const startKey = payload.start_at ? String(payload.start_at).slice(0, 10) : null;
+            const endKey = payload.end_at ? String(payload.end_at).slice(0, 10) : null;
+            if (startKey && (startKey < sprintWeek || startKey > sunday)) {
+                showAlert(
+                    taskFormAlert,
+                    `Start must fall within the sprint week (${sprintWeek} to ${sunday}).`,
+                    "danger",
+                );
+                return;
+            }
+            if (endKey && (endKey < sprintWeek || endKey > sunday)) {
+                showAlert(
+                    taskFormAlert,
+                    `End must fall within the sprint week (${sprintWeek} to ${sunday}).`,
+                    "danger",
+                );
+                return;
+            }
+        }
+        if (payload.start_at && payload.end_at && String(payload.start_at) > String(payload.end_at)) {
+            showAlert(taskFormAlert, "Start must be before end.", "danger");
+            return;
         }
         if (assigneeRaw) payload.assignee_user_id = Number(assigneeRaw);
         if (isTaskAdmin && projectRaw) payload.project_id = Number(projectRaw);

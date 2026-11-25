@@ -68,8 +68,8 @@
             if (!Number.isFinite(expectedHours) || expectedHours < 0) {
                 return { error: "Enter valid expected hours." };
             }
-            if (expectedHours > 8) {
-                return { error: "Expected hours cannot be more than 8." };
+            if (expectedHours > 9) {
+                return { error: "Expected hours cannot be more than 9." };
             }
             payload.expected_hours = expectedHours;
         } else {
@@ -81,8 +81,8 @@
             if (!Number.isFinite(actualHours) || actualHours < 0) {
                 return { error: "Enter valid burnt efforts." };
             }
-            if (actualHours > 8) {
-                return { error: "Burnt efforts cannot be more than 8." };
+            if (actualHours > 9) {
+                return { error: "Burnt efforts cannot be more than 9." };
             }
             payload.actual_hours = actualHours;
         } else {
@@ -379,7 +379,7 @@
         const deleteAttachmentButton = event.target.closest(".task-attachment-delete-btn");
         if (!deleteAttachmentButton) return;
 
-        const listItem = deleteAttachmentButton.closest("li[data-id]");
+        const listItem = deleteAttachmentButton.closest("tr[data-id]");
         const attachmentId = Number(listItem?.dataset.id || 0);
         if (!(attachmentId >= 1)) return;
 

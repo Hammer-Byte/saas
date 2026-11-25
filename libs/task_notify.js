@@ -56,6 +56,45 @@ export function notifyTaskAssigned({ task, assigneeUser, assignedByUser }) {
     }
 }
 
+export function notifyTaskOverdue({ task, recipientUser, reasonLabel }) {
+    try {
+        const recipient = String(
+            recipientUser?.personal_email || recipientUser?.email || "",
+        ).trim();
+        if (!recipient) {
+            logger.error("notifyTaskOverdue: recipient has no email");
+            return false;
+        }
+
+        const recipientName =
+            recipientUser?.full_name || recipientUser?.email || "there";
+
+        const html = filer.prepareTemplated("templates/task_overdue_alert.html", {
+            recipient_name: recipientName,
+            task_title: task.title || "—",
+            task_state: stateLabel(task.state),
+            task_priority: priorityLabel(task.priority),
+            task_end_at: task.end_at || "—",
+            overdue_reason: reasonLabel || "Timeline or sprint week has passed",
+            record_id: task.id,
+            task_url: taskUrl(task.id),
+            app_name: "HammerByte",
+        });
+
+        transporter.transport({
+            recipient,
+            subject: `Overdue task — ${task.title || `#${task.id}`}`,
+            body: html,
+            html_enabled: true,
+        });
+        logger.info(`task overdue alert queued for ${recipient} (task #${task.id})`);
+        return true;
+    } catch (error) {
+        logger.error(`notifyTaskOverdue: ${error}`);
+        return false;
+    }
+}
+
 export function notifyTaskReviewRequested({ task, reviewerUser, requestedByUser }) {
     try {
         const recipient = String(reviewerUser?.email || "").trim();

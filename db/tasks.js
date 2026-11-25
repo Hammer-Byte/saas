@@ -307,3 +307,55 @@ export async function deleteTaskById({ id }) {
         logger.error(`deleteTaskById: ${error}`);
     });
 }
+
+export async function getTasksPendingOverdueAlerts({ now, today, alert_cutoff }) {
+    return await executeSQLQuery(
+        (sql) => sql`
+            SELECT
+                TASKS.*,
+                ASSIGNEE.full_name AS assignee_full_name,
+                ASSIGNEE.email AS assignee_email,
+                ASSIGNEE.personal_email AS assignee_personal_email,
+                REVIEWER.full_name AS reviewer_full_name,
+                REVIEWER.email AS reviewer_email,
+                REVIEWER.personal_email AS reviewer_personal_email,
+                CREATOR.full_name AS created_by_full_name,
+                CREATOR.email AS created_by_email,
+                CREATOR.personal_email AS created_by_personal_email
+            FROM TASKS
+            LEFT JOIN USERS AS ASSIGNEE ON ASSIGNEE.id = TASKS.assignee_user_id
+            LEFT JOIN USERS AS REVIEWER ON REVIEWER.id = TASKS.reviewer_user_id
+            INNER JOIN USERS AS CREATOR ON CREATOR.id = TASKS.created_by_user_id
+            WHERE TASKS.state <> 'done'
+              AND (
+                    (TASKS.end_at IS NOT NULL AND TASKS.end_at < ${now})
+                 OR (
+                        TASKS.sprint_week_start IS NOT NULL
+                    AND DATE_ADD(TASKS.sprint_week_start, INTERVAL 6 DAY) < ${today}
+                    )
+              )
+              AND (
+                    TASKS.overdue_alert_sent_on IS NULL
+                 OR TASKS.overdue_alert_sent_on <= ${alert_cutoff}
+              )
+            ORDER BY TASKS.id ASC
+        `,
+    )
+        .then((result) => Array.from(result ?? []))
+        .catch((error) => {
+            logger.error(`getTasksPendingOverdueAlerts: ${error}`);
+            return [];
+        });
+}
+
+export async function stampTaskOverdueAlertSentOn({ id, sent_on }) {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE TASKS
+            SET overdue_alert_sent_on = ${sent_on}
+            WHERE id = ${id}
+        `,
+    ).catch((error) => {
+        logger.error(`stampTaskOverdueAlertSentOn: ${error}`);
+    });
+}
