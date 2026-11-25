@@ -43,8 +43,8 @@
 
 <%- include('common/app-navbar', { wide: true }) %>
 
-<main class="bg-light gem-tenders-page">
-    <div class="container-fluid px-3 px-lg-4 py-3 gem-tenders-page-inner">
+<main class="hb-main gem-tenders-page">
+    <div class="container-fluid hb-page-wide gem-tenders-page-inner">
         <div class="gem-tenders-page-header mb-3 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
@@ -349,7 +349,7 @@
         </div>
 
         <div
-            class="offcanvas offcanvas-end gem-tenders-filters-panel"
+            class="offcanvas offcanvas-end hb-filter-offcanvas"
             tabindex="-1"
             id="gem-tenders-filters-panel"
             aria-labelledby="gem-tenders-filters-panel-label"
@@ -389,7 +389,7 @@
                         </button>
                     </li>
                 </ul>
-                <div class="tab-content flex-grow-1 overflow-auto">
+                <div class="tab-content hb-filter-offcanvas-scroll">
                     <div
                         class="tab-pane fade show active p-3 gem-tenders-filters-form"
                         id="gem-tenders-pane-filters"
@@ -512,13 +512,13 @@
                             <div class="col-12 col-md-6">
                                 <span class="form-label d-block">Stage</span>
                                 <div
-                                    class="dropdown gem-multi-filter"
+                                    class="dropdown hb-multi-filter"
                                     id="gem-filter-pipeline-stage"
                                     data-empty-label="All stages"
                                     data-chip-label="Stage"
                                 >
                                     <button
-                                        class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
+                                        class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start hb-multi-filter-toggle"
                                         type="button"
                                         data-bs-toggle="dropdown"
                                         data-bs-auto-close="outside"
@@ -527,7 +527,7 @@
                                     >
                                         <span class="gem-multi-filter-label">All stages</span>
                                     </button>
-                                    <div class="dropdown-menu gem-multi-filter-menu gem-multi-filter-menu-wide p-2 shadow">
+                                    <div class="dropdown-menu p-2 shadow">
                                         <% Object.keys(pipelineStageLabels).forEach(function (stage) { %>
                                             <div class="form-check">
                                                 <input
@@ -550,9 +550,9 @@
                         <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <span class="form-label d-block">Assignee</span>
-                                <div class="dropdown gem-multi-filter" id="gem-filter-assignee" data-empty-label="All assignees" data-chip-label="Assignee">
+                                <div class="dropdown hb-multi-filter" id="gem-filter-assignee" data-empty-label="All assignees" data-chip-label="Assignee">
                                     <button
-                                        class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
+                                        class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start hb-multi-filter-toggle"
                                         type="button"
                                         data-bs-toggle="dropdown"
                                         data-bs-auto-close="outside"
@@ -561,7 +561,7 @@
                                     >
                                         <span class="gem-multi-filter-label">All assignees</span>
                                     </button>
-                                    <div class="dropdown-menu gem-multi-filter-menu gem-multi-filter-menu-wide dropdown-menu-end p-2 shadow">
+                                    <div class="dropdown-menu p-2 shadow">
                                         <div class="form-check">
                                             <input
                                                 class="form-check-input gem-multi-filter-option"
@@ -596,9 +596,9 @@
                         <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <span class="form-label d-block">Category</span>
-                                <div class="dropdown gem-multi-filter" id="gem-filter-category" data-empty-label="All categories" data-chip-label="Category">
+                                <div class="dropdown hb-multi-filter" id="gem-filter-category" data-empty-label="All categories" data-chip-label="Category">
                                     <button
-                                        class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start gem-multi-filter-toggle"
+                                        class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start hb-multi-filter-toggle"
                                         type="button"
                                         data-bs-toggle="dropdown"
                                         data-bs-auto-close="outside"
@@ -607,7 +607,7 @@
                                     >
                                         <span class="gem-multi-filter-label">All categories</span>
                                     </button>
-                                    <div class="dropdown-menu gem-multi-filter-menu gem-multi-filter-menu-wide p-2 shadow">
+                                    <div class="dropdown-menu p-2 shadow">
                                         <div class="form-check">
                                             <input
                                                 class="form-check-input gem-multi-filter-option"
@@ -812,15 +812,14 @@
             </div>
             <div
                 id="gem-tenders-table-wrap"
-                class="gem-tenders-list-scroll d-none"
+                class="gem-tenders-list-scroll hb-table-scroll table-responsive d-none"
                 aria-busy="true"
             >
-                <div class="table-responsive">
-                    <table
-                        class="table table-hover align-middle mb-0 small"
-                        id="gem-tenders-table"
-                        data-stage-labels="<%= JSON.stringify(stageLabels).replace(/"/g, '&quot;') %>"
-                    >
+                <table
+                    class="table table-hover align-middle mb-0 small hb-table-sticky"
+                    id="gem-tenders-table"
+                    data-stage-labels="<%= JSON.stringify(stageLabels).replace(/"/g, '&quot;') %>"
+                >
                         <thead class="table-light">
                             <tr>
                                 <th scope="col" data-col="select" style="width: 2rem;">
@@ -962,9 +961,8 @@
                                     </td>
                                 </tr>
                             <% }) %>
-                        </tbody>
-                    </table>
-                </div>
+                </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -1059,9 +1057,6 @@
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
     }
-    .gem-tenders-filters-panel {
-        width: min(24rem, 100vw);
-    }
     .gem-tenders-filters-form .form-label {
         font-size: 0.8rem;
         margin-bottom: 0.3rem;
@@ -1106,12 +1101,6 @@
     .gem-tenders-list-scroll {
         flex: 1 1 auto;
         min-height: 0;
-        overflow: auto;
-    }
-    #gem-tenders-table thead th {
-        position: sticky;
-        top: 0;
-        z-index: 1;
     }
     #gem-tenders-table thead th.gem-tenders-sortable {
         cursor: pointer;
@@ -1136,22 +1125,6 @@
     th.gem-tenders-sortable[aria-sort="descending"] .gem-tenders-sort-indicator::before {
         content: "▼";
         opacity: 0.85;
-    }
-    .gem-multi-filter .gem-multi-filter-toggle {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .gem-multi-filter-menu {
-        max-height: 240px;
-        overflow: auto;
-        min-width: 100%;
-    }
-    .gem-multi-filter-menu-wide {
-        min-width: 18rem;
-    }
-    .gem-multi-filter-menu .form-check {
-        margin-bottom: 0.25rem;
     }
     .gem-tenders-buyer-col {
         max-width: 10rem;
@@ -1347,7 +1320,7 @@
 <div class="modal fade" id="gem-public-text-modal" tabindex="-1" aria-labelledby="gem-public-text-modal-label" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            <form id="gem-public-text-form" novalidate>
+            <form id="gem-public-text-form" class="hb-modal-scrollable-form" novalidate>
                 <div class="modal-header">
                     <h2 class="modal-title h5" id="gem-public-text-modal-label">Edit text</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

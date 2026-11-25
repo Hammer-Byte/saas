@@ -158,7 +158,7 @@
 <div class="modal fade" id="user-modal" tabindex="-1" aria-labelledby="user-modal-label" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable">
         <div class="modal-content">
-            <form id="user-form" class="user-modal-form" novalidate>
+            <form id="user-form" class="hb-modal-scrollable-form" novalidate>
                 <div class="modal-header">
                     <h2 class="modal-title h5" id="user-modal-label">Add user</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -337,18 +337,6 @@
 </div>
 
 <style>
-    /* Form sits between modal-content and header/body/footer; keep Bootstrap scroll layout working. */
-    #user-modal .modal-dialog-scrollable .modal-content > .user-modal-form {
-        display: flex;
-        flex-direction: column;
-        max-height: inherit;
-        overflow: hidden;
-    }
-
-    #user-modal .modal-dialog-scrollable .modal-body {
-        overflow-y: auto;
-    }
-
     #users-table thead th.users-sortable {
         cursor: pointer;
         user-select: none;

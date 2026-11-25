@@ -43,10 +43,3 @@ export function normalizeInquiryState(value) {
     }
     return INQUIRY_STATES.NEW;
 }
-
-export function displayInquirySource(source) {
-    if (!source) {
-        return "website";
-    }
-    return source;
-}

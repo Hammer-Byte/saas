@@ -97,14 +97,7 @@
 
     let personChart = null;
 
-    function escapeHtml(value) {
-        return String(value ?? "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#39;");
-    }
+    const escapeHtml = (value) => window.escapeHtml(value);
 
     function formatDayLabel(dateKey) {
         return window.getReadableDate?.("DD/MM", dateKey) || dateKey;

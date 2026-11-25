@@ -27,6 +27,10 @@ alwaysApply: false
   - `comments-panel` — detail-page comments
   - `form-modal` — standard modal chrome
 - Page shells: `.hb-main` + `.hb-page` (standard) or `.hb-page-wide` (dense workflow lists).
+- Overflow widgets (do not invent page-local clip CSS):
+  - Filter sidebars: `.hb-filter-offcanvas` + scroll region `.hb-filter-offcanvas-scroll`; multi-selects `.hb-multi-filter` / `.hb-multi-filter-toggle` with `data-bs-display="static"` and in-flow menus (no `dropdown-menu-end`, no fixed min-width).
+  - Tall form modals: `modal-dialog-scrollable` + form class `.hb-modal-scrollable-form` when the `<form>` wraps header/body/footer (`common/form-modal` adds this automatically when the dialog class includes `modal-dialog-scrollable`).
+  - Sticky tables: one scroll shell `.hb-table-scroll` + `.hb-table-sticky` on the `<table>` (avoid nested overflow clippers).
 
 ## Page structure
 
@@ -49,7 +53,7 @@ alwaysApply: false
 - **Actions:** edit/delete use `common/icon-actions` (same SVG buttons everywhere). Sentence case: `Add user`, `Save`, `Delete`.
 - **Detail pages:** row click opens detail; collaboration detail pages use `common/comments-panel` labeled **Comments**.
 - **Copy:** breadcrumbs `App / Section` or `App / Section / Record`; column headers consistent (`Created On`, `Due Date`).
-- **Modals:** `h2.modal-title.h5`; Cancel `btn-outline-secondary`; Save `btn-primary`.
+- **Modals:** `h2.modal-title.h5`; Cancel `btn-outline-secondary`; Save `btn-primary`. Large forms that wrap header/body/footer use `modal-dialog-scrollable` + `.hb-modal-scrollable-form`.
 
 ## UI patterns
 

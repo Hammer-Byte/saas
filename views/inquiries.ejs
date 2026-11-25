@@ -24,8 +24,8 @@
 
 <%- include('common/app-navbar', { wide: true }) %>
 
-<main class="bg-light inquiries-page">
-    <div class="container-fluid px-3 px-lg-4 py-3 inquiries-page-inner">
+<main class="hb-main inquiries-page">
+    <div class="container-fluid hb-page-wide">
         <div class="mb-3 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
@@ -98,7 +98,7 @@
         <% } %>
 
         <div
-            class="offcanvas offcanvas-end inquiries-filters-panel"
+            class="offcanvas offcanvas-end hb-filter-offcanvas"
             tabindex="-1"
             id="inquiries-filters-panel"
             aria-labelledby="inquiries-filters-panel-label"
@@ -108,7 +108,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
             <div class="offcanvas-body d-flex flex-column p-0">
-                <div class="flex-grow-1 overflow-auto p-3" id="inquiries-filters-form">
+                <div class="hb-filter-offcanvas-scroll p-3" id="inquiries-filters-form">
                     <div class="mb-3">
                         <div class="row g-2">
                             <div class="col-6">
@@ -189,12 +189,12 @@
                         <span class="form-label d-block">State</span>
                         <div class="d-flex gap-1 align-items-stretch">
                             <div
-                                class="dropdown inquiries-multi-filter flex-grow-1"
+                                class="dropdown hb-multi-filter flex-grow-1"
                                 id="inquiries-filter-state"
                                 data-empty-label="All states"
                             >
                                 <button
-                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start inquiries-multi-filter-toggle"
+                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start hb-multi-filter-toggle"
                                     type="button"
                                     data-bs-toggle="dropdown"
                                     data-bs-auto-close="outside"
@@ -203,7 +203,7 @@
                                 >
                                     <span class="inquiries-multi-filter-label">All states</span>
                                 </button>
-                                <div class="dropdown-menu inquiries-multi-filter-menu p-2 shadow">
+                                <div class="dropdown-menu p-2 shadow">
                                     <% stateValues.forEach(function (state) { %>
                                         <div class="form-check">
                                             <input
@@ -234,12 +234,12 @@
                         <span class="form-label d-block">Source</span>
                         <div class="d-flex gap-1 align-items-stretch">
                             <div
-                                class="dropdown inquiries-multi-filter flex-grow-1"
+                                class="dropdown hb-multi-filter flex-grow-1"
                                 id="inquiries-filter-source"
                                 data-empty-label="All sources"
                             >
                                 <button
-                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start inquiries-multi-filter-toggle"
+                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start hb-multi-filter-toggle"
                                     type="button"
                                     data-bs-toggle="dropdown"
                                     data-bs-auto-close="outside"
@@ -248,7 +248,7 @@
                                 >
                                     <span class="inquiries-multi-filter-label">All sources</span>
                                 </button>
-                                <div class="dropdown-menu inquiries-multi-filter-menu p-2 shadow">
+                                <div class="dropdown-menu p-2 shadow">
                                     <% Object.keys(sourceLabels).forEach(function (source) { %>
                                         <div class="form-check">
                                             <input
@@ -279,12 +279,12 @@
                         <span class="form-label d-block">Assignee</span>
                         <div class="d-flex gap-1 align-items-stretch">
                             <div
-                                class="dropdown inquiries-multi-filter flex-grow-1"
+                                class="dropdown hb-multi-filter flex-grow-1"
                                 id="inquiries-filter-assignee"
                                 data-empty-label="All assignees"
                             >
                                 <button
-                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start inquiries-multi-filter-toggle"
+                                    class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start hb-multi-filter-toggle"
                                     type="button"
                                     data-bs-toggle="dropdown"
                                     data-bs-auto-close="outside"
@@ -293,7 +293,7 @@
                                 >
                                     <span class="inquiries-multi-filter-label">All assignees</span>
                                 </button>
-                                <div class="dropdown-menu inquiries-multi-filter-menu p-2 shadow">
+                                <div class="dropdown-menu p-2 shadow">
                                     <div class="form-check">
                                         <input
                                             class="form-check-input inquiries-multi-filter-option"
@@ -368,9 +368,9 @@
 
         <div id="inquiries-table-wrap" class="card border-0 shadow-sm d-none">
             <div class="card-body p-0">
-                <div class="table-responsive inquiries-table-scroll">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light sticky-top">
+                <div class="table-responsive inquiries-table-scroll hb-table-scroll">
+                    <table class="table table-hover align-middle mb-0 hb-table-sticky">
+                        <thead class="table-light">
                             <tr>
                                 <% if (isAdmin) { %>
                                     <th scope="col" style="width: 2.5rem;">
@@ -512,10 +512,6 @@
     }
     .inquiries-table-scroll {
         max-height: calc(100vh - 220px);
-        overflow: auto;
-    }
-    .inquiries-table-scroll thead th {
-        z-index: 1;
     }
     #inquiries-bulk-state-bar {
         position: sticky;
@@ -533,28 +529,6 @@
     }
     .input-group .inquiries-filter-clear-x {
         width: 2rem;
-    }
-    .inquiries-multi-filter .inquiries-multi-filter-toggle {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    /* Keep checkbox menus in document flow so offcanvas overflow does not hide them. */
-    .inquiries-filters-panel .inquiries-multi-filter .dropdown-menu {
-        position: static !important;
-        transform: none !important;
-        float: none;
-        width: 100%;
-        margin-top: 0.35rem;
-        max-height: 220px;
-        overflow: auto;
-        display: none;
-    }
-    .inquiries-filters-panel .inquiries-multi-filter .dropdown-menu.show {
-        display: block;
-    }
-    .inquiries-multi-filter-menu .form-check {
-        margin-bottom: 0.25rem;
     }
 </style>
 

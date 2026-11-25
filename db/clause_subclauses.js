@@ -97,22 +97,6 @@ export async function getMaxClauseSubclauseViewIndexByClauseId({ clause_id }) {
         });
 }
 
-export async function getClauseSubclausesByClauseId({ clause_id }) {
-    return await executeSQLQuery(
-        (sql) => sql`
-            SELECT *
-            FROM CLAUSE_SUBCLAUSES
-            WHERE clause_id = ${clause_id}
-            ORDER BY view_index ASC, id ASC
-        `,
-    )
-        .then((result) => Array.from(result ?? []))
-        .catch((error) => {
-            logger.error(`getClauseSubclausesByClauseId: ${error}`);
-            return [];
-        });
-}
-
 export async function getClauseSubclausesByContractId({ contract_id }) {
     return await executeSQLQuery(
         (sql) => sql`

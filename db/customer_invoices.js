@@ -169,9 +169,9 @@ export async function getCustomerInvoicesByProjectId({
                 GROUP BY customer_invoice_id
             ) payments ON payments.customer_invoice_id = CUSTOMER_INVOICES.id
             WHERE CUSTOMER_INVOICES.project_id = ${project_id}
-              AND (${start} IS NULL OR DATE(CUSTOMER_INVOICES.created_on) >= ${start})
-              AND (${end} IS NULL OR DATE(CUSTOMER_INVOICES.created_on) <= ${end})
-            ORDER BY CUSTOMER_INVOICES.created_on DESC
+              AND (${start} IS NULL OR CUSTOMER_INVOICES.due_date >= ${start})
+              AND (${end} IS NULL OR CUSTOMER_INVOICES.due_date <= ${end})
+            ORDER BY CUSTOMER_INVOICES.due_date DESC, CUSTOMER_INVOICES.id DESC
         `,
     )
         .then((result) => Array.from(result ?? []))

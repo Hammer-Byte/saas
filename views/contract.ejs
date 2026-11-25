@@ -451,7 +451,7 @@
 <div class="modal fade" id="transfer-user-modal" tabindex="-1" aria-labelledby="transfer-user-modal-label" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable">
         <div class="modal-content">
-            <form id="transfer-user-form" data-contract-id="<%= contract.id %>" novalidate>
+            <form id="transfer-user-form" class="hb-modal-scrollable-form" data-contract-id="<%= contract.id %>" novalidate>
                 <div class="modal-header">
                     <h2 class="modal-title h5" id="transfer-user-modal-label">Transfer to user</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -639,9 +639,9 @@
 </div>
 
 <div class="modal fade" id="subclause-modal" tabindex="-1" aria-labelledby="subclause-modal-label" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            <form id="subclause-form" novalidate>
+            <form id="subclause-form" class="hb-modal-scrollable-form" novalidate>
                 <div class="modal-header">
                     <h2 class="modal-title h5" id="subclause-modal-label">Add subclause</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

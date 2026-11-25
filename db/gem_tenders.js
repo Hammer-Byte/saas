@@ -235,22 +235,6 @@ export async function clearGemTenderCachedSourceMedia({ id, specification_links 
     });
 }
 
-export async function getGemTenderByTenderId({ tender_id }) {
-    return await executeSQLQuery(
-        (sql) => sql`
-            SELECT *
-            FROM GEM_TENDERS
-            WHERE tender_id = ${tender_id}
-            LIMIT 1
-        `,
-    )
-        .then((result) => (result.length ? result[0] : null))
-        .catch((error) => {
-            logger.error(`getGemTenderByTenderId: ${error}`);
-            return null;
-        });
-}
-
 /** All known GeM bid numbers — used to skip re-download during scan. */
 export async function getAllGemTenderIds() {
     return await executeSQLQuery(

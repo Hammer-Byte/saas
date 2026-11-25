@@ -519,14 +519,7 @@
     );
     let sortState = { key: null, direction: "asc" };
 
-    function escapeHtml(value) {
-        return String(value ?? "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#39;");
-    }
+    const escapeHtml = (value) => window.escapeHtml(value);
 
     function hydrateReadableDates(root = tableBody) {
         root?.querySelectorAll?.("[data-readable-date]").forEach((element) => {

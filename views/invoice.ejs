@@ -316,9 +316,9 @@
 </main>
 
 <div class="modal fade" id="invoice-item-modal" tabindex="-1" aria-labelledby="invoice-item-modal-label" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            <form id="invoice-item-form" data-invoice-id="<%= invoice.id %>" novalidate>
+            <form id="invoice-item-form" class="hb-modal-scrollable-form" data-invoice-id="<%= invoice.id %>" novalidate>
                 <div class="modal-header">
                     <h2 class="modal-title h5" id="invoice-item-modal-label">Add item</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

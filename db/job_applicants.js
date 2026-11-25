@@ -69,14 +69,6 @@ export async function updateJobApplicantDecisionById({ id, decision }) {
     });
 }
 
-export async function deleteJobApplicantById({ id }) {
-    await executeSQLQuery((sql) => sql`DELETE FROM JOB_APPLICANTS WHERE id = ${id}`).catch(
-        (error) => {
-            logger.error(`deleteJobApplicantById: ${error}`);
-        },
-    );
-}
-
 export async function getJobApplicantById({ id }) {
     return await executeSQLQuery(
         (sql) => sql`

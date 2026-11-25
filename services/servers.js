@@ -1,7 +1,5 @@
 import { logger } from "@hammerbyte/utils";
 import { AUTHORITIES } from "../constants.js";
-import { getCustomerEmailsByCustomerId } from "../db/customer_emails.js";
-import { getCustomerPhonesByCustomerId } from "../db/customer_phones.js";
 import { getCustomerProjectById } from "../db/customer_projects.js";
 import { createServerDataerRun } from "../db/server_dataer_runs.js";
 import { createServerDberRun } from "../db/server_dber_runs.js";
@@ -25,7 +23,7 @@ import {
     evaluateDberAlerts,
     evaluateMetricerAlerts,
 } from "../libs/server_alert_notify.js";
-import { buildAlertCandidates, parseAlertConfig } from "../libs/server_alerts.js";
+import { parseAlertConfig } from "../libs/server_alerts.js";
 import { parseServersBasicCredentials } from "../libs/servers_basic_credentials.js";
 import { generateOTP } from "../libs/utils.js";
 import { getCurrentUser } from "./authentication.js";
@@ -484,25 +482,6 @@ export async function unmapServerTag({ params, cookie, set }) {
     const server = await getServerById({ id });
     set.status = 200;
     return { message: "Tag unmapped", server };
-}
-
-export async function loadServerAlertCandidates({ server }) {
-    if (!server?.project_id) {
-        return [];
-    }
-    const project = await getCustomerProjectById({ id: server.project_id });
-    if (!project?.customer_id) {
-        return [];
-    }
-    const [emails, phones] = await Promise.all([
-        getCustomerEmailsByCustomerId({ customer_id: project.customer_id }),
-        getCustomerPhonesByCustomerId({ customer_id: project.customer_id }),
-    ]);
-    return buildAlertCandidates({
-        customerName: server.customer_name || "Contact",
-        emails,
-        phones,
-    });
 }
 
 export async function updateServerAlerts({ params, body, cookie, set }) {

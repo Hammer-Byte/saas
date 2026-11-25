@@ -2,8 +2,8 @@
 
 <%- include('common/app-navbar') %>
 
-<main class="bg-light min-vh-100">
-    <div class="container py-5" id="jobs-page">
+<main class="hb-main">
+    <div class="container hb-page" id="jobs-page">
         <div class="mb-4">
             <p class="text-secondary small mb-1">
                 <a href="/app" class="text-decoration-none">App</a> / Jobs
@@ -171,7 +171,7 @@
 <div class="modal fade" id="job-modal" tabindex="-1" aria-labelledby="job-modal-label" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            <form id="job-form" novalidate>
+            <form id="job-form" class="hb-modal-scrollable-form" novalidate>
                 <div class="modal-header">
                     <h2 class="modal-title h5" id="job-modal-label">Add job</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
