@@ -1,6 +1,6 @@
 (() => {
     // Bumped when a filter default changes so old saved filters don't override it.
-    const FILTERS_STORAGE_KEY = "gem-tenders-filters-v7";
+    const FILTERS_STORAGE_KEY = "gem-tenders-filters-v8";
     const COLUMNS_STORAGE_KEY = "gem-tenders-columns";
     const ALWAYS_VISIBLE_COLUMNS = new Set(["select", "tenderId"]);
     const DEFAULT_VISIBLE_COLUMNS = [
@@ -21,20 +21,40 @@
     const fromInput = document.getElementById("gem-tenders-from");
     const toInput = document.getElementById("gem-tenders-to");
     const categoryFilter = document.getElementById("gem-filter-category");
+    const statusCategoryFilter = document.getElementById("gem-filter-status-category");
     const pipelineStageFilter = document.getElementById("gem-filter-pipeline-stage");
     const pipelineStageWrap = document.getElementById("gem-filter-pipeline-wrap");
-    const eligibilityFilterRoot = document.getElementById("gem-filter-eligibility");
     const assigneeFilter = document.getElementById("gem-filter-assignee");
-    const multiFilters = [categoryFilter, pipelineStageFilter, assigneeFilter].filter(Boolean);
-    const includeHiddenFilter = document.getElementById("gem-filter-include-hidden");
+    const multiFilters = [
+        statusCategoryFilter,
+        categoryFilter,
+        pipelineStageFilter,
+        assigneeFilter,
+    ].filter(Boolean);
     const quantityUptoFilter = document.getElementById("gem-filter-quantity-upto");
     const lockedFilter = document.getElementById("gem-filter-locked");
-    const ELIGIBILITY_FILTER_VALUES = new Set(["eligible", "ineligible", "out_of_scope"]);
-    const ELIGIBILITY_FILTER_LABELS = {
-        eligible: "Eligible",
-        ineligible: "Not eligible",
-        out_of_scope: "Out of scope",
-    };
+    const STATUS_CATEGORY_VALUES = new Set([
+        "out_of_scope",
+        "ineligible",
+        "eligible",
+        "requires_review",
+        "filed",
+        "unattended",
+        "missed",
+        "untouched",
+    ]);
+    const HIDDEN_STATUS_CATEGORIES = new Set([
+        "out_of_scope",
+        "ineligible",
+        "unattended",
+        "missed",
+    ]);
+    const WORKABLE_PIPELINE_STAGES = new Set([
+        "waiting_for_docs",
+        "waiting_for_gem",
+        "waiting_for_quote",
+        "preparing_docs",
+    ]);
 
     function normalizePositiveNumber(raw) {
         const value = Number(String(raw ?? "").trim());
@@ -46,45 +66,46 @@
         return ["locked", "unlocked"].includes(raw) ? raw : "";
     }
 
-    function normalizeEligibilityFilter(raw) {
-        const value = String(raw || "").trim();
-        return ELIGIBILITY_FILTER_VALUES.has(value) ? value : "";
+    function normalizeStatusCategories(values) {
+        return (Array.isArray(values) ? values : [])
+            .map((value) => String(value || "").trim())
+            .filter((value) => STATUS_CATEGORY_VALUES.has(value));
     }
 
-    function selectedEligibilityRadio() {
-        const checked = eligibilityFilterRoot?.querySelector(
-            'input[name="gem-filter-eligibility"]:checked',
+    function statusCategoriesNeedPipeline(statusCategories) {
+        return (
+            statusCategories.includes("eligible") ||
+            statusCategories.includes("requires_review")
         );
-        return normalizeEligibilityFilter(checked?.value);
     }
 
-    function setEligibilityRadio(value) {
-        const next = normalizeEligibilityFilter(value);
-        const inputs = eligibilityFilterRoot?.querySelectorAll(
-            'input[name="gem-filter-eligibility"]',
-        );
-        if (!inputs?.length) return;
-        let matched = false;
-        for (const input of inputs) {
-            const isMatch = String(input.value || "") === next;
-            input.checked = isMatch;
-            if (isMatch) matched = true;
-        }
-        if (!matched) {
-            const any = eligibilityFilterRoot.querySelector(
-                'input[name="gem-filter-eligibility"][value=""]',
-            );
-            if (any) any.checked = true;
-        }
-        syncPipelineStageVisibility(next);
-    }
-
-    function syncPipelineStageVisibility(eligibility = selectedEligibilityRadio()) {
-        const show = eligibility === "eligible";
+    function syncPipelineStageVisibility(statusCategories) {
+        const selected =
+            statusCategories != null
+                ? normalizeStatusCategories(statusCategories)
+                : selectedMultiValues(statusCategoryFilter);
+        const show = statusCategoriesNeedPipeline(selected);
         pipelineStageWrap?.classList.toggle("d-none", !show);
         if (!show) {
             setSelectedMultiValues(pipelineStageFilter, []);
         }
+    }
+
+    /** Bucket used by the Status multi-select (not the same as row data-stage). */
+    function rowFilterCategory(row) {
+        const stage = String(row.dataset.stage || "unassigned");
+        if (stage === "out_of_scope") return "out_of_scope";
+        if (stage === "ineligible") return "ineligible";
+        if (stage === "filed") return "filed";
+        if (stage === "unattended") return "unattended";
+        if (stage === "missed") return "missed";
+        if (stage === "requires_review" || row.dataset.requiresReview === "1") {
+            return "requires_review";
+        }
+        if (stage === "eligible" || WORKABLE_PIPELINE_STAGES.has(stage)) {
+            return "eligible";
+        }
+        return "untouched";
     }
     const resetFiltersBtn = document.getElementById("gem-filters-reset-btn");
     const refreshBtn = document.getElementById("gem-tenders-refresh-btn");
@@ -149,11 +170,10 @@
             from: from || "",
             to: to || "",
             categories: [],
-            eligibility: "",
+            statusCategories: ["untouched"],
             pipelineStages: [],
             assignees: [],
             search: "",
-            includeHidden: false,
             quantityUpto: "",
             locked: "",
             view: "all",
@@ -272,17 +292,21 @@
             if (!column) continue;
             columns[column] = String(select.value || "").trim();
         }
-        const eligibility = selectedEligibilityRadio();
+        const statusCategories = normalizeStatusCategories(
+            selectedMultiValues(statusCategoryFilter),
+        );
         return {
             from: normalizeDateInput(fromInput?.value || "", pageFrom),
             to: normalizeDateInput(toInput?.value || "", pageTo),
             categories: selectedMultiValues(categoryFilter),
-            eligibility,
-            pipelineStages:
-                eligibility === "eligible" ? selectedMultiValues(pipelineStageFilter) : [],
+            statusCategories,
+            pipelineStages: statusCategoriesNeedPipeline(statusCategories)
+                ? selectedMultiValues(pipelineStageFilter).filter((stage) =>
+                      WORKABLE_PIPELINE_STAGES.has(stage),
+                  )
+                : [],
             assignees: selectedMultiValues(assigneeFilter),
             search: String(searchInput?.value || "").trim(),
-            includeHidden: !!includeHiddenFilter?.checked,
             quantityUpto: normalizePositiveNumber(quantityUptoFilter?.value),
             locked: normalizeLockedFilter(String(lockedFilter?.value || "")),
             view: QUICK_VIEWS.has(appliedFilters.view) ? appliedFilters.view : "all",
@@ -294,15 +318,16 @@
         if (!filters) return;
         if (fromInput && filters.from) fromInput.value = filters.from;
         if (toInput && filters.to) toInput.value = filters.to;
+        const statusCategories = normalizeStatusCategories(filters.statusCategories);
+        setSelectedMultiValues(statusCategoryFilter, statusCategories);
+        syncPipelineStageVisibility(statusCategories);
         setSelectedMultiValues(categoryFilter, filters.categories || []);
-        setEligibilityRadio(filters.eligibility || "");
         setSelectedMultiValues(
             pipelineStageFilter,
-            filters.eligibility === "eligible" ? filters.pipelineStages || [] : [],
+            statusCategoriesNeedPipeline(statusCategories) ? filters.pipelineStages || [] : [],
         );
         setSelectedMultiValues(assigneeFilter, filters.assignees || []);
         if (searchInput) searchInput.value = filters.search || "";
-        if (includeHiddenFilter) includeHiddenFilter.checked = !!filters.includeHidden;
         if (quantityUptoFilter) {
             quantityUptoFilter.value = normalizePositiveNumber(filters.quantityUpto);
         }
@@ -1256,18 +1281,14 @@
             });
         }
 
-        if (appliedFilters.eligibility) {
-            chips.push({
-                label: `Eligibility: ${ELIGIBILITY_FILTER_LABELS[appliedFilters.eligibility] || appliedFilters.eligibility}`,
-                clear: () => setEligibilityRadio(""),
-            });
-        }
-
         const multiChipSpecs = [
+            [statusCategoryFilter, appliedFilters.statusCategories],
             [categoryFilter, appliedFilters.categories],
             [
                 pipelineStageFilter,
-                appliedFilters.eligibility === "eligible"
+                statusCategoriesNeedPipeline(
+                    normalizeStatusCategories(appliedFilters.statusCategories),
+                )
                     ? appliedFilters.pipelineStages
                     : [],
             ],
@@ -1279,7 +1300,12 @@
             if (!labels.length) continue;
             chips.push({
                 label: `${root.dataset.chipLabel || "Filter"}: ${labels.join(", ")}`,
-                clear: () => setSelectedMultiValues(root, []),
+                clear: () => {
+                    setSelectedMultiValues(root, []);
+                    if (root === statusCategoryFilter) {
+                        syncPipelineStageVisibility([]);
+                    }
+                },
             });
         }
 
@@ -1312,14 +1338,6 @@
                 label: appliedFilters.locked === "locked" ? "Locked only" : "Not locked only",
                 clear: () => {
                     if (lockedFilter) lockedFilter.value = "";
-                },
-            });
-        }
-        if (!appliedFilters.includeHidden) {
-            chips.push({
-                label: "Hiding hidden tenders",
-                clear: () => {
-                    if (includeHiddenFilter) includeHiddenFilter.checked = true;
                 },
             });
         }
@@ -1388,12 +1406,13 @@
             .split(/\s+/)
             .filter(Boolean);
         const selectedCategories = (appliedFilters.categories || []).map(String);
-        const eligibility = normalizeEligibilityFilter(appliedFilters.eligibility);
+        const selectedStatusCategories = normalizeStatusCategories(
+            appliedFilters.statusCategories,
+        );
         const selectedPipelineStages = (appliedFilters.pipelineStages || [])
             .map(String)
-            .filter((stage) => PIPELINE_STAGES.has(stage));
+            .filter((stage) => WORKABLE_PIPELINE_STAGES.has(stage));
         const selectedAssignees = (appliedFilters.assignees || []).map(String);
-        const includeHidden = !!appliedFilters.includeHidden || !!searchMode;
         const lockedMode = String(appliedFilters.locked || "");
         const view = QUICK_VIEWS.has(appliedFilters.view) ? appliedFilters.view : "all";
         const quantityUptoRaw = String(appliedFilters.quantityUpto ?? "").trim();
@@ -1417,6 +1436,7 @@
 
         for (const row of rows) {
             const rowStage = String(row.dataset.stage || "unassigned");
+            const rowStatusCategory = rowFilterCategory(row);
 
             const rowCategoryId = String(row.dataset.tenderCategoryId || "");
             const matchesCategory =
@@ -1425,17 +1445,16 @@
                     value === "none" ? !rowCategoryId : rowCategoryId === value,
                 );
 
-            let matchesEligibility = true;
-            if (eligibility === "eligible") {
-                matchesEligibility =
-                    rowStage === "eligible" || PIPELINE_STAGES.has(rowStage);
-                if (matchesEligibility && selectedPipelineStages.length) {
-                    matchesEligibility = selectedPipelineStages.includes(rowStage);
-                }
-            } else if (eligibility === "ineligible") {
-                matchesEligibility = rowStage === "ineligible";
-            } else if (eligibility === "out_of_scope") {
-                matchesEligibility = rowStage === "out_of_scope";
+            let matchesStatus =
+                !selectedStatusCategories.length ||
+                selectedStatusCategories.includes(rowStatusCategory);
+            if (
+                matchesStatus &&
+                selectedPipelineStages.length &&
+                (rowStatusCategory === "eligible" ||
+                    rowStatusCategory === "requires_review")
+            ) {
+                matchesStatus = selectedPipelineStages.includes(rowStage);
             }
 
             const rowAssigneeId = String(row.dataset.assigneeUserId || "");
@@ -1470,21 +1489,21 @@
 
             const matchesBase =
                 matchesCategory &&
-                matchesEligibility &&
+                matchesStatus &&
                 matchesAssignee &&
                 matchesSearch &&
                 matchesColumns &&
                 matchesQuantity &&
                 matchesLocked;
 
-            // Hidden (closed) tenders show when asked for explicitly: the checkbox,
-            // Not eligible / Out of scope radios, or their quick view.
+            // Hidden closed tenders appear when their status category is selected (or no status filter / search mode).
             const isHiddenRow = row.dataset.hidden === "1";
-            const eligibilityShowsHidden =
-                (eligibility === "ineligible" && rowStage === "ineligible") ||
-                (eligibility === "out_of_scope" && rowStage === "out_of_scope");
             const hiddenAllowed =
-                includeHidden || !isHiddenRow || eligibilityShowsHidden;
+                !!searchMode ||
+                !isHiddenRow ||
+                !selectedStatusCategories.length ||
+                (selectedStatusCategories.includes(rowStatusCategory) &&
+                    HIDDEN_STATUS_CATEGORIES.has(rowStatusCategory));
             const showableIn = (key) =>
                 matchesBase &&
                 (hiddenAllowed || HIDDEN_VIEWS.has(key)) &&
@@ -1545,7 +1564,12 @@
         const categories = Array.isArray(filters.categories)
             ? filters.categories
             : [];
-        const eligibility = normalizeEligibilityFilter(filters.eligibility);
+        const statusCategories = Object.prototype.hasOwnProperty.call(
+            filters,
+            "statusCategories",
+        )
+            ? normalizeStatusCategories(filters.statusCategories)
+            : ["untouched"];
         const pipelineStages = Array.isArray(filters.pipelineStages)
             ? filters.pipelineStages
             : [];
@@ -1567,16 +1591,14 @@
             from: normalizeDateInput(filters.from, pageFrom),
             to: normalizeDateInput(filters.to, pageTo),
             categories: categories.map(String).filter(Boolean),
-            eligibility,
-            pipelineStages:
-                eligibility === "eligible"
-                    ? pipelineStages
-                          .map(String)
-                          .filter((stage) => PIPELINE_STAGES.has(stage))
-                    : [],
+            statusCategories,
+            pipelineStages: statusCategoriesNeedPipeline(statusCategories)
+                ? pipelineStages
+                      .map(String)
+                      .filter((stage) => WORKABLE_PIPELINE_STAGES.has(stage))
+                : [],
             assignees: assignees.map(String).filter(Boolean),
             search: String(filters.search || "").trim(),
-            includeHidden: !!filters.includeHidden,
             quantityUpto: normalizePositiveNumber(filters.quantityUpto),
             locked: normalizeLockedFilter(filters.locked),
             view: QUICK_VIEWS.has(filters.view) ? filters.view : "all",
@@ -1603,15 +1625,12 @@
         root.addEventListener("change", (event) => {
             if (!event.target?.classList?.contains("gem-multi-filter-option")) return;
             updateMultiFilterLabel(root);
+            if (root === statusCategoryFilter) {
+                syncPipelineStageVisibility();
+            }
             void commitFilters();
         });
     }
-
-    eligibilityFilterRoot?.addEventListener("change", (event) => {
-        if (event.target?.name !== "gem-filter-eligibility") return;
-        syncPipelineStageVisibility(selectedEligibilityRadio());
-        void commitFilters();
-    });
 
     appliedFilters = normalizeStoredFilters({
         ...emptyFilters(),
@@ -1622,7 +1641,7 @@
     const urlView = new URL(window.location.href).searchParams.get("view");
     if (QUICK_VIEWS.has(urlView)) appliedFilters.view = urlView;
     writeFiltersToDom(appliedFilters);
-    syncPipelineStageVisibility(appliedFilters.eligibility);
+    syncPipelineStageVisibility(appliedFilters.statusCategories);
 
     function startOfIndianQuarterKey(dateKey) {
         const year = Number(dateKey.slice(0, 4));
@@ -1768,13 +1787,7 @@
         if (searchMode ? search && search !== searchMode : !lastVisibleCount) enterSearchMode();
     });
 
-    for (const input of [
-        fromInput,
-        toInput,
-        includeHiddenFilter,
-        lockedFilter,
-        ...columnFilters,
-    ]) {
+    for (const input of [fromInput, toInput, lockedFilter, ...columnFilters]) {
         input?.addEventListener("change", () => void commitFilters());
     }
     quantityUptoFilter?.addEventListener("input", () => void commitFilters());

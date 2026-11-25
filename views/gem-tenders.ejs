@@ -461,49 +461,54 @@
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <span class="form-label d-block">Eligibility</span>
-                            <div class="d-flex flex-wrap gap-3" id="gem-filter-eligibility" role="radiogroup" aria-label="Eligibility">
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input"
-                                        type="radio"
-                                        name="gem-filter-eligibility"
-                                        id="gem-filter-eligibility-any"
-                                        value=""
-                                        checked
-                                    />
-                                    <label class="form-check-label" for="gem-filter-eligibility-any">Any</label>
-                                </div>
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input"
-                                        type="radio"
-                                        name="gem-filter-eligibility"
-                                        id="gem-filter-eligibility-eligible"
-                                        value="eligible"
-                                    />
-                                    <label class="form-check-label" for="gem-filter-eligibility-eligible">Eligible</label>
-                                </div>
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input"
-                                        type="radio"
-                                        name="gem-filter-eligibility"
-                                        id="gem-filter-eligibility-ineligible"
-                                        value="ineligible"
-                                    />
-                                    <label class="form-check-label" for="gem-filter-eligibility-ineligible">Not eligible</label>
-                                </div>
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input"
-                                        type="radio"
-                                        name="gem-filter-eligibility"
-                                        id="gem-filter-eligibility-out_of_scope"
-                                        value="out_of_scope"
-                                    />
-                                    <label class="form-check-label" for="gem-filter-eligibility-out_of_scope">Out of scope</label>
+                        <div class="row g-2 mb-3">
+                            <div class="col-12 col-md-6">
+                                <span class="form-label d-block">Status</span>
+                                <div
+                                    class="dropdown hb-multi-filter"
+                                    id="gem-filter-status-category"
+                                    data-empty-label="All statuses"
+                                    data-chip-label="Status"
+                                >
+                                    <button
+                                        class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start hb-multi-filter-toggle"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-auto-close="outside"
+                                        data-bs-display="static"
+                                        aria-expanded="false"
+                                    >
+                                        <span class="gem-multi-filter-label">All statuses</span>
+                                    </button>
+                                    <div class="dropdown-menu p-2 shadow">
+                                        <%
+                                            const statusCategoryOptions = [
+                                                ["out_of_scope", "Out of scope"],
+                                                ["ineligible", "Not eligible"],
+                                                ["eligible", "Eligible"],
+                                                ["requires_review", "Requires review"],
+                                                ["filed", "Filed"],
+                                                ["unattended", "Unattended"],
+                                                ["missed", "Missed"],
+                                                ["untouched", "Untouched"],
+                                            ];
+                                            statusCategoryOptions.forEach(function (item) {
+                                        %>
+                                            <div class="form-check">
+                                                <input
+                                                    class="form-check-input gem-multi-filter-option"
+                                                    type="checkbox"
+                                                    value="<%= item[0] %>"
+                                                    id="gem-filter-status-<%= item[0] %>"
+                                                    data-label="<%= item[1] %>"
+                                                    <%= item[0] === "untouched" ? "checked" : "" %>
+                                                />
+                                                <label class="form-check-label" for="gem-filter-status-<%= item[0] %>">
+                                                    <%= item[1] %>
+                                                </label>
+                                            </div>
+                                        <% }) %>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -528,7 +533,9 @@
                                         <span class="gem-multi-filter-label">All stages</span>
                                     </button>
                                     <div class="dropdown-menu p-2 shadow">
-                                        <% Object.keys(pipelineStageLabels).forEach(function (stage) { %>
+                                        <% Object.keys(pipelineStageLabels).filter(function (stage) {
+                                            return stage !== "filed";
+                                        }).forEach(function (stage) { %>
                                             <div class="form-check">
                                                 <input
                                                     class="form-check-input gem-multi-filter-option"
@@ -699,17 +706,6 @@
                                     <option value="locked">Locked</option>
                                     <option value="unlocked">Not locked</option>
                                 </select>
-                            </div>
-                            <div class="col-6 d-flex align-items-end">
-                                <div
-                                    class="form-check mb-1"
-                                    title="Missed, unattended, not eligible and out of scope tenders"
-                                >
-                                    <input class="form-check-input" type="checkbox" id="gem-filter-include-hidden" />
-                                    <label class="form-check-label small" for="gem-filter-include-hidden">
-                                        Include hidden
-                                    </label>
-                                </div>
                             </div>
                         </div>
                     </div>
