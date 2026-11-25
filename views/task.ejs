@@ -17,6 +17,18 @@
         ? String(task.sprint_week_start).slice(0, 10)
         : "";
     const weekOptions = sprintWeekOptions || [];
+    const burntHours = task.actual_hours != null ? Number(task.actual_hours) : 0;
+    const assigneeHourlyRate = task.assignee_hourly_rate != null ? Number(task.assignee_hourly_rate) : 0;
+    const assigneeCharge =
+        Number.isFinite(burntHours) && Number.isFinite(assigneeHourlyRate)
+            ? Math.round(burntHours * assigneeHourlyRate * 100) / 100
+            : 0;
+    const canAddToInvoice =
+        taskAdmin &&
+        !invoiced &&
+        !!projectId &&
+        (task.state || "") === TASK_STATES.DONE &&
+        burntHours > 0;
 %>
 
 <%- include('common/app-navbar') %>
@@ -36,7 +48,7 @@
                 </p>
             </div>
             <div class="d-flex flex-wrap gap-2">
-                <% if (taskAdmin && !invoiced && projectId) { %>
+                <% if (canAddToInvoice) { %>
                     <button
                         type="button"
                         class="btn btn-outline-primary"
@@ -44,7 +56,7 @@
                         data-bs-toggle="modal"
                         data-bs-target="#task-move-to-invoice-modal"
                     >
-                        Move to invoice
+                        Add to invoice
                     </button>
                 <% } %>
                 <% if ((task.state || "") === TASK_STATES.BACKLOG || !selectedSprintWeek) { %>
@@ -77,8 +89,11 @@
             data-assignee-id="<%= assigneeUserId || '' %>"
             data-reviewer-id="<%= reviewerUserId || '' %>"
             data-initial-assignee-id="<%= assigneeUserId || '' %>"
-            data-charge="<%= task.charge != null ? task.charge : '' %>"
+            data-assignee-hourly-rate="<%= Number.isFinite(assigneeHourlyRate) ? assigneeHourlyRate : '' %>"
+            data-burnt-hours="<%= Number.isFinite(burntHours) ? burntHours : '' %>"
+            data-assignee-charge="<%= assigneeCharge > 0 ? assigneeCharge : '' %>"
             data-invoiced="<%= invoiced ? '1' : '0' %>"
+            data-can-add-to-invoice="<%= canAddToInvoice ? '1' : '0' %>"
         >
             <div class="card-body p-4">
                 <% if (!canEditTask) { %>
@@ -274,11 +289,15 @@
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <p class="form-label mb-1">Charge</p>
-                            <p class="mb-0 fw-semibold" id="task-charge-display">
-                                <%= task.charge != null ? Number(task.charge).toFixed(2) : "—" %>
+                            <p class="form-label mb-1">Assignee charge</p>
+                            <p class="mb-0 fw-semibold" id="task-assignee-charge-display">
+                                <% if (assigneeHourlyRate > 0 && burntHours > 0) { %>
+                                    <%= assigneeHourlyRate.toFixed(2) %> × <%= burntHours %> = <%= assigneeCharge.toFixed(2) %>
+                                <% } else { %>
+                                    —
+                                <% } %>
                             </p>
-                            <div class="form-text">Burnt efforts × assignee rate.</div>
+                            <div class="form-text">Assignee hourly rate × burnt efforts.</div>
                         </div>
                         <div class="col-md-4">
                             <p class="form-label mb-1">Completed on</p>
@@ -467,13 +486,13 @@
     </div>
 </div>
 
-<% if (taskAdmin && !invoiced && projectId) { %>
+<% if (canAddToInvoice) { %>
 <div class="modal fade" id="task-move-to-invoice-modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <form id="task-move-to-invoice-form" novalidate>
                 <div class="modal-header">
-                    <h2 class="modal-title h5">Move to invoice</h2>
+                    <h2 class="modal-title h5">Add to invoice</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -490,9 +509,12 @@
                                 </option>
                             <% }) %>
                         </select>
+                        <% if (!invoices.length) { %>
+                            <div class="form-text text-danger">No invoices found for this project.</div>
+                        <% } %>
                     </div>
                     <div class="mb-3">
-                        <label for="task-invoice-item" class="form-label">Item</label>
+                        <label for="task-invoice-item" class="form-label">Title</label>
                         <input
                             type="text"
                             class="form-control"
@@ -502,18 +524,35 @@
                             required
                         />
                     </div>
+                    <div class="mb-3">
+                        <p class="form-label mb-1">Assignee charge (cost basis)</p>
+                        <p class="mb-1 fw-semibold" id="task-invoice-assignee-cost">
+                            <% if (assigneeCharge > 0) { %>
+                                <%= assigneeHourlyRate.toFixed(2) %> × <%= burntHours %> = <%= assigneeCharge.toFixed(2) %>
+                            <% } else { %>
+                                —
+                            <% } %>
+                        </p>
+                        <div class="form-text">Use this to judge margin before setting the invoice price.</div>
+                    </div>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label for="task-invoice-cost" class="form-label">Cost</label>
+                            <label for="task-invoice-cost" class="form-label">Price</label>
                             <input
                                 type="number"
                                 class="form-control"
                                 id="task-invoice-cost"
                                 min="0"
                                 step="0.01"
-                                value="<%= task.charge != null ? task.charge : '' %>"
+                                value=""
                                 required
+                                data-assignee-cost="<%= assigneeCharge > 0 ? assigneeCharge : '' %>"
                             />
+                            <div class="btn-group btn-group-sm mt-2" role="group" aria-label="Price markup">
+                                <button type="button" class="btn btn-outline-secondary task-invoice-markup-btn" data-markup="1.10">+10%</button>
+                                <button type="button" class="btn btn-outline-secondary task-invoice-markup-btn" data-markup="1.15">+15%</button>
+                                <button type="button" class="btn btn-outline-secondary task-invoice-markup-btn" data-markup="1.20">+20%</button>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label for="task-invoice-quantity" class="form-label">Quantity</label>

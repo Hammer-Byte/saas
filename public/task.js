@@ -586,18 +586,42 @@
     const moveToInvoiceForm = document.getElementById("task-move-to-invoice-form");
     const moveToInvoiceAlert = document.getElementById("task-move-to-invoice-alert");
     const moveToInvoiceSubmit = document.getElementById("task-move-to-invoice-submit");
+    const invoicePriceInput = document.getElementById("task-invoice-cost");
+
+    function roundMoney(value) {
+        return Math.round(Number(value) * 100) / 100;
+    }
+
+    document.querySelectorAll(".task-invoice-markup-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+            const assigneeCost = Number(
+                invoicePriceInput?.dataset.assigneeCost || detail.dataset.assigneeCharge || ""
+            );
+            const markup = Number(button.dataset.markup || "");
+            if (!invoicePriceInput || !(assigneeCost > 0) || !(markup > 0)) {
+                showAlert(
+                    moveToInvoiceAlert,
+                    "Assignee charge is unavailable; enter a price manually.",
+                    "warning"
+                );
+                return;
+            }
+            invoicePriceInput.value = String(roundMoney(assigneeCost * markup));
+            hideAlert(moveToInvoiceAlert);
+        });
+    });
 
     moveToInvoiceForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
         hideAlert(moveToInvoiceAlert);
-        if (!isTaskAdmin || detail.dataset.invoiced === "1") {
-            showAlert(moveToInvoiceAlert, "This task cannot be moved to an invoice.", "warning");
+        if (detail.dataset.canAddToInvoice !== "1" || !isTaskAdmin || detail.dataset.invoiced === "1") {
+            showAlert(moveToInvoiceAlert, "This task cannot be added to an invoice.", "warning");
             return;
         }
 
         const invoiceId = Number(document.getElementById("task-invoice-select")?.value || 0);
         const item = document.getElementById("task-invoice-item")?.value?.trim() || "";
-        const cost = Number(document.getElementById("task-invoice-cost")?.value || "");
+        const cost = Number(invoicePriceInput?.value || "");
         const quantity = Number(document.getElementById("task-invoice-quantity")?.value || "");
 
         if (!(invoiceId >= 1)) {
@@ -605,11 +629,11 @@
             return;
         }
         if (!item) {
-            showAlert(moveToInvoiceAlert, "Item is required.", "danger");
+            showAlert(moveToInvoiceAlert, "Title is required.", "danger");
             return;
         }
         if (!Number.isFinite(cost) || cost < 0) {
-            showAlert(moveToInvoiceAlert, "Enter a valid cost.", "danger");
+            showAlert(moveToInvoiceAlert, "Enter a valid price.", "danger");
             return;
         }
         if (!Number.isFinite(quantity) || quantity <= 0) {

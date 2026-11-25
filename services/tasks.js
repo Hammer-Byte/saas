@@ -960,7 +960,7 @@ export async function moveTaskToInvoice({ params, body, cookie, set }) {
     }
     if (!isTaskAdminUser(currentUser)) {
         set.status = 403;
-        return { error: "Only admins can move a task to an invoice" };
+        return { error: "Only admins can add a task to an invoice" };
     }
 
     const existingTask = await getTaskById({ id: params.id });
@@ -972,9 +972,18 @@ export async function moveTaskToInvoice({ params, body, cookie, set }) {
         set.status = 400;
         return { error: "This task is already added to an invoice" };
     }
+    if (existingTask.state !== TASK_STATES.DONE) {
+        set.status = 400;
+        return { error: "Only completed tasks can be added to an invoice" };
+    }
     if (!(existingTask.project_id >= 1)) {
         set.status = 400;
-        return { error: "Assign a project to this task before moving it to an invoice" };
+        return { error: "Assign a project to this task before adding it to an invoice" };
+    }
+    const burntHours = Number(existingTask.actual_hours);
+    if (!Number.isFinite(burntHours) || burntHours <= 0) {
+        set.status = 400;
+        return { error: "Burnt efforts must be greater than 0 before adding to an invoice" };
     }
 
     const invoiceId = Number(body.customer_invoice_id || 0);
@@ -1003,10 +1012,10 @@ export async function moveTaskToInvoice({ params, body, cookie, set }) {
         return { error: "Item must be 128 characters or fewer" };
     }
 
-    const costResult = normalizeMoney(body.cost, "Cost");
+    const costResult = normalizeMoney(body.cost, "Price");
     if (costResult.error || costResult.amount == null) {
         set.status = 400;
-        return { error: costResult.error || "Cost is required" };
+        return { error: costResult.error || "Price is required" };
     }
 
     const quantity = Number(body.quantity);
