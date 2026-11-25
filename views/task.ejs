@@ -29,13 +29,26 @@
         !!projectId &&
         (task.state || "") === TASK_STATES.DONE &&
         burntHours > 0;
+    const taskState = task.state || TASK_STATES.BACKLOG;
+    const taskPriority = task.priority || TASK_PRIORITIES.P3;
+    function toDatetimeLocal(value) {
+        if (!value) return "";
+        return String(value).slice(0, 16).replace(" ", "T");
+    }
+    const startLocal = toDatetimeLocal(task.start_at);
+    const endLocal = toDatetimeLocal(task.end_at);
+    let isOverdue = false;
+    if (task.end_at && taskState !== TASK_STATES.DONE) {
+        const endMs = Date.parse(String(task.end_at).replace(" ", "T"));
+        if (Number.isFinite(endMs) && endMs < Date.now()) isOverdue = true;
+    }
 %>
 
 <%- include('common/app-navbar') %>
 
 <main class="hb-main">
     <div class="container hb-page">
-        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <div class="mb-3 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
                     <a href="/app" class="text-decoration-none">App</a> /
@@ -43,7 +56,14 @@
                     <%= task.title %>
                 </p>
                 <h1 class="h3 mb-1"><%= task.title %></h1>
-                <p class="text-secondary mb-0">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <span class="hb-task-state hb-task-state--<%= taskState %>"><%= stateLabels[taskState] || taskState %></span>
+                    <span class="hb-task-priority hb-task-priority--<%= taskPriority %>"><%= priorityLabels[taskPriority] || taskPriority %></span>
+                    <% if (isOverdue) { %>
+                        <span class="hb-task-overdue">Overdue</span>
+                    <% } %>
+                </div>
+                <p class="text-secondary mb-0 small">
                     Created by <%= task.created_by_full_name || task.created_by_email || "—" %>
                 </p>
             </div>
@@ -79,7 +99,7 @@
         <% } %>
 
         <div
-            class="card border-0 shadow-sm mb-4"
+            class="card border-0 shadow-sm mb-3"
             id="task-detail"
             data-id="<%= task.id %>"
             data-current-user-id="<%= currentUserId %>"
@@ -95,38 +115,15 @@
             data-invoiced="<%= invoiced ? '1' : '0' %>"
             data-can-add-to-invoice="<%= canAddToInvoice ? '1' : '0' %>"
         >
-            <div class="card-body p-4">
+            <div class="card-body p-3">
                 <% if (!canEditTask) { %>
-                    <div class="alert alert-secondary" role="status">
+                    <div class="alert alert-secondary py-2" role="status">
                         View only — only the assignee, reviewer, or an admin can change this task.
                     </div>
                 <% } %>
 
                 <form id="task-edit-form" novalidate <%= canEditTask ? '' : 'data-readonly="1"' %>>
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label for="task-quick-state" class="form-label">Quick state</label>
-                            <select class="form-select" id="task-quick-state" <%= canEditTask ? '' : 'disabled' %>>
-                                <% stateValues.forEach(function (state) { %>
-                                    <option
-                                        value="<%= state %>"
-                                        <%= (task.state || TASK_STATES.BACKLOG) === state ? "selected" : "" %>
-                                    >
-                                        <%= stateLabels[state] || state %>
-                                    </option>
-                                <% }) %>
-                            </select>
-                        </div>
-                        <div class="col-md-6 d-flex align-items-end gap-2 flex-wrap">
-                            <% if (canEditTask) { %>
-                                <button type="button" class="btn btn-outline-success" id="task-mark-done-btn">Mark done</button>
-                                <button type="button" class="btn btn-outline-secondary" id="task-duplicate-btn">Duplicate</button>
-                                <button type="button" class="btn btn-outline-danger" id="task-delete-btn">Delete</button>
-                            <% } %>
-                        </div>
-                    </div>
-
-                    <div class="row g-3">
+                    <div class="row g-2">
                         <div class="col-12">
                             <label for="task-edit-title" class="form-label">Title</label>
                             <input
@@ -145,7 +142,7 @@
                                 class="form-control"
                                 id="task-edit-description"
                                 name="description"
-                                rows="4"
+                                rows="3"
                             ><%= task.description || "" %></textarea>
                         </div>
                         <div class="col-md-3">
@@ -160,7 +157,6 @@
                                 step="0.25"
                                 value="<%= task.expected_hours != null ? task.expected_hours : '' %>"
                             />
-                            <div class="form-text">Max 8 hours.</div>
                         </div>
                         <div class="col-md-3">
                             <label for="task-edit-actual-hours" class="form-label">Burnt efforts</label>
@@ -174,63 +170,54 @@
                                 step="0.25"
                                 value="<%= task.actual_hours != null ? task.actual_hours : '' %>"
                             />
-                            <div class="form-text">Hours spent (max 8).</div>
                         </div>
                         <div class="col-md-3">
                             <label for="task-edit-start-at" class="form-label">Start</label>
                             <input
-                                type="text"
-                                class="form-control js-datetime-input"
+                                type="datetime-local"
+                                class="form-control"
                                 id="task-edit-start-at"
                                 name="start_at"
-                                placeholder="dd/mm/yyyy hh:mm"
-                                autocomplete="off"
-                                data-date-value="<%= task.start_at || '' %>"
-                                value="<%= task.start_at || '' %>"
+                                value="<%= startLocal %>"
                             />
-                            <div class="form-text">Inside sprint week.</div>
                         </div>
                         <div class="col-md-3">
                             <label for="task-edit-end-at" class="form-label">End</label>
                             <input
-                                type="text"
-                                class="form-control js-datetime-input"
+                                type="datetime-local"
+                                class="form-control"
                                 id="task-edit-end-at"
                                 name="end_at"
-                                placeholder="dd/mm/yyyy hh:mm"
-                                autocomplete="off"
-                                data-date-value="<%= task.end_at || '' %>"
-                                value="<%= task.end_at || '' %>"
+                                value="<%= endLocal %>"
                             />
-                            <div class="form-text">Inside sprint week.</div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="task-edit-state" class="form-label">State</label>
                             <select class="form-select" id="task-edit-state" name="state" required>
                                 <% stateValues.forEach(function (state) { %>
                                     <option
                                         value="<%= state %>"
-                                        <%= (task.state || TASK_STATES.BACKLOG) === state ? "selected" : "" %>
+                                        <%= taskState === state ? "selected" : "" %>
                                     >
                                         <%= stateLabels[state] || state %>
                                     </option>
                                 <% }) %>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="task-edit-priority" class="form-label">Priority</label>
                             <select class="form-select" id="task-edit-priority" name="priority" required>
                                 <% priorityValues.forEach(function (priority) { %>
                                     <option
                                         value="<%= priority %>"
-                                        <%= (task.priority || TASK_PRIORITIES.MEDIUM) === priority ? "selected" : "" %>
+                                        <%= taskPriority === priority ? "selected" : "" %>
                                     >
                                         <%= priorityLabels[priority] || priority %>
                                     </option>
                                 <% }) %>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="task-edit-assignee" class="form-label">Assignee</label>
                             <select class="form-select" id="task-edit-assignee" name="assignee_user_id">
                                 <option value="">Unassigned</option>
@@ -241,7 +228,7 @@
                                 <% }) %>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="task-edit-reviewer" class="form-label">Reviewer</label>
                             <select class="form-select" id="task-edit-reviewer" name="reviewer_user_id">
                                 <option value="">No reviewer</option>
@@ -252,7 +239,7 @@
                                 <% }) %>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="task-edit-project" class="form-label">Project</label>
                             <% if (taskAdmin) { %>
                                 <select class="form-select" id="task-edit-project" name="project_id">
@@ -271,10 +258,9 @@
                                     disabled
                                 />
                                 <input type="hidden" id="task-edit-project" value="<%= projectId || '' %>" />
-                                <div class="form-text">Only admins can change project.</div>
                             <% } %>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="task-edit-sprint-week" class="form-label">Sprint week</label>
                             <select class="form-select" id="task-edit-sprint-week" name="sprint_week_start">
                                 <option value="" <%= !selectedSprintWeek ? "selected" : "" %>>Backlog (no week)</option>
@@ -288,22 +274,11 @@
                                 <% }) %>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <p class="form-label mb-1">Assignee charge</p>
-                            <p class="mb-0 fw-semibold" id="task-assignee-charge-display">
+                            <p class="mb-0 <%= assigneeCharge > 0 ? 'fw-semibold text-success' : 'text-secondary' %>" id="task-assignee-charge-display">
                                 <% if (assigneeHourlyRate > 0 && burntHours > 0) { %>
                                     <%= assigneeHourlyRate.toFixed(2) %> × <%= burntHours %> = <%= assigneeCharge.toFixed(2) %>
-                                <% } else { %>
-                                    —
-                                <% } %>
-                            </p>
-                            <div class="form-text">Assignee hourly rate × burnt efforts.</div>
-                        </div>
-                        <div class="col-md-4">
-                            <p class="form-label mb-1">Completed on</p>
-                            <p class="mb-0">
-                                <% if (task.completed_on) { %>
-                                    <span data-readable-date="<%= task.completed_on %>" data-date-format="DD/MM/YYYY HH:mm"></span>
                                 <% } else { %>
                                     —
                                 <% } %>
@@ -311,13 +286,23 @@
                         </div>
                     </div>
                     <% if (canEditTask) { %>
-                        <div class="d-flex gap-2 mt-4">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
                             <button type="submit" class="btn btn-primary" id="task-save-btn">Save</button>
+                            <button type="button" class="btn btn-outline-secondary" id="task-duplicate-btn">Duplicate</button>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-danger hb-icon-btn"
+                                id="task-delete-btn"
+                                title="Delete"
+                                aria-label="Delete"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>
+                            </button>
                         </div>
                     <% } %>
                 </form>
 
-                <hr class="my-4" />
+                <hr class="my-3" />
                 <label class="form-label">Attachments</label>
                 <div id="task-attachments-list" class="mb-2">
                     <% if (!(attachments || []).length) { %>

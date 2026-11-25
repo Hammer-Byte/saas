@@ -116,15 +116,19 @@ export const TASK_STATE_LABELS = {
 };
 
 export const TASK_PRIORITIES = {
-    LOW: "low",
-    MEDIUM: "medium",
-    HIGH: "high",
+    P1: "p1",
+    P2: "p2",
+    P3: "p3",
+    P4: "p4",
+    P5: "p5",
 };
 
 export const TASK_PRIORITY_LABELS = {
-    [TASK_PRIORITIES.LOW]: "Low",
-    [TASK_PRIORITIES.MEDIUM]: "Medium",
-    [TASK_PRIORITIES.HIGH]: "High",
+    [TASK_PRIORITIES.P1]: "P1",
+    [TASK_PRIORITIES.P2]: "P2",
+    [TASK_PRIORITIES.P3]: "P3",
+    [TASK_PRIORITIES.P4]: "P4",
+    [TASK_PRIORITIES.P5]: "P5",
 };
 
 /** Stage is NULL until the tender is marked eligible; only these values are allowed after. */

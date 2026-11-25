@@ -9,9 +9,7 @@
 
     const pageAlert = document.getElementById("task-alert");
     const editForm = document.getElementById("task-edit-form");
-    const quickStateSelect = document.getElementById("task-quick-state");
     const editStateSelect = document.getElementById("task-edit-state");
-    const markDoneButton = document.getElementById("task-mark-done-btn");
     const duplicateButton = document.getElementById("task-duplicate-btn");
     const deleteButton = document.getElementById("task-delete-btn");
     const saveButton = document.getElementById("task-save-btn");
@@ -33,14 +31,6 @@
     const commentEditIdInput = document.getElementById("task-comment-edit-id");
     const commentEditTextInput = document.getElementById("task-comment-edit-text");
 
-    function syncStateSelects(fromQuick) {
-        if (fromQuick && editStateSelect && quickStateSelect) {
-            editStateSelect.value = quickStateSelect.value;
-        } else if (!fromQuick && editStateSelect && quickStateSelect) {
-            quickStateSelect.value = editStateSelect.value;
-        }
-    }
-
     function buildTaskPayload() {
         const title = document.getElementById("task-edit-title")?.value?.trim() || "";
         const description = document.getElementById("task-edit-description")?.value?.trim() || "";
@@ -53,7 +43,7 @@
         const projectRaw = document.getElementById("task-edit-project")?.value || "";
         const sprintWeekRaw = document.getElementById("task-edit-sprint-week")?.value || "";
         const state = editStateSelect?.value || "backlog";
-        const priority = document.getElementById("task-edit-priority")?.value || "medium";
+        const priority = document.getElementById("task-edit-priority")?.value || "p3";
 
         const payload = {
             id: taskId,
@@ -198,16 +188,15 @@
         });
     }
 
-    quickStateSelect?.addEventListener("change", async () => {
+    editStateSelect?.addEventListener("change", async () => {
         if (!canMoveTask) return;
-        syncStateSelects(true);
         const previous = detail.dataset.state || "";
-        const state = quickStateSelect.value;
+        const state = editStateSelect.value;
+        if (state === previous) return;
         const built = buildStateChangeBody(state);
         if (built.error) {
             showAlert(pageAlert, built.error, "danger");
-            quickStateSelect.value = previous;
-            syncStateSelects(true);
+            editStateSelect.value = previous;
             return;
         }
         try {
@@ -220,47 +209,14 @@
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
                 showAlert(pageAlert, data.error || "Failed to update state.", "danger");
-                quickStateSelect.value = previous;
-                syncStateSelects(true);
+                editStateSelect.value = previous;
                 return;
             }
             window.location.reload();
         } catch (error) {
             console.error(error);
             showAlert(pageAlert, "Failed to update state.", "danger");
-            quickStateSelect.value = previous;
-            syncStateSelects(true);
-        }
-    });
-
-    editStateSelect?.addEventListener("change", () => syncStateSelects(false));
-
-    markDoneButton?.addEventListener("click", async () => {
-        markDoneButton.disabled = true;
-        const built = buildStateChangeBody("done");
-        if (built.error) {
-            showAlert(pageAlert, built.error, "danger");
-            markDoneButton.disabled = false;
-            return;
-        }
-        try {
-            const response = await fetch(`/api/tasks/${taskId}/state`, {
-                method: "PATCH",
-                credentials: "same-origin",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(built.body),
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                showAlert(pageAlert, data.error || "Failed to mark done.", "danger");
-                markDoneButton.disabled = false;
-                return;
-            }
-            window.location.reload();
-        } catch (error) {
-            console.error(error);
-            showAlert(pageAlert, "Failed to mark done.", "danger");
-            markDoneButton.disabled = false;
+            editStateSelect.value = previous;
         }
     });
 

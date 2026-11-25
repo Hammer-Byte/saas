@@ -1,7 +1,20 @@
 (() => {
     const FILTERS_STORAGE_KEY = "tasks-filters-v2";
     const TERMINAL_STATES = new Set(["done"]);
-    const PRIORITY_ORDER = { high: 1, medium: 2, low: 3 };
+    const PRIORITY_ORDER = { p1: 1, p2: 2, p3: 3, p4: 4, p5: 5 };
+    const STATE_LABELS = {
+        backlog: "Backlog",
+        analyzing: "Analyzing",
+        in_progress: "In progress",
+        under_review: "Under review",
+        done: "Done",
+    };
+
+    function stateChipHtml(state) {
+        const value = String(state || "backlog");
+        const label = STATE_LABELS[value] || value.replaceAll("_", " ");
+        return `<span class="hb-task-state hb-task-state--${value}">${label}</span>`;
+    }
 
     const pageElement = document.getElementById("tasks-page");
     if (!pageElement) return;
@@ -397,7 +410,7 @@
             item.dataset.state = state;
             if (item.tagName === "TR") {
                 const stateCell = item.children[2];
-                if (stateCell) stateCell.textContent = state.replaceAll("_", " ");
+                if (stateCell) stateCell.innerHTML = stateChipHtml(state);
             }
         }
     }
@@ -786,7 +799,7 @@
         const endAtRaw = document.getElementById("task-end-at")?.value || "";
         const assigneeRaw = document.getElementById("task-assignee")?.value || "";
         const projectRaw = document.getElementById("task-project")?.value || "";
-        const priority = document.getElementById("task-priority")?.value || "medium";
+        const priority = document.getElementById("task-priority")?.value || "p3";
         const files = Array.from(
             document.getElementById("task-create-attachments")?.files || [],
         );

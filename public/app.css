@@ -282,3 +282,72 @@
 #app-confirm-modal .modal-title {
     font-size: 1.25rem;
 }
+
+/* Task state / priority chips */
+.hb-task-state,
+.hb-task-priority,
+.hb-task-overdue {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.hb-task-state--backlog {
+    color: #5c6770;
+    background: #e9ecef;
+}
+
+.hb-task-state--analyzing {
+    color: #0b5cab;
+    background: #d9ecff;
+}
+
+.hb-task-state--in_progress {
+    color: #0f6a62;
+    background: #d6f3ef;
+}
+
+.hb-task-state--under_review {
+    color: #8a5a00;
+    background: #ffe8b8;
+}
+
+.hb-task-state--done {
+    color: #1f6b3a;
+    background: #d8f0e0;
+}
+
+.hb-task-priority--p1 {
+    color: #9b1c1c;
+    background: #fde2e2;
+}
+
+.hb-task-priority--p2 {
+    color: #9a3412;
+    background: #ffedd5;
+}
+
+.hb-task-priority--p3 {
+    color: #854d0e;
+    background: #fef3c7;
+}
+
+.hb-task-priority--p4 {
+    color: #1e4b75;
+    background: #e2eef8;
+}
+
+.hb-task-priority--p5 {
+    color: #5c6770;
+    background: #eef0f2;
+}
+
+.hb-task-overdue {
+    color: #9b1c1c;
+    background: #fee2e2;
+}

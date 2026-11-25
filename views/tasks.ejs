@@ -144,8 +144,17 @@
                                         <input type="checkbox" class="form-check-input task-select" value="<%= task.id %>" aria-label="Select task" />
                                     </td>
                                     <td><%= task.title %></td>
-                                    <td><%= stateLabels[rowState] || rowState %></td>
-                                    <td><%= priorityLabels[task.priority] || task.priority || "—" %></td>
+                                    <td>
+                                        <span class="hb-task-state hb-task-state--<%= rowState %>"><%= stateLabels[rowState] || rowState %></span>
+                                    </td>
+                                    <td>
+                                        <% const rowPriority = task.priority || ""; %>
+                                        <% if (rowPriority) { %>
+                                            <span class="hb-task-priority hb-task-priority--<%= rowPriority %>"><%= priorityLabels[rowPriority] || rowPriority %></span>
+                                        <% } else { %>
+                                            —
+                                        <% } %>
+                                    </td>
                                     <td><%= task.assignee_full_name || "Unassigned" %></td>
                                     <td><%= task.project_title || "—" %></td>
                                     <td data-readable-date="<%= task.end_at || '' %>" data-date-format="DD/MM/YYYY HH:mm"><%= task.end_at ? "" : "—" %></td>
@@ -221,9 +230,11 @@
                                     >
                                         <div class="card-body p-3">
                                             <p class="fw-semibold mb-1"><%= task.title %></p>
-                                            <p class="small text-secondary mb-1">
-                                                <%= priorityLabels[task.priority] || task.priority || "" %>
-                                                · <%= task.assignee_full_name || "Unassigned" %>
+                                            <p class="small mb-1 d-flex flex-wrap align-items-center gap-1">
+                                                <% if (task.priority) { %>
+                                                    <span class="hb-task-priority hb-task-priority--<%= task.priority %>"><%= priorityLabels[task.priority] || task.priority %></span>
+                                                <% } %>
+                                                <span class="text-secondary"><%= task.assignee_full_name || "Unassigned" %></span>
                                             </p>
                                             <% if (task.end_at) { %>
                                                 <p class="small mb-0" data-readable-date="<%= task.end_at %>" data-date-format="DD/MM/YYYY HH:mm"></p>
@@ -339,11 +350,11 @@
                         </div>
                         <div class="col-md-4">
                             <label for="task-start-at" class="form-label">Start</label>
-                            <input type="text" class="form-control js-datetime-input" id="task-start-at" name="start_at" placeholder="dd/mm/yyyy hh:mm" autocomplete="off" />
+                            <input type="datetime-local" class="form-control" id="task-start-at" name="start_at" />
                         </div>
                         <div class="col-md-4">
                             <label for="task-end-at" class="form-label">End</label>
-                            <input type="text" class="form-control js-datetime-input" id="task-end-at" name="end_at" placeholder="dd/mm/yyyy hh:mm" autocomplete="off" />
+                            <input type="datetime-local" class="form-control" id="task-end-at" name="end_at" />
                         </div>
                         <div class="col-md-6">
                             <label for="task-assignee" class="form-label">Assignee</label>
@@ -374,7 +385,7 @@
                             <label for="task-priority" class="form-label">Priority</label>
                             <select class="form-select" id="task-priority" name="priority" required>
                                 <% priorityValues.forEach(function (priority) { %>
-                                    <option value="<%= priority %>" <%= priority === TASK_PRIORITIES.MEDIUM ? "selected" : "" %>>
+                                    <option value="<%= priority %>" <%= priority === TASK_PRIORITIES.P3 ? "selected" : "" %>>
                                         <%= priorityLabels[priority] || priority %>
                                     </option>
                                 <% }) %>

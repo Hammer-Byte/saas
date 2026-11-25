@@ -19,9 +19,11 @@ const taskStateSchema = t.Union([
 ]);
 
 const taskPrioritySchema = t.Union([
-    t.Literal(TASK_PRIORITIES.LOW),
-    t.Literal(TASK_PRIORITIES.MEDIUM),
-    t.Literal(TASK_PRIORITIES.HIGH),
+    t.Literal(TASK_PRIORITIES.P1),
+    t.Literal(TASK_PRIORITIES.P2),
+    t.Literal(TASK_PRIORITIES.P3),
+    t.Literal(TASK_PRIORITIES.P4),
+    t.Literal(TASK_PRIORITIES.P5),
 ]);
 
 export default function (app) {

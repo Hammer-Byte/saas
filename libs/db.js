@@ -880,7 +880,7 @@ export async function generateDBTables() {
             end_at DATETIME NULL,
             completed_on DATETIME NULL,
             state VARCHAR(32) NOT NULL DEFAULT 'backlog',
-            priority VARCHAR(16) NOT NULL DEFAULT 'medium',
+            priority VARCHAR(16) NOT NULL DEFAULT 'p3',
             blocked_reason VARCHAR(512) NULL,
             project_id INT NULL,
             assignee_user_id INT NULL,
@@ -928,6 +928,14 @@ export async function generateDBTables() {
             INDEX idx_tasks_end_at (end_at),
             INDEX idx_tasks_sprint_week_start (sprint_week_start)
         )`,
+        `UPDATE TASKS SET priority = CASE
+            WHEN priority = 'high' THEN 'p1'
+            WHEN priority = 'medium' THEN 'p3'
+            WHEN priority = 'low' THEN 'p5'
+            WHEN priority IN ('p1', 'p2', 'p3', 'p4', 'p5') THEN priority
+            ELSE 'p3'
+        END`,
+        `ALTER TABLE TASKS MODIFY COLUMN priority VARCHAR(16) NOT NULL DEFAULT 'p3'`,
         `CREATE TABLE IF NOT EXISTS TASK_EFFORTS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             task_id INT NOT NULL,

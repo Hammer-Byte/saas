@@ -83,7 +83,14 @@
                                 <td>
                                     <a href="/app/tasks/<%= task.id %>" class="text-decoration-none"><%= task.title %></a>
                                 </td>
-                                <td><%= priorityLabels[task.priority] || task.priority || "—" %></td>
+                                <td>
+                                    <% const backlogPriority = task.priority || ""; %>
+                                    <% if (backlogPriority) { %>
+                                        <span class="hb-task-priority hb-task-priority--<%= backlogPriority %>"><%= priorityLabels[backlogPriority] || backlogPriority %></span>
+                                    <% } else { %>
+                                        —
+                                    <% } %>
+                                </td>
                                 <td><%= task.assignee_full_name || "Unassigned" %></td>
                                 <td><%= task.project_title || "—" %></td>
                                 <td><%= task.expected_hours != null ? Number(task.expected_hours) : "—" %></td>

@@ -199,7 +199,7 @@ export async function addTask({ body, cookie, set }) {
     }
 
     const state = body.state || TASK_STATES.BACKLOG;
-    const priority = body.priority || TASK_PRIORITIES.MEDIUM;
+    const priority = body.priority || TASK_PRIORITIES.P3;
 
     if (!STATE_VALUES.has(state)) {
         set.status = 400;
@@ -909,7 +909,7 @@ export async function duplicateTask({ params, cookie, set }) {
         end_at: sourceTask.end_at,
         completed_on: null,
         state: TASK_STATES.BACKLOG,
-        priority: sourceTask.priority || TASK_PRIORITIES.MEDIUM,
+        priority: sourceTask.priority || TASK_PRIORITIES.P3,
         blocked_reason: null,
         project_id: sourceTask.project_id,
         assignee_user_id: sourceTask.assignee_user_id,
