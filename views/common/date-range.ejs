@@ -1,52 +1,53 @@
 <%
-    const formAction = typeof action !== "undefined" ? action : "";
-    const formMethod = typeof method !== "undefined" ? method : "get";
-    const startName = typeof startName !== "undefined" ? startName : "start";
-    const endName = typeof endName !== "undefined" ? endName : "end";
-    const startId = typeof startId !== "undefined" ? startId : startName;
-    const endId = typeof endId !== "undefined" ? endId : endName;
-    const startValue = typeof start !== "undefined" ? start : "";
-    const endValue = typeof end !== "undefined" ? end : "";
-    const startLabel = typeof startLabel !== "undefined" ? startLabel : "Start date";
-    const endLabel = typeof endLabel !== "undefined" ? endLabel : "End date";
-    const submitLabel = typeof submitLabel !== "undefined" ? submitLabel : "Apply range";
-    const formClass = typeof formClass !== "undefined" ? formClass : "card border-0 shadow-sm mb-4 hb-date-range";
+    const resolvedFormAction = typeof action !== "undefined" ? action : "";
+    const resolvedFormMethod = typeof method !== "undefined" ? method : "get";
+    const resolvedStartName = typeof startName !== "undefined" ? startName : "start";
+    const resolvedEndName = typeof endName !== "undefined" ? endName : "end";
+    const resolvedStartId = typeof startId !== "undefined" ? startId : resolvedStartName;
+    const resolvedEndId = typeof endId !== "undefined" ? endId : resolvedEndName;
+    const resolvedStartValue = typeof start !== "undefined" ? start : "";
+    const resolvedEndValue = typeof end !== "undefined" ? end : "";
+    const resolvedStartLabel = typeof startLabel !== "undefined" ? startLabel : "Start date";
+    const resolvedEndLabel = typeof endLabel !== "undefined" ? endLabel : "End date";
+    const resolvedSubmitLabel = typeof submitLabel !== "undefined" ? submitLabel : "Apply range";
+    const resolvedFormClass =
+        typeof formClass !== "undefined" ? formClass : "card border-0 shadow-sm mb-4 hb-date-range";
 %>
-<form class="<%= formClass %>" method="<%= formMethod %>" action="<%= formAction %>">
+<form class="<%= resolvedFormClass %>" method="<%= resolvedFormMethod %>" action="<%= resolvedFormAction %>">
     <div class="card-body p-4">
         <div class="row g-3 align-items-end">
             <div class="col-md-4">
-                <label for="<%= startId %>" class="form-label"><%= startLabel %></label>
+                <label for="<%= resolvedStartId %>" class="form-label"><%= resolvedStartLabel %></label>
                 <input
                     type="text"
                     class="form-control js-date-input"
-                    id="<%= startId %>"
-                    name="<%= startName %>"
+                    id="<%= resolvedStartId %>"
+                    name="<%= resolvedStartName %>"
                     placeholder="dd/mm/yyyy"
                     autocomplete="off"
                     inputmode="numeric"
-                    data-date-value="<%= startValue %>"
-                    value="<%= startValue %>"
+                    data-date-value="<%= resolvedStartValue %>"
+                    value="<%= resolvedStartValue %>"
                     required
                 />
             </div>
             <div class="col-md-4">
-                <label for="<%= endId %>" class="form-label"><%= endLabel %></label>
+                <label for="<%= resolvedEndId %>" class="form-label"><%= resolvedEndLabel %></label>
                 <input
                     type="text"
                     class="form-control js-date-input"
-                    id="<%= endId %>"
-                    name="<%= endName %>"
+                    id="<%= resolvedEndId %>"
+                    name="<%= resolvedEndName %>"
                     placeholder="dd/mm/yyyy"
                     autocomplete="off"
                     inputmode="numeric"
-                    data-date-value="<%= endValue %>"
-                    value="<%= endValue %>"
+                    data-date-value="<%= resolvedEndValue %>"
+                    value="<%= resolvedEndValue %>"
                     required
                 />
             </div>
             <div class="col-md-4">
-                <button type="submit" class="btn btn-outline-primary w-100"><%= submitLabel %></button>
+                <button type="submit" class="btn btn-outline-primary w-100"><%= resolvedSubmitLabel %></button>
             </div>
         </div>
     </div>

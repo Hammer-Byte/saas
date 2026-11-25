@@ -1,31 +1,33 @@
 <%
-    const modalId = typeof id !== "undefined" ? id : "form-modal";
-    const modalLabelId = modalId + "-label";
-    const modalTitle = typeof modalTitle !== "undefined" ? modalTitle : "Form";
-    const formId = typeof formId !== "undefined" ? formId : modalId + "-form";
-    const dialogClass = typeof dialogClass !== "undefined" ? dialogClass : "modal-dialog";
-    const alertId = typeof alertId !== "undefined" ? alertId : formId + "-alert";
-    const submitLabel = typeof submitLabel !== "undefined" ? submitLabel : "Save";
-    const cancelLabel = typeof cancelLabel !== "undefined" ? cancelLabel : "Cancel";
-    const submitId = typeof submitId !== "undefined" ? submitId : formId + "-submit";
+    const resolvedModalId = typeof id !== "undefined" ? id : "form-modal";
+    const resolvedModalLabelId = resolvedModalId + "-label";
+    const resolvedModalTitle = typeof modalTitle !== "undefined" ? modalTitle : "Form";
+    const resolvedFormId = typeof formId !== "undefined" ? formId : resolvedModalId + "-form";
+    const resolvedDialogClass = typeof dialogClass !== "undefined" ? dialogClass : "modal-dialog";
+    const resolvedAlertId =
+        typeof alertId !== "undefined" ? alertId : resolvedFormId + "-alert";
+    const resolvedSubmitLabel = typeof submitLabel !== "undefined" ? submitLabel : "Save";
+    const resolvedCancelLabel = typeof cancelLabel !== "undefined" ? cancelLabel : "Cancel";
+    const resolvedSubmitId =
+        typeof submitId !== "undefined" ? submitId : resolvedFormId + "-submit";
 %>
-<div class="modal fade" id="<%= modalId %>" tabindex="-1" aria-labelledby="<%= modalLabelId %>" aria-hidden="true">
-    <div class="<%= dialogClass %>">
+<div class="modal fade" id="<%= resolvedModalId %>" tabindex="-1" aria-labelledby="<%= resolvedModalLabelId %>" aria-hidden="true">
+    <div class="<%= resolvedDialogClass %>">
         <div class="modal-content">
-            <form id="<%= formId %>" novalidate>
+            <form id="<%= resolvedFormId %>" novalidate>
                 <div class="modal-header">
-                    <h2 class="modal-title h5" id="<%= modalLabelId %>"><%= modalTitle %></h2>
+                    <h2 class="modal-title h5" id="<%= resolvedModalLabelId %>"><%= resolvedModalTitle %></h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="<%= alertId %>" class="alert d-none" role="alert"></div>
+                    <div id="<%= resolvedAlertId %>" class="alert d-none" role="alert"></div>
                     <% if (typeof body !== "undefined" && body) { %>
                         <%- body %>
                     <% } %>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><%= cancelLabel %></button>
-                    <button type="submit" class="btn btn-primary" id="<%= submitId %>"><%= submitLabel %></button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><%= resolvedCancelLabel %></button>
+                    <button type="submit" class="btn btn-primary" id="<%= resolvedSubmitId %>"><%= resolvedSubmitLabel %></button>
                 </div>
             </form>
         </div>

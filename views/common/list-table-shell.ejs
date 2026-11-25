@@ -1,31 +1,31 @@
 <%
-    const emptyId = typeof emptyId !== "undefined" ? emptyId : "";
-    const loadingId = typeof loadingId !== "undefined" ? loadingId : "";
-    const tableWrapId = typeof tableWrapId !== "undefined" ? tableWrapId : "";
-    const emptyText = typeof emptyText !== "undefined" ? emptyText : "No records found.";
-    const loadingText = typeof loadingText !== "undefined" ? loadingText : "Loading…";
-    const hasRows = typeof hasRows !== "undefined" ? !!hasRows : true;
-    const showLoading = typeof showLoading !== "undefined" ? !!showLoading : false;
+    const resolvedEmptyId = typeof emptyId !== "undefined" ? emptyId : "";
+    const resolvedLoadingId = typeof loadingId !== "undefined" ? loadingId : "";
+    const resolvedTableWrapId = typeof tableWrapId !== "undefined" ? tableWrapId : "";
+    const resolvedEmptyText = typeof emptyText !== "undefined" ? emptyText : "No records found.";
+    const resolvedLoadingText = typeof loadingText !== "undefined" ? loadingText : "Loading…";
+    const resolvedHasRows = typeof hasRows !== "undefined" ? !!hasRows : true;
+    const resolvedShowLoading = typeof showLoading !== "undefined" ? !!showLoading : false;
 %>
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
-        <% if (loadingId) { %>
+        <% if (resolvedLoadingId) { %>
             <div
-                id="<%= loadingId %>"
-                class="hb-loading <%= showLoading ? '' : 'd-none' %>"
+                id="<%= resolvedLoadingId %>"
+                class="hb-loading <%= resolvedShowLoading ? '' : 'd-none' %>"
             >
-                <%= loadingText %>
+                <%= resolvedLoadingText %>
             </div>
         <% } %>
         <div
-            <% if (emptyId) { %>id="<%= emptyId %>"<% } %>
-            class="hb-empty <%= hasRows || showLoading ? 'd-none' : '' %>"
+            <% if (resolvedEmptyId) { %>id="<%= resolvedEmptyId %>"<% } %>
+            class="hb-empty <%= resolvedHasRows || resolvedShowLoading ? 'd-none' : '' %>"
         >
-            <%= emptyText %>
+            <%= resolvedEmptyText %>
         </div>
         <div
-            class="table-responsive <%= !hasRows || showLoading ? 'd-none' : '' %>"
-            <% if (tableWrapId) { %>id="<%= tableWrapId %>"<% } %>
+            class="table-responsive <%= !resolvedHasRows || resolvedShowLoading ? 'd-none' : '' %>"
+            <% if (resolvedTableWrapId) { %>id="<%= resolvedTableWrapId %>"<% } %>
         >
             <%- tableHtml %>
         </div>
