@@ -25,6 +25,7 @@
     const pipelineStageFilter = document.getElementById("gem-filter-pipeline-stage");
     const pipelineStageWrap = document.getElementById("gem-filter-pipeline-wrap");
     const assigneeFilter = document.getElementById("gem-filter-assignee");
+    const assigneeFilterWrap = document.getElementById("gem-filter-assignee-wrap");
     const multiFilters = [
         statusCategoryFilter,
         categoryFilter,
@@ -79,15 +80,29 @@
         );
     }
 
-    function syncPipelineStageVisibility(statusCategories) {
+    function isOnlyUntouchedStatus(statusCategories) {
+        return (
+            statusCategories.length === 1 && statusCategories[0] === "untouched"
+        );
+    }
+
+    function syncStatusDependentFilters(statusCategories) {
         const selected =
             statusCategories != null
                 ? normalizeStatusCategories(statusCategories)
                 : selectedMultiValues(statusCategoryFilter);
-        const show = statusCategoriesNeedPipeline(selected);
-        pipelineStageWrap?.classList.toggle("d-none", !show);
-        if (!show) {
+
+        const showPipeline = statusCategoriesNeedPipeline(selected);
+        pipelineStageWrap?.classList.toggle("d-none", !showPipeline);
+        if (!showPipeline) {
             setSelectedMultiValues(pipelineStageFilter, []);
+        }
+
+        // Untouched-only: assignees are not meaningful yet — hide and clear.
+        const showAssignee = !isOnlyUntouchedStatus(selected);
+        assigneeFilterWrap?.classList.toggle("d-none", !showAssignee);
+        if (!showAssignee) {
+            setSelectedMultiValues(assigneeFilter, []);
         }
     }
 
@@ -305,7 +320,9 @@
                       WORKABLE_PIPELINE_STAGES.has(stage),
                   )
                 : [],
-            assignees: selectedMultiValues(assigneeFilter),
+            assignees: isOnlyUntouchedStatus(statusCategories)
+                ? []
+                : selectedMultiValues(assigneeFilter),
             search: String(searchInput?.value || "").trim(),
             quantityUpto: normalizePositiveNumber(quantityUptoFilter?.value),
             locked: normalizeLockedFilter(String(lockedFilter?.value || "")),
@@ -320,13 +337,16 @@
         if (toInput && filters.to) toInput.value = filters.to;
         const statusCategories = normalizeStatusCategories(filters.statusCategories);
         setSelectedMultiValues(statusCategoryFilter, statusCategories);
-        syncPipelineStageVisibility(statusCategories);
+        syncStatusDependentFilters(statusCategories);
         setSelectedMultiValues(categoryFilter, filters.categories || []);
         setSelectedMultiValues(
             pipelineStageFilter,
             statusCategoriesNeedPipeline(statusCategories) ? filters.pipelineStages || [] : [],
         );
-        setSelectedMultiValues(assigneeFilter, filters.assignees || []);
+        setSelectedMultiValues(
+            assigneeFilter,
+            isOnlyUntouchedStatus(statusCategories) ? [] : filters.assignees || [],
+        );
         if (searchInput) searchInput.value = filters.search || "";
         if (quantityUptoFilter) {
             quantityUptoFilter.value = normalizePositiveNumber(filters.quantityUpto);
@@ -1281,18 +1301,24 @@
             });
         }
 
+        const statusCategories = normalizeStatusCategories(
+            appliedFilters.statusCategories,
+        );
         const multiChipSpecs = [
-            [statusCategoryFilter, appliedFilters.statusCategories],
+            [statusCategoryFilter, statusCategories],
             [categoryFilter, appliedFilters.categories],
             [
                 pipelineStageFilter,
-                statusCategoriesNeedPipeline(
-                    normalizeStatusCategories(appliedFilters.statusCategories),
-                )
+                statusCategoriesNeedPipeline(statusCategories)
                     ? appliedFilters.pipelineStages
                     : [],
             ],
-            [assigneeFilter, appliedFilters.assignees],
+            [
+                assigneeFilter,
+                isOnlyUntouchedStatus(statusCategories)
+                    ? []
+                    : appliedFilters.assignees,
+            ],
         ];
         for (const [root, values] of multiChipSpecs) {
             if (!root) continue;
@@ -1303,7 +1329,7 @@
                 clear: () => {
                     setSelectedMultiValues(root, []);
                     if (root === statusCategoryFilter) {
-                        syncPipelineStageVisibility([]);
+                        syncStatusDependentFilters([]);
                     }
                 },
             });
@@ -1597,7 +1623,9 @@
                       .map(String)
                       .filter((stage) => WORKABLE_PIPELINE_STAGES.has(stage))
                 : [],
-            assignees: assignees.map(String).filter(Boolean),
+            assignees: isOnlyUntouchedStatus(statusCategories)
+                ? []
+                : assignees.map(String).filter(Boolean),
             search: String(filters.search || "").trim(),
             quantityUpto: normalizePositiveNumber(filters.quantityUpto),
             locked: normalizeLockedFilter(filters.locked),
@@ -1626,7 +1654,7 @@
             if (!event.target?.classList?.contains("gem-multi-filter-option")) return;
             updateMultiFilterLabel(root);
             if (root === statusCategoryFilter) {
-                syncPipelineStageVisibility();
+                syncStatusDependentFilters();
             }
             void commitFilters();
         });
@@ -1641,7 +1669,7 @@
     const urlView = new URL(window.location.href).searchParams.get("view");
     if (QUICK_VIEWS.has(urlView)) appliedFilters.view = urlView;
     writeFiltersToDom(appliedFilters);
-    syncPipelineStageVisibility(appliedFilters.statusCategories);
+    syncStatusDependentFilters(appliedFilters.statusCategories);
 
     function startOfIndianQuarterKey(dateKey) {
         const year = Number(dateKey.slice(0, 4));
