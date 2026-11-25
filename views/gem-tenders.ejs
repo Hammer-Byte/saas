@@ -462,7 +462,7 @@
                         </div>
 
                         <div class="row g-2 mb-3">
-                            <div class="col-12 col-md-6">
+                            <div class="col-6">
                                 <span class="form-label d-block">Status</span>
                                 <div
                                     class="dropdown hb-multi-filter"
@@ -511,10 +511,7 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="row g-2 mb-3 d-none" id="gem-filter-pipeline-wrap">
-                            <div class="col-12 col-md-6">
+                            <div class="col-6 d-none" id="gem-filter-pipeline-wrap">
                                 <span class="form-label d-block">Stage</span>
                                 <div
                                     class="dropdown hb-multi-filter"
@@ -554,8 +551,8 @@
                             </div>
                         </div>
 
-                        <div class="row g-2 mb-3 d-none" id="gem-filter-assignee-wrap">
-                            <div class="col-6">
+                        <div class="row g-2 mb-3">
+                            <div class="col-6 d-none" id="gem-filter-assignee-wrap">
                                 <span class="form-label d-block">Assignee</span>
                                 <div class="dropdown hb-multi-filter" id="gem-filter-assignee" data-empty-label="All assignees" data-chip-label="Assignee">
                                     <button
@@ -598,9 +595,6 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <span class="form-label d-block">Category</span>
                                 <div class="dropdown hb-multi-filter" id="gem-filter-category" data-empty-label="All categories" data-chip-label="Category">
@@ -647,6 +641,9 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <label for="gem-filter-quantity-upto" class="form-label">Quantity up to</label>
                                 <input
@@ -660,10 +657,7 @@
                                     autocomplete="off"
                                 />
                             </div>
-                        </div>
-
-                        <div class="row g-2 mb-3">
-                            <div class="col-4">
+                            <div class="col-6">
                                 <label for="gem-filter-past-experience" class="form-label" title="Required past experience">Past exp.</label>
                                 <select
                                     class="form-select form-select-sm gem-tender-column-filter"
@@ -674,7 +668,10 @@
                                     <option value="">All</option>
                                 </select>
                             </div>
-                            <div class="col-4">
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
                                 <label for="gem-filter-mse-exp" class="form-label text-nowrap" title="Experience relaxation">Exp. relaxation</label>
                                 <select
                                     class="form-select form-select-sm gem-tender-column-filter"
@@ -685,7 +682,7 @@
                                     <option value="">All</option>
                                 </select>
                             </div>
-                            <div class="col-4">
+                            <div class="col-6">
                                 <label for="gem-filter-mse-turnover" class="form-label text-nowrap" title="Turnover relaxation">Turnover relax.</label>
                                 <select
                                     class="form-select form-select-sm gem-tender-column-filter"
