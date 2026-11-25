@@ -3,6 +3,7 @@ document.getElementById("logout-btn")?.addEventListener("click", async () => {
         try {
             window.localStorage.removeItem("gem-tenders-filters");
             window.localStorage.removeItem("tasks-filters");
+            window.localStorage.removeItem("tasks-filters-v2");
             window.localStorage.removeItem("tasks-report-filters");
         } catch (storageError) {
             console.error(storageError);

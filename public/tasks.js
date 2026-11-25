@@ -1,18 +1,19 @@
 (() => {
-    const FILTERS_STORAGE_KEY = "tasks-filters";
+    const FILTERS_STORAGE_KEY = "tasks-filters-v2";
     const TERMINAL_STATES = new Set(["done"]);
     const PRIORITY_ORDER = { high: 1, medium: 2, low: 3 };
 
     const pageElement = document.getElementById("tasks-page");
-    const currentUserId = Number(pageElement?.dataset.currentUserId || 0);
-    const isTaskAdmin = pageElement?.dataset.isTaskAdmin === "1";
+    if (!pageElement) return;
+
+    const currentUserId = Number(pageElement.dataset.currentUserId || 0);
+    const isTaskAdmin = pageElement.dataset.isTaskAdmin === "1";
 
     const searchInput = document.getElementById("tasks-search");
     const stateFilter = document.getElementById("tasks-filter-state");
     const assigneeFilter = document.getElementById("tasks-filter-assignee");
     const projectFilter = document.getElementById("tasks-filter-project");
     const priorityFilter = document.getElementById("tasks-filter-priority");
-    const sortFilter = document.getElementById("tasks-filter-sort");
     const overdueFilter = document.getElementById("tasks-filter-overdue");
     const dueSoonFilter = document.getElementById("tasks-filter-due-soon");
     const viewTableInput = document.getElementById("tasks-view-table");
@@ -24,8 +25,23 @@
     const sprintNextButton = document.getElementById("tasks-sprint-next");
     const sprintCurrentButton = document.getElementById("tasks-sprint-current");
     const sprintLabel = document.getElementById("tasks-sprint-label");
-    const allWeeksFilter = document.getElementById("tasks-filter-all-weeks");
-    const backlogFilter = document.getElementById("tasks-filter-backlog");
+    const expectedHoursTotal = document.getElementById("tasks-expected-hours-total");
+
+    const tableView = document.getElementById("tasks-table-view");
+    const boardView = document.getElementById("tasks-board-view");
+    const tableBody = document.getElementById("tasks-tbody");
+    const tableWrap = document.getElementById("tasks-table-wrap");
+    const emptyState = document.getElementById("tasks-empty");
+    const selectAllCheckbox = document.getElementById("tasks-select-all");
+    const bulkBar = document.getElementById("tasks-bulk-state-bar");
+    const bulkStateSelect = document.getElementById("tasks-bulk-state");
+    const bulkApplyButton = document.getElementById("tasks-bulk-apply-btn");
+    const bulkClearButton = document.getElementById("tasks-bulk-clear-btn");
+    const selectedCountLabel = document.getElementById("tasks-selected-count");
+    const pageAlert = document.getElementById("tasks-alert");
+    const taskForm = document.getElementById("task-form");
+    const taskFormAlert = document.getElementById("task-form-alert");
+    const taskSubmitButton = document.getElementById("task-submit-btn");
 
     let selectedSprintWeek =
         window.getMondayDate?.(new Date()) ||
@@ -43,23 +59,18 @@
     let dragTaskId = null;
     let dragMoved = false;
 
-    const tableView = document.getElementById("tasks-table-view");
-    const boardView = document.getElementById("tasks-board-view");
-    const tableBody = document.getElementById("tasks-tbody");
-    const tableWrap = document.getElementById("tasks-table-wrap");
-    const emptyState = document.getElementById("tasks-empty");
+    function showAlert(target, message, type) {
+        if (!target) return;
+        target.textContent = message;
+        target.className = `alert alert-${type}`;
+        target.classList.remove("d-none");
+    }
 
-    const selectAllCheckbox = document.getElementById("tasks-select-all");
-    const bulkBar = document.getElementById("tasks-bulk-state-bar");
-    const bulkStateSelect = document.getElementById("tasks-bulk-state");
-    const bulkApplyButton = document.getElementById("tasks-bulk-apply-btn");
-    const bulkClearButton = document.getElementById("tasks-bulk-clear-btn");
-    const selectedCountLabel = document.getElementById("tasks-selected-count");
-
-    const pageAlert = document.getElementById("tasks-alert");
-    const taskForm = document.getElementById("task-form");
-    const taskFormAlert = document.getElementById("task-form-alert");
-    const taskSubmitButton = document.getElementById("task-submit-btn");
+    function hideAlert(target) {
+        if (!target) return;
+        target.classList.add("d-none");
+        target.textContent = "";
+    }
 
     function readStoredFilters() {
         try {
@@ -89,6 +100,10 @@
         return `${mondayDisplay} – ${sundayDisplay}`;
     }
 
+    function syncSprintLabel() {
+        if (sprintLabel) sprintLabel.textContent = formatSprintLabel(selectedSprintWeek);
+    }
+
     function shiftSprintWeek(days) {
         const year = Number(selectedSprintWeek.slice(0, 4));
         const month = Number(selectedSprintWeek.slice(5, 7));
@@ -106,27 +121,17 @@
         applyFilters();
     }
 
-    function syncSprintLabel() {
-        if (sprintLabel) {
-            sprintLabel.textContent = formatSprintLabel(selectedSprintWeek);
-        }
-    }
-
     function collectFilters() {
-        const view = viewBoardInput?.checked ? "board" : "table";
         return {
+            view: viewBoardInput?.checked ? "board" : "table",
             search: searchInput?.value || "",
             state: stateFilter?.value || "",
             assignee: assigneeFilter?.value || "",
             project: projectFilter?.value || "",
             priority: priorityFilter?.value || "",
-            sort: sortFilter?.value || "end_asc",
             overdue: !!overdueFilter?.checked,
             dueSoon: !!dueSoonFilter?.checked,
-            view,
             sprintWeek: selectedSprintWeek,
-            allWeeks: !!allWeeksFilter?.checked,
-            backlogOnly: !!backlogFilter?.checked,
         };
     }
 
@@ -134,25 +139,24 @@
         writeStoredFilters(collectFilters());
     }
 
-    function restoreClientFilters(filters) {
+    function restoreFilters() {
+        const filters = readStoredFilters();
         if (!filters) return;
-        if (searchInput && filters.search != null) searchInput.value = filters.search;
-        if (stateFilter && filters.state != null) stateFilter.value = filters.state;
-        if (assigneeFilter && filters.assignee != null) assigneeFilter.value = filters.assignee;
-        if (projectFilter && filters.project != null) projectFilter.value = filters.project;
-        if (priorityFilter && filters.priority != null) priorityFilter.value = filters.priority;
-        if (sortFilter && filters.sort) sortFilter.value = filters.sort;
-        if (filters.sprintWeek) {
-            const monday = window.getMondayDate?.(filters.sprintWeek) || filters.sprintWeek;
-            if (/^\d{4}-\d{2}-\d{2}$/.test(monday)) {
-                selectedSprintWeek = monday;
-            }
+        if (filters.view === "board" && viewBoardInput) {
+            viewBoardInput.checked = true;
+        } else if (viewTableInput) {
+            viewTableInput.checked = true;
         }
-        if (allWeeksFilter && typeof filters.allWeeks === "boolean") {
-            allWeeksFilter.checked = filters.allWeeks;
+        if (searchInput && typeof filters.search === "string") searchInput.value = filters.search;
+        if (stateFilter && typeof filters.state === "string") stateFilter.value = filters.state;
+        if (assigneeFilter && typeof filters.assignee === "string") {
+            assigneeFilter.value = filters.assignee;
         }
-        if (backlogFilter && typeof filters.backlogOnly === "boolean") {
-            backlogFilter.checked = filters.backlogOnly;
+        if (projectFilter && typeof filters.project === "string") {
+            projectFilter.value = filters.project;
+        }
+        if (priorityFilter && typeof filters.priority === "string") {
+            priorityFilter.value = filters.priority;
         }
         if (overdueFilter && typeof filters.overdue === "boolean") {
             overdueFilter.checked = filters.overdue;
@@ -160,18 +164,9 @@
         if (dueSoonFilter && typeof filters.dueSoon === "boolean") {
             dueSoonFilter.checked = filters.dueSoon;
         }
-        if (filters.view === "board" && viewBoardInput) {
-            viewBoardInput.checked = true;
-        } else if (viewTableInput) {
-            viewTableInput.checked = true;
-        }
-    }
-
-    function clearStoredFilters() {
-        try {
-            window.localStorage.removeItem(FILTERS_STORAGE_KEY);
-        } catch (error) {
-            console.error(error);
+        if (filters.sprintWeek) {
+            selectedSprintWeek =
+                window.getMondayDate?.(filters.sprintWeek) || filters.sprintWeek;
         }
     }
 
@@ -251,24 +246,11 @@
 
         const itemPriority = (item.dataset.priority || "").trim();
         const matchesPriority = !priorityValue || itemPriority === priorityValue;
-
         const matchesOverdue = !overdueOnly || isItemOverdue(item);
         const matchesDueSoon = !dueSoonOnly || isItemDueSoon(item);
 
-        const boardMode = !!viewBoardInput?.checked;
-        const backlogOnly = !!backlogFilter?.checked;
-        const allWeeks = !!allWeeksFilter?.checked && !boardMode;
         const itemSprint = (item.dataset.sprintWeekStart || "").slice(0, 10);
-        let matchesSprint = true;
-        const isBacklogItem = itemState === "backlog" || !itemSprint;
-        if (backlogOnly) {
-            matchesSprint = isBacklogItem;
-        } else if (boardMode) {
-            // Shared backlog stack (no week) always stays visible alongside the selected sprint week.
-            matchesSprint = isBacklogItem || itemSprint === selectedSprintWeek;
-        } else if (!allWeeks) {
-            matchesSprint = isBacklogItem || itemSprint === selectedSprintWeek;
-        }
+        const matchesSprint = itemSprint === selectedSprintWeek;
 
         return (
             matchesSearch &&
@@ -284,39 +266,17 @@
 
     function isCurrentUserTask(item) {
         if (!(currentUserId >= 1)) return false;
-        const assigneeId = Number(item.dataset.assigneeId || 0);
-        return assigneeId >= 1 && assigneeId === currentUserId;
-    }
-
-    function compareOwnFirst(left, right) {
-        const leftMine = isCurrentUserTask(left) ? 0 : 1;
-        const rightMine = isCurrentUserTask(right) ? 0 : 1;
-        return leftMine - rightMine;
+        return Number(item.dataset.assigneeId || 0) === currentUserId;
     }
 
     function compareItems(left, right) {
-        const ownDelta = compareOwnFirst(left, right);
-        if (ownDelta !== 0) return ownDelta;
+        const leftMine = isCurrentUserTask(left) ? 0 : 1;
+        const rightMine = isCurrentUserTask(right) ? 0 : 1;
+        if (leftMine !== rightMine) return leftMine - rightMine;
 
-        const sortKey = sortFilter?.value || "end_asc";
-
-        if (sortKey === "title_asc") {
-            return (left.dataset.title || "").localeCompare(right.dataset.title || "");
-        }
-
-        if (sortKey === "priority") {
-            const leftOrder = PRIORITY_ORDER[left.dataset.priority] || 9;
-            const rightOrder = PRIORITY_ORDER[right.dataset.priority] || 9;
-            if (leftOrder !== rightOrder) return leftOrder - rightOrder;
-            return Number(left.dataset.id) - Number(right.dataset.id);
-        }
-
-        if (sortKey === "created_desc" || sortKey === "created_asc") {
-            const leftMs = parseDateTimeMs(left.dataset.createdOn) || 0;
-            const rightMs = parseDateTimeMs(right.dataset.createdOn) || 0;
-            const delta = rightMs - leftMs;
-            return sortKey === "created_asc" ? -delta : delta;
-        }
+        const leftOrder = PRIORITY_ORDER[left.dataset.priority] || 9;
+        const rightOrder = PRIORITY_ORDER[right.dataset.priority] || 9;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
 
         const leftEnd = parseDateTimeMs(left.dataset.endAt);
         const rightEnd = parseDateTimeMs(right.dataset.endAt);
@@ -325,40 +285,109 @@
         }
         if (leftEnd == null) return 1;
         if (rightEnd == null) return -1;
-        const endDelta = leftEnd - rightEnd;
-        if (endDelta !== 0) {
-            return sortKey === "end_desc" ? -endDelta : endDelta;
-        }
-        return Number(right.dataset.id) - Number(left.dataset.id);
+        return leftEnd - rightEnd;
     }
 
     function sortTableRows() {
         if (!tableBody) return;
-        const rows = tableRows();
-        const sorted = [...rows].sort(compareItems);
-        for (const row of sorted) {
-            tableBody.appendChild(row);
-        }
+        const sorted = [...tableRows()].sort(compareItems);
+        for (const row of sorted) tableBody.appendChild(row);
     }
 
     function sortBoardColumns() {
         for (const column of document.querySelectorAll(".task-board-column")) {
             const cards = Array.from(column.querySelectorAll(".task-board-card"));
             const sorted = [...cards].sort(compareItems);
-            for (const card of sorted) {
-                column.appendChild(card);
-            }
+            for (const card of sorted) column.appendChild(card);
         }
+    }
+
+    function updateExpectedHoursTotal() {
+        if (!expectedHoursTotal) return;
+        let total = 0;
+        for (const row of tableRows()) {
+            if (row.classList.contains("d-none")) continue;
+            const hours = Number(row.dataset.expectedHours || "");
+            if (Number.isFinite(hours)) total += hours;
+        }
+        expectedHoursTotal.textContent = String(Math.round(total * 100) / 100);
     }
 
     function syncViewMode() {
         const boardMode = !!viewBoardInput?.checked;
         tableView?.classList.toggle("d-none", boardMode);
         boardView?.classList.toggle("d-none", !boardMode);
-        if (boardMode) {
-            if (allWeeksFilter) allWeeksFilter.checked = false;
-            if (backlogFilter) backlogFilter.checked = false;
+    }
+
+    function syncOverdueHighlight(item) {
+        const overdue = isItemOverdue(item);
+        item.classList.toggle("task-overdue", overdue);
+        item.classList.toggle("table-danger", overdue && item.tagName === "TR");
+    }
+
+    function syncBulkBar() {
+        const selected = Array.from(document.querySelectorAll(".task-select:checked")).filter(
+            (input) => {
+                const row = input.closest("tr");
+                return row && !row.classList.contains("d-none");
+            },
+        );
+        const count = selected.length;
+        if (selectedCountLabel) selectedCountLabel.textContent = `${count} selected`;
+        bulkBar?.classList.toggle("d-none", count === 0);
+        if (bulkApplyButton) {
+            bulkApplyButton.disabled = count === 0 || !bulkStateSelect?.value;
         }
+        if (selectAllCheckbox) {
+            const visible = tableRows().filter((row) => !row.classList.contains("d-none"));
+            const visibleChecks = visible
+                .map((row) => row.querySelector(".task-select"))
+                .filter(Boolean);
+            const checkedVisible = visibleChecks.filter((input) => input.checked).length;
+            selectAllCheckbox.checked =
+                visibleChecks.length > 0 && checkedVisible === visibleChecks.length;
+            selectAllCheckbox.indeterminate =
+                checkedVisible > 0 && checkedVisible < visibleChecks.length;
+        }
+    }
+
+    function applyFilters() {
+        const items = allTaskItems();
+        let visibleCount = 0;
+        const visibleIds = new Set();
+
+        for (const item of items) {
+            const visible = matchesFilters(item);
+            item.classList.toggle("d-none", !visible);
+            if (visible) {
+                const taskId = item.dataset.id || "";
+                if (taskId && !visibleIds.has(taskId)) {
+                    visibleIds.add(taskId);
+                    visibleCount += 1;
+                }
+                syncOverdueHighlight(item);
+            }
+            if (!visible && item.tagName === "TR") {
+                const checkbox = item.querySelector(".task-select");
+                if (checkbox) checkbox.checked = false;
+            }
+        }
+
+        sortTableRows();
+        sortBoardColumns();
+        updateExpectedHoursTotal();
+
+        const totalRows = tableRows().length;
+        if (filterStatus) {
+            filterStatus.textContent =
+                totalRows > 0 ? `Showing ${visibleCount} of ${totalRows} sprint tasks` : "";
+        }
+
+        emptyState?.classList.toggle("d-none", totalRows === 0 ? false : visibleCount > 0);
+        if (totalRows === 0) emptyState?.classList.remove("d-none");
+        tableWrap?.classList.toggle("d-none", totalRows === 0);
+
+        syncBulkBar();
         saveFilters();
     }
 
@@ -368,9 +397,7 @@
             item.dataset.state = state;
             if (item.tagName === "TR") {
                 const stateCell = item.children[2];
-                if (stateCell) {
-                    stateCell.textContent = state.replaceAll("_", " ");
-                }
+                if (stateCell) stateCell.textContent = state.replaceAll("_", " ");
             }
         }
     }
@@ -461,9 +488,7 @@
     async function moveBoardCardToState(card, nextState) {
         const taskId = Number(card.dataset.id || 0);
         const previousState = card.dataset.state || "";
-        if (!(taskId >= 1) || !nextState || previousState === nextState) {
-            return;
-        }
+        if (!(taskId >= 1) || !nextState || previousState === nextState) return;
         if (card.dataset.canMove !== "1") {
             showAlert(
                 pageAlert,
@@ -474,9 +499,7 @@
         }
 
         const extras = await collectStateTransitionExtras(card, previousState, nextState);
-        if (extras == null) {
-            return;
-        }
+        if (extras == null) return;
 
         const body = { state: nextState, ...extras };
         if (
@@ -502,6 +525,14 @@
                 return;
             }
 
+            if (nextState === "backlog") {
+                card.remove();
+                const tableRow = document.querySelector(`tr.task-item[data-id="${taskId}"]`);
+                tableRow?.remove();
+                applyFilters();
+                return;
+            }
+
             const targetColumn = document.querySelector(
                 `.task-board-column[data-state="${nextState}"]`,
             );
@@ -515,8 +546,6 @@
             }
             if (body.sprint_week_start) {
                 card.dataset.sprintWeekStart = String(body.sprint_week_start).slice(0, 10);
-            } else if (nextState === "backlog") {
-                card.dataset.sprintWeekStart = "";
             }
             syncTaskStateInDom(taskId, nextState);
             applyFilters();
@@ -537,9 +566,7 @@
                 dragMoved = false;
                 card.classList.add("dragging");
                 event.dataTransfer?.setData("text/plain", String(dragTaskId || ""));
-                if (event.dataTransfer) {
-                    event.dataTransfer.effectAllowed = "move";
-                }
+                if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
             });
             card.addEventListener("dragend", () => {
                 card.classList.remove("dragging");
@@ -554,10 +581,7 @@
                     dragMoved = false;
                     return;
                 }
-                const href = card.dataset.href;
-                if (href) {
-                    window.location.href = href;
-                }
+                if (card.dataset.href) window.location.href = card.dataset.href;
             });
         }
 
@@ -565,21 +589,15 @@
             column.addEventListener("dragover", (event) => {
                 event.preventDefault();
                 column.classList.add("drag-over");
-                if (event.dataTransfer) {
-                    event.dataTransfer.dropEffect = "move";
-                }
+                if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
             });
-            column.addEventListener("dragleave", () => {
-                column.classList.remove("drag-over");
-            });
+            column.addEventListener("dragleave", () => column.classList.remove("drag-over"));
             column.addEventListener("drop", async (event) => {
                 event.preventDefault();
                 column.classList.remove("drag-over");
                 const taskId =
                     event.dataTransfer?.getData("text/plain") || dragTaskId || "";
-                const card = document.querySelector(
-                    `.task-board-card[data-id="${taskId}"]`,
-                );
+                const card = document.querySelector(`.task-board-card[data-id="${taskId}"]`);
                 const nextState = column.dataset.state || "";
                 if (!card || !nextState) return;
                 dragMoved = true;
@@ -588,174 +606,60 @@
         }
     }
 
-    function syncOverdueHighlight(item) {
-        const overdue = isItemOverdue(item);
-        item.classList.toggle("task-overdue", overdue);
-        item.classList.toggle("table-danger", overdue && item.tagName === "TR");
-        item.classList.toggle("table-warning", false);
-        item.classList.toggle("border-warning", false);
-    }
-
-    function applyFilters() {
-        const items = allTaskItems();
-        let visibleCount = 0;
-        const visibleIds = new Set();
-
-        for (const item of items) {
-            const visible = matchesFilters(item);
-            item.classList.toggle("d-none", !visible);
-            if (visible) {
-                const taskId = item.dataset.id || "";
-                if (taskId && !visibleIds.has(taskId)) {
-                    visibleIds.add(taskId);
-                    visibleCount += 1;
-                }
-                syncOverdueHighlight(item);
+    async function uploadCreateAttachments(taskId, files) {
+        for (const file of files) {
+            const sizeCheck = window.validateUploadFiles?.(file);
+            if (sizeCheck && !sizeCheck.ok) {
+                throw new Error(sizeCheck.error || "Invalid attachment");
             }
-            if (!visible && item.tagName === "TR") {
-                const checkbox = item.querySelector(".task-select");
-                if (checkbox) checkbox.checked = false;
+            const mediaBody = new FormData();
+            mediaBody.append("file", file);
+            const mediaResponse = await fetch("/api/media", {
+                method: "POST",
+                credentials: "same-origin",
+                body: mediaBody,
+            });
+            const mediaData = await mediaResponse.json().catch(() => ({}));
+            if (!mediaResponse.ok || !mediaData.id) {
+                throw new Error(mediaData.error || "Failed to upload attachment");
+            }
+            const linkResponse = await fetch("/api/task-attachments", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ task_id: taskId, media_id: mediaData.id }),
+            });
+            const linkData = await linkResponse.json().catch(() => ({}));
+            if (!linkResponse.ok) {
+                throw new Error(linkData.error || "Failed to link attachment");
             }
         }
-
-        sortTableRows();
-        sortBoardColumns();
-
-        const totalRows = tableRows().length;
-        if (filterStatus) {
-            filterStatus.textContent =
-                totalRows > 0 ? `Showing ${visibleCount} of ${totalRows} tasks` : "";
-        }
-
-        const hasAnyTasks = totalRows > 0;
-        emptyState?.classList.toggle("d-none", hasAnyTasks);
-        tableWrap?.classList.toggle("d-none", !hasAnyTasks);
-
-        syncBulkBar();
-        saveFilters();
     }
 
-    function visibleRows() {
-        return tableRows().filter((row) => !row.classList.contains("d-none"));
-    }
-
-    function selectedCheckboxes() {
-        return Array.from(document.querySelectorAll(".task-select:checked")).filter((input) => {
-            const row = input.closest("tr");
-            return row && !row.classList.contains("d-none");
-        });
-    }
-
-    function syncBulkBar() {
-        const selected = selectedCheckboxes();
-        const count = selected.length;
-        if (selectedCountLabel) {
-            selectedCountLabel.textContent = `${count} selected`;
-        }
-        bulkBar?.classList.toggle("d-none", count === 0);
-        if (bulkApplyButton) {
-            bulkApplyButton.disabled = count === 0 || !bulkStateSelect?.value;
-        }
-        if (selectAllCheckbox) {
-            const visible = visibleRows();
-            const visibleChecks = visible
-                .map((row) => row.querySelector(".task-select"))
-                .filter(Boolean);
-            const checkedVisible = visibleChecks.filter((input) => input.checked).length;
-            selectAllCheckbox.checked =
-                visibleChecks.length > 0 && checkedVisible === visibleChecks.length;
-            selectAllCheckbox.indeterminate =
-                checkedVisible > 0 && checkedVisible < visibleChecks.length;
-        }
-    }
-
-    function clearSelection() {
-        for (const input of document.querySelectorAll(".task-select")) {
-            input.checked = false;
-        }
-        if (selectAllCheckbox) {
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = false;
-        }
-        syncBulkBar();
-    }
-
-    function exportVisibleCsv() {
-        const rows = visibleRows();
-        if (!rows.length) {
-            showAlert(pageAlert, "No visible tasks to export.", "warning");
-            return;
-        }
-
-        const headers = ["ID", "Title", "State", "Priority", "Assignee ID", "Project ID", "End", "Expected hours"];
-        const lines = [headers.join(",")];
-
-        for (const row of rows) {
-            const title = (row.dataset.title || "").replace(/"/g, '""');
-            const state = row.dataset.state || "";
-            const priority = row.dataset.priority || "";
-            const assigneeId = row.dataset.assigneeId || "";
-            const projectId = row.dataset.projectId || "";
-            const endAt = row.dataset.endAt || "";
-            const expectedHours = row.dataset.expectedHours || "";
-            lines.push(
-                [
-                    row.dataset.id,
-                    `"${title}"`,
-                    state,
-                    priority,
-                    assigneeId,
-                    projectId,
-                    `"${endAt.replace(/"/g, '""')}"`,
-                    expectedHours,
-                ].join(","),
-            );
-        }
-
-        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = "tasks-export.csv";
-        anchor.click();
-        URL.revokeObjectURL(url);
-    }
-
-    restoreClientFilters(readStoredFilters());
+    restoreFilters();
     syncSprintLabel();
     syncViewMode();
-    applyFilters();
     setupBoardDragAndDrop();
+    applyFilters();
+
+    window.bindSortableHeaders?.({
+        table: document.getElementById("tasks-table"),
+        getSortValue: (row, sortKey) => {
+            if (sortKey === "expectedHours") return Number(row.dataset.expectedHours || 0);
+            if (sortKey === "end") return parseDateTimeMs(row.dataset.endAt) || 0;
+            if (sortKey === "priority") return PRIORITY_ORDER[row.dataset.priority] || 9;
+            if (sortKey === "id") return Number(row.dataset.id || 0);
+            return row.dataset[sortKey] ?? row.textContent;
+        },
+    });
 
     searchInput?.addEventListener("input", applyFilters);
     stateFilter?.addEventListener("change", applyFilters);
     assigneeFilter?.addEventListener("change", applyFilters);
     projectFilter?.addEventListener("change", applyFilters);
     priorityFilter?.addEventListener("change", applyFilters);
-    sortFilter?.addEventListener("change", applyFilters);
     overdueFilter?.addEventListener("change", applyFilters);
     dueSoonFilter?.addEventListener("change", applyFilters);
-    allWeeksFilter?.addEventListener("change", () => {
-        if (allWeeksFilter.checked && backlogFilter) {
-            backlogFilter.checked = false;
-        }
-        applyFilters();
-    });
-    backlogFilter?.addEventListener("change", () => {
-        if (backlogFilter.checked && allWeeksFilter) {
-            allWeeksFilter.checked = false;
-        }
-        applyFilters();
-    });
-    sprintPrevButton?.addEventListener("click", () => shiftSprintWeek(-7));
-    sprintNextButton?.addEventListener("click", () => shiftSprintWeek(7));
-    sprintCurrentButton?.addEventListener("click", () => {
-        selectedSprintWeek = window.getMondayDate?.(new Date()) || selectedSprintWeek;
-        if (backlogFilter) backlogFilter.checked = false;
-        if (allWeeksFilter) allWeeksFilter.checked = false;
-        syncSprintLabel();
-        applyFilters();
-    });
     viewTableInput?.addEventListener("change", () => {
         syncViewMode();
         applyFilters();
@@ -764,66 +668,49 @@
         syncViewMode();
         applyFilters();
     });
-
     clearFiltersButton?.addEventListener("click", () => {
         if (searchInput) searchInput.value = "";
         if (stateFilter) stateFilter.value = "";
         if (assigneeFilter) assigneeFilter.value = "";
         if (projectFilter) projectFilter.value = "";
         if (priorityFilter) priorityFilter.value = "";
-        if (sortFilter) sortFilter.value = "end_asc";
         if (overdueFilter) overdueFilter.checked = false;
         if (dueSoonFilter) dueSoonFilter.checked = false;
-        if (allWeeksFilter) allWeeksFilter.checked = false;
-        if (backlogFilter) backlogFilter.checked = false;
-        if (viewTableInput) viewTableInput.checked = true;
+        applyFilters();
+    });
+    sprintPrevButton?.addEventListener("click", () => shiftSprintWeek(-7));
+    sprintNextButton?.addEventListener("click", () => shiftSprintWeek(7));
+    sprintCurrentButton?.addEventListener("click", () => {
         selectedSprintWeek = window.getMondayDate?.(new Date()) || selectedSprintWeek;
-        clearStoredFilters();
         syncSprintLabel();
-        syncViewMode();
         applyFilters();
     });
 
-    const createSprintInput = document.getElementById("task-sprint-week");
-    if (createSprintInput && !createSprintInput.value) {
-        const monday = window.getMondayDate?.(new Date());
-        if (monday) {
-            createSprintInput.dataset.dateValue = monday;
-            createSprintInput.value =
-                window.getReadableDate?.("DD/MM/YYYY", monday) || monday;
-        }
-    }
-
-    exportCsvButton?.addEventListener("click", exportVisibleCsv);
-
-    tableBody?.addEventListener("change", (event) => {
-        if (event.target?.classList?.contains("task-select")) {
-            syncBulkBar();
-        }
-    });
-
     selectAllCheckbox?.addEventListener("change", () => {
-        const checked = !!selectAllCheckbox.checked;
-        for (const row of visibleRows()) {
+        for (const row of tableRows()) {
+            if (row.classList.contains("d-none")) continue;
             const checkbox = row.querySelector(".task-select");
-            if (checkbox) checkbox.checked = checked;
+            if (checkbox) checkbox.checked = !!selectAllCheckbox.checked;
         }
         syncBulkBar();
     });
-
+    tableBody?.addEventListener("change", (event) => {
+        if (event.target?.classList?.contains("task-select")) syncBulkBar();
+    });
     bulkStateSelect?.addEventListener("change", syncBulkBar);
-    bulkClearButton?.addEventListener("click", clearSelection);
-
+    bulkClearButton?.addEventListener("click", () => {
+        for (const input of document.querySelectorAll(".task-select:checked")) {
+            input.checked = false;
+        }
+        syncBulkBar();
+    });
     bulkApplyButton?.addEventListener("click", async () => {
-        const selected = selectedCheckboxes();
+        const ids = Array.from(document.querySelectorAll(".task-select:checked"))
+            .map((input) => Number(input.value))
+            .filter((id) => id >= 1);
         const state = bulkStateSelect?.value || "";
-        if (!selected.length || !state) return;
-
-        bulkApplyButton.disabled = true;
+        if (!ids.length || !state) return;
         try {
-            const ids = selected
-                .map((input) => Number(input.value || 0))
-                .filter((id) => id >= 1);
             const response = await fetch("/api/tasks/bulk-state", {
                 method: "POST",
                 credentials: "same-origin",
@@ -833,31 +720,59 @@
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
                 showAlert(pageAlert, data.error || "Failed to update tasks.", "danger");
-                bulkApplyButton.disabled = false;
                 return;
             }
             window.location.reload();
         } catch (error) {
             console.error(error);
             showAlert(pageAlert, "Failed to update tasks.", "danger");
-            bulkApplyButton.disabled = false;
         }
     });
 
-    document.querySelectorAll(".task-row[data-href]").forEach((row) => {
+    exportCsvButton?.addEventListener("click", () => {
+        const rows = tableRows().filter((row) => !row.classList.contains("d-none"));
+        const lines = [
+            ["id", "title", "state", "priority", "assignee", "project", "end_at", "expected_hours"].join(
+                ",",
+            ),
+        ];
+        for (const row of rows) {
+            lines.push(
+                [
+                    row.dataset.id || "",
+                    JSON.stringify(row.dataset.title || ""),
+                    row.dataset.state || "",
+                    row.dataset.priority || "",
+                    JSON.stringify(row.dataset.assignee || ""),
+                    JSON.stringify(row.dataset.project || ""),
+                    row.dataset.endAt || "",
+                    row.dataset.expectedHours || "",
+                ].join(","),
+            );
+        }
+        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `tasks-${selectedSprintWeek}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    });
+
+    for (const row of tableRows()) {
         row.addEventListener("click", (event) => {
             if (event.target.closest(".task-select, select, button, a, input, textarea, label")) {
                 return;
             }
-            window.location.href = row.dataset.href;
+            if (row.dataset.href) window.location.href = row.dataset.href;
         });
         row.addEventListener("keydown", (event) => {
             if (event.key !== "Enter" && event.key !== " ") return;
             if (event.target.closest(".task-select")) return;
             event.preventDefault();
-            window.location.href = row.dataset.href;
+            if (row.dataset.href) window.location.href = row.dataset.href;
         });
-    });
+    }
 
     taskForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -872,7 +787,9 @@
         const assigneeRaw = document.getElementById("task-assignee")?.value || "";
         const projectRaw = document.getElementById("task-project")?.value || "";
         const priority = document.getElementById("task-priority")?.value || "medium";
-        const state = document.getElementById("task-state")?.value || "backlog";
+        const files = Array.from(
+            document.getElementById("task-create-attachments")?.files || [],
+        );
 
         if (!title) {
             showAlert(taskFormAlert, "Title is required.", "danger");
@@ -883,12 +800,8 @@
         if (description) payload.description = description;
         if (expectedHoursRaw !== "") {
             const expectedHours = Number(expectedHoursRaw);
-            if (!Number.isFinite(expectedHours) || expectedHours < 0) {
-                showAlert(taskFormAlert, "Enter valid expected hours.", "danger");
-                return;
-            }
-            if (expectedHours > 8) {
-                showAlert(taskFormAlert, "Expected hours cannot be more than 8.", "danger");
+            if (!Number.isFinite(expectedHours) || expectedHours < 0 || expectedHours > 8) {
+                showAlert(taskFormAlert, "Expected hours must be between 0 and 8.", "danger");
                 return;
             }
             payload.expected_hours = expectedHours;
@@ -909,15 +822,10 @@
             }
             payload.end_at = endAt;
         }
-        if (assigneeRaw) {
-            payload.assignee_user_id = Number(assigneeRaw);
-        }
-        if (projectRaw) {
-            payload.project_id = Number(projectRaw);
-        }
+        if (assigneeRaw) payload.assignee_user_id = Number(assigneeRaw);
+        if (isTaskAdmin && projectRaw) payload.project_id = Number(projectRaw);
 
         if (taskSubmitButton) taskSubmitButton.disabled = true;
-
         try {
             const response = await fetch("/api/tasks", {
                 method: "POST",
@@ -930,10 +838,14 @@
                 showAlert(taskFormAlert, data.error || "Failed to create task.", "danger");
                 return;
             }
-            window.location.reload();
+            const taskId = Number(data.task?.id || data.id || 0);
+            if (taskId >= 1 && files.length) {
+                await uploadCreateAttachments(taskId, files);
+            }
+            window.location.href = taskId >= 1 ? `/app/tasks/${taskId}` : "/app/tasks/backlog";
         } catch (error) {
             console.error(error);
-            showAlert(taskFormAlert, "Failed to create task.", "danger");
+            showAlert(taskFormAlert, error.message || "Failed to create task.", "danger");
         } finally {
             if (taskSubmitButton) taskSubmitButton.disabled = false;
         }

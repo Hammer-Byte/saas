@@ -7,7 +7,6 @@ import { allowTraffic } from "./server.js";
 import { startGemTenderEligibilityReminderWatcher } from "./libs/gem_tender_eligibility_remind.js";
 import { startGemTenderUnattendedWatcher } from "./libs/gem_tender_unattended.js";
 import { startInquiryFollowupReminderWatcher } from "./libs/inquiry_followup_remind.js";
-import { startTaskReminderWatcher } from "./libs/task_remind.js";
 import { startJobInterviewReminderWatcher } from "./libs/job_interview_remind.js";
 import { startServerPingAlertWatcher } from "./libs/server_ping_alert_watch.js";
 
@@ -30,8 +29,6 @@ try {
     logger.success("GEM Tender Eligibility Reminder Watcher Ready");
     startGemTenderUnattendedWatcher();
     logger.success("GEM Tender Unattended Watcher Ready");
-    startTaskReminderWatcher();
-    logger.success("Task Reminder Watcher Ready");
     startInquiryFollowupReminderWatcher();
     logger.success("Inquiry Follow-up Reminder Watcher Ready");
     startJobInterviewReminderWatcher();

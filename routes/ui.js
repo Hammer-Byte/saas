@@ -109,9 +109,6 @@ import { getAllTasks, getTaskById, getTasksByProjectId } from "../db/tasks.js";
 import { getAllTaskActivitiesByTaskId } from "../db/task_activities.js";
 import { getAllTaskAttachmentsByTaskId } from "../db/task_attachments.js";
 import { getAllTaskCommentsByTaskId } from "../db/task_comments.js";
-import { getTaskEffortsByTaskId } from "../db/task_efforts.js";
-import { getAllTaskFollowersByTaskId, getTaskFollowerByTaskIdAndUserId } from "../db/task_followers.js";
-import { getAllTaskRemindersByTaskId } from "../db/task_reminders.js";
 import { buildSprintBurnReport, buildTaskReport } from "../services/task_report.js";
 import {
     addIstCalendarDays,
@@ -448,22 +445,58 @@ export const uiRoutes = new Elysia()
                     }),
                 }));
             })
-            .get("/app/tasks", async ({ render, session }) =>
-                render("tasks", appPage(session, {
+            .get("/app/tasks", async ({ render, session }) => {
+                const allTasks = await getAllTasks();
+                const sprintTasks = allTasks.filter((task) => {
+                    const week = task.sprint_week_start
+                        ? String(task.sprint_week_start).slice(0, 10)
+                        : "";
+                    const state = task.state || TASK_STATES.BACKLOG;
+                    return !!week && state !== TASK_STATES.BACKLOG;
+                });
+
+                return render("tasks", appPage(session, {
                     title: "Tasks — HammerByte",
                     userId: session?.id,
                     isTaskAdmin:
                         !!session?.super_admin ||
                         (Array.isArray(session?.roles) && session.roles.includes("ADMIN")),
-                    tasks: await getAllTasks(),
+                    tasks: sprintTasks,
                     users: await getAllUsers(),
                     projects: await getAllCustomerProjects(),
+                    sprintWeekOptions: buildSprintWeekOptions(),
                     TASK_STATES,
                     TASK_STATE_LABELS,
                     TASK_PRIORITIES,
                     TASK_PRIORITY_LABELS,
-                })),
-            )
+                }));
+            })
+            .get("/app/tasks/backlog", async ({ render, session }) => {
+                const allTasks = await getAllTasks();
+                const backlogTasks = allTasks.filter((task) => {
+                    const week = task.sprint_week_start
+                        ? String(task.sprint_week_start).slice(0, 10)
+                        : "";
+                    const state = task.state || TASK_STATES.BACKLOG;
+                    return !week || state === TASK_STATES.BACKLOG;
+                });
+
+                return render("tasks-backlog", appPage(session, {
+                    title: "Backlog — Tasks — HammerByte",
+                    userId: session?.id,
+                    isTaskAdmin:
+                        !!session?.super_admin ||
+                        (Array.isArray(session?.roles) && session.roles.includes("ADMIN")),
+                    tasks: backlogTasks,
+                    users: await getAllUsers(),
+                    projects: await getAllCustomerProjects(),
+                    sprintWeekOptions: buildSprintWeekOptions(),
+                    TASK_STATES,
+                    TASK_STATE_LABELS,
+                    TASK_PRIORITIES,
+                    TASK_PRIORITY_LABELS,
+                }));
+            })
             .get("/app/tasks/report", async ({ render, session, query }) => {
                 const defaults = defaultDateRangeLookingBack({ daysBack: 30 });
                 const from = parseQueryDate(query.from) || defaults.from;
@@ -508,11 +541,6 @@ export const uiRoutes = new Elysia()
                     return redirect("/not-found");
                 }
 
-                const follower = await getTaskFollowerByTaskIdAndUserId({
-                    task_id: task.id,
-                    user_id: session?.id,
-                });
-
                 const isTaskAdmin =
                     !!session?.super_admin ||
                     (Array.isArray(session?.roles) && session.roles.includes("ADMIN"));
@@ -540,13 +568,9 @@ export const uiRoutes = new Elysia()
                     users: await getAllUsers(),
                     projects: await getAllCustomerProjects(),
                     projectInvoices,
-                    efforts: await getTaskEffortsByTaskId({ task_id: task.id }),
                     comments: await getAllTaskCommentsByTaskId({ task_id: task.id }),
                     attachments: await getAllTaskAttachmentsByTaskId({ task_id: task.id }),
-                    reminders: await getAllTaskRemindersByTaskId({ task_id: task.id }),
                     activities: await getAllTaskActivitiesByTaskId({ task_id: task.id }),
-                    followers: await getAllTaskFollowersByTaskId({ task_id: task.id }),
-                    isFollowing: !!follower,
                     sprintWeekOptions: buildSprintWeekOptions({
                         include: taskSprintWeek ? [taskSprintWeek] : [],
                     }),

@@ -1,0 +1,194 @@
+<%- include('common/header') %>
+
+<%
+    const stateLabels = TASK_STATE_LABELS || {};
+    const priorityLabels = TASK_PRIORITY_LABELS || {};
+    const priorityValues = Object.values(TASK_PRIORITIES || {});
+    const currentUserId = Number(userId || 0);
+    const taskAdmin = !!isTaskAdmin;
+    const weekOptions = sprintWeekOptions || [];
+%>
+
+<%- include('common/app-navbar', { wide: true }) %>
+
+<main
+    class="hb-main"
+    id="tasks-backlog-page"
+    data-current-user-id="<%= currentUserId %>"
+    data-is-task-admin="<%= taskAdmin ? '1' : '0' %>"
+>
+    <div class="container-fluid hb-page-wide">
+        <div class="mb-3 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/tasks" class="text-decoration-none">Tasks</a> /
+                    Backlog
+                </p>
+                <h1 class="h3 mb-1">Backlog</h1>
+                <p class="text-secondary mb-0">Unscheduled work. Assign a sprint week to pull items into a board.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    data-bs-toggle="offcanvas"
+                    data-bs-target="#backlog-filters-panel"
+                >
+                    Filters
+                </button>
+                <a href="/app/tasks" class="btn btn-outline-secondary">Sprint board</a>
+                <a href="/app/tasks" class="btn btn-primary">Add from Tasks</a>
+            </div>
+        </div>
+
+        <div id="backlog-alert" class="alert d-none" role="alert"></div>
+        <p class="text-secondary small mb-3" id="backlog-filter-status" role="status"></p>
+
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="backlog-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" class="hb-sortable" data-sort-key="title">Title</th>
+                            <th scope="col" class="hb-sortable" data-sort-key="priority">Priority</th>
+                            <th scope="col" class="hb-sortable" data-sort-key="assignee">Assignee</th>
+                            <th scope="col" class="hb-sortable" data-sort-key="project">Project</th>
+                            <th scope="col" class="hb-sortable" data-sort-key="expectedHours">Expected hrs</th>
+                            <th scope="col" class="hb-sortable" data-sort-key="created">Created</th>
+                            <th scope="col">Assign to sprint</th>
+                        </tr>
+                    </thead>
+                    <tbody id="backlog-tbody">
+                        <% if (!(tasks || []).length) { %>
+                            <tr>
+                                <td colspan="7" class="text-secondary text-center py-4">Backlog is empty.</td>
+                            </tr>
+                        <% } %>
+                        <% (tasks || []).forEach(function (task) { %>
+                            <tr
+                                class="backlog-item"
+                                data-id="<%= task.id %>"
+                                data-href="/app/tasks/<%= task.id %>"
+                                data-title="<%= (task.title || '').replace(/"/g, '&quot;') %>"
+                                data-description="<%= encodeURIComponent(task.description || '') %>"
+                                data-priority="<%= task.priority || '' %>"
+                                data-assignee-id="<%= task.assignee_user_id || '' %>"
+                                data-assignee="<%= task.assignee_full_name || '' %>"
+                                data-project-id="<%= task.project_id || '' %>"
+                                data-project="<%= task.project_title || '' %>"
+                                data-expected-hours="<%= task.expected_hours != null ? task.expected_hours : '' %>"
+                                data-created-on="<%= task.created_on || '' %>"
+                            >
+                                <td>
+                                    <a href="/app/tasks/<%= task.id %>" class="text-decoration-none"><%= task.title %></a>
+                                </td>
+                                <td><%= priorityLabels[task.priority] || task.priority || "—" %></td>
+                                <td><%= task.assignee_full_name || "Unassigned" %></td>
+                                <td><%= task.project_title || "—" %></td>
+                                <td><%= task.expected_hours != null ? Number(task.expected_hours) : "—" %></td>
+                                <td data-readable-date="<%= task.created_on || '' %>" data-date-format="DD/MM/YYYY"></td>
+                                <td style="min-width: 220px;">
+                                    <div class="d-flex gap-1">
+                                        <select class="form-select form-select-sm backlog-sprint-select" aria-label="Sprint week">
+                                            <option value="">Week…</option>
+                                            <% weekOptions.forEach(function (week) { %>
+                                                <option value="<%= week.value %>">
+                                                    <%= week.label %><%= week.isCurrent ? " (current)" : "" %>
+                                                </option>
+                                            <% }) %>
+                                        </select>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary backlog-assign-btn"
+                                            data-task-id="<%= task.id %>"
+                                            data-assignee-id="<%= task.assignee_user_id || '' %>"
+                                        >
+                                            Pull
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="offcanvas offcanvas-end hb-filter-offcanvas" tabindex="-1" id="backlog-filters-panel">
+    <div class="offcanvas-header border-bottom">
+        <h2 class="offcanvas-title h5 mb-0">Filters</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div class="mb-3">
+            <label for="backlog-search" class="form-label">Search</label>
+            <input type="search" class="form-control form-control-sm" id="backlog-search" placeholder="Title or description" />
+        </div>
+        <div class="mb-3">
+            <label for="backlog-filter-assignee" class="form-label">Assignee</label>
+            <select class="form-select form-select-sm" id="backlog-filter-assignee">
+                <option value="">All</option>
+                <option value="__me__">My tasks</option>
+                <option value="unassigned">Unassigned</option>
+                <% (users || []).forEach(function (user) { %>
+                    <option value="<%= user.id %>"><%= user.full_name %></option>
+                <% }) %>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="backlog-filter-project" class="form-label">Project</label>
+            <select class="form-select form-select-sm" id="backlog-filter-project">
+                <option value="">All</option>
+                <option value="none">No project</option>
+                <% (projects || []).forEach(function (project) { %>
+                    <option value="<%= project.id %>"><%= project.title %></option>
+                <% }) %>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="backlog-filter-priority" class="form-label">Priority</label>
+            <select class="form-select form-select-sm" id="backlog-filter-priority">
+                <option value="">All</option>
+                <% priorityValues.forEach(function (priority) { %>
+                    <option value="<%= priority %>"><%= priorityLabels[priority] || priority %></option>
+                <% }) %>
+            </select>
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="backlog-clear-filters-btn">Clear filters</button>
+    </div>
+</div>
+
+<div class="modal fade" id="backlog-assignee-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="backlog-assignee-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Select assignee</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small">Assignee is required to leave Backlog.</p>
+                    <label for="backlog-assignee" class="form-label">Assignee</label>
+                    <select class="form-select" id="backlog-assignee" required>
+                        <option value="">Select assignee…</option>
+                        <% (users || []).forEach(function (user) { %>
+                            <option value="<%= user.id %>"><%= user.full_name %> (<%= user.email %>)</option>
+                        <% }) %>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Pull into sprint</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/tasks-backlog.js" defer></script>
+<%- include('common/footer') %>

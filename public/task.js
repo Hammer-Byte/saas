@@ -14,7 +14,6 @@
     const markDoneButton = document.getElementById("task-mark-done-btn");
     const duplicateButton = document.getElementById("task-duplicate-btn");
     const deleteButton = document.getElementById("task-delete-btn");
-    const followButton = document.getElementById("task-follow-btn");
     const saveButton = document.getElementById("task-save-btn");
 
     const attachmentForm = document.getElementById("task-attachment-form");
@@ -24,6 +23,7 @@
     const attachmentsList = document.getElementById("task-attachments-list");
 
     const commentForm = document.getElementById("task-comment-form");
+    const commentFormAlert = document.getElementById("task-comment-form-alert");
     const commentTextInput = document.getElementById("task-comment-text");
     const commentFileInput = document.getElementById("task-comment-file");
     const commentsList = document.getElementById("task-comments-list");
@@ -32,11 +32,6 @@
     const commentEditAlert = document.getElementById("task-comment-edit-alert");
     const commentEditIdInput = document.getElementById("task-comment-edit-id");
     const commentEditTextInput = document.getElementById("task-comment-edit-text");
-
-    const reminderForm = document.getElementById("task-reminder-form");
-    const reminderAtInput = document.getElementById("task-reminder-at");
-    const reminderRecipientSelect = document.getElementById("task-reminder-recipient");
-    const remindersList = document.getElementById("task-reminders-list");
 
     function syncStateSelects(fromQuick) {
         if (fromQuick && editStateSelect && quickStateSelect) {
@@ -57,7 +52,6 @@
         const reviewerRaw = document.getElementById("task-edit-reviewer")?.value || "";
         const projectRaw = document.getElementById("task-edit-project")?.value || "";
         const sprintWeekRaw = document.getElementById("task-edit-sprint-week")?.value || "";
-        const costRaw = document.getElementById("task-edit-cost")?.value || "";
         const state = editStateSelect?.value || "backlog";
         const priority = document.getElementById("task-edit-priority")?.value || "medium";
 
@@ -70,16 +64,7 @@
             assignee_user_id: assigneeRaw ? Number(assigneeRaw) : null,
             reviewer_user_id: reviewerRaw ? Number(reviewerRaw) : null,
             project_id: projectRaw ? Number(projectRaw) : null,
-            cost: null,
         };
-
-        if (costRaw !== "") {
-            const cost = Number(costRaw);
-            if (!Number.isFinite(cost) || cost < 0) {
-                return { error: "Enter a valid cost." };
-            }
-            payload.cost = cost;
-        }
 
         if (sprintWeekRaw.trim()) {
             payload.sprint_week_start =
@@ -100,13 +85,14 @@
         } else {
             payload.expected_hours = null;
         }
+
         if (actualHoursRaw !== "") {
             const actualHours = Number(actualHoursRaw);
             if (!Number.isFinite(actualHours) || actualHours < 0) {
-                return { error: "Enter valid actual hours." };
+                return { error: "Enter valid burnt efforts." };
             }
             if (actualHours > 8) {
-                return { error: "Actual hours cannot be more than 8." };
+                return { error: "Burnt efforts cannot be more than 8." };
             }
             payload.actual_hours = actualHours;
         } else {
@@ -116,7 +102,9 @@
         const startAt = startAtRaw.trim()
             ? window.getWritableDate?.("YYYY-MM-DD HH:mm:ss", startAtRaw)
             : null;
-        const endAt = endAtRaw.trim() ? window.getWritableDate?.("YYYY-MM-DD HH:mm:ss", endAtRaw) : null;
+        const endAt = endAtRaw.trim()
+            ? window.getWritableDate?.("YYYY-MM-DD HH:mm:ss", endAtRaw)
+            : null;
         if (startAtRaw.trim() && !startAt) {
             return { error: "Enter a valid start date/time." };
         }
@@ -155,63 +143,6 @@
         }
 
         return { payload };
-    }
-
-    function promptSpentHours() {
-        return new Promise((resolve) => {
-            const modalElement = document.getElementById("task-spent-hours-modal");
-            const formElement = document.getElementById("task-spent-hours-form");
-            const hoursInput = document.getElementById("task-spent-hours");
-            const noteInput = document.getElementById("task-spent-hours-note");
-            if (!modalElement || !formElement || !window.bootstrap?.Modal) {
-                const hours = window.prompt("Spent hours by previous assignee (required):");
-                if (hours == null || String(hours).trim() === "") {
-                    resolve(null);
-                    return;
-                }
-                resolve({ spent_hours: Number(hours), spent_hours_note: null });
-                return;
-            }
-
-            const modal = window.bootstrap.Modal.getOrCreateInstance(modalElement);
-            let settled = false;
-
-            function finish(value) {
-                if (settled) return;
-                settled = true;
-                formElement.removeEventListener("submit", onSubmit);
-                modalElement.removeEventListener("hidden.bs.modal", onHidden);
-                resolve(value);
-            }
-
-            function onSubmit(event) {
-                event.preventDefault();
-                const hours = Number(hoursInput?.value || "");
-                if (!Number.isFinite(hours) || hours < 0) return;
-                if (hours > 8) {
-                    hoursInput?.setCustomValidity("Max 8 hours");
-                    hoursInput?.reportValidity();
-                    return;
-                }
-                hoursInput?.setCustomValidity("");
-                modal.hide();
-                finish({
-                    spent_hours: hours,
-                    spent_hours_note: (noteInput?.value || "").trim() || null,
-                });
-            }
-
-            function onHidden() {
-                finish(null);
-            }
-
-            formElement.addEventListener("submit", onSubmit);
-            modalElement.addEventListener("hidden.bs.modal", onHidden, { once: true });
-            if (hoursInput) hoursInput.value = "";
-            if (noteInput) noteInput.value = "";
-            modal.show();
-            hoursInput?.focus();
-        });
     }
 
     function buildStateChangeBody(nextState) {
@@ -263,7 +194,6 @@
 
     if (!canMoveTask) {
         editForm?.querySelectorAll("input, select, textarea, button").forEach((element) => {
-            if (element.id === "task-follow-btn") return;
             element.disabled = true;
         });
     }
@@ -386,28 +316,6 @@
         }
     });
 
-    followButton?.addEventListener("click", async () => {
-        const following = followButton.dataset.following === "1";
-        followButton.disabled = true;
-        try {
-            const response = await fetch(`/api/tasks/${taskId}/follow`, {
-                method: following ? "DELETE" : "POST",
-                credentials: "same-origin",
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                showAlert(pageAlert, data.error || "Failed to update follow.", "danger");
-                followButton.disabled = false;
-                return;
-            }
-            window.location.reload();
-        } catch (error) {
-            console.error(error);
-            showAlert(pageAlert, "Failed to update follow.", "danger");
-            followButton.disabled = false;
-        }
-    });
-
     editForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
         hideAlert(pageAlert);
@@ -420,23 +328,6 @@
         if (built.error) {
             showAlert(pageAlert, built.error, "danger");
             return;
-        }
-
-        const previousAssigneeId = Number(detail.dataset.initialAssigneeId || 0);
-        const nextAssigneeId = Number(built.payload.assignee_user_id || 0) || null;
-        const previousNormalized = previousAssigneeId >= 1 ? previousAssigneeId : null;
-        if (previousNormalized != null && previousNormalized !== nextAssigneeId) {
-            const spent = await promptSpentHours();
-            if (!spent) {
-                showAlert(pageAlert, "Spent hours are required when changing assignee.", "warning");
-                return;
-            }
-            if (!Number.isFinite(spent.spent_hours) || spent.spent_hours < 0) {
-                showAlert(pageAlert, "Enter valid spent hours.", "danger");
-                return;
-            }
-            built.payload.spent_hours = spent.spent_hours;
-            built.payload.spent_hours_note = spent.spent_hours_note;
         }
 
         if (saveButton) saveButton.disabled = true;
@@ -529,10 +420,10 @@
     });
 
     attachmentsList?.addEventListener("click", async (event) => {
-        const deleteButtonEl = event.target.closest(".task-attachment-delete-btn");
-        if (!deleteButtonEl) return;
+        const deleteAttachmentButton = event.target.closest(".task-attachment-delete-btn");
+        if (!deleteAttachmentButton) return;
 
-        const listItem = deleteButtonEl.closest("li[data-id]");
+        const listItem = deleteAttachmentButton.closest("li[data-id]");
         const attachmentId = Number(listItem?.dataset.id || 0);
         if (!(attachmentId >= 1)) return;
 
@@ -565,6 +456,7 @@
 
     commentForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
+        hideAlert(commentFormAlert);
 
         const comment = commentTextInput?.value?.trim() || "";
         if (!comment) return;
@@ -573,7 +465,7 @@
         if (file) {
             const sizeCheck = window.validateUploadFiles?.(file);
             if (sizeCheck && !sizeCheck.ok) {
-                showAlert(pageAlert, sizeCheck.error, "danger");
+                showAlert(commentFormAlert || pageAlert, sizeCheck.error, "danger");
                 return;
             }
         }
@@ -594,37 +486,31 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                showAlert(pageAlert, data.error || "Failed to add comment.", "danger");
+                showAlert(
+                    commentFormAlert || pageAlert,
+                    data.error || "Failed to add comment.",
+                    "danger",
+                );
                 return;
             }
             window.location.reload();
         } catch (error) {
             console.error(error);
-            showAlert(pageAlert, "Failed to add comment.", "danger");
+            showAlert(commentFormAlert || pageAlert, "Failed to add comment.", "danger");
         } finally {
             if (submitButton) submitButton.disabled = false;
         }
     });
 
-    function decodeComment(value) {
-        try {
-            return decodeURIComponent(value || "");
-        } catch (error) {
-            return value || "";
-        }
-    }
-
     commentsList?.addEventListener("click", async (event) => {
         const listItem = event.target.closest("li[data-id]");
         if (!listItem) return;
 
-        const commentUserId = Number(listItem.dataset.userId || 0);
-        if (commentUserId !== currentUserId) return;
-
         if (event.target.closest(".task-comment-edit-btn")) {
             if (commentEditIdInput) commentEditIdInput.value = listItem.dataset.id || "";
             if (commentEditTextInput) {
-                commentEditTextInput.value = decodeComment(listItem.dataset.comment);
+                const commentBody = listItem.querySelector("div[style*='pre-wrap']");
+                commentEditTextInput.value = commentBody?.textContent || "";
             }
             hideAlert(commentEditAlert);
             const modal = window.bootstrap?.Modal?.getOrCreateInstance(commentEditModalElement);
@@ -697,85 +583,6 @@
         }
     });
 
-    reminderForm?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-
-        const remindAtRaw = reminderAtInput?.value || "";
-        const recipientUserId = Number(reminderRecipientSelect?.value || 0);
-        const remindAt = window.getWritableDate?.("YYYY-MM-DD HH:mm:ss", remindAtRaw);
-
-        if (!remindAt) {
-            showAlert(pageAlert, "Enter a valid remind date/time.", "danger");
-            return;
-        }
-        if (!(recipientUserId >= 1)) {
-            showAlert(pageAlert, "Choose a recipient.", "danger");
-            return;
-        }
-
-        const submitButton = document.getElementById("task-reminder-submit-btn");
-        if (submitButton) submitButton.disabled = true;
-
-        try {
-            const response = await fetch("/api/task-reminders", {
-                method: "POST",
-                credentials: "same-origin",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    task_id: taskId,
-                    remind_at: remindAt,
-                    recipient_user_id: recipientUserId,
-                }),
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                showAlert(pageAlert, data.error || "Failed to schedule reminder.", "danger");
-                return;
-            }
-            window.location.reload();
-        } catch (error) {
-            console.error(error);
-            showAlert(pageAlert, "Failed to schedule reminder.", "danger");
-        } finally {
-            if (submitButton) submitButton.disabled = false;
-        }
-    });
-
-    remindersList?.addEventListener("click", async (event) => {
-        const cancelButton = event.target.closest(".task-reminder-cancel-btn");
-        if (!cancelButton) return;
-
-        const listItem = cancelButton.closest("li[data-id]");
-        const reminderId = Number(listItem?.dataset.id || 0);
-        if (!(reminderId >= 1)) return;
-
-        const confirmed = await showConfirm({
-            title: "Cancel reminder?",
-            description: "This pending reminder will be removed.",
-            choices: [
-                { label: "Keep", variant: "secondary", value: false },
-                { label: "Cancel reminder", variant: "danger", value: true },
-            ],
-        });
-        if (!confirmed) return;
-
-        try {
-            const response = await fetch(`/api/task-reminders/${reminderId}`, {
-                method: "DELETE",
-                credentials: "same-origin",
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                showAlert(pageAlert, data.error || "Failed to cancel reminder.", "danger");
-                return;
-            }
-            window.location.reload();
-        } catch (error) {
-            console.error(error);
-            showAlert(pageAlert, "Failed to cancel reminder.", "danger");
-        }
-    });
-
     const moveToInvoiceForm = document.getElementById("task-move-to-invoice-form");
     const moveToInvoiceAlert = document.getElementById("task-move-to-invoice-alert");
     const moveToInvoiceSubmit = document.getElementById("task-move-to-invoice-submit");
@@ -836,5 +643,4 @@
             if (moveToInvoiceSubmit) moveToInvoiceSubmit.disabled = false;
         }
     });
-
 })();

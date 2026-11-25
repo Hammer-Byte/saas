@@ -3,7 +3,9 @@
 <%
     const stateLabels = TASK_STATE_LABELS || {};
     const priorityLabels = TASK_PRIORITY_LABELS || {};
-    const stateValues = Object.values(TASK_STATES || {});
+    const stateValues = Object.values(TASK_STATES || {}).filter(function (state) {
+        return state !== TASK_STATES.BACKLOG;
+    });
     const priorityValues = Object.values(TASK_PRIORITIES || {});
     const currentUserId = Number(userId || 0);
     const taskAdmin = !!isTaskAdmin;
@@ -18,15 +20,25 @@
     data-is-task-admin="<%= taskAdmin ? '1' : '0' %>"
 >
     <div class="container-fluid hb-page-wide">
-        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <div class="mb-3 d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
                 <p class="text-secondary small mb-1">
                     <a href="/app" class="text-decoration-none">App</a> / Tasks
                 </p>
                 <h1 class="h3 mb-1">Tasks</h1>
-                <p class="text-secondary mb-0">Track work items, assignments, and deadlines.</p>
+                <p class="text-secondary mb-0">Sprint week board and table. Backlog is managed separately.</p>
             </div>
             <div class="d-flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    data-bs-toggle="offcanvas"
+                    data-bs-target="#tasks-filters-panel"
+                    aria-controls="tasks-filters-panel"
+                >
+                    Filters
+                </button>
+                <a href="/app/tasks/backlog" class="btn btn-outline-secondary">Backlog</a>
                 <button
                     type="button"
                     class="btn btn-primary"
@@ -41,18 +53,31 @@
                 <button type="button" class="btn btn-outline-secondary" id="tasks-export-csv-btn">
                     Export CSV
                 </button>
-                <button type="button" class="btn btn-outline-secondary" id="tasks-clear-filters-btn">
-                    Clear filters
-                </button>
             </div>
         </div>
 
         <div id="tasks-alert" class="alert d-none" role="alert"></div>
 
-        <div
-            id="tasks-bulk-state-bar"
-            class="card border-0 shadow-sm mb-3 d-none"
-        >
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="tasks-sprint-prev">Prev</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="tasks-sprint-current">This week</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="tasks-sprint-next">Next</button>
+                <span class="fw-semibold" id="tasks-sprint-label">—</span>
+                <div class="ms-md-auto d-flex align-items-center gap-3">
+                    <div class="form-check form-check-inline mb-0">
+                        <input class="form-check-input" type="radio" name="tasks-view" id="tasks-view-table" value="table" checked />
+                        <label class="form-check-label small" for="tasks-view-table">Table</label>
+                    </div>
+                    <div class="form-check form-check-inline mb-0">
+                        <input class="form-check-input" type="radio" name="tasks-view" id="tasks-view-board" value="board" />
+                        <label class="form-check-label small" for="tasks-view-board">Board</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tasks-bulk-state-bar" class="card border-0 shadow-sm mb-3 d-none">
             <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-2">
                 <span class="small text-secondary" id="tasks-selected-count">0 selected</span>
                 <select class="form-select form-select-sm" id="tasks-bulk-state" style="max-width: 200px;">
@@ -61,292 +86,98 @@
                         <option value="<%= state %>"><%= stateLabels[state] || state %></option>
                     <% }) %>
                 </select>
-                <button type="button" class="btn btn-sm btn-primary" id="tasks-bulk-apply-btn" disabled>
-                    Apply
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="tasks-bulk-clear-btn">
-                    Clear selection
-                </button>
+                <button type="button" class="btn btn-sm btn-primary" id="tasks-bulk-apply-btn" disabled>Apply</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="tasks-bulk-clear-btn">Clear selection</button>
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm mb-3">
-            <div class="card-body p-3 p-md-4">
-                <div class="row g-2 align-items-end">
-                    <div class="col-12 col-md-4 col-xl-3">
-                        <label for="tasks-search" class="form-label">Search</label>
-                        <input
-                            type="search"
-                            class="form-control form-control-sm"
-                            id="tasks-search"
-                            placeholder="Title or description"
-                            autocomplete="off"
-                        />
-                    </div>
-                    <div class="col-6 col-md-2 col-xl-1">
-                        <label for="tasks-filter-state" class="form-label">State</label>
-                        <select class="form-select form-select-sm" id="tasks-filter-state">
-                            <option value="">All</option>
-                            <% stateValues.forEach(function (state) { %>
-                                <option value="<%= state %>"><%= stateLabels[state] || state %></option>
-                            <% }) %>
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-3 col-xl-2">
-                        <label for="tasks-filter-assignee" class="form-label">Assignee</label>
-                        <select class="form-select form-select-sm" id="tasks-filter-assignee">
-                            <option value="">All</option>
-                            <option value="__me__">My tasks</option>
-                            <option value="unassigned">Unassigned</option>
-                            <% (users || []).forEach(function (user) { %>
-                                <option value="<%= user.id %>"><%= user.full_name %></option>
-                            <% }) %>
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-3 col-xl-2">
-                        <label for="tasks-filter-project" class="form-label">Project</label>
-                        <select class="form-select form-select-sm" id="tasks-filter-project">
-                            <option value="">All</option>
-                            <option value="none">No project</option>
-                            <% (projects || []).forEach(function (project) { %>
-                                <option value="<%= project.id %>">
-                                    <%= project.title %><% if (project.customer_name) { %> — <%= project.customer_name %><% } %>
-                                </option>
-                            <% }) %>
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-2 col-xl-1">
-                        <label for="tasks-filter-priority" class="form-label">Priority</label>
-                        <select class="form-select form-select-sm" id="tasks-filter-priority">
-                            <option value="">All</option>
-                            <% priorityValues.forEach(function (priority) { %>
-                                <option value="<%= priority %>"><%= priorityLabels[priority] || priority %></option>
-                            <% }) %>
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-3 col-xl-2">
-                        <label for="tasks-filter-sort" class="form-label">Sort</label>
-                        <select class="form-select form-select-sm" id="tasks-filter-sort">
-                            <option value="end_asc">End (soonest)</option>
-                            <option value="end_desc">End (latest)</option>
-                            <option value="priority">Priority</option>
-                            <option value="created_desc">Created (newest)</option>
-                            <option value="created_asc">Created (oldest)</option>
-                            <option value="title_asc">Title (A–Z)</option>
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-auto">
-                        <div class="form-check mt-4">
-                            <input class="form-check-input" type="checkbox" id="tasks-filter-overdue" />
-                            <label class="form-check-label small" for="tasks-filter-overdue">Overdue</label>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-auto">
-                        <div class="form-check mt-4">
-                            <input class="form-check-input" type="checkbox" id="tasks-filter-due-soon" />
-                            <label class="form-check-label small" for="tasks-filter-due-soon">Due soon (24h)</label>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-auto">
-                        <label class="form-label d-block">View</label>
-                        <div class="btn-group btn-group-sm" role="group" aria-label="Task view">
-                            <input type="radio" class="btn-check" name="tasks-view" id="tasks-view-table" value="table" checked />
-                            <label class="btn btn-outline-secondary" for="tasks-view-table">Table</label>
-                            <input type="radio" class="btn-check" name="tasks-view" id="tasks-view-board" value="board" />
-                            <label class="btn btn-outline-secondary" for="tasks-view-board">Board</label>
-                        </div>
-                    </div>
-                </div>
-                <p class="text-secondary small mb-0 mt-2" id="tasks-filter-status" role="status"></p>
-            </div>
-        </div>
+        <p class="text-secondary small mb-3" id="tasks-filter-status" role="status"></p>
 
-        <div class="card border-0 shadow-sm mb-3" id="tasks-sprint-bar">
-            <div class="card-body py-3 px-3 d-flex flex-wrap align-items-center gap-2">
-                <span class="fw-semibold me-1">Sprint week</span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="tasks-sprint-prev" aria-label="Previous week">
-                    ← Prev
-                </button>
-                <span class="small" id="tasks-sprint-label" role="status"></span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="tasks-sprint-next" aria-label="Next week">
-                    Next →
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="tasks-sprint-current">
-                    This week
-                </button>
-                <div class="form-check form-check-inline ms-md-2 mb-0">
-                    <input class="form-check-input" type="checkbox" id="tasks-filter-all-weeks" />
-                    <label class="form-check-label small" for="tasks-filter-all-weeks">All weeks (table)</label>
-                </div>
-                <div class="form-check form-check-inline mb-0">
-                    <input class="form-check-input" type="checkbox" id="tasks-filter-backlog" />
-                    <label class="form-check-label small" for="tasks-filter-backlog">Unscheduled sprint</label>
-                </div>
-                <span class="text-secondary small ms-md-auto" id="tasks-board-hint">
-                    Board: shared backlog + selected week. Drag backlog cards into Analyzing / In progress to assign this sprint.
-                </span>
-            </div>
-        </div>
-
-        <style>
-            .task-item.task-overdue,
-            .task-board-card.task-overdue {
-                background-color: #ffe5e5;
-                border-color: #f5a3a3 !important;
-                animation: task-overdue-blink 1.2s ease-in-out infinite;
-            }
-            @keyframes task-overdue-blink {
-                0%,
-                100% {
-                    background-color: #ffe5e5;
-                    box-shadow: inset 0 0 0 1px rgba(220, 53, 69, 0.15);
-                }
-                50% {
-                    background-color: #ffc9c9;
-                    box-shadow: inset 0 0 0 1px rgba(220, 53, 69, 0.35);
-                }
-            }
-        </style>
-
-        <%
-            function taskOverdueClass(task) {
-                const state = task.state || "";
-                if (state === TASK_STATES.DONE) {
-                    return "";
-                }
-                if (!task.end_at) {
-                    return "";
-                }
-                const endMs = Date.parse(String(task.end_at).trim().replace(" ", "T"));
-                if (!Number.isFinite(endMs) || endMs >= Date.now()) {
-                    return "";
-                }
-                return "task-overdue table-danger";
-            }
-        %>
+        <div id="tasks-empty" class="text-secondary d-none mb-3">No tasks match the current filters.</div>
 
         <div id="tasks-table-view">
-            <div class="card border-0 shadow-sm">
-                <div
-                    id="tasks-empty"
-                    class="p-4 p-md-5 text-center text-secondary <%= tasks && tasks.length ? 'd-none' : '' %>"
-                >
-                    No tasks yet. Add one to get started.
-                </div>
-                <div
-                    id="tasks-table-wrap"
-                    class="<%= !tasks || !tasks.length ? 'd-none' : '' %>"
-                >
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0" id="tasks-table">
-                            <thead class="table-light">
-                                <tr>
-                                    <th scope="col" style="width: 2rem;">
-                                        <input
-                                            type="checkbox"
-                                            class="form-check-input"
-                                            id="tasks-select-all"
-                                            aria-label="Select all visible tasks"
-                                        />
-                                    </th>
-                                    <th scope="col">Title</th>
-                                    <th scope="col">State</th>
-                                    <th scope="col">Priority</th>
-                                    <th scope="col">Assignee</th>
-                                    <th scope="col">Project</th>
-                                    <th scope="col">Sprint</th>
-                                    <th scope="col">End</th>
-                                    <th scope="col">Expected hrs</th>
+            <div class="card border-0 shadow-sm" id="tasks-table-wrap">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="tasks-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width: 2.5rem;">
+                                    <input type="checkbox" class="form-check-input" id="tasks-select-all" aria-label="Select all" />
+                                </th>
+                                <th scope="col" class="hb-sortable" data-sort-key="title">Title</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="state">State</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="priority">Priority</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="assignee">Assignee</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="project">Project</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="end">End</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="expectedHours">Expected hrs</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tasks-tbody">
+                            <% (tasks || []).forEach(function (task) { %>
+                                <%
+                                    const sprintWeek = task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : "";
+                                    const rowState = task.state || TASK_STATES.BACKLOG;
+                                %>
+                                <tr
+                                    class="task-item task-row"
+                                    role="link"
+                                    tabindex="0"
+                                    data-href="/app/tasks/<%= task.id %>"
+                                    data-id="<%= task.id %>"
+                                    data-title="<%= (task.title || '').replace(/"/g, '&quot;') %>"
+                                    data-description="<%= encodeURIComponent(task.description || '') %>"
+                                    data-state="<%= rowState %>"
+                                    data-priority="<%= task.priority || '' %>"
+                                    data-assignee-id="<%= task.assignee_user_id || '' %>"
+                                    data-assignee="<%= task.assignee_full_name || '' %>"
+                                    data-reviewer-id="<%= task.reviewer_user_id || '' %>"
+                                    data-project-id="<%= task.project_id || '' %>"
+                                    data-project="<%= task.project_title || '' %>"
+                                    data-sprint-week-start="<%= sprintWeek %>"
+                                    data-end-at="<%= task.end_at || '' %>"
+                                    data-created-on="<%= task.created_on || '' %>"
+                                    data-expected-hours="<%= task.expected_hours != null ? task.expected_hours : '' %>"
+                                    style="cursor: pointer;"
+                                >
+                                    <td>
+                                        <input type="checkbox" class="form-check-input task-select" value="<%= task.id %>" aria-label="Select task" />
+                                    </td>
+                                    <td><%= task.title %></td>
+                                    <td><%= stateLabels[rowState] || rowState %></td>
+                                    <td><%= priorityLabels[task.priority] || task.priority || "—" %></td>
+                                    <td><%= task.assignee_full_name || "Unassigned" %></td>
+                                    <td><%= task.project_title || "—" %></td>
+                                    <td data-readable-date="<%= task.end_at || '' %>" data-date-format="DD/MM/YYYY HH:mm"><%= task.end_at ? "" : "—" %></td>
+                                    <td class="task-expected-hours-cell"><%= task.expected_hours != null ? Number(task.expected_hours) : "—" %></td>
                                 </tr>
-                            </thead>
-                            <tbody id="tasks-tbody">
-                                <% (tasks || []).forEach(function (task) { %>
-                                    <% const overdueClass = taskOverdueClass(task); %>
-                                    <% const sprintWeek = task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : ""; %>
-                                    <% const rowState = sprintWeek ? (task.state || TASK_STATES.BACKLOG) : TASK_STATES.BACKLOG; %>
-                                    <tr
-                                        class="task-item task-row <%= overdueClass %>"
-                                        role="link"
-                                        tabindex="0"
-                                        data-href="/app/tasks/<%= task.id %>"
-                                        data-id="<%= task.id %>"
-                                        data-title="<%= (task.title || '').replace(/"/g, '&quot;') %>"
-                                        data-description="<%= encodeURIComponent(task.description || '') %>"
-                                        data-state="<%= rowState %>"
-                                        data-priority="<%= task.priority || '' %>"
-                                        data-assignee-id="<%= task.assignee_user_id || '' %>"
-                                        data-reviewer-id="<%= task.reviewer_user_id || '' %>"
-                                        data-project-id="<%= task.project_id || '' %>"
-                                        data-sprint-week-start="<%= sprintWeek %>"
-                                        data-end-at="<%= task.end_at || '' %>"
-                                        data-created-on="<%= task.created_on || '' %>"
-                                        data-expected-hours="<%= task.expected_hours != null ? task.expected_hours : '' %>"
-                                        style="cursor: pointer;"
-                                    >
-                                        <td>
-                                            <input
-                                                type="checkbox"
-                                                class="form-check-input task-select"
-                                                value="<%= task.id %>"
-                                                aria-label="Select task <%= task.title %>"
-                                            />
-                                        </td>
-                                        <td><%= task.title %></td>
-                                        <td><%= stateLabels[rowState] || rowState || "—" %></td>
-                                        <td><%= priorityLabels[task.priority] || task.priority || "—" %></td>
-                                        <td><%= task.assignee_full_name || "Unassigned" %></td>
-                                        <td>
-                                            <% if (task.project_id) { %>
-                                                <%= task.project_title || ("Project #" + task.project_id) %>
-                                            <% } else { %>
-                                                —
-                                            <% } %>
-                                        </td>
-                                        <td>
-                                            <% if (sprintWeek) { %>
-                                                <span
-                                                    data-readable-date="<%= sprintWeek %>"
-                                                    data-date-format="DD/MM/YYYY"
-                                                ></span>
-                                            <% } else { %>
-                                                Backlog
-                                            <% } %>
-                                        </td>
-                                        <td
-                                            data-readable-date="<%= task.end_at || '' %>"
-                                            data-date-format="DD/MM/YYYY HH:mm"
-                                        ><%= task.end_at ? "" : "—" %></td>
-                                        <td><%= task.expected_hours != null ? Number(task.expected_hours) : "—" %></td>
-                                    </tr>
-                                <% }) %>
-                            </tbody>
-                        </table>
-                    </div>
+                            <% }) %>
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-light">
+                                <td colspan="7" class="text-end fw-semibold">Total expected hours</td>
+                                <td class="fw-semibold" id="tasks-expected-hours-total">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
         </div>
 
         <div id="tasks-board-view" class="d-none">
             <style>
-                .task-board-column {
-                    min-height: 12rem;
-                    transition: background-color 0.15s ease, outline-color 0.15s ease;
+                .task-board-column { min-height: 12rem; transition: background-color 0.15s ease; }
+                .task-board-column.drag-over { background-color: #eef5ff; outline: 2px dashed #6ea8fe; outline-offset: -2px; }
+                .task-board-card { cursor: grab; }
+                .task-board-card.dragging { opacity: 0.55; cursor: grabbing; }
+                .task-board-card-readonly { cursor: pointer; opacity: 0.92; }
+                .task-item.task-overdue, .task-board-card.task-overdue {
+                    background-color: #ffe5e5;
+                    animation: task-overdue-blink 1.2s ease-in-out infinite;
                 }
-                .task-board-column.drag-over {
-                    background-color: #eef5ff;
-                    outline: 2px dashed #6ea8fe;
-                    outline-offset: -2px;
-                }
-                .task-board-card {
-                    cursor: grab;
-                }
-                .task-board-card.dragging {
-                    opacity: 0.55;
-                    cursor: grabbing;
-                }
-                .task-board-card-readonly {
-                    cursor: pointer;
-                    opacity: 0.92;
+                @keyframes task-overdue-blink {
+                    0%, 100% { background-color: #ffe5e5; }
+                    50% { background-color: #ffc9c9; }
                 }
             </style>
             <div class="row g-3">
@@ -358,15 +189,10 @@
                             </div>
                             <div class="card-body p-2 task-board-column" data-state="<%= state %>">
                                 <% (tasks || []).filter(function (task) {
-                                    const hasWeek = !!(task.sprint_week_start && String(task.sprint_week_start).slice(0, 10));
-                                    const effectiveState = hasWeek
-                                        ? (task.state || TASK_STATES.BACKLOG)
-                                        : TASK_STATES.BACKLOG;
-                                    return effectiveState === state;
+                                    return (task.state || "") === state;
                                 }).forEach(function (task) { %>
-                                    <% const overdueClass = taskOverdueClass(task); %>
-                                    <% const boardSprintWeek = task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : ""; %>
                                     <%
+                                        const boardSprintWeek = task.sprint_week_start ? String(task.sprint_week_start).slice(0, 10) : "";
                                         const cardAssigneeId = task.assignee_user_id ? Number(task.assignee_user_id) : 0;
                                         const cardReviewerId = task.reviewer_user_id ? Number(task.reviewer_user_id) : 0;
                                         const canMoveCard = taskAdmin ||
@@ -374,19 +200,16 @@
                                                 currentUserId === cardAssigneeId ||
                                                 currentUserId === cardReviewerId
                                             ));
-                                        const boardState = boardSprintWeek
-                                            ? (task.state || TASK_STATES.BACKLOG)
-                                            : TASK_STATES.BACKLOG;
                                     %>
                                     <div
-                                        class="task-item task-board-card card mb-2 text-body <%= overdueClass %><%= canMoveCard ? '' : ' task-board-card-readonly' %>"
+                                        class="task-item task-board-card card mb-2 text-body<%= canMoveCard ? '' : ' task-board-card-readonly' %>"
                                         draggable="<%= canMoveCard ? 'true' : 'false' %>"
                                         data-can-move="<%= canMoveCard ? '1' : '0' %>"
                                         data-href="/app/tasks/<%= task.id %>"
                                         data-id="<%= task.id %>"
                                         data-title="<%= (task.title || '').replace(/"/g, '&quot;') %>"
                                         data-description="<%= encodeURIComponent(task.description || '') %>"
-                                        data-state="<%= boardState %>"
+                                        data-state="<%= task.state || '' %>"
                                         data-priority="<%= task.priority || '' %>"
                                         data-assignee-id="<%= task.assignee_user_id || '' %>"
                                         data-reviewer-id="<%= task.reviewer_user_id || '' %>"
@@ -395,7 +218,6 @@
                                         data-end-at="<%= task.end_at || '' %>"
                                         data-created-on="<%= task.created_on || '' %>"
                                         data-expected-hours="<%= task.expected_hours != null ? task.expected_hours : '' %>"
-                                        title="<%= canMoveCard ? '' : 'View only — only assignee, reviewer, or admin can move' %>"
                                     >
                                         <div class="card-body p-3">
                                             <p class="fw-semibold mb-1"><%= task.title %></p>
@@ -404,11 +226,7 @@
                                                 · <%= task.assignee_full_name || "Unassigned" %>
                                             </p>
                                             <% if (task.end_at) { %>
-                                                <p
-                                                    class="small mb-0"
-                                                    data-readable-date="<%= task.end_at %>"
-                                                    data-date-format="DD/MM/YYYY HH:mm"
-                                                ></p>
+                                                <p class="small mb-0" data-readable-date="<%= task.end_at %>" data-date-format="DD/MM/YYYY HH:mm"></p>
                                             <% } %>
                                         </div>
                                     </div>
@@ -422,10 +240,78 @@
     </div>
 </main>
 
+<div
+    class="offcanvas offcanvas-end hb-filter-offcanvas"
+    tabindex="-1"
+    id="tasks-filters-panel"
+    aria-labelledby="tasks-filters-panel-label"
+>
+    <div class="offcanvas-header border-bottom">
+        <h2 class="offcanvas-title h5 mb-0" id="tasks-filters-panel-label">Filters</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div class="mb-3">
+            <label for="tasks-search" class="form-label">Search</label>
+            <input type="search" class="form-control form-control-sm" id="tasks-search" placeholder="Title or description" autocomplete="off" />
+        </div>
+        <div class="mb-3">
+            <label for="tasks-filter-state" class="form-label">State</label>
+            <select class="form-select form-select-sm" id="tasks-filter-state">
+                <option value="">All states</option>
+                <% stateValues.forEach(function (state) { %>
+                    <option value="<%= state %>"><%= stateLabels[state] || state %></option>
+                <% }) %>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="tasks-filter-assignee" class="form-label">Assignee</label>
+            <select class="form-select form-select-sm" id="tasks-filter-assignee">
+                <option value="">All</option>
+                <option value="__me__">My tasks</option>
+                <option value="unassigned">Unassigned</option>
+                <% (users || []).forEach(function (user) { %>
+                    <option value="<%= user.id %>"><%= user.full_name %></option>
+                <% }) %>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="tasks-filter-project" class="form-label">Project</label>
+            <select class="form-select form-select-sm" id="tasks-filter-project">
+                <option value="">All</option>
+                <option value="none">No project</option>
+                <% (projects || []).forEach(function (project) { %>
+                    <option value="<%= project.id %>"><%= project.title %></option>
+                <% }) %>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="tasks-filter-priority" class="form-label">Priority</label>
+            <select class="form-select form-select-sm" id="tasks-filter-priority">
+                <option value="">All</option>
+                <% priorityValues.forEach(function (priority) { %>
+                    <option value="<%= priority %>"><%= priorityLabels[priority] || priority %></option>
+                <% }) %>
+            </select>
+        </div>
+        <div class="mb-3">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="tasks-filter-overdue" />
+                <label class="form-check-label" for="tasks-filter-overdue">Overdue</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="tasks-filter-due-soon" />
+                <label class="form-check-label" for="tasks-filter-due-soon">Due soon (24h)</label>
+            </div>
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="tasks-clear-filters-btn">Clear filters</button>
+    </div>
+</div>
+
 <div class="modal fade" id="task-modal" tabindex="-1" aria-labelledby="task-modal-label" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form id="task-form" class="hb-modal-scrollable-form" novalidate>
+            <form id="task-form" novalidate>
                 <div class="modal-header">
                     <h2 class="modal-title h5" id="task-modal-label">Add task</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -441,40 +327,23 @@
                             <label for="task-description" class="form-label">Description</label>
                             <textarea class="form-control" id="task-description" name="description" rows="3"></textarea>
                         </div>
+                        <div class="col-12">
+                            <label for="task-create-attachments" class="form-label">Attachments</label>
+                            <input type="file" class="form-control" id="task-create-attachments" multiple />
+                            <div class="form-text">Optional. Uploaded after the task is created.</div>
+                        </div>
                         <div class="col-md-4">
                             <label for="task-expected-hours" class="form-label">Expected hours</label>
-                            <input
-                                type="number"
-                                class="form-control"
-                                id="task-expected-hours"
-                                name="expected_hours"
-                                min="0"
-                                max="8"
-                                step="0.25"
-                            />
-                            <div class="form-text">Max 8 hours per task.</div>
+                            <input type="number" class="form-control" id="task-expected-hours" name="expected_hours" min="0" max="8" step="0.25" />
+                            <div class="form-text">Max 8 hours.</div>
                         </div>
                         <div class="col-md-4">
                             <label for="task-start-at" class="form-label">Start</label>
-                            <input
-                                type="text"
-                                class="form-control js-datetime-input"
-                                id="task-start-at"
-                                name="start_at"
-                                placeholder="dd/mm/yyyy hh:mm"
-                                autocomplete="off"
-                            />
+                            <input type="text" class="form-control js-datetime-input" id="task-start-at" name="start_at" placeholder="dd/mm/yyyy hh:mm" autocomplete="off" />
                         </div>
                         <div class="col-md-4">
                             <label for="task-end-at" class="form-label">End</label>
-                            <input
-                                type="text"
-                                class="form-control js-datetime-input"
-                                id="task-end-at"
-                                name="end_at"
-                                placeholder="dd/mm/yyyy hh:mm"
-                                autocomplete="off"
-                            />
+                            <input type="text" class="form-control js-datetime-input" id="task-end-at" name="end_at" placeholder="dd/mm/yyyy hh:mm" autocomplete="off" />
                         </div>
                         <div class="col-md-6">
                             <label for="task-assignee" class="form-label">Assignee</label>
@@ -487,41 +356,32 @@
                         </div>
                         <div class="col-md-6">
                             <label for="task-project" class="form-label">Project</label>
-                            <select class="form-select" id="task-project" name="project_id">
-                                <option value="">No project</option>
-                                <% (projects || []).forEach(function (project) { %>
-                                    <option value="<%= project.id %>">
-                                        <%= project.title %><% if (project.customer_name) { %> — <%= project.customer_name %><% } %>
-                                    </option>
-                                <% }) %>
-                            </select>
+                            <% if (taskAdmin) { %>
+                                <select class="form-select" id="task-project" name="project_id">
+                                    <option value="">No project</option>
+                                    <% (projects || []).forEach(function (project) { %>
+                                        <option value="<%= project.id %>">
+                                            <%= project.title %><% if (project.customer_name) { %> — <%= project.customer_name %><% } %>
+                                        </option>
+                                    <% }) %>
+                                </select>
+                            <% } else { %>
+                                <input type="text" class="form-control" value="Admins assign project" disabled />
+                                <input type="hidden" id="task-project" value="" />
+                            <% } %>
                         </div>
                         <div class="col-md-6">
                             <label for="task-priority" class="form-label">Priority</label>
                             <select class="form-select" id="task-priority" name="priority" required>
                                 <% priorityValues.forEach(function (priority) { %>
-                                    <option
-                                        value="<%= priority %>"
-                                        <%= priority === TASK_PRIORITIES.MEDIUM ? "selected" : "" %>
-                                    >
+                                    <option value="<%= priority %>" <%= priority === TASK_PRIORITIES.MEDIUM ? "selected" : "" %>>
                                         <%= priorityLabels[priority] || priority %>
                                     </option>
                                 <% }) %>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label for="task-state" class="form-label">State</label>
-                            <select class="form-select" id="task-state" name="state" required disabled>
-                                <option value="<%= TASK_STATES.BACKLOG %>" selected>
-                                    <%= stateLabels[TASK_STATES.BACKLOG] || "Backlog" %>
-                                </option>
-                            </select>
-                            <div class="form-text">New tasks start in Backlog. Assignee is optional here.</div>
-                        </div>
                         <div class="col-12">
-                            <div class="form-text">
-                                New tasks land in the shared Backlog. Pull them into a sprint week from the board.
-                            </div>
+                            <div class="form-text">New tasks land in Backlog. Pull them into a sprint from the Backlog page or board.</div>
                         </div>
                     </div>
                 </div>
@@ -543,7 +403,6 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-secondary small">Assignee is required to leave Backlog for Analyzing or In progress.</p>
                     <label for="task-workflow-assignee" class="form-label">Assignee</label>
                     <select class="form-select" id="task-workflow-assignee" required>
                         <option value="">Select assignee…</option>
@@ -570,7 +429,6 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-secondary small">A reviewer is required when moving to Under review. They will get an email.</p>
                     <label for="task-workflow-reviewer" class="form-label">Reviewer</label>
                     <select class="form-select" id="task-workflow-reviewer" required>
                         <option value="">Select reviewer…</option>
@@ -581,7 +439,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Send to review</button>
+                    <button type="submit" class="btn btn-primary">Continue</button>
                 </div>
             </form>
         </div>
@@ -593,17 +451,16 @@
         <div class="modal-content">
             <form id="task-workflow-comment-form" novalidate>
                 <div class="modal-header">
-                    <h2 class="modal-title h5">Comment required</h2>
+                    <h2 class="modal-title h5">Reviewer comment</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-secondary small">Admin or reviewer must add a comment when sending the task back to In progress.</p>
                     <label for="task-workflow-comment" class="form-label">Comment</label>
-                    <textarea class="form-control" id="task-workflow-comment" rows="3" required></textarea>
+                    <textarea class="form-control" id="task-workflow-comment" rows="4" required></textarea>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Send back</button>
+                    <button type="submit" class="btn btn-primary">Continue</button>
                 </div>
             </form>
         </div>

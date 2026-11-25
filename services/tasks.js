@@ -17,17 +17,6 @@ import {
     updateTaskStateById,
 } from "../db/tasks.js";
 import { createTaskActivity } from "../db/task_activities.js";
-import {
-    createTaskEffort,
-    getTaskEffortsByTaskId,
-    getTaskEffortsChargeTotalByTaskId,
-} from "../db/task_efforts.js";
-import {
-    createTaskFollower,
-    deleteTaskFollowerByTaskIdAndUserId,
-    getAllTaskFollowersByTaskId,
-    getTaskFollowerByTaskIdAndUserId,
-} from "../db/task_followers.js";
 import { getUserById } from "../db/users.js";
 import {
     getIstDateTime,
@@ -36,7 +25,7 @@ import {
     normalizeSprintWeekStart,
     toDbDateTime,
 } from "../libs/date.js";
-import { notifyTaskAssigned, notifyTaskFollowers, notifyTaskReviewRequested } from "../libs/task_notify.js";
+import { notifyTaskAssigned, notifyTaskReviewRequested } from "../libs/task_notify.js";
 import {
     canUserMoveTask,
     isTaskAdminUser,
@@ -62,13 +51,6 @@ function stateLabel(state) {
 
 function priorityLabel(priority) {
     return TASK_PRIORITY_LABELS[priority] || priority || "—";
-}
-
-function assigneeLabel(task) {
-    if (!task?.assignee_user_id) {
-        return "Unassigned";
-    }
-    return task.assignee_full_name || task.assignee_email || `User #${task.assignee_user_id}`;
 }
 
 function trimmedOrNull(value) {
@@ -103,20 +85,6 @@ function validateTaskHours(value, label) {
     return { hours };
 }
 
-function validateSpentHours(value) {
-    const hours = normalizeHours(value);
-    if (hours == null) {
-        return { error: "Spent hours are required when changing assignee" };
-    }
-    if (hours < 0) {
-        return { error: "Spent hours cannot be negative" };
-    }
-    if (hours > TASK_HOURS_MAX) {
-        return { error: `Spent hours cannot be more than ${TASK_HOURS_MAX}` };
-    }
-    return { hours };
-}
-
 function normalizeMoney(value, label) {
     if (value == null || value === "") {
         return { amount: null };
@@ -137,49 +105,14 @@ async function recalculateTaskCharge({
     assigneeUserId = null,
     actualHours = null,
 }) {
-    const totals = await getTaskEffortsChargeTotalByTaskId({ task_id: taskId });
-    let charge = roundMoney(totals.charge_total);
-    const loggedHours = Number(totals.hours_total || 0);
-    const actual = Number(actualHours || 0);
-
-    if (assigneeUserId >= 1 && Number.isFinite(actual) && actual > loggedHours) {
+    let charge = 0;
+    if (assigneeUserId >= 1) {
         const assignee = await getUserById({ id: assigneeUserId });
-        const rate = Number(assignee?.hourly_rate || 0);
-        if (Number.isFinite(rate) && rate > 0) {
-            charge = roundMoney(charge + (actual - loggedHours) * rate);
-        }
+        charge = roundMoney((actualHours || 0) * (assignee?.hourly_rate || 0));
     }
 
     await updateTaskChargeById({ id: taskId, charge });
     return charge;
-}
-
-async function logAssigneeEffort({
-    taskId,
-    userId,
-    hours,
-    note = null,
-    createdByUserId,
-}) {
-    const user = await getUserById({ id: userId });
-    if (!user) {
-        return { error: "Previous assignee not found" };
-    }
-    const rate = roundMoney(user.hourly_rate || 0);
-    const charge = roundMoney(hours * rate);
-    const effortId = await createTaskEffort({
-        task_id: taskId,
-        user_id: userId,
-        hours,
-        hourly_rate: rate,
-        charge,
-        note,
-        created_by_user_id: createdByUserId,
-    });
-    if (!effortId) {
-        return { error: "Failed to log assignee effort" };
-    }
-    return { effortId, hours, rate, charge, user };
 }
 
 function normalizeOptionalUserId(value) {
@@ -252,14 +185,6 @@ export async function logTaskActivity({ task_id, user_id, activity }) {
     return await createTaskActivity({ task_id, user_id, activity });
 }
 
-async function notifyFollowersOfUpdate({ task, subject, message, actorUser }) {
-    const followers = await getAllTaskFollowersByTaskId({ task_id: task.id });
-    if (!followers.length) {
-        return;
-    }
-    notifyTaskFollowers({ task, followers, subject, message, actorUser });
-}
-
 export async function addTask({ body, cookie, set }) {
     const currentUser = await getCurrentUser({ cookie });
     if (!currentUser?.id) {
@@ -290,7 +215,11 @@ export async function addTask({ body, cookie, set }) {
         return { error: "New tasks must start in backlog" };
     }
 
-    const projectId = normalizeOptionalProjectId(body.project_id);
+    let projectId = normalizeOptionalProjectId(body.project_id);
+    if (projectId != null && !isTaskAdminUser(currentUser)) {
+        set.status = 403;
+        return { error: "Only an admin can assign a project" };
+    }
     if (projectId != null) {
         const customerProject = await getCustomerProjectById({ id: projectId });
         if (!customerProject) {
@@ -325,7 +254,7 @@ export async function addTask({ body, cookie, set }) {
         set.status = 400;
         return { error: expectedHoursResult.error };
     }
-    const actualHoursResult = validateTaskHours(body.actual_hours, "Actual hours");
+    const actualHoursResult = validateTaskHours(body.actual_hours, "Burnt efforts");
     if (actualHoursResult.error) {
         set.status = 400;
         return { error: actualHoursResult.error };
@@ -333,18 +262,12 @@ export async function addTask({ body, cookie, set }) {
 
     // Backlog is a shared stack across sprints — no week until pulled into work.
     const sprintWeekStart = null;
-    const costResult = normalizeMoney(body.cost, "Cost");
-    if (costResult.error) {
-        set.status = 400;
-        return { error: costResult.error };
-    }
 
     const taskId = await createTask({
         title,
         description: trimmedOrNull(body.description),
         expected_hours: expectedHoursResult.hours,
         actual_hours: actualHoursResult.hours,
-        cost: costResult.amount,
         charge: null,
         start_at: normalizeDateField(body.start_at),
         end_at: normalizeDateField(body.end_at),
@@ -420,12 +343,24 @@ export async function updateTask({ body, cookie, set }) {
         return { error: "Invalid priority" };
     }
 
-    const projectId = normalizeOptionalProjectId(body.project_id);
-    if (projectId != null) {
-        const customerProject = await getCustomerProjectById({ id: projectId });
-        if (!customerProject) {
-            set.status = 400;
-            return { error: "Project not found" };
+    const existingProjectId =
+        existingTask.project_id != null ? Number(existingTask.project_id) : null;
+    let projectId = existingProjectId;
+    if (body.project_id !== undefined) {
+        const requestedProjectId = normalizeOptionalProjectId(body.project_id);
+        if (requestedProjectId !== existingProjectId) {
+            if (!isTaskAdminUser(currentUser)) {
+                set.status = 403;
+                return { error: "Only an admin can change the project" };
+            }
+            if (requestedProjectId != null) {
+                const customerProject = await getCustomerProjectById({ id: requestedProjectId });
+                if (!customerProject) {
+                    set.status = 400;
+                    return { error: "Project not found" };
+                }
+            }
+            projectId = requestedProjectId;
         }
     }
 
@@ -456,8 +391,6 @@ export async function updateTask({ body, cookie, set }) {
     const previousReviewerUserId = existingTask.reviewer_user_id
         ? Number(existingTask.reviewer_user_id)
         : null;
-    const assigneeChanging = assigneeUserId !== previousAssigneeUserId;
-    const reviewerChanging = reviewerUserId !== previousReviewerUserId;
     const stateChanging = state !== previousState;
 
     let transition = {
@@ -587,42 +520,12 @@ export async function updateTask({ body, cookie, set }) {
         return { error: sprintDateCheck.error };
     }
 
-    const costResult = normalizeMoney(
-        body.cost !== undefined ? body.cost : existingTask.cost,
-        "Cost",
-    );
-    if (costResult.error) {
-        set.status = 400;
-        return { error: costResult.error };
-    }
-
-    let spentEffort = null;
-    if (assigneeChanging && previousAssigneeUserId >= 1) {
-        const spentHoursResult = validateSpentHours(body.spent_hours);
-        if (spentHoursResult.error) {
-            set.status = 400;
-            return { error: spentHoursResult.error, code: "spent_hours_required" };
-        }
-        spentEffort = await logAssigneeEffort({
-            taskId: existingTask.id,
-            userId: previousAssigneeUserId,
-            hours: spentHoursResult.hours,
-            note: trimmedOrNull(body.spent_hours_note),
-            createdByUserId: currentUser.id,
-        });
-        if (spentEffort.error) {
-            set.status = 400;
-            return { error: spentEffort.error };
-        }
-    }
-
     await updateTaskById({
         id: existingTask.id,
         title,
         description: trimmedOrNull(body.description),
         expected_hours: expectedHoursResult.hours,
         actual_hours: actualHoursResult.hours,
-        cost: costResult.amount,
         charge: existingTask.charge,
         start_at: startAt,
         end_at: endAt,
@@ -665,13 +568,6 @@ export async function updateTask({ body, cookie, set }) {
     if (priority !== previousPriority) {
         activities.push(
             `Changed priority from ${priorityLabel(previousPriority)} to ${priorityLabel(priority)}`,
-        );
-    }
-    if (spentEffort) {
-        activities.push(
-            `Logged ${spentEffort.hours}h effort for ${
-                spentEffort.user?.full_name || spentEffort.user?.email || `#${previousAssigneeUserId}`
-            } @ ${spentEffort.rate}/hr (charge ${spentEffort.charge})`,
         );
     }
     if (nextAssigneeUserId !== previousAssigneeUserId) {
@@ -727,27 +623,6 @@ export async function updateTask({ body, cookie, set }) {
             task,
             reviewerUser,
             requestedByUser: currentUser,
-        });
-    }
-
-    if (stateChanging || assigneeChanging || reviewerChanging) {
-        const messageParts = [];
-        if (stateChanging) {
-            messageParts.push(`State changed to ${stateLabel(state)}`);
-        }
-        if (assigneeChanging || nextAssigneeUserId !== previousAssigneeUserId) {
-            messageParts.push(`Assignee: ${assigneeLabel(task)}`);
-        }
-        if (reviewerChanging || nextReviewerUserId !== previousReviewerUserId) {
-            messageParts.push(
-                `Reviewer: ${task.reviewer_full_name || task.reviewer_email || "—"}`,
-            );
-        }
-        await notifyFollowersOfUpdate({
-            task,
-            subject: `Task updated — ${task.title}`,
-            message: messageParts.join(". "),
-            actorUser: currentUser,
         });
     }
 
@@ -914,15 +789,6 @@ export async function updateTaskState({ params, body, cookie, set }) {
         });
     }
 
-    if (state !== previousState) {
-        await notifyFollowersOfUpdate({
-            task,
-            subject: `Task state — ${task.title}`,
-            message: `State changed to ${stateLabel(state)}`,
-            actorUser: currentUser,
-        });
-    }
-
     set.status = 200;
     return { message: "Task state updated", task };
 }
@@ -1008,13 +874,6 @@ export async function bulkUpdateTaskState({ body, cookie, set }) {
             }
         }
 
-        await notifyFollowersOfUpdate({
-            task,
-            subject: `Task state — ${task.title}`,
-            message: `State changed to ${stateLabel(state)}`,
-            actorUser: currentUser,
-        });
-
         updatedCount += 1;
     }
 
@@ -1091,71 +950,6 @@ export async function deleteTask({ params, cookie, set }) {
     await deleteTaskById({ id: existingTask.id });
     set.status = 200;
     return { message: "Task deleted" };
-}
-
-export async function followTask({ params, cookie, set }) {
-    const currentUser = await getCurrentUser({ cookie });
-    if (!currentUser?.id) {
-        set.status = 401;
-        return { error: "Unauthorized" };
-    }
-
-    const existingTask = await getTaskById({ id: params.id });
-    if (!existingTask) {
-        set.status = 404;
-        return { error: "Task not found" };
-    }
-
-    const existingFollower = await getTaskFollowerByTaskIdAndUserId({
-        task_id: existingTask.id,
-        user_id: currentUser.id,
-    });
-    if (existingFollower) {
-        set.status = 200;
-        return { message: "Already following task" };
-    }
-
-    await createTaskFollower({
-        task_id: existingTask.id,
-        user_id: currentUser.id,
-    });
-
-    await logTaskActivity({
-        task_id: existingTask.id,
-        user_id: currentUser.id,
-        activity: "Started following task",
-    });
-
-    set.status = 201;
-    return { message: "Following task" };
-}
-
-export async function unfollowTask({ params, cookie, set }) {
-    const currentUser = await getCurrentUser({ cookie });
-    if (!currentUser?.id) {
-        set.status = 401;
-        return { error: "Unauthorized" };
-    }
-
-    const existingTask = await getTaskById({ id: params.id });
-    if (!existingTask) {
-        set.status = 404;
-        return { error: "Task not found" };
-    }
-
-    await deleteTaskFollowerByTaskIdAndUserId({
-        task_id: existingTask.id,
-        user_id: currentUser.id,
-    });
-
-    await logTaskActivity({
-        task_id: existingTask.id,
-        user_id: currentUser.id,
-        activity: "Stopped following task",
-    });
-
-    set.status = 200;
-    return { message: "Unfollowed task" };
 }
 
 export async function moveTaskToInvoice({ params, body, cookie, set }) {

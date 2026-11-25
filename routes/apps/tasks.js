@@ -5,9 +5,7 @@ import {
     bulkUpdateTaskState,
     deleteTask,
     duplicateTask,
-    followTask,
     moveTaskToInvoice,
-    unfollowTask,
     updateTask,
     updateTaskState,
 } from "../../services/tasks.js";
@@ -34,7 +32,6 @@ export default function (app) {
                 description: t.Optional(t.String()),
                 expected_hours: t.Optional(t.Union([t.Numeric(), t.Null()])),
                 actual_hours: t.Optional(t.Union([t.Numeric(), t.Null()])),
-                cost: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
                 start_at: t.Optional(t.Union([t.String(), t.Null()])),
                 end_at: t.Optional(t.Union([t.String(), t.Null()])),
                 state: t.Optional(taskStateSchema),
@@ -56,7 +53,6 @@ export default function (app) {
                 description: t.Optional(t.Union([t.String(), t.Null()])),
                 expected_hours: t.Optional(t.Union([t.Numeric(), t.Null()])),
                 actual_hours: t.Optional(t.Union([t.Numeric(), t.Null()])),
-                cost: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
                 start_at: t.Optional(t.Union([t.String(), t.Null()])),
                 end_at: t.Optional(t.Union([t.String(), t.Null()])),
                 state: taskStateSchema,
@@ -66,8 +62,6 @@ export default function (app) {
                 reviewer_user_id: t.Optional(t.Union([t.Numeric({ minimum: 1 }), t.Null()])),
                 sprint_week_start: t.Optional(t.Union([t.String(), t.Null()])),
                 comment: t.Optional(t.Union([t.String(), t.Null()])),
-                spent_hours: t.Optional(t.Union([t.Numeric({ minimum: 0 }), t.Null()])),
-                spent_hours_note: t.Optional(t.Union([t.String(), t.Null()])),
             }),
             detail: {
                 tags: ["Tasks"],
@@ -134,24 +128,6 @@ export default function (app) {
             detail: {
                 tags: ["Tasks"],
                 summary: "Delete a task",
-            },
-        })
-        .post("/:id/follow", followTask, {
-            params: t.Object({
-                id: t.Numeric({ minimum: 1 }),
-            }),
-            detail: {
-                tags: ["Tasks"],
-                summary: "Follow a task",
-            },
-        })
-        .delete("/:id/follow", unfollowTask, {
-            params: t.Object({
-                id: t.Numeric({ minimum: 1 }),
-            }),
-            detail: {
-                tags: ["Tasks"],
-                summary: "Unfollow a task",
             },
         });
 }
