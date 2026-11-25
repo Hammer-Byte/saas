@@ -1445,8 +1445,9 @@
                     value === "none" ? !rowCategoryId : rowCategoryId === value,
                 );
 
+            // Empty Status multi-select means show nothing (not "all").
             let matchesStatus =
-                !selectedStatusCategories.length ||
+                selectedStatusCategories.length > 0 &&
                 selectedStatusCategories.includes(rowStatusCategory);
             if (
                 matchesStatus &&
@@ -1496,12 +1497,11 @@
                 matchesQuantity &&
                 matchesLocked;
 
-            // Hidden closed tenders appear when their status category is selected (or no status filter / search mode).
+            // Hidden closed tenders appear when their status category is selected (or search mode).
             const isHiddenRow = row.dataset.hidden === "1";
             const hiddenAllowed =
                 !!searchMode ||
                 !isHiddenRow ||
-                !selectedStatusCategories.length ||
                 (selectedStatusCategories.includes(rowStatusCategory) &&
                     HIDDEN_STATUS_CATEGORIES.has(rowStatusCategory));
             const showableIn = (key) =>
