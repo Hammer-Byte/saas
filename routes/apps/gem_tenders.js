@@ -33,6 +33,7 @@ const gemTenderEligibilityLiteral = t.Union([
     t.Literal(GEM_TENDER_ELIGIBILITY_CHOICES.ELIGIBLE),
     t.Literal(GEM_TENDER_ELIGIBILITY_CHOICES.INELIGIBLE),
     t.Literal(GEM_TENDER_ELIGIBILITY_CHOICES.OUT_OF_SCOPE),
+    t.Literal(GEM_TENDER_ELIGIBILITY_CHOICES.REQUIRES_REVIEW),
 ]);
 
 export default function (app) {

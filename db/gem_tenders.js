@@ -235,6 +235,42 @@ export async function clearGemTenderCachedSourceMedia({ id, specification_links 
     });
 }
 
+/**
+ * One-shot: make requires_review mutually exclusive with eligible / closed flags.
+ * Idempotent — safe to run on every boot.
+ */
+export async function normalizeGemTenderRequiresReviewFlags() {
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE GEM_TENDERS
+            SET
+                eligible = 0,
+                stage = NULL,
+                requires_review = 1
+            WHERE eligible = 1
+              AND requires_review = 1
+        `,
+    ).catch((error) => {
+        logger.error(`normalizeGemTenderRequiresReviewFlags (eligible): ${error}`);
+    });
+
+    await executeSQLQuery(
+        (sql) => sql`
+            UPDATE GEM_TENDERS
+            SET requires_review = 0
+            WHERE requires_review = 1
+              AND (
+                  ineligible = 1
+                  OR out_of_scope = 1
+                  OR missed = 1
+                  OR unattended = 1
+              )
+        `,
+    ).catch((error) => {
+        logger.error(`normalizeGemTenderRequiresReviewFlags (closed): ${error}`);
+    });
+}
+
 /** All known GeM bid numbers — used to skip re-download during scan. */
 export async function getAllGemTenderIds() {
     return await executeSQLQuery(

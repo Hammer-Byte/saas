@@ -22,9 +22,9 @@
         if (Number(tender.unattended)) return "unattended";
         if (Number(tender.ineligible)) return "ineligible";
         if (Number(tender.out_of_scope)) return "out_of_scope";
+        if (Number(tender.requires_review)) return "requires_review";
         if (pipelineStageLabels[tender.stage]) return tender.stage;
         if (Number(tender.eligible)) return "eligible";
-        if (Number(tender.requires_review)) return "requires_review";
         return tender.assignee_user_id ? "assigned" : "unassigned";
     };
     const mseDisplay = function (value) {
@@ -265,6 +265,9 @@
                             <button type="button" class="btn btn-sm btn-outline-success gem-bulk-run" data-action="eligible" disabled>
                                 Mark eligible
                             </button>
+                            <button type="button" class="btn btn-sm btn-outline-warning gem-bulk-run" data-action="requires_review" disabled>
+                                Mark requires review
+                            </button>
                             <button type="button" class="btn btn-sm btn-outline-danger gem-bulk-run" data-action="ineligible" disabled>
                                 Mark not eligible
                             </button>
@@ -272,7 +275,7 @@
                                 Mark out of scope
                             </button>
                             <span class="form-text small mb-0">
-                                Not eligible / out of scope lock and hide the tender.
+                                Requires review does not lock. Not eligible / out of scope lock and hide the tender.
                             </span>
                         </div>
                     </div>
@@ -449,6 +452,7 @@
                                     ["today", "Today"],
                                     ["this-week", "This week"],
                                     ["next-15-days", "Next 15 days"],
+                                    ["next-30-days", "Next 30 days"],
                                     ["this-month", "This month"],
                                     ["last-month", "Last month"],
                                     ["this-quarter", "This quarter"],

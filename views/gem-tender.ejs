@@ -16,13 +16,15 @@
     const isLocked = !!Number(tender.locked);
     const lockMessage = tender.lock_message || "";
     const isEligible = !!Number(tender.eligible);
-    const eligibilityChoice = Number(tender.eligible)
-        ? "eligible"
-        : Number(tender.ineligible)
-          ? "ineligible"
-          : Number(tender.out_of_scope)
-            ? "out_of_scope"
-            : "";
+    const eligibilityChoice = Number(tender.requires_review)
+        ? "requires_review"
+        : Number(tender.eligible)
+          ? "eligible"
+          : Number(tender.ineligible)
+            ? "ineligible"
+            : Number(tender.out_of_scope)
+              ? "out_of_scope"
+              : "";
     // Locked: nothing for anyone until unlock. Unlocked: assignee or super admin.
     const canOperateAssigned =
         !isLocked &&
@@ -38,12 +40,12 @@
     if (Number(tender.unattended)) statusBadges.push({ label: "Unattended", variant: "danger" });
     if (Number(tender.ineligible)) statusBadges.push({ label: "Not eligible", variant: "secondary" });
     if (Number(tender.out_of_scope)) statusBadges.push({ label: "Out of scope", variant: "secondary" });
-    if (isEligible) statusBadges.push({ label: "Eligible", variant: "success" });
     if (Number(tender.requires_review)) {
         statusBadges.push({ label: "Requires review", variant: "warning text-dark" });
+    } else if (isEligible) {
+        statusBadges.push({ label: "Eligible", variant: "success" });
     }
     if (!assigneeUserId) statusBadges.push({ label: "Unassigned", variant: "light text-dark border" });
-    const requiresReview = !!Number(tender.requires_review);
 
     const mseDisplay = function (value) {
         if (value === true || value === 1 || value === "1") return "Yes";
@@ -138,7 +140,7 @@
             data-id="<%= tender.id %>"
             data-stage="<%= currentStage || '' %>"
             data-eligibility="<%= eligibilityChoice %>"
-            data-requires-review="<%= requiresReview ? '1' : '0' %>"
+            data-requires-review="<%= Number(tender.requires_review) ? '1' : '0' %>"
             data-assignee-user-id="<%= assigneeUserId || '' %>"
             data-tender-category-id="<%= tender.tender_category_id != null ? tender.tender_category_id : '' %>"
             data-current-user-id="<%= currentUserId %>"
@@ -299,7 +301,7 @@
                 <% if (assigneeUserId) { %>
                     <fieldset class="mb-2" id="gem-tender-eligibility" <%= !canChooseEligibility ? "disabled" : "" %>>
                         <legend class="form-label fs-6 mb-1">Eligibility</legend>
-                        <% ["eligible", "ineligible", "out_of_scope"].forEach(function (choice) { %>
+                        <% ["eligible", "requires_review", "ineligible", "out_of_scope"].forEach(function (choice) { %>
                             <div class="form-check form-check-inline">
                                 <input
                                     class="form-check-input"
@@ -316,24 +318,6 @@
                             </div>
                         <% }) %>
                     </fieldset>
-                    <div class="mb-2">
-                        <div class="form-check">
-                            <input
-                                class="form-check-input"
-                                type="checkbox"
-                                id="gem-tender-requires-review"
-                                autocomplete="off"
-                                <%= requiresReview ? "checked" : "" %>
-                                <%= !canChooseEligibility ? "disabled" : "" %>
-                            />
-                            <label class="form-check-label" for="gem-tender-requires-review">
-                                Requires review
-                            </label>
-                        </div>
-                        <p class="form-text mb-0">
-                            Holding flag only — does not lock the tender. Cleared when eligibility is set. Assignee required to mark.
-                        </p>
-                    </div>
                 <% } %>
 
                 <% if (isLocked) { %>
@@ -343,7 +327,9 @@
                 <% } else if (!canOperateAssigned) { %>
                     <p class="form-text mb-3">Only the assignee or a super admin can change this tender.</p>
                 <% } else if (!eligibilityChoice) { %>
-                    <p class="form-text mb-3">Choose eligibility. Not eligible and Out of scope lock the tender.</p>
+                    <p class="form-text mb-3">
+                        Choose eligibility. Not eligible and Out of scope lock the tender. Requires review does not lock.
+                    </p>
                 <% } else { %>
                     <div class="mb-3"></div>
                 <% } %>

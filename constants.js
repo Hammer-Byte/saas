@@ -185,12 +185,14 @@ export const GEM_TENDER_ELIGIBILITY_CHOICES = {
     ELIGIBLE: "eligible",
     INELIGIBLE: "ineligible",
     OUT_OF_SCOPE: "out_of_scope",
+    REQUIRES_REVIEW: "requires_review",
 };
 
 export const GEM_TENDER_ELIGIBILITY_CHOICE_LABELS = {
     [GEM_TENDER_ELIGIBILITY_CHOICES.ELIGIBLE]: "Eligible",
     [GEM_TENDER_ELIGIBILITY_CHOICES.INELIGIBLE]: "Not eligible",
     [GEM_TENDER_ELIGIBILITY_CHOICES.OUT_OF_SCOPE]: "Out of scope",
+    [GEM_TENDER_ELIGIBILITY_CHOICES.REQUIRES_REVIEW]: "Requires review",
 };
 
 export const INQUIRY_STATES = {

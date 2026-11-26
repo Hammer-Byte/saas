@@ -71,6 +71,10 @@ function isTenderEligible(tender) {
 /** Current radio choice from the boolean columns, or null when undecided. */
 function eligibilityChoiceOf(tender) {
     if (!tender) return null;
+    // Requires review before eligible so dual-flag rows (pre-migration) read as RR.
+    if (Number(tender.requires_review)) {
+        return GEM_TENDER_ELIGIBILITY_CHOICES.REQUIRES_REVIEW;
+    }
     if (Number(tender.eligible)) return GEM_TENDER_ELIGIBILITY_CHOICES.ELIGIBLE;
     if (Number(tender.ineligible)) return GEM_TENDER_ELIGIBILITY_CHOICES.INELIGIBLE;
     if (Number(tender.out_of_scope)) return GEM_TENDER_ELIGIBILITY_CHOICES.OUT_OF_SCOPE;
@@ -82,6 +86,7 @@ function eligibilityFlags(choice) {
         eligible: choice === GEM_TENDER_ELIGIBILITY_CHOICES.ELIGIBLE,
         ineligible: choice === GEM_TENDER_ELIGIBILITY_CHOICES.INELIGIBLE,
         out_of_scope: choice === GEM_TENDER_ELIGIBILITY_CHOICES.OUT_OF_SCOPE,
+        requires_review: choice === GEM_TENDER_ELIGIBILITY_CHOICES.REQUIRES_REVIEW,
     };
 }
 
@@ -220,9 +225,14 @@ function parseIds(rawIds) {
 
 /** Patch fields for an eligibility choice (lock + clear stage on negative choices). */
 function eligibilityPatch({ choice }) {
-    const patch = { ...eligibilityFlags(choice), requires_review: false };
+    const patch = { ...eligibilityFlags(choice) };
     if (choice === GEM_TENDER_ELIGIBILITY_CHOICES.ELIGIBLE) {
         // Leave stage unset until the user picks one from the dropdown.
+        return patch;
+    }
+    // Requires review is a peer choice: clear stage, do not lock or hide.
+    if (choice === GEM_TENDER_ELIGIBILITY_CHOICES.REQUIRES_REVIEW) {
+        patch.stage = null;
         return patch;
     }
     patch.stage = null;
@@ -506,32 +516,6 @@ export async function updateGemTender({ params, body, cookie, set }) {
     const eligibilityChanging = nextChoice !== previousChoice;
     const nextEligible = nextChoice === GEM_TENDER_ELIGIBILITY_CHOICES.ELIGIBLE;
 
-    // ---- Requires review (non-locking holding flag; assignee required to mark on) ----
-    const previousRequiresReview = !!Number(gemTender.requires_review);
-    let nextRequiresReview = previousRequiresReview;
-    if (bodyHasField(body, "requires_review")) {
-        nextRequiresReview = !!body.requires_review;
-        if (previousStage === GEM_TENDER_STAGES.FILED) {
-            set.status = 400;
-            return { error: "Requires review cannot change after the tender is filed" };
-        }
-    }
-    if (eligibilityChanging) {
-        nextRequiresReview = false;
-    }
-    // Unassigning clears the holding flag with the rest of the work state.
-    if (
-        assigneeChanging &&
-        nextAssigneeUserId == null &&
-        previousStage !== GEM_TENDER_STAGES.FILED
-    ) {
-        nextRequiresReview = false;
-    }
-    if (nextRequiresReview && !(nextAssigneeUserId >= 1)) {
-        set.status = 400;
-        return { error: "Assign someone before marking requires review" };
-    }
-
     // ---- Stage ----
     const patch = { id: gemTender.id };
     const activities = [];
@@ -546,13 +530,6 @@ export async function updateGemTender({ params, body, cookie, set }) {
                 previousStage,
                 patch: choicePatch,
             }),
-        );
-    }
-
-    if (nextRequiresReview !== previousRequiresReview) {
-        patch.requires_review = nextRequiresReview;
-        activities.push(
-            nextRequiresReview ? "Marked requires review" : "Cleared requires review",
         );
     }
 
@@ -995,7 +972,6 @@ export async function bulkAssignGemTenders({ body, cookie, set }) {
             if (unassign) {
                 const previousStage = knownStageOrNull(gemTender.stage);
                 const previousChoice = eligibilityChoiceOf(gemTender);
-                const previousRequiresReview = !!Number(gemTender.requires_review);
                 const patch = { id: gemTender.id, assignee_user_id: null };
                 const activities = [`Changed assignee from ${previousAssigneeName} to Unassigned`];
                 if (previousStage !== GEM_TENDER_STAGES.FILED) {
@@ -1008,10 +984,6 @@ export async function bulkAssignGemTenders({ body, cookie, set }) {
                         activities.push(
                             `Changed eligibility from ${eligibilityLabel(previousChoice)} to Not decided`,
                         );
-                    }
-                    if (previousRequiresReview) {
-                        patch.requires_review = false;
-                        activities.push("Cleared requires review");
                     }
                 }
                 await updateGemTenderById(patch);

@@ -74,10 +74,8 @@
     }
 
     function statusCategoriesNeedPipeline(statusCategories) {
-        return (
-            statusCategories.includes("eligible") ||
-            statusCategories.includes("requires_review")
-        );
+        // Pipeline stages apply only to Eligible — Requires review has no stage.
+        return statusCategories.includes("eligible");
     }
 
     function isOnlyUntouchedStatus(statusCategories) {
@@ -114,6 +112,7 @@
         if (stage === "filed") return "filed";
         if (stage === "unattended") return "unattended";
         if (stage === "missed") return "missed";
+        // Exclusive requires-review bucket (independent of eligible / pipeline).
         if (stage === "requires_review" || row.dataset.requiresReview === "1") {
             return "requires_review";
         }
@@ -215,9 +214,10 @@
         if (Number(tender.unattended)) return "unattended";
         if (Number(tender.ineligible)) return "ineligible";
         if (Number(tender.out_of_scope)) return "out_of_scope";
+        // Requires review before eligible so dual-flag / exclusive RR never looks eligible.
+        if (Number(tender.requires_review)) return "requires_review";
         if (PIPELINE_STAGES.has(String(tender.stage || ""))) return String(tender.stage);
         if (Number(tender.eligible)) return "eligible";
-        if (Number(tender.requires_review)) return "requires_review";
         return tender.assignee_user_id ? "assigned" : "unassigned";
     }
     const currentUserId = Number(bulkBar?.dataset.currentUserId || 0);
@@ -1082,6 +1082,7 @@
         ...Object.fromEntries(
             [
                 ["eligible", "Mark eligible", ""],
+                ["requires_review", "Mark requires review", ""],
                 ["ineligible", "Mark not eligible", "Not eligible tenders are locked and hidden."],
                 ["out_of_scope", "Mark out of scope", "Out of scope tenders are locked and hidden."],
             ].map(([choice, label, warning]) => [
@@ -1092,7 +1093,9 @@
                     check: (info) => {
                         const current = info.eligible
                             ? "eligible"
-                            : ["ineligible", "out_of_scope"].includes(info.status)
+                            : ["requires_review", "ineligible", "out_of_scope"].includes(
+                                    info.status,
+                                )
                               ? info.status
                               : "";
                         if (current === choice) return "skip";
@@ -1478,8 +1481,7 @@
             if (
                 matchesStatus &&
                 selectedPipelineStages.length &&
-                (rowStatusCategory === "eligible" ||
-                    rowStatusCategory === "requires_review")
+                rowStatusCategory === "eligible"
             ) {
                 matchesStatus = selectedPipelineStages.includes(rowStage);
             }
@@ -1709,6 +1711,9 @@
         } else if (range === "next-15-days") {
             fromKey = today;
             toKey = addDays?.(today, 15) || today;
+        } else if (range === "next-30-days") {
+            fromKey = today;
+            toKey = addDays?.(today, 30) || today;
         } else if (range === "this-month") {
             fromKey = `${year}-${`${month}`.padStart(2, "0")}-01`;
             toKey = addDays?.(`${year}-${`${month + 1}`.padStart(2, "0")}-01`, -1) || today;

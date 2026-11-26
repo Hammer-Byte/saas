@@ -1,5 +1,6 @@
 import { filer, logger } from "@hammerbyte/utils";
 import { generateDBTables } from "./libs/db.js";
+import { normalizeGemTenderRequiresReviewFlags } from "./db/gem_tenders.js";
 import { initGemScanRunner } from "./libs/gem_scan_runner.js";
 import transporter from "./libs/transporter.js";
 import bucketizer from "./libs/bucketizer.js";
@@ -24,6 +25,8 @@ try {
     logger.success("Required Directories Ready");
     await generateDBTables();
     logger.success("Database Ready (Tables Verified)");
+    await normalizeGemTenderRequiresReviewFlags();
+    logger.success("GEM Tender Requires-Review Flags Normalized");
     await initGemScanRunner();
     logger.success("GeM Scan Runner Ready");
     startGemTenderEligibilityReminderWatcher();
