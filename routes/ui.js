@@ -80,7 +80,6 @@ import {
 import { canUseJobs } from "../services/jobs.js";
 import { canUseServers } from "../services/servers.js";
 import { canUseCrm } from "../services/crm.js";
-import { getAllLeadSources } from "../db/lead_sources.js";
 import { getAllLeads } from "../db/leads.js";
 import { getLeadDetail } from "../services/leads.js";
 import { getAllLeadNotesByLeadId } from "../db/lead_notes.js";
@@ -934,7 +933,7 @@ export const uiRoutes = new Elysia()
                     INQUIRY_FOLLOWUP_DAY_OFFSETS,
                 }));
             })
-            .get("/app/crm", async ({ render, session, redirect }) => {
+            .get("/app/crm", async ({ redirect, session }) => {
                 if (
                     !canUseCrm({
                         id: session?.id,
@@ -944,30 +943,7 @@ export const uiRoutes = new Elysia()
                 ) {
                     return redirect("/app");
                 }
-                return render(
-                    "crm",
-                    appPage(session, {
-                        title: "CRM — HammerByte",
-                    }),
-                );
-            })
-            .get("/app/crm/sources", async ({ render, session, redirect }) => {
-                if (
-                    !canUseCrm({
-                        id: session?.id,
-                        super_admin: !!session?.super_admin,
-                        authorities: session?.authorities ?? [],
-                    })
-                ) {
-                    return redirect("/app");
-                }
-                return render(
-                    "crm-sources",
-                    appPage(session, {
-                        title: "Sources — CRM — HammerByte",
-                        sources: await getAllLeadSources(),
-                    }),
-                );
+                return redirect("/app/crm/leads");
             })
             .get("/app/crm/leads", async ({ render, session, redirect, query }) => {
                 if (
@@ -992,7 +968,6 @@ export const uiRoutes = new Elysia()
                         title: "Leads — CRM — HammerByte",
                         from: rangeFrom,
                         to: rangeTo,
-                        sources: await getAllLeadSources(),
                         leads: await getAllLeads({
                             from: rangeFrom,
                             to: rangeTo,
@@ -1036,7 +1011,6 @@ export const uiRoutes = new Elysia()
                     appPage(session, {
                         title: `${lead.full_name} — CRM — HammerByte`,
                         lead,
-                        sources: await getAllLeadSources(),
                         notes: await getAllLeadNotesByLeadId({ lead_id: lead.id }),
                         smsCommunications,
                         emailCommunications,

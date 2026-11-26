@@ -53,7 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const designation = (designationInput?.value || "").trim().toLowerCase();
         const location = (locationInput?.value || "").trim().toLowerCase();
         const targetedFor = (targetedForInput?.value || "").trim().toLowerCase();
-        const sourceId = sourceInput?.value || "";
+        const source = (sourceInput?.value || "").trim().toLowerCase();
 
         let visibleCount = 0;
         tableBody?.querySelectorAll("tr").forEach((row) => {
@@ -92,7 +92,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 String(row.dataset.targeted || "")
                     .toLowerCase()
                     .includes(targetedFor);
-            const matchesSource = !sourceId || String(row.dataset.sourceId || "") === sourceId;
+            const matchesSource =
+                !source ||
+                String(row.dataset.source || "")
+                    .toLowerCase()
+                    .includes(source);
             const visible =
                 matchesQuery &&
                 matchesOrganization &&
@@ -123,7 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     designation: designationInput?.value || "",
                     location: locationInput?.value || "",
                     targeted_for: targetedForInput?.value || "",
-                    source_id: sourceInput?.value || "",
+                    source: sourceInput?.value || "",
                 }),
             );
         } catch (error) {
@@ -141,7 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (designationInput) designationInput.value = saved.designation || "";
             if (locationInput) locationInput.value = saved.location || "";
             if (targetedForInput) targetedForInput.value = saved.targeted_for || "";
-            if (sourceInput) sourceInput.value = saved.source_id || "";
+            if (sourceInput) sourceInput.value = saved.source || "";
         } catch (error) {
             console.error(error);
         }
@@ -337,7 +341,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const sourceValue = document.getElementById("lead-source-id")?.value || "";
         const payload = {
             full_name: fullName,
             website: document.getElementById("lead-website")?.value?.trim() || null,
@@ -346,7 +349,8 @@ document.addEventListener("DOMContentLoaded", () => {
             location: document.getElementById("lead-location")?.value?.trim() || null,
             refer_by: document.getElementById("lead-refer-by")?.value?.trim() || null,
             targeted_for: document.getElementById("lead-targeted-for")?.value?.trim() || null,
-            source_id: sourceValue ? Number(sourceValue) : null,
+            source: document.getElementById("lead-source")?.value?.trim() || null,
+            note: document.getElementById("lead-note")?.value?.trim() || null,
             phones,
             emails,
         };

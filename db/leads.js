@@ -9,7 +9,8 @@ export async function createLead({
     location = null,
     refer_by = null,
     targeted_for = null,
-    source_id = null,
+    source = null,
+    note = null,
 }) {
     return await executeSQLQuery(
         (sql) => sql`
@@ -22,7 +23,8 @@ export async function createLead({
                     location,
                     refer_by,
                     targeted_for,
-                    source_id,
+                    source,
+                    note,
                 },
                 "full_name",
                 "website",
@@ -31,7 +33,8 @@ export async function createLead({
                 "location",
                 "refer_by",
                 "targeted_for",
-                "source_id",
+                "source",
+                "note",
             )}
         `,
     )
@@ -50,7 +53,8 @@ export async function updateLeadById({
     location = null,
     refer_by = null,
     targeted_for = null,
-    source_id = null,
+    source = null,
+    note = null,
 }) {
     await executeSQLQuery(
         (sql) => sql`
@@ -63,7 +67,8 @@ export async function updateLeadById({
                 location = ${location},
                 refer_by = ${refer_by},
                 targeted_for = ${targeted_for},
-                source_id = ${source_id}
+                source = ${source},
+                note = ${note}
             WHERE id = ${id}
         `,
     ).catch((error) => {
@@ -80,12 +85,9 @@ export async function deleteLeadById({ id }) {
 export async function getLeadById({ id }) {
     return await executeSQLQuery(
         (sql) => sql`
-            SELECT
-                LEADS.*,
-                LEAD_SOURCES.title AS source_title
+            SELECT *
             FROM LEADS
-            LEFT JOIN LEAD_SOURCES ON LEAD_SOURCES.id = LEADS.source_id
-            WHERE LEADS.id = ${id}
+            WHERE id = ${id}
         `,
     )
         .then((result) => (result.length ? result[0] : null))
@@ -110,7 +112,6 @@ export async function getAllLeads({ from, to }) {
         (sql) => sql`
             SELECT
                 LEADS.*,
-                LEAD_SOURCES.title AS source_title,
                 (
                     SELECT LEAD_PHONES.phone
                     FROM LEAD_PHONES
@@ -136,7 +137,6 @@ export async function getAllLeads({ from, to }) {
                     WHERE LEAD_EMAILS.lead_id = LEADS.id
                 ) AS emails_search
             FROM LEADS
-            LEFT JOIN LEAD_SOURCES ON LEAD_SOURCES.id = LEADS.source_id
             WHERE LEADS.created_on >= ${startDateTime}
               AND LEADS.created_on <= ${endDateTime}
             ORDER BY LEADS.created_on DESC, LEADS.id DESC

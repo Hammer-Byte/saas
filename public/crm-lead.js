@@ -180,7 +180,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const sourceValue = document.getElementById("lead-edit-source-id")?.value || "";
         const payload = {
             full_name: fullName,
             website: document.getElementById("lead-edit-website")?.value?.trim() || null,
@@ -189,7 +188,8 @@ document.addEventListener("DOMContentLoaded", () => {
             location: document.getElementById("lead-edit-location")?.value?.trim() || null,
             refer_by: document.getElementById("lead-edit-refer-by")?.value?.trim() || null,
             targeted_for: document.getElementById("lead-edit-targeted-for")?.value?.trim() || null,
-            source_id: sourceValue ? Number(sourceValue) : null,
+            source: document.getElementById("lead-edit-source")?.value?.trim() || null,
+            note: document.getElementById("lead-edit-note")?.value?.trim() || null,
             phones,
             emails,
         };

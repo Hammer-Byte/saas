@@ -6,7 +6,6 @@ import {
     getLeadById,
     updateLeadById,
 } from "../db/leads.js";
-import { getLeadSourceById } from "../db/lead_sources.js";
 import {
     createLeadPhone,
     deleteLeadPhonesByLeadId,
@@ -97,19 +96,6 @@ async function parseLeadPayload(body) {
         return { error: "Full name is required" };
     }
 
-    let source_id = null;
-    if (body.source_id !== undefined && body.source_id !== null && body.source_id !== "") {
-        const parsedSourceId = Number(body.source_id);
-        if (!(parsedSourceId >= 1)) {
-            return { error: "Invalid source" };
-        }
-        const source = await getLeadSourceById({ id: parsedSourceId });
-        if (!source) {
-            return { error: "Source not found" };
-        }
-        source_id = source.id;
-    }
-
     const phonesResult = parsePhones(body.phones);
     if (phonesResult.error) {
         return { error: phonesResult.error };
@@ -128,7 +114,8 @@ async function parseLeadPayload(body) {
         location: normalizeOptionalText(body.location),
         refer_by: normalizeOptionalText(body.refer_by),
         targeted_for: normalizeOptionalText(body.targeted_for),
-        source_id,
+        source: normalizeOptionalText(body.source),
+        note: normalizeOptionalText(body.note),
         phones: phonesResult.phones,
         emails: emailsResult.emails,
     };
@@ -194,7 +181,8 @@ export async function addLead({ body, cookie, set }) {
         location: payload.location,
         refer_by: payload.refer_by,
         targeted_for: payload.targeted_for,
-        source_id: payload.source_id,
+        source: payload.source,
+        note: payload.note,
     });
 
     if (!id) {
@@ -240,7 +228,8 @@ export async function updateLead({ params, body, cookie, set }) {
         location: payload.location,
         refer_by: payload.refer_by,
         targeted_for: payload.targeted_for,
-        source_id: payload.source_id,
+        source: payload.source,
+        note: payload.note,
     });
 
     await replaceLeadContacts({

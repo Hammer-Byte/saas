@@ -12,7 +12,6 @@ import jobs from "./apps/jobs.js";
 import inquiryAdmin from "./apps/inquiry_admin.js";
 import inquiryNotes from "./apps/inquiry_notes.js";
 import inquiryFollowups from "./apps/inquiry_followups.js";
-import leadSources from "./apps/lead_sources.js";
 import leads from "./apps/leads.js";
 import leadNotes from "./apps/lead_notes.js";
 import authentication from "./apps/authentication.js";
@@ -121,7 +120,6 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/inquiries", inquiryAdmin)
             .group("/inquiry-notes", inquiryNotes)
             .group("/inquiry-followups", inquiryFollowups)
-            .group("/lead-sources", leadSources)
             .group("/leads", leads)
             .group("/lead-notes", leadNotes)
             .group("/tasks", tasks)

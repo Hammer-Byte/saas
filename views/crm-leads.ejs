@@ -13,8 +13,7 @@
             <div>
                 <p class="text-secondary small mb-1">
                     <a href="/app" class="text-decoration-none">App</a> /
-                    <a href="/app/crm" class="text-decoration-none">CRM</a> /
-                    Leads
+                    CRM / Leads
                 </p>
                 <h1 class="h3 mb-1">Leads</h1>
                 <p class="text-secondary mb-0">
@@ -118,17 +117,12 @@
                         <input type="search" class="form-control form-control-sm" id="leads-filter-location" autocomplete="off" />
                     </div>
                     <div class="mb-3">
-                        <label for="leads-filter-targeted-for" class="form-label">Targeted for</label>
+                        <label for="leads-filter-targeted-for" class="form-label">Can target for</label>
                         <input type="search" class="form-control form-control-sm" id="leads-filter-targeted-for" autocomplete="off" />
                     </div>
                     <div class="mb-3">
                         <label for="leads-filter-source" class="form-label">Source</label>
-                        <select class="form-select form-select-sm" id="leads-filter-source">
-                            <option value="">All sources</option>
-                            <% (sources || []).forEach(function (source) { %>
-                                <option value="<%= source.id %>"><%= source.title %></option>
-                            <% }) %>
-                        </select>
+                        <input type="search" class="form-control form-control-sm" id="leads-filter-source" autocomplete="off" />
                     </div>
                 </div>
                 <div class="border-top p-3 d-flex gap-2">
@@ -151,7 +145,7 @@
                                 <th scope="col" class="hb-sortable" data-sort-key="organization">Organization</th>
                                 <th scope="col" class="hb-sortable" data-sort-key="phone">Phone</th>
                                 <th scope="col" class="hb-sortable" data-sort-key="email">Email</th>
-                                <th scope="col" class="hb-sortable" data-sort-key="targeted">Targeted for</th>
+                                <th scope="col" class="hb-sortable" data-sort-key="targeted">Can target for</th>
                                 <th scope="col" class="hb-sortable" data-sort-key="source">Source</th>
                                 <th scope="col" class="hb-sortable" data-sort-key="created">Created On</th>
                             </tr>
@@ -167,19 +161,18 @@
                                     data-designation="<%= lead.designation || '' %>"
                                     data-location="<%= lead.location || '' %>"
                                     data-targeted="<%= lead.targeted_for || '' %>"
-                                    data-source-id="<%= lead.source_id || '' %>"
-                                    data-source="<%= lead.source_title || '' %>"
+                                    data-source="<%= lead.source || '' %>"
                                     data-phone="<%= lead.phones_search || lead.primary_phone || '' %>"
                                     data-email="<%= lead.emails_search || lead.primary_email || '' %>"
                                     data-created="<%= lead.created_on || '' %>"
-                                    data-search="<%= [lead.full_name, lead.organization, lead.designation, lead.location, lead.targeted_for, lead.refer_by, lead.website, lead.source_title, lead.phones_search, lead.emails_search].filter(Boolean).join(' ') %>"
+                                    data-search="<%= [lead.full_name, lead.organization, lead.designation, lead.location, lead.targeted_for, lead.refer_by, lead.website, lead.source, lead.note, lead.phones_search, lead.emails_search].filter(Boolean).join(' ') %>"
                                 >
                                     <td><%= lead.full_name %></td>
                                     <td><%= lead.organization || "—" %></td>
                                     <td><%= lead.primary_phone || "—" %></td>
                                     <td><%= lead.primary_email || "—" %></td>
                                     <td><%= lead.targeted_for || "—" %></td>
-                                    <td><%= lead.source_title || "—" %></td>
+                                    <td><%= lead.source || "—" %></td>
                                     <td>
                                         <% if (lead.created_on) { %>
                                             <span
@@ -235,18 +228,17 @@
                             <label for="lead-refer-by" class="form-label">Refer by</label>
                             <input type="text" class="form-control" id="lead-refer-by" maxlength="128" />
                         </div>
-                        <div class="col-md-6">
-                            <label for="lead-targeted-for" class="form-label">Targeted for</label>
-                            <input type="text" class="form-control" id="lead-targeted-for" maxlength="255" />
+                        <div class="col-12">
+                            <label for="lead-targeted-for" class="form-label">Can target for</label>
+                            <textarea class="form-control" id="lead-targeted-for" rows="3"></textarea>
                         </div>
-                        <div class="col-md-6">
-                            <label for="lead-source-id" class="form-label">Source</label>
-                            <select class="form-select" id="lead-source-id">
-                                <option value="">Select source…</option>
-                                <% (sources || []).forEach(function (source) { %>
-                                    <option value="<%= source.id %>"><%= source.title %></option>
-                                <% }) %>
-                            </select>
+                        <div class="col-12">
+                            <label for="lead-source" class="form-label">Source</label>
+                            <textarea class="form-control" id="lead-source" rows="3"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label for="lead-note" class="form-label">Note</label>
+                            <textarea class="form-control" id="lead-note" rows="3"></textarea>
                         </div>
                     </div>
 

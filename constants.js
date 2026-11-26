@@ -265,7 +265,7 @@ export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_CUSTOMERS: "View Customers page",
     USE_PAGE_INVOICES: "View Invoices page",
     USE_PAGE_INQUIRIES: "View Inquiries page",
-    USE_PAGE_CRM: "View CRM (sources and leads)",
+    USE_PAGE_CRM: "View CRM leads",
     USE_PAGE_CONTRACTS: "View Contracts page",
     USE_PAGE_JOBS: "View and manage Jobs openings and applications",
     USE_PAGE_SERVERS: "View Servers page",

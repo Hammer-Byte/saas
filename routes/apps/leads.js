@@ -24,8 +24,9 @@ const leadBodySchema = t.Object({
     designation: t.Optional(t.Union([t.String({ maxLength: 128 }), t.Null()])),
     location: t.Optional(t.Union([t.String({ maxLength: 128 }), t.Null()])),
     refer_by: t.Optional(t.Union([t.String({ maxLength: 128 }), t.Null()])),
-    targeted_for: t.Optional(t.Union([t.String({ maxLength: 255 }), t.Null()])),
-    source_id: t.Optional(t.Union([t.Numeric(), t.Null()])),
+    targeted_for: t.Optional(t.Union([t.String(), t.Null()])),
+    source: t.Optional(t.Union([t.String(), t.Null()])),
+    note: t.Optional(t.Union([t.String(), t.Null()])),
     phones: t.Array(phoneRowSchema, { minItems: 1 }),
     emails: t.Array(emailRowSchema, { minItems: 1 }),
 });

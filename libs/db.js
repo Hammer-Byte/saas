@@ -1089,12 +1089,6 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
-        `CREATE TABLE IF NOT EXISTS LEAD_SOURCES (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(128) NOT NULL,
-            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_lead_source_title (title)
-        )`,
         `CREATE TABLE IF NOT EXISTS LEADS (
             id INT AUTO_INCREMENT PRIMARY KEY,
             full_name VARCHAR(128) NOT NULL,
@@ -1103,17 +1097,12 @@ export async function generateDBTables() {
             designation VARCHAR(128) NULL,
             location VARCHAR(128) NULL,
             refer_by VARCHAR(128) NULL,
-            targeted_for VARCHAR(255) NULL,
-            source_id INT NULL,
+            targeted_for TEXT NULL,
+            source TEXT NULL,
+            note TEXT NULL,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_leads_created_on (created_on),
-            INDEX idx_leads_organization (organization),
-            INDEX idx_leads_source_id (source_id),
-            CONSTRAINT fk_leads_source
-                FOREIGN KEY (source_id)
-                REFERENCES LEAD_SOURCES(id)
-                ON DELETE SET NULL
-                ON UPDATE CASCADE
+            INDEX idx_leads_organization (organization)
         )`,
         `CREATE TABLE IF NOT EXISTS LEAD_PHONES (
             id INT AUTO_INCREMENT PRIMARY KEY,

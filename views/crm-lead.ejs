@@ -18,8 +18,7 @@
             <div>
                 <p class="text-secondary small mb-1">
                     <a href="/app" class="text-decoration-none">App</a> /
-                    <a href="/app/crm" class="text-decoration-none">CRM</a> /
-                    <a href="/app/crm/leads" class="text-decoration-none">Leads</a> /
+                    <a href="/app/crm/leads" class="text-decoration-none">CRM / Leads</a> /
                     <%= lead.full_name %>
                 </p>
                 <h1 class="h3 mb-1"><%= lead.full_name %></h1>
@@ -60,14 +59,6 @@
                         <div><%= lead.refer_by || "—" %></div>
                     </div>
                     <div class="col-md-4">
-                        <div class="text-secondary small">Targeted for</div>
-                        <div><%= lead.targeted_for || "—" %></div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="text-secondary small">Source</div>
-                        <div><%= lead.source_title || "—" %></div>
-                    </div>
-                    <div class="col-md-4">
                         <div class="text-secondary small">Created On</div>
                         <div>
                             <% if (lead.created_on) { %>
@@ -79,6 +70,18 @@
                                 —
                             <% } %>
                         </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="text-secondary small">Can target for</div>
+                        <div style="white-space: pre-wrap;"><%= lead.targeted_for || "—" %></div>
+                    </div>
+                    <div class="col-12">
+                        <div class="text-secondary small">Source</div>
+                        <div style="white-space: pre-wrap;"><%= lead.source || "—" %></div>
+                    </div>
+                    <div class="col-12">
+                        <div class="text-secondary small">Note</div>
+                        <div style="white-space: pre-wrap;"><%= lead.note || "—" %></div>
                     </div>
                     <div class="col-md-6">
                         <div class="text-secondary small mb-1">Phones</div>
@@ -318,18 +321,17 @@
                             <label for="lead-edit-refer-by" class="form-label">Refer by</label>
                             <input type="text" class="form-control" id="lead-edit-refer-by" maxlength="128" value="<%= lead.refer_by || '' %>" />
                         </div>
-                        <div class="col-md-6">
-                            <label for="lead-edit-targeted-for" class="form-label">Targeted for</label>
-                            <input type="text" class="form-control" id="lead-edit-targeted-for" maxlength="255" value="<%= lead.targeted_for || '' %>" />
+                        <div class="col-12">
+                            <label for="lead-edit-targeted-for" class="form-label">Can target for</label>
+                            <textarea class="form-control" id="lead-edit-targeted-for" rows="3"><%= lead.targeted_for || '' %></textarea>
                         </div>
-                        <div class="col-md-6">
-                            <label for="lead-edit-source-id" class="form-label">Source</label>
-                            <select class="form-select" id="lead-edit-source-id">
-                                <option value="">Select source…</option>
-                                <% (sources || []).forEach(function (source) { %>
-                                    <option value="<%= source.id %>" <%= Number(lead.source_id) === Number(source.id) ? "selected" : "" %>><%= source.title %></option>
-                                <% }) %>
-                            </select>
+                        <div class="col-12">
+                            <label for="lead-edit-source" class="form-label">Source</label>
+                            <textarea class="form-control" id="lead-edit-source" rows="3"><%= lead.source || '' %></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label for="lead-edit-note" class="form-label">Note</label>
+                            <textarea class="form-control" id="lead-edit-note" rows="3"><%= lead.note || '' %></textarea>
                         </div>
                     </div>
                     <hr class="my-4" />
