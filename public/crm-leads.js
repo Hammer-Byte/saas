@@ -217,7 +217,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="row g-2 align-items-center">
                 <div class="col-md-7">
                     <label class="form-label small mb-1">Phone</label>
-                    <input type="text" class="form-control form-control-sm lead-phone-input" maxlength="32" value="${window.escapeHtml?.(phone) || phone}" required />
+                    <input type="text" class="form-control form-control-sm lead-phone-input" maxlength="32" value="${window.escapeHtml?.(phone) || phone}" />
                 </div>
                 <div class="col-md-3">
                     <div class="form-check mt-md-4">
@@ -245,7 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="row g-2 align-items-center">
                 <div class="col-md-6">
                     <label class="form-label small mb-1">Email</label>
-                    <input type="email" class="form-control form-control-sm lead-email-input" maxlength="255" value="${window.escapeHtml?.(email) || email}" required />
+                    <input type="email" class="form-control form-control-sm lead-email-input" maxlength="255" value="${window.escapeHtml?.(email) || email}" />
                 </div>
                 <div class="col-md-4">
                     <div class="mt-md-4 d-flex flex-wrap gap-3">
@@ -321,11 +321,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 is_whatsapp: !!row.querySelector(".lead-phone-whatsapp")?.checked,
             });
         });
-        if (!phones.length) {
-            showAlert(formAlert, "At least one phone number is required.", "danger");
-            return;
-        }
-
         const emails = [];
         emailsList?.querySelectorAll(".lead-email-row").forEach((row) => {
             const email = row.querySelector(".lead-email-input")?.value?.trim() || "";
@@ -336,8 +331,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 kind: kindInput?.value || emailKinds.PROFESSIONAL,
             });
         });
-        if (!emails.length) {
-            showAlert(formAlert, "At least one email is required.", "danger");
+        if (!phones.length && !emails.length) {
+            showAlert(formAlert, "Add at least one phone number or email.", "danger");
             return;
         }
 

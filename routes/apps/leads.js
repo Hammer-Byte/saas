@@ -33,8 +33,8 @@ const leadBodySchema = t.Object({
     targeted_for: t.Optional(t.Union([t.String(), t.Null()])),
     source: t.Optional(t.Union([t.String(), t.Null()])),
     note: t.Optional(t.Union([t.String(), t.Null()])),
-    phones: t.Array(phoneRowSchema, { minItems: 1 }),
-    emails: t.Array(emailRowSchema, { minItems: 1 }),
+    phones: t.Optional(t.Array(phoneRowSchema)),
+    emails: t.Optional(t.Array(emailRowSchema)),
 });
 
 export default function (app) {

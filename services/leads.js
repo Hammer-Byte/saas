@@ -27,8 +27,11 @@ function normalizeOptionalText(value) {
 }
 
 function parsePhones(phones) {
+    if (phones == null) {
+        return { phones: [] };
+    }
     if (!Array.isArray(phones)) {
-        return { error: "At least one phone number is required" };
+        return { error: "Phones must be a list" };
     }
 
     const normalizedPhones = [];
@@ -52,16 +55,15 @@ function parsePhones(phones) {
         });
     }
 
-    if (!normalizedPhones.length) {
-        return { error: "At least one phone number is required" };
-    }
-
     return { phones: normalizedPhones };
 }
 
 function parseEmails(emails) {
+    if (emails == null) {
+        return { emails: [] };
+    }
     if (!Array.isArray(emails)) {
-        return { error: "At least one email is required" };
+        return { error: "Emails must be a list" };
     }
 
     const allowedKinds = Object.values(LEAD_EMAIL_KINDS);
@@ -86,10 +88,6 @@ function parseEmails(emails) {
         normalizedEmails.push({ email, kind });
     }
 
-    if (!normalizedEmails.length) {
-        return { error: "At least one email is required" };
-    }
-
     return { emails: normalizedEmails };
 }
 
@@ -107,6 +105,10 @@ async function parseLeadPayload(body) {
     const emailsResult = parseEmails(body.emails);
     if (emailsResult.error) {
         return { error: emailsResult.error };
+    }
+
+    if (!phonesResult.phones.length && !emailsResult.emails.length) {
+        return { error: "Add at least one phone number or email" };
     }
 
     return {
@@ -296,13 +298,9 @@ export async function importLeads({ body, cookie, set }) {
             .toLowerCase()
             .replace(/\s+/g, "_"),
     );
-    for (const requiredHeader of ["full_name", "phones", "emails"]) {
-        if (!normalizedHeaders.includes(requiredHeader)) {
-            set.status = 400;
-            return {
-                error: `CSV must include a "${requiredHeader}" column`,
-            };
-        }
+    if (!normalizedHeaders.includes("full_name")) {
+        set.status = 400;
+        return { error: 'CSV must include a "full_name" column' };
     }
 
     if (parsed.rows.length > LEAD_CSV_MAX_ROWS) {
