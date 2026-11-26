@@ -1100,9 +1100,11 @@ export async function generateDBTables() {
             targeted_for TEXT NULL,
             source TEXT NULL,
             note TEXT NULL,
+            duplicacy_checked BOOLEAN NOT NULL DEFAULT FALSE,
             created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_leads_created_on (created_on),
-            INDEX idx_leads_organization (organization)
+            INDEX idx_leads_organization (organization),
+            INDEX idx_leads_duplicacy_checked (duplicacy_checked)
         )`,
         `CREATE TABLE IF NOT EXISTS LEAD_PHONES (
             id INT AUTO_INCREMENT PRIMARY KEY,
