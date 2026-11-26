@@ -376,4 +376,80 @@ document.addEventListener("DOMContentLoaded", () => {
             if (submitButton) submitButton.disabled = false;
         }
     });
+
+    const bulkImportForm = document.getElementById("lead-bulk-import-form");
+    const bulkImportAlert = document.getElementById("lead-bulk-import-alert");
+    const bulkImportFileInput = document.getElementById("lead-bulk-import-file");
+    const bulkImportSubmitButton = document.getElementById("lead-bulk-import-submit-btn");
+
+    document.getElementById("lead-bulk-import-modal")?.addEventListener("hidden.bs.modal", () => {
+        bulkImportForm?.reset();
+        hideAlert(bulkImportAlert);
+    });
+
+    bulkImportForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        hideAlert(bulkImportAlert);
+
+        const file = bulkImportFileInput?.files?.[0];
+        if (!file) {
+            showAlert(bulkImportAlert, "Choose a CSV file.", "danger");
+            return;
+        }
+
+        const sizeCheck = window.validateUploadFiles?.(file);
+        if (sizeCheck && !sizeCheck.ok) {
+            showAlert(bulkImportAlert, sizeCheck.error, "danger");
+            return;
+        }
+
+        if (bulkImportSubmitButton) bulkImportSubmitButton.disabled = true;
+        try {
+            const body = new FormData();
+            body.append("file", file);
+            const response = await fetch("/api/leads/import", {
+                method: "POST",
+                credentials: "same-origin",
+                body,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showAlert(bulkImportAlert, data.error || "Failed to import leads.", "danger");
+                return;
+            }
+
+            const failurePreview = Array.isArray(data.failures)
+                ? data.failures
+                      .slice(0, 5)
+                      .map((failure) => `Row ${failure.row}: ${failure.error}`)
+                      .join(" ")
+                : "";
+            const message = [
+                data.message || `Imported ${data.created || 0} leads.`,
+                data.failed ? `${data.failed} row(s) failed.` : "",
+                failurePreview,
+            ]
+                .filter(Boolean)
+                .join(" ");
+
+            if (data.created > 0 && !data.failed) {
+                window.location.reload();
+                return;
+            }
+
+            showAlert(
+                bulkImportAlert,
+                message,
+                data.created > 0 ? "warning" : "danger",
+            );
+            if (data.created > 0) {
+                setTimeout(() => window.location.reload(), 1500);
+            }
+        } catch (error) {
+            console.error(error);
+            showAlert(bulkImportAlert, "Failed to import leads.", "danger");
+        } finally {
+            if (bulkImportSubmitButton) bulkImportSubmitButton.disabled = false;
+        }
+    });
 });

@@ -1,4 +1,5 @@
 import { LEAD_EMAIL_KINDS } from "../constants.js";
+import { csvRowsToObjects, parseCsv } from "../libs/csv.js";
 import {
     createLead,
     deleteLeadById,
@@ -17,6 +18,8 @@ import {
     getLeadEmailsByLeadId,
 } from "../db/lead_emails.js";
 import { requireCrmUser } from "./crm.js";
+
+const LEAD_CSV_MAX_ROWS = 2000;
 
 function normalizeOptionalText(value) {
     const text = String(value ?? "").trim();
@@ -140,6 +143,84 @@ async function replaceLeadContacts({ lead_id, phones, emails }) {
     }
 }
 
+async function insertLeadFromPayload(payload) {
+    const id = await createLead({
+        full_name: payload.full_name,
+        website: payload.website,
+        organization: payload.organization,
+        designation: payload.designation,
+        location: payload.location,
+        refer_by: payload.refer_by,
+        targeted_for: payload.targeted_for,
+        source: payload.source,
+        note: payload.note,
+    });
+    if (!id) {
+        return { error: "Failed to create lead" };
+    }
+    await replaceLeadContacts({
+        lead_id: id,
+        phones: payload.phones,
+        emails: payload.emails,
+    });
+    return { id };
+}
+
+function parsePhonesCell(value) {
+    const parts = String(value || "")
+        .split(";")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    const phones = [];
+    for (const part of parts) {
+        const [phonePart, flagPart] = part.split("|").map((piece) => piece.trim());
+        if (!phonePart) continue;
+        const flag = String(flagPart || "").toLowerCase();
+        phones.push({
+            phone: phonePart,
+            is_whatsapp: flag === "whatsapp" || flag === "wa" || flag === "1" || flag === "true",
+        });
+    }
+    return phones;
+}
+
+function parseEmailsCell(value) {
+    const parts = String(value || "")
+        .split(";")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    const emails = [];
+    for (const part of parts) {
+        const [emailPart, kindPart] = part.split("|").map((piece) => piece.trim());
+        if (!emailPart) continue;
+        const kind = String(kindPart || LEAD_EMAIL_KINDS.PROFESSIONAL).toLowerCase();
+        emails.push({
+            email: emailPart,
+            kind:
+                kind === LEAD_EMAIL_KINDS.PERSONAL
+                    ? LEAD_EMAIL_KINDS.PERSONAL
+                    : LEAD_EMAIL_KINDS.PROFESSIONAL,
+        });
+    }
+    return emails;
+}
+
+function csvRecordToLeadBody(record) {
+    return {
+        full_name: record.full_name,
+        website: record.website,
+        organization: record.organization,
+        designation: record.designation,
+        location: record.location,
+        refer_by: record.refer_by,
+        targeted_for: record.targeted_for ?? record.can_target_for,
+        source: record.source,
+        note: record.note,
+        phones: parsePhonesCell(record.phones),
+        emails: parseEmailsCell(record.emails),
+    };
+}
+
 export async function getLeadDetail({ lead_id }) {
     const lead = await getLeadById({ id: lead_id });
     if (!lead) {
@@ -173,32 +254,92 @@ export async function addLead({ body, cookie, set }) {
         return { error: payload.error };
     }
 
-    const id = await createLead({
-        full_name: payload.full_name,
-        website: payload.website,
-        organization: payload.organization,
-        designation: payload.designation,
-        location: payload.location,
-        refer_by: payload.refer_by,
-        targeted_for: payload.targeted_for,
-        source: payload.source,
-        note: payload.note,
-    });
-
-    if (!id) {
+    const created = await insertLeadFromPayload(payload);
+    if (created.error) {
         set.status = 400;
-        return { error: "Failed to create lead" };
+        return { error: created.error };
     }
 
-    await replaceLeadContacts({
-        lead_id: id,
-        phones: payload.phones,
-        emails: payload.emails,
-    });
-
-    const lead = await getLeadDetail({ lead_id: id });
+    const lead = await getLeadDetail({ lead_id: created.id });
     set.status = 201;
     return { message: "Lead created", lead };
+}
+
+export async function importLeads({ body, cookie, set }) {
+    const access = await requireCrmUser({ cookie, set });
+    if (access.error) {
+        return { error: access.error };
+    }
+
+    const uploadedFile = body?.file;
+    if (!uploadedFile || typeof uploadedFile !== "object" || !(uploadedFile.size > 0)) {
+        set.status = 400;
+        return { error: "CSV file is required" };
+    }
+
+    const fileName = String(uploadedFile.name || "").toLowerCase();
+    if (fileName && !fileName.endsWith(".csv")) {
+        set.status = 400;
+        return { error: "Upload a .csv file" };
+    }
+
+    const csvText = await uploadedFile.text();
+    const parsed = parseCsv(csvText);
+    if (!parsed.headers.length) {
+        set.status = 400;
+        return { error: "CSV has no header row" };
+    }
+
+    const normalizedHeaders = parsed.headers.map((header) =>
+        String(header || "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "_"),
+    );
+    for (const requiredHeader of ["full_name", "phones", "emails"]) {
+        if (!normalizedHeaders.includes(requiredHeader)) {
+            set.status = 400;
+            return {
+                error: `CSV must include a "${requiredHeader}" column`,
+            };
+        }
+    }
+
+    if (parsed.rows.length > LEAD_CSV_MAX_ROWS) {
+        set.status = 400;
+        return {
+            error: `CSV has too many rows (max ${LEAD_CSV_MAX_ROWS})`,
+        };
+    }
+
+    const records = csvRowsToObjects(parsed);
+    let createdCount = 0;
+    const failures = [];
+
+    for (let index = 0; index < records.length; index += 1) {
+        const rowNumber = index + 2;
+        const payload = await parseLeadPayload(csvRecordToLeadBody(records[index]));
+        if (payload.error) {
+            failures.push({ row: rowNumber, error: payload.error });
+            continue;
+        }
+
+        const created = await insertLeadFromPayload(payload);
+        if (created.error) {
+            failures.push({ row: rowNumber, error: created.error });
+            continue;
+        }
+        createdCount += 1;
+    }
+
+    set.status = 200;
+    return {
+        message: `Imported ${createdCount} lead${createdCount === 1 ? "" : "s"}`,
+        created: createdCount,
+        failed: failures.length,
+        failures: failures.slice(0, 50),
+        total: records.length,
+    };
 }
 
 export async function updateLead({ params, body, cookie, set }) {

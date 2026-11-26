@@ -1,6 +1,12 @@
 import { t } from "elysia";
 import { LEAD_EMAIL_KINDS } from "../../constants.js";
-import { addLead, deleteLead, getLeads, updateLead } from "../../services/leads.js";
+import {
+    addLead,
+    deleteLead,
+    getLeads,
+    importLeads,
+    updateLead,
+} from "../../services/leads.js";
 
 const phoneRowSchema = t.Object({
     phone: t.String({ minLength: 1, maxLength: 32 }),
@@ -48,6 +54,15 @@ export default function (app) {
             detail: {
                 tags: ["Leads"],
                 summary: "Create lead",
+            },
+        })
+        .post("/import", importLeads, {
+            body: t.Object({
+                file: t.File({ error: "CSV file is required" }),
+            }),
+            detail: {
+                tags: ["Leads"],
+                summary: "Bulk import leads from CSV",
             },
         })
         .patch("/:id", updateLead, {
