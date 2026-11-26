@@ -723,6 +723,24 @@ export async function generateDBTables() {
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         )`,
+        `CREATE TABLE IF NOT EXISTS GEM_DOCUMENTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            media_id INT NOT NULL,
+            description VARCHAR(512) NULL,
+            created_by INT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_gem_documents_media
+                FOREIGN KEY (media_id)
+                REFERENCES MEDIA(id)
+                ON DELETE RESTRICT
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_gem_documents_created_by
+                FOREIGN KEY (created_by)
+                REFERENCES USERS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        )`,
         // Remove retired GeM AI scope columns/table from older installs.
         `ALTER TABLE GEM_TENDERS DROP COLUMN ai_confidence`,
         `ALTER TABLE GEM_TENDERS DROP COLUMN ai_analyzed`,
@@ -1068,6 +1086,98 @@ export async function generateDBTables() {
             CONSTRAINT fk_task_followers_user
                 FOREIGN KEY (user_id)
                 REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS LEAD_SOURCES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(128) NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_lead_source_title (title)
+        )`,
+        `CREATE TABLE IF NOT EXISTS LEADS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            full_name VARCHAR(128) NOT NULL,
+            website VARCHAR(255) NULL,
+            organization VARCHAR(128) NULL,
+            designation VARCHAR(128) NULL,
+            location VARCHAR(128) NULL,
+            refer_by VARCHAR(128) NULL,
+            targeted_for VARCHAR(255) NULL,
+            source_id INT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_leads_created_on (created_on),
+            INDEX idx_leads_organization (organization),
+            INDEX idx_leads_source_id (source_id),
+            CONSTRAINT fk_leads_source
+                FOREIGN KEY (source_id)
+                REFERENCES LEAD_SOURCES(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS LEAD_PHONES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            lead_id INT NOT NULL,
+            phone VARCHAR(32) NOT NULL,
+            is_whatsapp BOOLEAN NOT NULL DEFAULT FALSE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_lead_phone (lead_id, phone),
+            CONSTRAINT fk_lead_phones_lead
+                FOREIGN KEY (lead_id)
+                REFERENCES LEADS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS LEAD_EMAILS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            lead_id INT NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            kind VARCHAR(32) NOT NULL DEFAULT 'professional',
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_lead_email (lead_id, email),
+            CONSTRAINT fk_lead_emails_lead
+                FOREIGN KEY (lead_id)
+                REFERENCES LEADS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS LEAD_NOTES (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            lead_id INT NOT NULL,
+            user_id INT NOT NULL,
+            note TEXT NOT NULL,
+            media_id INT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_lead_notes_lead
+                FOREIGN KEY (lead_id)
+                REFERENCES LEADS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_lead_notes_user
+                FOREIGN KEY (user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_lead_notes_media
+                FOREIGN KEY (media_id)
+                REFERENCES MEDIA(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS LEAD_COMMUNICATIONS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            lead_id INT NOT NULL,
+            channel VARCHAR(32) NOT NULL,
+            to_address VARCHAR(255) NOT NULL,
+            from_address VARCHAR(255) NULL,
+            subject VARCHAR(512) NULL,
+            body TEXT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_lead_communications_lead_channel (lead_id, channel),
+            CONSTRAINT fk_lead_communications_lead
+                FOREIGN KEY (lead_id)
+                REFERENCES LEADS(id)
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,

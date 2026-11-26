@@ -12,6 +12,9 @@ import jobs from "./apps/jobs.js";
 import inquiryAdmin from "./apps/inquiry_admin.js";
 import inquiryNotes from "./apps/inquiry_notes.js";
 import inquiryFollowups from "./apps/inquiry_followups.js";
+import leadSources from "./apps/lead_sources.js";
+import leads from "./apps/leads.js";
+import leadNotes from "./apps/lead_notes.js";
 import authentication from "./apps/authentication.js";
 import userAuthenticationTokens from "./apps/user_authentication_tokens.js";
 import customers from "./apps/customers.js";
@@ -39,6 +42,7 @@ import gemScanner from "./apps/gem_scanner.js";
 import gemTenders from "./apps/gem_tenders.js";
 import gemTenderComments from "./apps/gem_tender_comments.js";
 import gemTenderDocuments from "./apps/gem_tender_documents.js";
+import gemDocuments from "./apps/gem_documents.js";
 import tasks from "./apps/tasks.js";
 import taskComments from "./apps/task_comments.js";
 import entityComments from "./apps/entity_comments.js";
@@ -113,9 +117,13 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/gem-tenders", gemTenders)
             .group("/gem-tender-comments", gemTenderComments)
             .group("/gem-tender-documents", gemTenderDocuments)
+            .group("/gem-documents", gemDocuments)
             .group("/inquiries", inquiryAdmin)
             .group("/inquiry-notes", inquiryNotes)
             .group("/inquiry-followups", inquiryFollowups)
+            .group("/lead-sources", leadSources)
+            .group("/leads", leads)
+            .group("/lead-notes", leadNotes)
             .group("/tasks", tasks)
             .group("/task-comments", taskComments)
             .group("/entity-comments", entityComments)

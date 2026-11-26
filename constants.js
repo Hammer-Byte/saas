@@ -75,6 +75,7 @@ export const AUTHORITIES = {
     USE_PAGE_CUSTOMERS: "USE_PAGE_CUSTOMERS",
     USE_PAGE_INVOICES: "USE_PAGE_INVOICES",
     USE_PAGE_INQUIRIES: "USE_PAGE_INQUIRIES",
+    USE_PAGE_CRM: "USE_PAGE_CRM",
     USE_PAGE_CONTRACTS: "USE_PAGE_CONTRACTS",
     USE_PAGE_JOBS: "USE_PAGE_JOBS",
     USE_PAGE_SERVERS: "USE_PAGE_SERVERS",
@@ -97,6 +98,7 @@ export const AUTHORITIES = {
     MANAGE_ROLE_AUTHORITIES: "MANAGE_ROLE_AUTHORITIES",
     MANAGE_USER_ROLES: "MANAGE_USER_ROLES",
     MANAGE_INTERNAL_DOCUMENTS: "MANAGE_INTERNAL_DOCUMENTS",
+    MANAGE_GEM_DOCUMENTS: "MANAGE_GEM_DOCUMENTS",
 };
 
 export const TASK_STATES = {
@@ -234,6 +236,28 @@ export const INQUIRY_FOLLOWUP_DAY_OFFSETS = {
     3: 15,
 };
 
+export const LEAD_EMAIL_KINDS = {
+    PERSONAL: "personal",
+    PROFESSIONAL: "professional",
+};
+
+export const LEAD_EMAIL_KIND_LABELS = {
+    [LEAD_EMAIL_KINDS.PERSONAL]: "Personal",
+    [LEAD_EMAIL_KINDS.PROFESSIONAL]: "Professional",
+};
+
+export const LEAD_COMMUNICATION_CHANNELS = {
+    SMS: "sms",
+    EMAIL: "email",
+    WHATSAPP: "whatsapp",
+};
+
+export const LEAD_COMMUNICATION_CHANNEL_LABELS = {
+    [LEAD_COMMUNICATION_CHANNELS.SMS]: "SMS",
+    [LEAD_COMMUNICATION_CHANNELS.EMAIL]: "Emails",
+    [LEAD_COMMUNICATION_CHANNELS.WHATSAPP]: "WhatsApp",
+};
+
 export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_PROJECTS: "View Projects page",
     USE_PAGE_EXPENSES: "View Expenses page",
@@ -241,6 +265,7 @@ export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_CUSTOMERS: "View Customers page",
     USE_PAGE_INVOICES: "View Invoices page",
     USE_PAGE_INQUIRIES: "View Inquiries page",
+    USE_PAGE_CRM: "View CRM (sources and leads)",
     USE_PAGE_CONTRACTS: "View Contracts page",
     USE_PAGE_JOBS: "View and manage Jobs openings and applications",
     USE_PAGE_SERVERS: "View Servers page",
@@ -263,4 +288,5 @@ export const AUTHORITY_DESCRIPTIONS = {
     MANAGE_ROLE_AUTHORITIES: "Assign authorities to roles",
     MANAGE_USER_ROLES: "Assign roles to users",
     MANAGE_INTERNAL_DOCUMENTS: "Add, edit, and delete internal documents",
+    MANAGE_GEM_DOCUMENTS: "Add, edit, and delete GEM section documents",
 };

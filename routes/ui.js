@@ -35,6 +35,7 @@ import {
 } from "../db/customer_projects.js";
 import { getProjectDocumentsByProjectId } from "../db/project_documents.js";
 import { getAllInternalDocuments, getInternalDocumentById } from "../db/internal_documents.js";
+import { getAllGemDocuments } from "../db/gem_documents.js";
 import { getAllServers, getServerById } from "../db/servers.js";
 import { buildServerPageData } from "../libs/server_pages.js";
 import { getExpenseById, getExpensesByCreatedOnRange, getExpensesByDateRange } from "../db/expenses.js";
@@ -72,8 +73,18 @@ import { buildGemTenderReport } from "../services/gem_tender_report.js";
 import { canManageTenderDocuments } from "../services/gem_tender_documents.js";
 import { relockStateOf } from "../services/gem_tenders.js";
 import { canManageInternalDocuments } from "../services/internal_documents.js";
+import {
+    canManageGemDocuments,
+    canUseGemSection,
+} from "../services/gem_documents.js";
 import { canUseJobs } from "../services/jobs.js";
 import { canUseServers } from "../services/servers.js";
+import { canUseCrm } from "../services/crm.js";
+import { getAllLeadSources } from "../db/lead_sources.js";
+import { getAllLeads } from "../db/leads.js";
+import { getLeadDetail } from "../services/leads.js";
+import { getAllLeadNotesByLeadId } from "../db/lead_notes.js";
+import { getLeadCommunicationsByLeadId } from "../db/lead_communications.js";
 import {
     getActiveJobPositions,
     getAllJobPositions,
@@ -96,6 +107,10 @@ import {
     INQUIRY_FOLLOWUP_DAY_OFFSETS,
     INQUIRY_SOURCE_LABELS,
     INQUIRY_STATE_LABELS,
+    LEAD_COMMUNICATION_CHANNELS,
+    LEAD_COMMUNICATION_CHANNEL_LABELS,
+    LEAD_EMAIL_KINDS,
+    LEAD_EMAIL_KIND_LABELS,
     TASK_PRIORITIES,
     TASK_PRIORITY_LABELS,
     TASK_STATE_LABELS,
@@ -919,6 +934,120 @@ export const uiRoutes = new Elysia()
                     INQUIRY_FOLLOWUP_DAY_OFFSETS,
                 }));
             })
+            .get("/app/crm", async ({ render, session, redirect }) => {
+                if (
+                    !canUseCrm({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+                return render(
+                    "crm",
+                    appPage(session, {
+                        title: "CRM — HammerByte",
+                    }),
+                );
+            })
+            .get("/app/crm/sources", async ({ render, session, redirect }) => {
+                if (
+                    !canUseCrm({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+                return render(
+                    "crm-sources",
+                    appPage(session, {
+                        title: "Sources — CRM — HammerByte",
+                        sources: await getAllLeadSources(),
+                    }),
+                );
+            })
+            .get("/app/crm/leads", async ({ render, session, redirect, query }) => {
+                if (
+                    !canUseCrm({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+
+                const defaults = defaultDateRangeLookingBack({ daysBack: 30 });
+                const from = parseQueryDate(query.from) || defaults.from;
+                const to = parseQueryDate(query.to) || defaults.to;
+                const rangeFrom = from <= to ? from : to;
+                const rangeTo = from <= to ? to : from;
+
+                return render(
+                    "crm-leads",
+                    appPage(session, {
+                        title: "Leads — CRM — HammerByte",
+                        from: rangeFrom,
+                        to: rangeTo,
+                        sources: await getAllLeadSources(),
+                        leads: await getAllLeads({
+                            from: rangeFrom,
+                            to: rangeTo,
+                        }),
+                        LEAD_EMAIL_KINDS,
+                        LEAD_EMAIL_KIND_LABELS,
+                    }),
+                );
+            })
+            .get("/app/crm/leads/:id", async ({ render, session, redirect, params }) => {
+                if (
+                    !canUseCrm({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+
+                const lead = await getLeadDetail({ lead_id: params.id });
+                if (!lead) {
+                    return redirect("/not-found");
+                }
+
+                const communications = await getLeadCommunicationsByLeadId({
+                    lead_id: lead.id,
+                });
+                const smsCommunications = communications.filter(
+                    (row) => row.channel === LEAD_COMMUNICATION_CHANNELS.SMS,
+                );
+                const emailCommunications = communications.filter(
+                    (row) => row.channel === LEAD_COMMUNICATION_CHANNELS.EMAIL,
+                );
+                const whatsappCommunications = communications.filter(
+                    (row) => row.channel === LEAD_COMMUNICATION_CHANNELS.WHATSAPP,
+                );
+
+                return render(
+                    "crm-lead",
+                    appPage(session, {
+                        title: `${lead.full_name} — CRM — HammerByte`,
+                        lead,
+                        sources: await getAllLeadSources(),
+                        notes: await getAllLeadNotesByLeadId({ lead_id: lead.id }),
+                        smsCommunications,
+                        emailCommunications,
+                        whatsappCommunications,
+                        LEAD_EMAIL_KINDS,
+                        LEAD_EMAIL_KIND_LABELS,
+                        LEAD_COMMUNICATION_CHANNEL_LABELS,
+                        currentUserId: session?.id,
+                    }),
+                );
+            })
             .get("/app/inquiries-report", async ({ render, session, query }) => {
                 const defaults = defaultDateRangeLookingBack({ daysBack: 30 });
                 const from = parseQueryDate(query.from) || defaults.from;
@@ -1096,6 +1225,24 @@ export const uiRoutes = new Elysia()
                     title: "GEM Tenders — HammerByte",
                 })),
             )
+            .get("/app/gem-documents", async ({ render, session, redirect }) => {
+                const currentUser = {
+                    id: session?.id,
+                    super_admin: !!session?.super_admin,
+                    authorities: session?.authorities ?? [],
+                };
+                if (!canUseGemSection(currentUser)) {
+                    return redirect("/app");
+                }
+                return render(
+                    "gem-documents",
+                    appPage(session, {
+                        title: "Documents — GEM Tenders — HammerByte",
+                        documents: await getAllGemDocuments(),
+                        canManage: canManageGemDocuments(currentUser),
+                    }),
+                );
+            })
             .get("/app/gem-categories", async ({ render, session, redirect }) => {
                 if (
                     !canUseGemCategories(session?.authorities, {

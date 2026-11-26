@@ -1,0 +1,389 @@
+<%- include('common/header') %>
+
+<%
+    const emailKindLabels = LEAD_EMAIL_KIND_LABELS || {};
+    const emailKinds = LEAD_EMAIL_KINDS || { PERSONAL: "personal", PROFESSIONAL: "professional" };
+    const leadPhones = lead.phones || [];
+    const leadEmails = lead.emails || [];
+    const canManageNote = function (note) {
+        return Number(note.user_id) === Number(currentUserId) || !!super_admin;
+    };
+%>
+
+<%- include('common/app-navbar') %>
+
+<main class="hb-main">
+    <div class="container hb-page">
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/crm" class="text-decoration-none">CRM</a> /
+                    <a href="/app/crm/leads" class="text-decoration-none">Leads</a> /
+                    <%= lead.full_name %>
+                </p>
+                <h1 class="h3 mb-1"><%= lead.full_name %></h1>
+                <p class="text-secondary mb-0">
+                    <%= lead.organization || "No organization" %>
+                    <% if (lead.designation) { %> · <%= lead.designation %><% } %>
+                </p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#lead-edit-modal"
+                    id="open-edit-lead-btn"
+                >
+                    Edit lead
+                </button>
+                <button type="button" class="btn btn-outline-danger" id="delete-lead-btn">Delete</button>
+            </div>
+        </div>
+
+        <div id="lead-alert" class="alert d-none" role="alert"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="text-secondary small">Website</div>
+                        <div><%= lead.website || "—" %></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-secondary small">Location</div>
+                        <div><%= lead.location || "—" %></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-secondary small">Refer by</div>
+                        <div><%= lead.refer_by || "—" %></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-secondary small">Targeted for</div>
+                        <div><%= lead.targeted_for || "—" %></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-secondary small">Source</div>
+                        <div><%= lead.source_title || "—" %></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-secondary small">Created On</div>
+                        <div>
+                            <% if (lead.created_on) { %>
+                                <span
+                                    data-readable-date="<%= lead.created_on %>"
+                                    data-date-format="DD/MM/YYYY HH:mm"
+                                ><%= lead.created_on %></span>
+                            <% } else { %>
+                                —
+                            <% } %>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-secondary small mb-1">Phones</div>
+                        <% if (!leadPhones.length) { %>
+                            <div>—</div>
+                        <% } else { %>
+                            <ul class="list-unstyled mb-0">
+                                <% leadPhones.forEach(function (phoneRow) { %>
+                                    <li>
+                                        <%= phoneRow.phone %>
+                                        <% if (phoneRow.is_whatsapp) { %>
+                                            <span class="badge text-bg-success">WhatsApp</span>
+                                        <% } %>
+                                    </li>
+                                <% }) %>
+                            </ul>
+                        <% } %>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-secondary small mb-1">Emails</div>
+                        <% if (!leadEmails.length) { %>
+                            <div>—</div>
+                        <% } else { %>
+                            <ul class="list-unstyled mb-0">
+                                <% leadEmails.forEach(function (emailRow) { %>
+                                    <li>
+                                        <%= emailRow.email %>
+                                        <span class="text-secondary small">
+                                            (<%= emailKindLabels[emailRow.kind] || emailRow.kind %>)
+                                        </span>
+                                    </li>
+                                <% }) %>
+                            </ul>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs" id="lead-detail-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="lead-notes-tab" data-bs-toggle="tab" data-bs-target="#lead-notes-pane" type="button" role="tab">Notes</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="lead-communications-tab" data-bs-toggle="tab" data-bs-target="#lead-communications-pane" type="button" role="tab">Communications</button>
+            </li>
+        </ul>
+
+        <div class="tab-content border border-top-0 rounded-bottom bg-white p-3 p-md-4 mb-4">
+            <div class="tab-pane fade show active" id="lead-notes-pane" role="tabpanel">
+                <form id="lead-note-form" class="mb-4" novalidate>
+                    <div id="lead-note-form-alert" class="alert d-none" role="alert"></div>
+                    <label for="lead-note-text" class="form-label">Add note</label>
+                    <textarea class="form-control" id="lead-note-text" rows="3" required></textarea>
+                    <label for="lead-note-file" class="form-label mt-2">Attachment (optional)</label>
+                    <input type="file" class="form-control" id="lead-note-file" />
+                    <button type="submit" class="btn btn-primary mt-3" id="lead-note-submit-btn">Add note</button>
+                </form>
+
+                <div id="lead-notes-empty" class="text-secondary <%= (notes || []).length ? 'd-none' : '' %>">
+                    No notes yet.
+                </div>
+                <ul class="list-group list-group-flush" id="lead-notes-list">
+                    <% (notes || []).forEach(function (note) { %>
+                        <li class="list-group-item px-0 lead-note-item" data-id="<%= note.id %>">
+                            <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                                <p class="hb-comment-meta mb-0">
+                                    <strong><%= note.author_name || "User" %></strong>
+                                    <% if (note.created_on) { %>
+                                        ·
+                                        <span
+                                            data-readable-date="<%= note.created_on %>"
+                                            data-date-format="DD/MM/YYYY HH:mm"
+                                        ><%= note.created_on %></span>
+                                    <% } %>
+                                </p>
+                                <% if (canManageNote(note)) { %>
+                                    <div class="d-inline-flex gap-1">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary lead-note-edit-btn">Edit</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger lead-note-delete-btn">Delete</button>
+                                    </div>
+                                <% } %>
+                            </div>
+                            <p class="mb-1 hb-comment-body" style="white-space: pre-wrap;"><%= note.note %></p>
+                            <% if (note.media_id) { %>
+                                <a href="/api/media/<%= note.media_id %>" target="_blank" rel="noopener">
+                                    <%= note.attachment_name || "Attachment" %>
+                                </a>
+                            <% } %>
+                        </li>
+                    <% }) %>
+                </ul>
+            </div>
+
+            <div class="tab-pane fade" id="lead-communications-pane" role="tabpanel">
+                <ul class="nav nav-pills mb-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#lead-sms-pane" type="button" role="tab">SMS</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#lead-email-comm-pane" type="button" role="tab">Emails</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#lead-whatsapp-pane" type="button" role="tab">WhatsApp</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="lead-sms-pane" role="tabpanel">
+                        <% if (!(smsCommunications || []).length) { %>
+                            <p class="text-secondary mb-0">No SMS yet.</p>
+                        <% } else { %>
+                            <div class="accordion" id="lead-sms-accordion">
+                                <% (smsCommunications || []).forEach(function (item, index) { %>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button <%= index === 0 ? '' : 'collapsed' %>" type="button" data-bs-toggle="collapse" data-bs-target="#lead-sms-item-<%= item.id %>">
+                                                <span class="me-2"><%= item.to_address %></span>
+                                                <span class="text-secondary small">
+                                                    <% if (item.created_on) { %>
+                                                        <span data-readable-date="<%= item.created_on %>" data-date-format="DD/MM/YYYY HH:mm"><%= item.created_on %></span>
+                                                    <% } %>
+                                                </span>
+                                            </button>
+                                        </h2>
+                                        <div id="lead-sms-item-<%= item.id %>" class="accordion-collapse collapse <%= index === 0 ? 'show' : '' %>" data-bs-parent="#lead-sms-accordion">
+                                            <div class="accordion-body">
+                                                <% if (item.from_address) { %><div class="small text-secondary mb-2">From: <%= item.from_address %></div><% } %>
+                                                <div style="white-space: pre-wrap;"><%= item.body %></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            </div>
+                        <% } %>
+                    </div>
+
+                    <div class="tab-pane fade" id="lead-email-comm-pane" role="tabpanel">
+                        <% if (!(emailCommunications || []).length) { %>
+                            <p class="text-secondary mb-0">No emails yet.</p>
+                        <% } else { %>
+                            <div class="accordion" id="lead-email-accordion">
+                                <% (emailCommunications || []).forEach(function (item, index) { %>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button <%= index === 0 ? '' : 'collapsed' %>" type="button" data-bs-toggle="collapse" data-bs-target="#lead-email-item-<%= item.id %>">
+                                                <span class="me-2"><%= item.subject || "(no subject)" %></span>
+                                                <span class="text-secondary small">
+                                                    <%= item.to_address %>
+                                                    <% if (item.created_on) { %>
+                                                        · <span data-readable-date="<%= item.created_on %>" data-date-format="DD/MM/YYYY HH:mm"><%= item.created_on %></span>
+                                                    <% } %>
+                                                </span>
+                                            </button>
+                                        </h2>
+                                        <div id="lead-email-item-<%= item.id %>" class="accordion-collapse collapse <%= index === 0 ? 'show' : '' %>" data-bs-parent="#lead-email-accordion">
+                                            <div class="accordion-body">
+                                                <div class="small text-secondary mb-2">
+                                                    To: <%= item.to_address %>
+                                                    <% if (item.from_address) { %> · From: <%= item.from_address %><% } %>
+                                                </div>
+                                                <div style="white-space: pre-wrap;"><%= item.body %></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            </div>
+                        <% } %>
+                    </div>
+
+                    <div class="tab-pane fade" id="lead-whatsapp-pane" role="tabpanel">
+                        <% if (!(whatsappCommunications || []).length) { %>
+                            <p class="text-secondary mb-0">No WhatsApp messages yet.</p>
+                        <% } else { %>
+                            <div class="accordion" id="lead-whatsapp-accordion">
+                                <% (whatsappCommunications || []).forEach(function (item, index) { %>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button <%= index === 0 ? '' : 'collapsed' %>" type="button" data-bs-toggle="collapse" data-bs-target="#lead-whatsapp-item-<%= item.id %>">
+                                                <span class="me-2"><%= item.to_address %></span>
+                                                <span class="text-secondary small">
+                                                    <% if (item.created_on) { %>
+                                                        <span data-readable-date="<%= item.created_on %>" data-date-format="DD/MM/YYYY HH:mm"><%= item.created_on %></span>
+                                                    <% } %>
+                                                </span>
+                                            </button>
+                                        </h2>
+                                        <div id="lead-whatsapp-item-<%= item.id %>" class="accordion-collapse collapse <%= index === 0 ? 'show' : '' %>" data-bs-parent="#lead-whatsapp-accordion">
+                                            <div class="accordion-body">
+                                                <% if (item.from_address) { %><div class="small text-secondary mb-2">From: <%= item.from_address %></div><% } %>
+                                                <div style="white-space: pre-wrap;"><%= item.body %></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            </div>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="lead-edit-modal" tabindex="-1" aria-labelledby="lead-edit-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <form id="lead-edit-form" class="hb-modal-scrollable-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="lead-edit-modal-label">Edit lead</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="lead-edit-form-alert" class="alert d-none" role="alert"></div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="lead-edit-full-name" class="form-label">Full name</label>
+                            <input type="text" class="form-control" id="lead-edit-full-name" maxlength="128" value="<%= lead.full_name || '' %>" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="lead-edit-organization" class="form-label">Organization</label>
+                            <input type="text" class="form-control" id="lead-edit-organization" maxlength="128" value="<%= lead.organization || '' %>" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="lead-edit-designation" class="form-label">Designation</label>
+                            <input type="text" class="form-control" id="lead-edit-designation" maxlength="128" value="<%= lead.designation || '' %>" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="lead-edit-website" class="form-label">Website</label>
+                            <input type="text" class="form-control" id="lead-edit-website" maxlength="255" value="<%= lead.website || '' %>" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="lead-edit-location" class="form-label">Location</label>
+                            <input type="text" class="form-control" id="lead-edit-location" maxlength="128" value="<%= lead.location || '' %>" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="lead-edit-refer-by" class="form-label">Refer by</label>
+                            <input type="text" class="form-control" id="lead-edit-refer-by" maxlength="128" value="<%= lead.refer_by || '' %>" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="lead-edit-targeted-for" class="form-label">Targeted for</label>
+                            <input type="text" class="form-control" id="lead-edit-targeted-for" maxlength="255" value="<%= lead.targeted_for || '' %>" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="lead-edit-source-id" class="form-label">Source</label>
+                            <select class="form-select" id="lead-edit-source-id">
+                                <option value="">Select source…</option>
+                                <% (sources || []).forEach(function (source) { %>
+                                    <option value="<%= source.id %>" <%= Number(lead.source_id) === Number(source.id) ? "selected" : "" %>><%= source.title %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                    </div>
+                    <hr class="my-4" />
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h3 class="h6 mb-0">Phone numbers</h3>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="lead-edit-add-phone-btn">+</button>
+                    </div>
+                    <div id="lead-edit-phones-list" class="d-flex flex-column gap-2 mb-4"></div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h3 class="h6 mb-0">Emails</h3>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="lead-edit-add-email-btn">+</button>
+                    </div>
+                    <div id="lead-edit-emails-list" class="d-flex flex-column gap-2"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="lead-edit-submit-btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="lead-note-edit-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="lead-note-edit-form" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Edit note</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="lead-note-edit-alert" class="alert d-none" role="alert"></div>
+                    <input type="hidden" id="lead-note-edit-id" value="" />
+                    <label for="lead-note-edit-text" class="form-label">Note</label>
+                    <textarea class="form-control" id="lead-note-edit-text" rows="4" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="lead-note-edit-save-btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.__LEAD_ID__ = <%= Number(lead.id) %>;
+    window.__LEAD_PHONES__ = <%- JSON.stringify(leadPhones) %>;
+    window.__LEAD_EMAILS__ = <%- JSON.stringify(leadEmails) %>;
+    window.__LEAD_EMAIL_KINDS__ = <%- JSON.stringify(emailKinds) %>;
+    window.__LEAD_EMAIL_KIND_LABELS__ = <%- JSON.stringify(emailKindLabels) %>;
+</script>
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/crm-lead.js" defer></script>
+<%- include('common/footer') %>
