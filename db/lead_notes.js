@@ -83,15 +83,3 @@ export async function deleteLeadNoteById({ id }) {
         logger.error(`deleteLeadNoteById: ${error}`);
     });
 }
-
-export async function reassignLeadNotesLeadId({ from_lead_id, to_lead_id }) {
-    await executeSQLQuery(
-        (sql) => sql`
-            UPDATE LEAD_NOTES
-            SET lead_id = ${to_lead_id}
-            WHERE lead_id = ${from_lead_id}
-        `,
-    ).catch((error) => {
-        logger.error(`reassignLeadNotesLeadId: ${error}`);
-    });
-}

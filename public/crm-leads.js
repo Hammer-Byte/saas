@@ -363,9 +363,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 showAlert(formAlert, data.error || "Failed to create lead.", "danger");
                 return;
             }
-            if (data.action === "updated" || data.action === "merged") {
-                showAlert(pageAlert, data.message || "Lead saved.", "success");
-            }
             window.location.reload();
         } catch (error) {
             console.error(error);
@@ -423,15 +420,14 @@ document.addEventListener("DOMContentLoaded", () => {
                       .join(" ")
                 : "";
             const message = [
-                data.message || `Imported ${data.inserted || data.created || 0} leads.`,
+                data.message || `Imported ${data.created || 0} leads.`,
                 data.failed ? `${data.failed} row(s) failed.` : "",
                 failurePreview,
             ]
                 .filter(Boolean)
                 .join(" ");
 
-            const hadSuccess = (data.inserted || data.created || 0) > 0;
-            if (hadSuccess && !data.failed) {
+            if (data.created > 0 && !data.failed) {
                 window.location.reload();
                 return;
             }
@@ -439,9 +435,9 @@ document.addEventListener("DOMContentLoaded", () => {
             showAlert(
                 bulkImportAlert,
                 message,
-                hadSuccess ? "warning" : "danger",
+                data.created > 0 ? "warning" : "danger",
             );
-            if (hadSuccess) {
+            if (data.created > 0) {
                 setTimeout(() => window.location.reload(), 1500);
             }
         } catch (error) {

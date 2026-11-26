@@ -18,7 +18,6 @@ import {
     getLeadEmailsByLeadId,
 } from "../db/lead_emails.js";
 import { requireCrmUser } from "./crm.js";
-import { resolveLeadDuplicacy } from "./lead_duplicacy.js";
 
 const LEAD_CSV_MAX_ROWS = 2000;
 
@@ -257,23 +256,15 @@ export async function addLead({ body, cookie, set }) {
         return { error: payload.error };
     }
 
-    const resolved = await resolveLeadDuplicacy({ incoming: payload });
-    if (resolved.error) {
+    const created = await insertLeadFromPayload(payload);
+    if (created.error) {
         set.status = 400;
-        return { error: resolved.error };
+        return { error: created.error };
     }
 
-    const lead = await getLeadDetail({ lead_id: resolved.id });
-    const action = resolved.action || "created";
-    const message =
-        action === "merged"
-            ? "Lead merged with existing records"
-            : action === "updated"
-              ? "Lead updated from matching record"
-              : "Lead created";
-
-    set.status = action === "created" ? 201 : 200;
-    return { message, action, lead };
+    const lead = await getLeadDetail({ lead_id: created.id });
+    set.status = 201;
+    return { message: "Lead created", lead };
 }
 
 export async function importLeads({ body, cookie, set }) {
@@ -320,8 +311,8 @@ export async function importLeads({ body, cookie, set }) {
     }
 
     const records = csvRowsToObjects(parsed);
+    let createdCount = 0;
     const failures = [];
-    const insertedIds = [];
 
     for (let index = 0; index < records.length; index += 1) {
         const rowNumber = index + 2;
@@ -336,68 +327,13 @@ export async function importLeads({ body, cookie, set }) {
             failures.push({ row: rowNumber, error: created.error });
             continue;
         }
-        insertedIds.push(created.id);
-    }
-
-    let createdCount = 0;
-    let updatedCount = 0;
-    let mergedCount = 0;
-
-    const sortedInsertedIds = [...insertedIds].sort((left, right) => Number(left) - Number(right));
-    for (const insertedId of sortedInsertedIds) {
-        const sourceLead = await getLeadById({ id: insertedId });
-        if (!sourceLead) {
-            continue;
-        }
-
-        const phones = await getLeadPhonesByLeadId({ lead_id: insertedId });
-        const emails = await getLeadEmailsByLeadId({ lead_id: insertedId });
-        const incoming = {
-            full_name: sourceLead.full_name,
-            website: sourceLead.website,
-            organization: sourceLead.organization,
-            designation: sourceLead.designation,
-            location: sourceLead.location,
-            refer_by: sourceLead.refer_by,
-            targeted_for: sourceLead.targeted_for,
-            source: sourceLead.source,
-            note: sourceLead.note,
-            phones: phones.map((row) => ({
-                phone: row.phone,
-                is_whatsapp: !!row.is_whatsapp,
-            })),
-            emails: emails.map((row) => ({
-                email: row.email,
-                kind: row.kind,
-            })),
-        };
-
-        const resolved = await resolveLeadDuplicacy({
-            incoming,
-            exclude_lead_id: insertedId,
-            source_lead_id: insertedId,
-        });
-        if (resolved.error) {
-            failures.push({ row: insertedId, error: resolved.error });
-            continue;
-        }
-
-        if (resolved.action === "merged") {
-            mergedCount += 1;
-        } else if (resolved.action === "updated") {
-            updatedCount += 1;
-        } else {
-            createdCount += 1;
-        }
+        createdCount += 1;
     }
 
     set.status = 200;
     return {
-        message: `Imported ${insertedIds.length} row${insertedIds.length === 1 ? "" : "s"} (${createdCount} new, ${updatedCount} updated, ${mergedCount} merged)`,
-        inserted: insertedIds.length,
+        message: `Imported ${createdCount} lead${createdCount === 1 ? "" : "s"}`,
         created: createdCount,
-        updated: updatedCount,
-        merged: mergedCount,
         failed: failures.length,
         failures: failures.slice(0, 50),
         total: records.length,
