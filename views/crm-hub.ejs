@@ -1,0 +1,99 @@
+<%- include('common/header') %>
+
+<%- include('common/app-navbar', { wide: true }) %>
+
+<main class="hb-main">
+    <div class="container-fluid hb-page-wide">
+        <div class="mb-4">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                CRM
+            </p>
+            <h1 class="h3 mb-1">CRM</h1>
+            <p class="text-secondary mb-0">Leads and free consultation booking.</p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-12 col-sm-6 col-lg-4">
+                <a href="/app/crm/leads" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">L</div>
+                            <h2 class="h5 text-dark mb-2">Leads</h2>
+                            <p class="text-secondary small mb-0">Manage leads and outreach history.</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-4">
+                <a href="/app/crm/consultation-topics" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">T</div>
+                            <h2 class="h5 text-dark mb-2">Topics</h2>
+                            <p class="text-secondary small mb-0">Consultation topics shown on the public booking form.</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-4">
+                <a href="/app/crm/consultation-slots" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">S</div>
+                            <h2 class="h5 text-dark mb-2">Slots</h2>
+                            <p class="text-secondary small mb-0">Offer 30-minute availability windows you own.</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-4">
+                <a href="/app/crm/consultations" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">B</div>
+                            <h2 class="h5 text-dark mb-2">Bookings</h2>
+                            <p class="text-secondary small mb-0">Track status, cancel, or reschedule consultations.</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-4">
+                <a href="/app/crm/consultation-settings" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 app-section-card">
+                        <div class="card-body p-4">
+                            <div class="app-section-icon mb-3">W</div>
+                            <h2 class="h5 text-dark mb-2">Settings</h2>
+                            <p class="text-secondary small mb-0">Meeting link, WhatsApp number, and prefill message.</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+</main>
+
+<style>
+    .app-section-card {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .app-section-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+    }
+    .app-section-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.5rem;
+        background: #e9ecef;
+        color: #212529;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+    }
+</style>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<%- include('common/footer') %>

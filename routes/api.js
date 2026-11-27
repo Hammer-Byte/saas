@@ -14,6 +14,11 @@ import inquiryNotes from "./apps/inquiry_notes.js";
 import inquiryFollowups from "./apps/inquiry_followups.js";
 import leads from "./apps/leads.js";
 import leadNotes from "./apps/lead_notes.js";
+import consultationTopics from "./apps/consultation_topics.js";
+import consultationSlots from "./apps/consultation_slots.js";
+import consultationBookings from "./apps/consultation_bookings.js";
+import consultationSettings from "./apps/consultation_settings.js";
+import { publicConsultation } from "./apps/consultation_public.js";
 import authentication from "./apps/authentication.js";
 import userAuthenticationTokens from "./apps/user_authentication_tokens.js";
 import customers from "./apps/customers.js";
@@ -82,6 +87,7 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
     .group("/user-authentication-tokens", userAuthenticationTokens)
     .group("/inquiries", inquiries)
     .group("/job-applications", publicJobApplications)
+    .group("/consultation", publicConsultation)
     .group("/contracts", contractsSign)
     .guard({ beforeHandle: [requireServersBasicAuth] }, (app) =>
         app.group("/servers", servers),
@@ -122,6 +128,10 @@ export const apiRoutes = new Elysia({ prefix: "/api" })
             .group("/inquiry-followups", inquiryFollowups)
             .group("/leads", leads)
             .group("/lead-notes", leadNotes)
+            .group("/consultation-topics", consultationTopics)
+            .group("/consultation-slots", consultationSlots)
+            .group("/consultation-bookings", consultationBookings)
+            .group("/consultation-settings", consultationSettings)
             .group("/tasks", tasks)
             .group("/task-comments", taskComments)
             .group("/entity-comments", entityComments)

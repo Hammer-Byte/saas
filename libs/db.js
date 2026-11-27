@@ -1170,6 +1170,89 @@ export async function generateDBTables() {
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
         )`,
+        `CREATE TABLE IF NOT EXISTS CONSULTATION_TOPICS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(128) NOT NULL,
+            description VARCHAR(255) NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS CONSULTATION_SLOTS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            starts_at DATETIME NOT NULL,
+            created_by_user_id INT NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_consultation_slots_starts_at (starts_at),
+            CONSTRAINT fk_consultation_slots_user
+                FOREIGN KEY (created_by_user_id)
+                REFERENCES USERS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS CONSULTATION_BOOKINGS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            topic_id INT NOT NULL,
+            slot_id INT NOT NULL,
+            full_name VARCHAR(128) NOT NULL,
+            phone VARCHAR(32) NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            status VARCHAR(32) NOT NULL DEFAULT 'open',
+            reminder_sent_on DATETIME NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_consultation_bookings_status (status),
+            INDEX idx_consultation_bookings_email (email),
+            INDEX idx_consultation_bookings_phone (phone),
+            CONSTRAINT fk_consultation_bookings_topic
+                FOREIGN KEY (topic_id)
+                REFERENCES CONSULTATION_TOPICS(id)
+                ON DELETE RESTRICT
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_consultation_bookings_slot
+                FOREIGN KEY (slot_id)
+                REFERENCES CONSULTATION_SLOTS(id)
+                ON DELETE RESTRICT
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS CONSULTATION_EMAIL_OTPS (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            token CHAR(32) NOT NULL,
+            otp CHAR(4) NOT NULL,
+            full_name VARCHAR(128) NOT NULL,
+            phone VARCHAR(32) NOT NULL,
+            topic_id INT NOT NULL,
+            slot_id INT NOT NULL,
+            created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+            verified_on DATETIME NULL,
+            UNIQUE KEY unique_consultation_email_otp_token (token),
+            CONSTRAINT fk_consultation_email_otps_topic
+                FOREIGN KEY (topic_id)
+                REFERENCES CONSULTATION_TOPICS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_consultation_email_otps_slot
+                FOREIGN KEY (slot_id)
+                REFERENCES CONSULTATION_SLOTS(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS CONSULTATION_SETTINGS (
+            id INT PRIMARY KEY,
+            meeting_link VARCHAR(512) NULL,
+            whatsapp_number VARCHAR(32) NULL,
+            whatsapp_message TEXT NULL,
+            updated_by INT NULL,
+            updated_on DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_consultation_settings_user
+                FOREIGN KEY (updated_by)
+                REFERENCES USERS(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        )`,
+        `INSERT IGNORE INTO CONSULTATION_SETTINGS (id, meeting_link, whatsapp_number, whatsapp_message) VALUES (1, NULL, '919725837442', 'Hi HammerByte, I would like a free consultation.');`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.MAILER}', 'allows to send emails', 0.00);`,
         `INSERT IGNORE INTO SERVICES (title, description, cost) VALUES ('${CONSTANTS.SAAS.SERVICES.BUCKETIZER}', 'object storage uploads', 0.00);`,
         `INSERT IGNORE INTO USERS (full_name, email, personal_email, phone, super_admin) VALUES ('Admin', 'support@hammerbyte.co.in', 'support@hammerbyte.co.in', '0000000000', TRUE);`,

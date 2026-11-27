@@ -1,0 +1,64 @@
+<%- include('common/header') %>
+
+<%- include('common/app-navbar', { wide: true }) %>
+
+<main class="hb-main">
+    <div class="container-fluid hb-page-wide" style="max-width: 720px;">
+        <div class="mb-3">
+            <p class="text-secondary small mb-1">
+                <a href="/app" class="text-decoration-none">App</a> /
+                <a href="/app/crm" class="text-decoration-none">CRM</a> /
+                Settings
+            </p>
+            <h1 class="h3 mb-1">Consultation settings</h1>
+            <p class="text-secondary mb-0">Meeting link and WhatsApp sticky-button defaults for the marketing site.</p>
+        </div>
+
+        <div id="settings-alert" class="alert d-none" role="alert"></div>
+
+        <form id="consultation-settings-form" class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <div class="mb-3">
+                    <label for="meeting-link" class="form-label">Meeting link</label>
+                    <input
+                        type="url"
+                        class="form-control"
+                        id="meeting-link"
+                        maxlength="512"
+                        value="<%= settings?.meeting_link || '' %>"
+                        placeholder="https://meet.google.com/..."
+                    />
+                </div>
+                <div class="mb-3">
+                    <label for="whatsapp-number" class="form-label">WhatsApp number (E.164 digits)</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="whatsapp-number"
+                        maxlength="32"
+                        value="<%= settings?.whatsapp_number || '' %>"
+                        placeholder="919725837442"
+                        required
+                    />
+                </div>
+                <div class="mb-0">
+                    <label for="whatsapp-message" class="form-label">WhatsApp prefill message</label>
+                    <textarea
+                        class="form-control"
+                        id="whatsapp-message"
+                        rows="4"
+                        required
+                    ><%= settings?.whatsapp_message || '' %></textarea>
+                </div>
+            </div>
+            <div class="card-footer bg-white border-0 px-4 pb-4">
+                <button type="submit" class="btn btn-primary" id="settings-submit-btn">Save settings</button>
+            </div>
+        </form>
+    </div>
+</main>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/crm-consultation-settings.js" defer></script>
+<%- include('common/footer') %>

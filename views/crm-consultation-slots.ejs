@@ -1,0 +1,140 @@
+<%- include('common/header') %>
+
+<%
+    const currentUserId = Number(userId || 0);
+    const isSuperAdmin = !!super_admin;
+%>
+
+<%- include('common/app-navbar', { wide: true }) %>
+
+<main class="hb-main">
+    <div class="container-fluid hb-page-wide">
+        <div class="mb-3 d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <p class="text-secondary small mb-1">
+                    <a href="/app" class="text-decoration-none">App</a> /
+                    <a href="/app/crm" class="text-decoration-none">CRM</a> /
+                    Slots
+                </p>
+                <h1 class="h3 mb-1">Consultation slots</h1>
+                <p class="text-secondary mb-0">
+                    30-minute windows.
+                    <span data-readable-date="<%= from %>" data-date-format="DD/MM/YYYY"><%= from %></span>
+                    –
+                    <span data-readable-date="<%= to %>" data-date-format="DD/MM/YYYY"><%= to %></span>.
+                </p>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <form class="d-flex flex-wrap gap-2 align-items-end" method="get" action="/app/crm/consultation-slots">
+                    <div>
+                        <label for="slots-from" class="form-label small mb-1">From</label>
+                        <input type="date" class="form-control form-control-sm" id="slots-from" name="from" value="<%= from %>" />
+                    </div>
+                    <div>
+                        <label for="slots-to" class="form-label small mb-1">To</label>
+                        <input type="date" class="form-control form-control-sm" id="slots-to" name="to" value="<%= to %>" />
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Apply</button>
+                </form>
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#slot-modal"
+                    id="open-add-slot-btn"
+                >
+                    Add slot
+                </button>
+            </div>
+        </div>
+
+        <div id="slots-alert" class="alert d-none" role="alert"></div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Starts</th>
+                        <th>Owner</th>
+                        <th>Status</th>
+                        <th>Booking</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% (slots || []).forEach((slot) => {
+                        const canEdit = isSuperAdmin || Number(slot.created_by_user_id) === currentUserId;
+                    %>
+                    <tr
+                        data-id="<%= slot.id %>"
+                        data-starts-at="<%= slot.starts_at %>"
+                        data-active="<%= slot.active ? '1' : '0' %>"
+                        data-can-edit="<%= canEdit ? '1' : '0' %>"
+                    >
+                        <td>
+                            <span data-readable-date="<%= slot.starts_at %>" data-date-format="DD/MM/YYYY HH:mm">
+                                <%= slot.starts_at %>
+                            </span>
+                        </td>
+                        <td><%= slot.owner_name || '—' %></td>
+                        <td>
+                            <% if (slot.active) { %>
+                            <span class="badge text-bg-success">Active</span>
+                            <% } else { %>
+                            <span class="badge text-bg-secondary">Inactive</span>
+                            <% } %>
+                        </td>
+                        <td>
+                            <% if (slot.open_booking_id) { %>
+                            <span class="badge text-bg-primary">Open #<%= slot.open_booking_id %></span>
+                            <% } else { %>
+                            <span class="text-secondary">Available</span>
+                            <% } %>
+                        </td>
+                        <td class="text-end">
+                            <% if (canEdit) { %>
+                            <button type="button" class="btn btn-sm btn-outline-secondary slot-toggle-btn">
+                                <%= slot.active ? 'Deactivate' : 'Activate' %>
+                            </button>
+                            <% } else { %>
+                            <span class="text-secondary small">View only</span>
+                            <% } %>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+        <% if (!(slots || []).length) { %>
+        <p class="text-secondary mt-3">No slots in this range.</p>
+        <% } %>
+    </div>
+</main>
+
+<div class="modal fade" id="slot-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form class="modal-content" id="slot-form">
+            <div class="modal-header">
+                <h2 class="modal-title h5">Add available slot</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="slot-form-alert" class="alert d-none" role="alert"></div>
+                <div class="mb-3">
+                    <label for="slot-starts-at" class="form-label">Start (IST)</label>
+                    <input type="datetime-local" class="form-control" id="slot-starts-at" required />
+                    <div class="form-text">Duration is always 30 minutes.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="slot-submit-btn">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="/public/app.js" defer></script>
+<script src="/public/utils.js" defer></script>
+<script src="/public/crm-consultation-slots.js" defer></script>
+<%- include('common/footer') %>

@@ -85,3 +85,48 @@ if (form && nameInput && phoneInput && emailInput && submitButton) {
         }
     });
 }
+
+(async function initConsultationLandingExtras() {
+    const waFab = document.getElementById("hb-whatsapp-fab");
+    const modal = document.getElementById("hb-consult-modal");
+
+    try {
+        const response = await fetch("/api/consultation/settings");
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && waFab) {
+            const number = String(data.whatsapp_number || "").replace(/\D/g, "");
+            const message = String(data.whatsapp_message || "");
+            if (number) {
+                waFab.href = `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+                waFab.hidden = false;
+            }
+        }
+    } catch {
+        // ignore
+    }
+
+    if (!modal) {
+        return;
+    }
+
+    const storageKey = "hb_consult_modal_seen";
+    if (sessionStorage.getItem(storageKey) === "1") {
+        return;
+    }
+
+    const dismiss = () => {
+        modal.hidden = true;
+        sessionStorage.setItem(storageKey, "1");
+    };
+
+    modal.querySelectorAll("[data-consult-dismiss]").forEach((el) => {
+        el.addEventListener("click", dismiss);
+    });
+
+    window.setTimeout(() => {
+        if (sessionStorage.getItem(storageKey) === "1") {
+            return;
+        }
+        modal.hidden = false;
+    }, 1200);
+})();

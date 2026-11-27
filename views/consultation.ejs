@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= typeof title !== 'undefined' ? title : 'Free Consultation — HammerByte' %></title>
+    <meta
+        name="description"
+        content="Book a free 30-minute consultation with HammerByte for software, website, and automation guidance."
+    />
+    <link rel="stylesheet" href="/public/style.css" />
+    <link rel="stylesheet" href="/public/consultation.css" />
+</head>
+<body class="consultation-page">
+    <header class="header-logo">
+        <a href="/" class="header-contact-btn">Home</a>
+        <a href="/">
+            <img src="/public/images/hammerbyte-logo.avif" alt="HammerByte logo" />
+        </a>
+        <a href="#contact" class="app-entry-btn" style="visibility:hidden;">App</a>
+    </header>
+
+    <main class="consultation-main">
+        <div class="consultation-shell">
+            <p class="consultation-eyebrow">Free consultation</p>
+            <h1 class="consultation-title">Book a 30-minute call</h1>
+            <p class="consultation-lead">
+                Pick a topic, choose a slot, and verify your email. We will send the meeting link and a reminder before the call.
+            </p>
+
+            <div class="consultation-progress" aria-label="Booking steps">
+                <span class="is-active" data-step-indicator="1">1. Topic</span>
+                <span data-step-indicator="2">2. Slot</span>
+                <span data-step-indicator="3">3. Details</span>
+                <span data-step-indicator="4">4. Verify</span>
+            </div>
+
+            <div id="consultation-alert" class="consultation-alert" hidden></div>
+
+            <section class="consultation-step is-active" data-step="1">
+                <h2>What should we cover?</h2>
+                <div id="consultation-topics" class="consultation-cards"></div>
+            </section>
+
+            <section class="consultation-step" data-step="2" hidden>
+                <div class="consultation-step-head">
+                    <button type="button" class="consultation-back" data-back="1">Back</button>
+                    <h2>Pick an available slot</h2>
+                </div>
+                <p class="consultation-note">All times are IST · 30 minutes</p>
+                <div id="consultation-slots" class="consultation-slots"></div>
+            </section>
+
+            <section class="consultation-step" data-step="3" hidden>
+                <div class="consultation-step-head">
+                    <button type="button" class="consultation-back" data-back="2">Back</button>
+                    <h2>Your details</h2>
+                </div>
+                <form id="consultation-details-form" class="consultation-form">
+                    <label>
+                        Full name
+                        <input type="text" id="consultation-name" maxlength="128" required autocomplete="name" />
+                    </label>
+                    <label>
+                        Phone
+                        <input type="tel" id="consultation-phone" maxlength="32" required autocomplete="tel" />
+                    </label>
+                    <label>
+                        Email
+                        <input type="email" id="consultation-email" maxlength="255" required autocomplete="email" />
+                    </label>
+                    <button type="submit" class="consultation-cta" id="consultation-send-otp">Send verification code</button>
+                </form>
+            </section>
+
+            <section class="consultation-step" data-step="4" hidden>
+                <div class="consultation-step-head">
+                    <button type="button" class="consultation-back" data-back="3">Back</button>
+                    <h2>Enter the code</h2>
+                </div>
+                <p class="consultation-note">We emailed a 4-digit code. It expires in 10 minutes.</p>
+                <form id="consultation-otp-form" class="consultation-form">
+                    <label>
+                        Verification code
+                        <input type="text" id="consultation-otp" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" required autocomplete="one-time-code" />
+                    </label>
+                    <button type="submit" class="consultation-cta" id="consultation-book-btn">Confirm booking</button>
+                </form>
+            </section>
+
+            <section class="consultation-step" data-step="5" hidden>
+                <div class="consultation-success">
+                    <h2>You are booked</h2>
+                    <p id="consultation-success-copy"></p>
+                    <p id="consultation-success-link" class="consultation-meeting"></p>
+                    <a class="consultation-cta" href="/">Back to home</a>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <a
+        id="consultation-whatsapp-fab"
+        class="hb-whatsapp-fab"
+        href="#"
+        target="_blank"
+        rel="noopener"
+        aria-label="Chat on WhatsApp"
+        hidden
+    >
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+                d="M12.04 2C6.58 2 2.15 6.43 2.15 11.89c0 1.96.52 3.87 1.5 5.55L2 22l4.7-1.53a9.86 9.86 0 0 0 5.34 1.55h.01c5.46 0 9.89-4.43 9.89-9.89C21.94 6.43 17.5 2 12.04 2Zm5.75 14.03c-.24.68-1.4 1.25-1.93 1.33-.49.07-1.12.1-1.81-.11-.42-.13-.96-.31-1.65-.61-2.9-1.25-4.79-4.16-4.93-4.35-.14-.19-1.15-1.53-1.15-2.92 0-1.39.73-2.07.99-2.35.26-.28.57-.35.76-.35.19 0 .38 0 .54.01.17.01.41-.07.64.49.24.58.81 2 .88 2.15.07.15.12.32.02.52-.1.19-.15.32-.29.49-.14.17-.3.38-.43.51-.14.14-.29.29-.12.57.17.28.75 1.24 1.61 2.01 1.11.99 2.04 1.3 2.33 1.44.29.14.46.12.63-.07.17-.19.73-.85.93-1.14.19-.29.39-.24.66-.14.26.1 1.68.79 1.97.94.29.14.48.22.55.34.07.12.07.71-.17 1.39Z"
+                fill="#fff"
+            />
+        </svg>
+    </a>
+
+    <script src="/public/consultation.js" defer></script>
+</body>
+</html>

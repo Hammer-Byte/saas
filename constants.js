@@ -258,6 +258,22 @@ export const LEAD_COMMUNICATION_CHANNEL_LABELS = {
     [LEAD_COMMUNICATION_CHANNELS.WHATSAPP]: "WhatsApp",
 };
 
+export const CONSULTATION_DURATION_MINUTES = 30;
+
+export const CONSULTATION_STATUSES = {
+    OPEN: "open",
+    COMPLETED: "completed",
+    NOT_ATTENDED: "not_attended",
+    CANCELLED: "cancelled",
+};
+
+export const CONSULTATION_STATUS_LABELS = {
+    [CONSULTATION_STATUSES.OPEN]: "Open",
+    [CONSULTATION_STATUSES.COMPLETED]: "Completed",
+    [CONSULTATION_STATUSES.NOT_ATTENDED]: "Not attended",
+    [CONSULTATION_STATUSES.CANCELLED]: "Cancelled",
+};
+
 export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_PROJECTS: "View Projects page",
     USE_PAGE_EXPENSES: "View Expenses page",
@@ -265,7 +281,7 @@ export const AUTHORITY_DESCRIPTIONS = {
     USE_PAGE_CUSTOMERS: "View Customers page",
     USE_PAGE_INVOICES: "View Invoices page",
     USE_PAGE_INQUIRIES: "View Inquiries page",
-    USE_PAGE_CRM: "View CRM leads",
+    USE_PAGE_CRM: "View CRM (leads and free consultations)",
     USE_PAGE_CONTRACTS: "View Contracts page",
     USE_PAGE_JOBS: "View and manage Jobs openings and applications",
     USE_PAGE_SERVERS: "View Servers page",

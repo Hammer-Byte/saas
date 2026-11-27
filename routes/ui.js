@@ -84,6 +84,10 @@ import { getAllLeads } from "../db/leads.js";
 import { getLeadDetail } from "../services/leads.js";
 import { getAllLeadNotesByLeadId } from "../db/lead_notes.js";
 import { getLeadCommunicationsByLeadId } from "../db/lead_communications.js";
+import { getAllConsultationTopics } from "../db/consultation_topics.js";
+import { getAllConsultationSlots } from "../db/consultation_slots.js";
+import { getAllConsultationBookings } from "../db/consultation_bookings.js";
+import { getConsultationSettings } from "../db/consultation_settings.js";
 import {
     getActiveJobPositions,
     getAllJobPositions,
@@ -106,6 +110,8 @@ import {
     INQUIRY_FOLLOWUP_DAY_OFFSETS,
     INQUIRY_SOURCE_LABELS,
     INQUIRY_STATE_LABELS,
+    CONSULTATION_STATUSES,
+    CONSULTATION_STATUS_LABELS,
     LEAD_COMMUNICATION_CHANNELS,
     LEAD_COMMUNICATION_CHANNEL_LABELS,
     LEAD_EMAIL_KINDS,
@@ -171,6 +177,11 @@ async function getSharedAssetDataUri({ fileName, mimeType }) {
 
 export const uiRoutes = new Elysia()
     .get("/", ({ render }) => render("index"))
+    .get("/consultation", ({ render }) =>
+        render("consultation", {
+            title: "Free Consultation — HammerByte",
+        }),
+    )
     .get("/careers", async ({ render }) =>
         render("careers", {
             title: "Careers — HammerByte",
@@ -933,7 +944,7 @@ export const uiRoutes = new Elysia()
                     INQUIRY_FOLLOWUP_DAY_OFFSETS,
                 }));
             })
-            .get("/app/crm", async ({ redirect, session }) => {
+            .get("/app/crm", async ({ render, session, redirect }) => {
                 if (
                     !canUseCrm({
                         id: session?.id,
@@ -943,7 +954,12 @@ export const uiRoutes = new Elysia()
                 ) {
                     return redirect("/app");
                 }
-                return redirect("/app/crm/leads");
+                return render(
+                    "crm-hub",
+                    appPage(session, {
+                        title: "CRM — HammerByte",
+                    }),
+                );
             })
             .get("/app/crm/leads", async ({ render, session, redirect, query }) => {
                 if (
@@ -1019,6 +1035,103 @@ export const uiRoutes = new Elysia()
                         LEAD_EMAIL_KIND_LABELS,
                         LEAD_COMMUNICATION_CHANNEL_LABELS,
                         currentUserId: session?.id,
+                    }),
+                );
+            })
+            .get("/app/crm/consultation-topics", async ({ render, session, redirect }) => {
+                if (
+                    !canUseCrm({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+                return render(
+                    "crm-consultation-topics",
+                    appPage(session, {
+                        title: "Consultation topics — CRM — HammerByte",
+                        topics: await getAllConsultationTopics(),
+                    }),
+                );
+            })
+            .get("/app/crm/consultation-slots", async ({ render, session, redirect, query }) => {
+                if (
+                    !canUseCrm({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+                const defaults = defaultDateRangeDays({ daysAhead: 14 });
+                const from = parseQueryDate(query.from) || defaults.from;
+                const to = parseQueryDate(query.to) || defaults.to;
+                const rangeFrom = from <= to ? from : to;
+                const rangeTo = from <= to ? to : from;
+                return render(
+                    "crm-consultation-slots",
+                    appPage(session, {
+                        title: "Consultation slots — CRM — HammerByte",
+                        from: rangeFrom,
+                        to: rangeTo,
+                        slots: await getAllConsultationSlots({
+                            from: rangeFrom,
+                            to: rangeTo,
+                        }),
+                        userId: session?.id,
+                    }),
+                );
+            })
+            .get("/app/crm/consultations", async ({ render, session, redirect, query }) => {
+                if (
+                    !canUseCrm({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+                const defaults = defaultDateRangeLookingBack({ daysBack: 7 });
+                const ahead = defaultDateRangeDays({ daysAhead: 30 });
+                const from = parseQueryDate(query.from) || defaults.from;
+                const to = parseQueryDate(query.to) || ahead.to;
+                const rangeFrom = from <= to ? from : to;
+                const rangeTo = from <= to ? to : from;
+                return render(
+                    "crm-consultations",
+                    appPage(session, {
+                        title: "Consultation bookings — CRM — HammerByte",
+                        from: rangeFrom,
+                        to: rangeTo,
+                        bookings: await getAllConsultationBookings({
+                            from: rangeFrom,
+                            to: rangeTo,
+                        }),
+                        CONSULTATION_STATUSES,
+                        CONSULTATION_STATUS_LABELS,
+                        userId: session?.id,
+                    }),
+                );
+            })
+            .get("/app/crm/consultation-settings", async ({ render, session, redirect }) => {
+                if (
+                    !canUseCrm({
+                        id: session?.id,
+                        super_admin: !!session?.super_admin,
+                        authorities: session?.authorities ?? [],
+                    })
+                ) {
+                    return redirect("/app");
+                }
+                return render(
+                    "crm-consultation-settings",
+                    appPage(session, {
+                        title: "Consultation settings — CRM — HammerByte",
+                        settings: await getConsultationSettings(),
                     }),
                 );
             })

@@ -8,6 +8,7 @@ import { allowTraffic } from "./server.js";
 import { startGemTenderEligibilityReminderWatcher } from "./libs/gem_tender_eligibility_remind.js";
 import { startGemTenderUnattendedWatcher } from "./libs/gem_tender_unattended.js";
 import { startInquiryFollowupReminderWatcher } from "./libs/inquiry_followup_remind.js";
+import { startConsultationReminderWatcher } from "./libs/consultation_remind.js";
 import { startJobInterviewReminderWatcher } from "./libs/job_interview_remind.js";
 import { startServerPingAlertWatcher } from "./libs/server_ping_alert_watch.js";
 import { startTaskOverdueAlertWatcher } from "./libs/task_overdue_alert.js";
@@ -37,6 +38,8 @@ try {
     logger.success("Inquiry Follow-up Reminder Watcher Ready");
     startJobInterviewReminderWatcher();
     logger.success("Job Interview Reminder Watcher Ready");
+    startConsultationReminderWatcher();
+    logger.success("Consultation Reminder Watcher Ready");
     startServerPingAlertWatcher();
     logger.success("Server Ping Alert Watcher Ready");
     startTaskOverdueAlertWatcher();
